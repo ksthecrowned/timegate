@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "TimeGate",
+    "slug": "timegate-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "timegate",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.timegate.mobile"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFD23F"
+      },
+      "package": "com.timegate.mobile"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-system-ui",
+      "expo-secure-store",
+      [
+        "react-native-face-detector-camera",
+        {
+          "cameraPermission": "Autorisez TimeGate a utiliser la camera pour la verification faciale."
+        }
+      ]
+    ]
+  }
+}

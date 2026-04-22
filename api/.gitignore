@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+*.log
+.DS_Store
+
+# Python venv (face engine)
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]

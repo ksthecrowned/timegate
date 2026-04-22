@@ -1,0 +1,133 @@
+### TimeGate API examples (VS Code REST Client / similar)
+### Dev: bun install && bun run prisma:migrate && bun run prisma:seed && bun run start:dev
+@baseUrl = http://localhost:3000/api
+@token = <paste_jwt_here>
+
+### Login (public)
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@timegate.local",
+  "password": "ChangeMe123!"
+}
+
+### Create user (ADMIN)
+POST {{baseUrl}}/auth/users
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "email": "ops@timegate.local",
+  "password": "ChangeMe123!",
+  "role": "MANAGER"
+}
+
+### List sites
+GET {{baseUrl}}/sites?page=1&limit=20
+Authorization: Bearer {{token}}
+
+### Create site (ADMIN)
+POST {{baseUrl}}/sites
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "East Campus",
+  "address": "55 River Rd",
+  "timezone": "America/Chicago"
+}
+
+### List employees (filters: siteId, employeeId, from, to, search, isActive)
+GET {{baseUrl}}/employees?siteId=&search=ada&page=1&limit=20
+Authorization: Bearer {{token}}
+
+### Create employee (ADMIN)
+POST {{baseUrl}}/employees
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "firstName": "Test",
+  "lastName": "User",
+  "email": "test.user@example.com",
+  "department": "QA",
+  "position": "Engineer",
+  "siteId": "<site_uuid>",
+  "faceEmbedding": [0.01, 0.02, 0.03]
+}
+
+### List devices (filters: siteId, status, from, to)
+GET {{baseUrl}}/devices?siteId=<site_uuid>&status=ONLINE
+Authorization: Bearer {{token}}
+
+### Device heartbeat (ADMIN + MANAGER)
+PATCH {{baseUrl}}/devices/<device_uuid>/heartbeat
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "status": "ONLINE"
+}
+
+### Record check-in (ADMIN + MANAGER)
+POST {{baseUrl}}/attendance
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "employeeId": "<employee_uuid>",
+  "deviceId": "<device_uuid>",
+  "type": "CHECK_IN",
+  "confidence": 0.94
+}
+
+### List attendance (filters: siteId via device, employeeId, from, to)
+GET {{baseUrl}}/attendance?siteId=<site_uuid>&employeeId=<employee_uuid>&from=2026-01-01T00:00:00.000Z&to=2026-12-31T23:59:59.999Z&page=1&limit=20
+Authorization: Bearer {{token}}
+
+### Recognition log (ADMIN + MANAGER)
+POST {{baseUrl}}/logs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "deviceId": "<device_uuid>",
+  "employeeId": "<employee_uuid>",
+  "success": true,
+  "confidence": 0.91,
+  "imageUrl": "https://storage.example.com/captures/2026/01/abc.jpg"
+}
+
+### List logs (filters: siteId, employeeId, from, to)
+GET {{baseUrl}}/logs?siteId=<site_uuid>&from=2026-01-01T00:00:00.000Z
+Authorization: Bearer {{token}}
+
+### Luxand (set LUXAND_API_TOKEN in .env). Multipart: field employeeId + file field photo.
+### Enroll — create Luxand person, save luxandPersonUuid on employee (ADMIN)
+# curl -H "Authorization: Bearer TOKEN" -F "employeeId=EMPLOYEE_UUID" -F "photo=@./face.jpg" {{baseUrl}}/luxand/enroll
+
+### Add face — extra photo for existing Luxand person (ADMIN)
+# curl -H "Authorization: Bearer TOKEN" -F "employeeId=EMPLOYEE_UUID" -F "photo=@./face2.jpg" {{baseUrl}}/luxand/add-face
+
+### Verify — Luxand photo/verify + RecognitionLog (ADMIN + MANAGER)
+# curl -H "Authorization: Bearer TOKEN" -F "employeeId=EMPLOYEE_UUID" -F "deviceId=DEVICE_UUID" -F "photo=@./capture.jpg" {{baseUrl}}/luxand/verify
+
+### Mobile provisioning (ADMIN + MANAGER) => returns lifetime_token for kiosk app
+POST {{baseUrl}}/auth/mobile/provision
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "siteId": "<site_uuid>",
+  "deviceName": "Kiosk Front Desk",
+  "location": "Hall principal"
+}
+
+### Mobile verify (public endpoint, uses lifetime_token from provisioning)
+POST {{baseUrl}}/auth/mobile/verify
+Authorization: Bearer <lifetime_token>
+Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
+
+# Form fields:
+# - photo: <image file>

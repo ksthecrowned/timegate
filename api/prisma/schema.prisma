@@ -1,0 +1,601 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////////
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+}
+
+enum AttendanceType {
+  CHECK_IN
+  CHECK_OUT
+}
+
+enum AttendanceStatus {
+  ON_TIME
+  LATE
+  VERY_LATE
+  EARLY_LEAVE
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum WeekDay {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+enum LeaveType {
+  ANNUAL
+  SICK
+  UNPAID
+  MATERNITY
+}
+
+enum AttendanceAnomaly {
+  NONE
+  MISSING_CHECKOUT
+  DOUBLE_CHECKIN
+  LOW_CONFIDENCE
+}
+
+enum SalaryStatus {
+  PENDING
+  PAID
+}
+
+//////////////////////////////////////////////////
+// SAAS CORE (MULTI-TENANT)
+//////////////////////////////////////////////////
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  sku       String   @unique
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users            User[]
+  sites            Site[]
+  configs          SystemConfig[]
+  subscriptions    Subscription[]
+  activationKeys  ActivationKey[]
+  employees        Employee[]
+  lateRecords      LateRecord[]
+  absenceRecords   AbsenceRecord[]
+  salaryRecords    SalaryRecord[]
+  devices          Device[]
+  attendances      Attendance[]
+  workSessions     WorkSession[]
+  workSchedules    WorkSchedule[]
+  leaves           Leave[]
+  holidays         Holiday[]
+  employeeContracts EmployeeContract[]
+  recognitionLogs  RecognitionLog[]
+  auditLogs        AuditLog[]
+
+  @@index([name])
+}
+
+//////////////////////////////////////////////////
+// AUTH & ACCESS
+//////////////////////////////////////////////////
+
+model User {
+  id        String   @id @default(uuid())
+  email     String
+  password  String
+
+  role      Role     @default(MANAGER)
+
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  sites     UserSite[]
+  auditLogs AuditLog[]
+  validatedWorkSessions WorkSession[] @relation("WorkSessionValidatedBy")
+
+  @@unique([email, organizationId])
+}
+
+model UserSite {
+  id     String @id @default(uuid())
+  userId String
+  siteId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, siteId])
+}
+
+//////////////////////////////////////////////////
+// STRUCTURE
+//////////////////////////////////////////////////
+
+model Site {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  timezone  String   @default("UTC")
+
+  organizationId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  devices    Device[]
+  employees  Employee[]
+  schedules  WorkSchedule[]
+  users      UserSite[]
+
+  @@index([organizationId])
+}
+
+//////////////////////////////////////////////////
+// EMPLOYEES
+//////////////////////////////////////////////////
+
+model Employee {
+  id          String   @id @default(uuid())
+
+  firstName   String
+  lastName    String
+  email       String?
+  birthDate   DateTime?
+  whatsappPhone String?
+  phone       String?
+  address     String?
+  employeeCode String?
+  hireDate    DateTime?
+  contractType String?
+  nationalId  String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  photoUrl    String?
+
+  department  String?
+  position    String?
+  isActive    Boolean  @default(true)
+
+  siteId          String
+  organizationId  String
+  scheduleId     String?
+
+  faceEmbedding      Json?
+  luxandPersonUuid   String? @unique
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  schedule     WorkSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  attendances Attendance[]
+  sessions    WorkSession[]
+  leaves      Leave[]
+  logs        RecognitionLog[]
+  contracts   EmployeeContract[]
+  lateRecords LateRecord[]
+  absenceRecords AbsenceRecord[]
+  salaryRecords SalaryRecord[]
+
+  @@index([organizationId])
+  @@index([siteId])
+  @@index([lastName, firstName])
+  @@unique([email, organizationId])
+}
+
+model LateRecord {
+  id             String   @id @default(uuid())
+  employeeId     String
+  organizationId String
+  attendanceId   String?
+  date           DateTime
+  latenessMinutes Int
+  justified      Boolean  @default(false)
+  reason         String?
+  justificationFileUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  attendance   Attendance?  @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, date])
+  @@index([employeeId, date])
+}
+
+model AbsenceRecord {
+  id             String   @id @default(uuid())
+  employeeId     String
+  organizationId String
+  date           DateTime
+  justified      Boolean  @default(false)
+  reason         String?
+  justificationFileUrl String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, date])
+  @@index([employeeId, date])
+  @@unique([employeeId, date])
+}
+
+model SalaryRecord {
+  id             String   @id @default(uuid())
+  employeeId     String
+  organizationId String
+  year           Int
+  month          Int
+  baseSalary     Float
+  bonuses        Float    @default(0)
+  deductions     Float    @default(0)
+  netSalary      Float
+  status         SalaryStatus @default(PENDING)
+  paidAt         DateTime?
+  notes          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, year, month])
+  @@index([employeeId, year, month])
+  @@unique([employeeId, year, month])
+}
+
+model EmployeeContract {
+  id               String   @id @default(uuid())
+  employeeId       String
+  organizationId   String
+  signedAt         DateTime
+  expiresAt        DateTime?
+  renewalsCount    Int      @default(0)
+  contractFileUrl  String?
+  notes            String?
+  isCurrent        Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId, createdAt])
+  @@index([employeeId, isCurrent])
+}
+
+//////////////////////////////////////////////////
+// DEVICES
+//////////////////////////////////////////////////
+
+model Device {
+  id          String       @id @default(uuid())
+  name        String
+
+  siteId         String
+  organizationId String
+
+  location    String?
+
+  status      DeviceStatus @default(OFFLINE)
+  apiKey      String       @unique
+
+  lastSeenAt  DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  attendances Attendance[]
+  logs        RecognitionLog[]
+
+  @@index([organizationId])
+  @@index([siteId])
+  @@index([status])
+}
+
+//////////////////////////////////////////////////
+// ATTENDANCE (RAW EVENTS)
+//////////////////////////////////////////////////
+
+model Attendance {
+  id           String   @id @default(uuid())
+
+  employeeId   String
+  deviceId     String
+  organizationId String
+
+  type         AttendanceType
+  status       AttendanceStatus?
+  anomaly      AttendanceAnomaly? @default(NONE)
+
+  timestamp    DateTime @default(now())
+  confidence   Float
+
+  sessionId    String?
+
+  createdAt    DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  device   Device   @relation(fields: [deviceId], references: [id], onDelete: Restrict)
+  session  WorkSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  lateRecords LateRecord[]
+
+  @@index([organizationId])
+  @@index([employeeId, timestamp])
+  @@index([deviceId, timestamp])
+}
+
+//////////////////////////////////////////////////
+// WORK SESSION
+//////////////////////////////////////////////////
+
+model WorkSession {
+  id          String   @id @default(uuid())
+
+  employeeId  String
+  organizationId String
+
+  checkInId   String
+  checkOutId  String?
+
+  startedAt   DateTime
+  endedAt     DateTime?
+
+  duration    Int?
+  normalDuration   Int?
+  overtimeDuration Int?
+
+  validatedById String?
+  validatedAt   DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  validatedBy User? @relation("WorkSessionValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
+  attendances Attendance[]
+
+  @@index([organizationId])
+  @@index([employeeId, startedAt])
+}
+
+//////////////////////////////////////////////////
+// SCHEDULES
+//////////////////////////////////////////////////
+
+model WorkSchedule {
+  id              String   @id @default(uuid())
+
+  siteId          String
+  organizationId  String
+
+  name            String
+
+  startTime       DateTime
+  endTime         DateTime
+
+  lateGraceMinutes Int @default(5)
+
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  employees  Employee[]
+  workDays   WorkDay[]
+
+  @@index([organizationId])
+  @@index([siteId])
+}
+
+//////////////////////////////////////////////////
+// LEAVE
+//////////////////////////////////////////////////
+
+model Leave {
+  id          String   @id @default(uuid())
+
+  employeeId  String
+  organizationId String
+
+  startDate   DateTime
+  endDate     DateTime
+
+  reason      String?
+  status      LeaveStatus @default(PENDING)
+  type        LeaveType   @default(ANNUAL)
+
+  createdAt   DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([employeeId, startDate])
+}
+
+model WorkDay {
+  id          String   @id @default(uuid())
+  scheduleId  String
+  day         WeekDay
+  startTime   String
+  endTime     String
+
+  schedule WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, day])
+  @@index([scheduleId])
+}
+
+model Holiday {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  date           DateTime
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, date])
+}
+
+//////////////////////////////////////////////////
+// RECOGNITION LOG
+//////////////////////////////////////////////////
+
+model RecognitionLog {
+  id           String   @id @default(uuid())
+
+  employeeId   String?
+  deviceId     String
+  organizationId String
+
+  success      Boolean
+  confidence   Float?
+
+  imageUrl     String?
+
+  createdAt    DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  device   Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+  @@index([deviceId, createdAt])
+  @@index([employeeId, createdAt])
+}
+
+//////////////////////////////////////////////////
+// CONFIG
+//////////////////////////////////////////////////
+
+model SystemConfig {
+  id              String  @id @default(uuid())
+
+  organizationId  String
+
+  minConfidence   Float   @default(0.75)
+  lateThreshold   Int     @default(10)
+  veryLateThreshold Int   @default(30)
+
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId])
+}
+
+//////////////////////////////////////////////////
+// SUBSCRIPTION (SAAS)
+//////////////////////////////////////////////////
+
+model Subscription {
+  id             String @id @default(uuid())
+
+  organizationId String
+
+  plan           String
+  maxEmployees   Int
+  maxDevices     Int
+
+  expiresAt      DateTime?
+
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+//////////////////////////////////////////////////
+// ACTIVATION KEYS (SINGLE ORG 1:1)
+//////////////////////////////////////////////////
+
+model ActivationKey {
+  id            String   @id @default(uuid())
+
+  organizationId String
+  keyHash        String   @unique
+
+  plan           String
+  maxEmployees   Int
+  maxDevices     Int
+
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  usedAt         DateTime?
+  revokedAt      DateTime?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, expiresAt])
+}
+
+//////////////////////////////////////////////////
+// AUDIT
+//////////////////////////////////////////////////
+
+model AuditLog {
+  id              String   @id @default(uuid())
+
+  userId          String?
+  organizationId  String
+
+  action          String
+  entity          String
+  entityId        String
+
+  createdAt       DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([entity, entityId])
+}

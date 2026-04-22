@@ -1,0 +1,5 @@
+face_recognition==1.3.0
+face_recognition_models==0.3.0
+# face_recognition_models still imports pkg_resources; keep setuptools on a known-good line
+setuptools>=65,<81
+numpy>=1.24,<3
