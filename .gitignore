@@ -1,0 +1,9 @@
+# Monorepo local environment files
+api/.env
+dashboard/.env
+mobile-app/.env
+
+# Also ignore variant env files
+api/.env.*
+dashboard/.env.*
+mobile-app/.env.*
