@@ -1,38 +1,48 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { Role } from '@prisma/client';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { CreateHolidayDto } from './dto/create-holiday.dto';
 import { UpdateHolidayDto } from './dto/update-holiday.dto';
 import { HolidaysService } from './holidays.service';
 
 @Controller('holidays')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class HolidaysController {
   constructor(private readonly service: HolidaysService) {}
 
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateHolidayDto) {
     return this.service.create(dto);
   }
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
+    const companyId =
+      user.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user.companyId ?? undefined;
+    return this.service.findAll(query, companyId);
   }
 
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.findOne(id, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateHolidayDto) {
-    return this.service.update(id, dto);
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateHolidayDto, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
-  @Roles(Role.SUPER_ADMIN, Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.service.remove(id);
+  remove(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }

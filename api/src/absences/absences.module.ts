@@ -5,5 +5,6 @@ import { AbsencesService } from './absences.service';
 @Module({
   controllers: [AbsencesController],
   providers: [AbsencesService],
+  exports: [AbsencesService],
 })
 export class AbsencesModule {}

@@ -1,8 +1,9 @@
-import { IsDateString, IsString, MaxLength, MinLength, IsUUID } from 'class-validator';
+import { IsDateString, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class CreateHolidayDto {
-  @IsUUID()
-  organizationId!: string;
+  @IsString()
+  @MaxLength(140)
+  companyId!: string;
 
   @IsString()
   @MinLength(2)

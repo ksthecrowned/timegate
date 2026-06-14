@@ -1,44 +1,54 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { CreateSalaryDto } from './dto/create-salary.dto';
 import { UpdateSalaryDto } from './dto/update-salary.dto';
 import { SalariesService } from './salaries.service';
 
 @Controller('salaries')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class SalariesController {
-  constructor(private salaries: SalariesService) {}
+  constructor(private readonly service: SalariesService) {}
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateSalaryDto) {
-    return this.salaries.create(dto);
+    return this.service.create(dto);
   }
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
-    return this.salaries.findAll(query);
+  findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
+    const companyId =
+      user.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user.companyId ?? undefined;
+    return this.service.findAll(query, companyId);
   }
 
-  @Roles(Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.findOne(id, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateSalaryDto) {
-    return this.salaries.update(id, dto);
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateSalaryDto, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id/mark-paid')
-  markPaid(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salaries.markPaid(id);
+  markPaid(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.markPaid(id, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.salaries.remove(id);
+  remove(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }

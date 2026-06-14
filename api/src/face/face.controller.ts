@@ -4,23 +4,24 @@ import {
   Controller,
   NotFoundException,
   ParseFilePipeBuilder,
-  ParseUUIDPipe,
   Post,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Role } from '@prisma/client';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { PrismaService } from '../prisma/prisma.service';
 import { FaceEmbeddingService } from './face-embedding.service';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 @Controller('face')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class FaceController {
   constructor(
     private readonly prisma: PrismaService,
@@ -29,10 +30,10 @@ export class FaceController {
   ) {}
 
   @Post('enroll')
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   async enroll(
-    @Body('employeeId', ParseUUIDPipe) employeeId: string,
+    @Body('employeeId', DocIdPipe) employeeId: string,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
@@ -44,24 +45,36 @@ export class FaceController {
     if (!employee) throw new NotFoundException('Employee not found');
     const vector = await this.embedding.embedFromBuffer(file.buffer);
     const photoUrl = await this.storage.uploadEmployeePhoto({
-      organizationId: employee.organizationId,
+      organizationId: employee.companyId,
       employeeId: employee.id,
       contentType: file.mimetype,
       buffer: file.buffer,
     });
     const updated = await this.prisma.employee.update({
       where: { id: employeeId },
-      data: { faceEmbedding: vector, ...(photoUrl ? { photoUrl } : {}) },
-      select: { id: true, firstName: true, lastName: true, photoUrl: true },
+      data: {
+        faceEmbedding: vector,
+        faceEnrolledAt: new Date(),
+        ...(photoUrl ? { faceEnrollmentPhoto: photoUrl } : {}),
+      },
+      select: { id: true, firstName: true, lastName: true, employeeName: true, faceEnrollmentPhoto: true },
     });
-    return { employee: updated, enrolled: true };
+    return {
+      employee: {
+        id: updated.id,
+        firstName: updated.firstName ?? updated.employeeName,
+        lastName: updated.lastName ?? '',
+        photoUrl: updated.faceEnrollmentPhoto,
+      },
+      enrolled: true,
+    };
   }
 
   @Post('add-face')
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   async addFace(
-    @Body('employeeId', ParseUUIDPipe) employeeId: string,
+    @Body('employeeId', DocIdPipe) employeeId: string,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
@@ -77,10 +90,17 @@ export class FaceController {
     const merged = this.embedding.mergeEmbeddings(current, incoming);
     const updated = await this.prisma.employee.update({
       where: { id: employeeId },
-      data: { faceEmbedding: merged },
-      select: { id: true, firstName: true, lastName: true },
+      data: { faceEmbedding: merged, faceEnrolledAt: new Date() },
+      select: { id: true, firstName: true, lastName: true, employeeName: true },
     });
-    return { employee: updated, updatedEmbedding: true };
+    return {
+      employee: {
+        id: updated.id,
+        firstName: updated.firstName ?? updated.employeeName,
+        lastName: updated.lastName ?? '',
+      },
+      updatedEmbedding: true,
+    };
   }
 
   private toVector(value: unknown): number[] | null {

@@ -1,5 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable, ForbiddenException } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { TimeGateUserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtUser } from '../decorators/current-user.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
@@ -28,12 +29,12 @@ export class SubscriptionActiveGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: JwtUser }>();
     const user = request.user;
     if (!user?.sub) return true;
-    if (user.role === 'SUPER_ADMIN') return true;
-    if (!user.organizationId) return true;
+    if (user.role === TimeGateUserRole.SUPER_ADMIN) return true;
+    if (!user.companyId) return true;
 
-    const subscription = await this.prisma.subscription.findFirst({
+    const subscription = await this.prisma.timeGateSubscription.findFirst({
       where: {
-        organizationId: user.organizationId,
+        companyId: user.companyId,
         expiresAt: { gt: new Date() },
       },
       select: { id: true },

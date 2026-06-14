@@ -1,5 +1,14 @@
 import { Prisma } from '@prisma/client';
-import { IsBoolean, IsDateString, IsEmail, IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsDateString,
+  IsEmail,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class CreateEmployeeDto {
   @IsString()
@@ -31,69 +40,103 @@ export class CreateEmployeeDto {
   phone?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  address?: string;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(60)
-  employeeCode?: string;
-
-  @IsOptional()
   @IsDateString()
   hireDate?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(60)
-  contractType?: string;
+  @MaxLength(140)
+  gender?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(60)
-  nationalId?: string;
+  @MaxLength(140)
+  nationality?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(120)
+  @MaxLength(80)
+  maritalStatus?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  addressLine1?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  addressLine2?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  cityId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  countryId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  province?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  postalCode?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
   emergencyContactName?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(30)
+  @MaxLength(40)
   emergencyContactPhone?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(1024)
-  photoUrl?: string;
+  @MaxLength(80)
+  nationalIdNumber?: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(120)
-  department?: string;
+  @MaxLength(80)
+  passportNumber?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(140)
+  branchId!: string;
 
   @IsOptional()
   @IsString()
-  @MaxLength(120)
-  position?: string;
+  @MaxLength(140)
+  defaultShiftId?: string;
 
   @IsOptional()
-  @IsUUID()
-  siteId?: string;
+  @IsString()
+  @MaxLength(140)
+  departmentId?: string;
 
   @IsOptional()
-  @IsUUID()
-  scheduleId?: string;
+  @IsString()
+  @MaxLength(140)
+  designationId?: string;
+
+  /** Liste fériés Frappe (`HolidayList`) ; sinon liste company par défaut. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  holidayListId?: string;
 
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
-
-  @IsOptional()
-  @IsUUID()
-  luxandPersonUuid?: string;
 
   @IsOptional()
   faceEmbedding?: Prisma.InputJsonValue;

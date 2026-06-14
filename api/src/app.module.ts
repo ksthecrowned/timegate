@@ -2,42 +2,68 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
-import { AttendanceModule } from './attendance/attendance.module';
-import { DevicesModule } from './devices/devices.module';
-import { LogsModule } from './logs/logs.module';
-import { SitesModule } from './sites/sites.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { FaceModule } from './face/face.module';
+import { BranchesModule } from './branches/branches.module';
+import { KiosksModule } from './kiosks/kiosks.module';
+import { FaceRecognitionLogsModule } from './face-recognition-logs/face-recognition-logs.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { WorkSchedulesModule } from './work-schedules/work-schedules.module';
-import { LeavesModule } from './leaves/leaves.module';
-import { WorkSessionsModule } from './work-sessions/work-sessions.module';
-import { AdminDataModule } from './admin-data/admin-data.module';
 import { WorkDaysModule } from './work-days/work-days.module';
 import { HolidaysModule } from './holidays/holidays.module';
-import { AbsencesModule } from './absences/absences.module';
+import { LeavesModule } from './leaves/leaves.module';
+import { TimesheetsModule } from './timesheets/timesheets.module';
 import { LateRecordsModule } from './late-records/late-records.module';
+import { AbsencesModule } from './absences/absences.module';
 import { SalariesModule } from './salaries/salaries.module';
+import { PayrollRunsModule } from './payroll-runs/payroll-runs.module';
+import { AdminSaasModule } from './admin-saas/admin-saas.module';
+import { EmployeePortalModule } from './employee-portal/employee-portal.module';
+import { ShiftLocationsModule } from './shift-locations/shift-locations.module';
+import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
+import { DepartmentsModule } from './departments/departments.module';
+import { DesignationsModule } from './designations/designations.module';
+import { LeaveTypesModule } from './leave-types/leave-types.module';
+import { CountriesModule } from './countries/countries.module';
+import { CitiesModule } from './cities/cities.module';
+import { CompaniesModule } from './companies/companies.module';
+import { PlanningModule } from './planning/planning.module';
+import { SearchModule } from './search/search.module';
+import { ShiftSwapsModule } from './shift-swaps/shift-swaps.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     AuthModule,
-    SitesModule,
+    BranchesModule,
+    KiosksModule,
+    FaceRecognitionLogsModule,
     EmployeesModule,
-    DevicesModule,
-    AttendanceModule,
-    LogsModule,
     FaceModule,
+    AttendanceModule,
     WorkSchedulesModule,
-    LeavesModule,
-    WorkSessionsModule,
-    AdminDataModule,
     WorkDaysModule,
     HolidaysModule,
-    AbsencesModule,
+    LeavesModule,
+    TimesheetsModule,
     LateRecordsModule,
+    AbsencesModule,
     SalariesModule,
+    PayrollRunsModule,
+    AdminSaasModule,
+    EmployeePortalModule,
+    ShiftLocationsModule,
+    ShiftAssignmentsModule,
+    DepartmentsModule,
+    DesignationsModule,
+    LeaveTypesModule,
+    CountriesModule,
+    CitiesModule,
+    CompaniesModule,
+    PlanningModule,
+    SearchModule,
+    ShiftSwapsModule,
   ],
 })
 export class AppModule {}

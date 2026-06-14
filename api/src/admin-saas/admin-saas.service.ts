@@ -1,0 +1,234 @@
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma, TimeGateUserRole } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { JwtUser } from '../common/decorators/current-user.decorator';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { UpdateSystemConfigDto } from './dto/update-system-config.dto';
+
+@Injectable()
+export class AdminSaasService {
+  constructor(private prisma: PrismaService) {}
+
+  async findSystemConfigs(query: PaginationQueryDto, user: JwtUser) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const companyId = this.resolveCompanyFilter(user);
+
+    const where: Prisma.TimeGateSystemSettingsWhereInput = companyId
+      ? { companyId }
+      : {};
+
+    const [items, total] = await Promise.all([
+      this.prisma.timeGateSystemSettings.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { company: { select: { id: true, name: true, sku: true } } },
+      }),
+      this.prisma.timeGateSystemSettings.count({ where }),
+    ]);
+
+    return {
+      data: items.map((row) => ({
+        id: row.id,
+        companyId: row.companyId,
+        minConfidence: row.minConfidence,
+        lateThreshold: row.lateThreshold,
+        veryLateThreshold: row.veryLateThreshold,
+        company: row.company
+          ? { id: row.company.id, name: row.company.name ?? row.company.id, sku: row.company.sku ?? '' }
+          : undefined,
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async updateSystemConfig(id: string, dto: UpdateSystemConfigDto, user: JwtUser) {
+    const row = await this.prisma.timeGateSystemSettings.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('System config not found');
+    this.assertCompanyAccess(user, row.companyId);
+    return this.prisma.timeGateSystemSettings.update({
+      where: { id },
+      data: {
+        ...(dto.minConfidence !== undefined ? { minConfidence: dto.minConfidence } : {}),
+        ...(dto.lateThreshold !== undefined ? { lateThreshold: dto.lateThreshold } : {}),
+        ...(dto.veryLateThreshold !== undefined
+          ? { veryLateThreshold: dto.veryLateThreshold }
+          : {}),
+      },
+      include: { company: { select: { id: true, name: true, sku: true } } },
+    }).then((updated) => ({
+      id: updated.id,
+      companyId: updated.companyId,
+      minConfidence: updated.minConfidence,
+      lateThreshold: updated.lateThreshold,
+      veryLateThreshold: updated.veryLateThreshold,
+      company: updated.company
+        ? { id: updated.company.id, name: updated.company.name ?? updated.company.id, sku: updated.company.sku ?? '' }
+        : undefined,
+    }));
+  }
+
+  async findSubscriptions(query: PaginationQueryDto, user: JwtUser) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const companyId = this.resolveCompanyFilter(user);
+
+    const where: Prisma.TimeGateSubscriptionWhereInput = companyId
+      ? { companyId }
+      : {};
+
+    const [items, total] = await Promise.all([
+      this.prisma.timeGateSubscription.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: { company: { select: { id: true, name: true, sku: true } } },
+      }),
+      this.prisma.timeGateSubscription.count({ where }),
+    ]);
+
+    return {
+      data: items.map((row) => ({
+        id: row.id,
+        companyId: row.companyId,
+        plan: row.plan,
+        maxEmployees: row.maxEmployees,
+        maxKiosks: row.maxKiosks,
+        expiresAt: row.expiresAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        company: row.company
+          ? { id: row.company.id, name: row.company.name ?? row.company.id, sku: row.company.sku ?? '' }
+          : undefined,
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  async getPlatformStats() {
+    const now = new Date();
+    const from = new Date(now);
+    from.setUTCDate(from.getUTCDate() - 30);
+
+    const companies = await this.prisma.company.findMany({
+      select: {
+        id: true,
+        name: true,
+        sku: true,
+        _count: {
+          select: {
+            employees: true,
+            branches: true,
+            kiosks: true,
+          },
+        },
+        timeGateSubscriptions: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { expiresAt: true, plan: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const [totalAttendanceEvents, activeSubscriptions] = await Promise.all([
+      this.prisma.timeGateAttendanceEvent.count({
+        where: { createdAt: { gte: from } },
+      }),
+      this.prisma.timeGateSubscription.count({
+        where: { OR: [{ expiresAt: null }, { expiresAt: { gt: now } }] },
+      }),
+    ]);
+
+    const expiredSubscriptions = await this.prisma.timeGateSubscription.count({
+      where: { expiresAt: { lte: now } },
+    });
+
+    return {
+      summary: {
+        organizationCount: companies.length,
+        activeSubscriptions,
+        expiredSubscriptions,
+        attendanceEventsLast30Days: totalAttendanceEvents,
+      },
+      organizations: companies.map((row) => {
+        const sub = row.timeGateSubscriptions[0];
+        const isActive = !sub?.expiresAt || sub.expiresAt > now;
+        return {
+          companyId: row.id,
+          name: row.name ?? row.id,
+          sku: row.sku ?? '',
+          employeeCount: row._count.employees,
+          branchCount: row._count.branches,
+          kioskCount: row._count.kiosks,
+          subscriptionPlan: sub?.plan ?? null,
+          subscriptionActive: isActive,
+        };
+      }),
+    };
+  }
+
+  async findAuditLogs(query: PaginationQueryDto, user: JwtUser) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 20;
+    const companyId = this.resolveCompanyFilter(user);
+
+    const where: Prisma.TimeGateAuditLogWhereInput = {
+      ...(companyId ? { companyId } : {}),
+      ...(query.from || query.to
+        ? {
+            createdAt: {
+              ...(query.from ? { gte: new Date(query.from) } : {}),
+              ...(query.to ? { lte: new Date(query.to) } : {}),
+            },
+          }
+        : {}),
+    };
+
+    const [items, total] = await Promise.all([
+      this.prisma.timeGateAuditLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          user: { select: { id: true, email: true, timeGateRole: true } },
+          company: { select: { id: true, name: true, sku: true } },
+        },
+      }),
+      this.prisma.timeGateAuditLog.count({ where }),
+    ]);
+
+    return {
+      data: items.map((row) => ({
+        id: row.id,
+        companyId: row.companyId,
+        userId: row.userId,
+        action: row.action,
+        entity: row.entity,
+        entityId: row.entityId,
+        createdAt: row.createdAt.toISOString(),
+        user: row.user
+          ? { id: row.user.id, email: row.user.email, role: row.user.timeGateRole }
+          : null,
+        company: row.company
+          ? { id: row.company.id, name: row.company.name ?? row.company.id, sku: row.company.sku ?? '' }
+          : undefined,
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  private resolveCompanyFilter(user: JwtUser): string | undefined {
+    if (user.role === TimeGateUserRole.SUPER_ADMIN) return undefined;
+    return user.companyId ?? undefined;
+  }
+
+  private assertCompanyAccess(user: JwtUser, companyId: string) {
+    if (user.role === TimeGateUserRole.SUPER_ADMIN) return;
+    if (!user.companyId || user.companyId !== companyId) {
+      throw new ForbiddenException('Access denied for this company');
+    }
+  }
+}

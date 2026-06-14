@@ -1,7 +1,8 @@
-import { IsBoolean, IsDateString, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsBoolean, IsDateString, IsOptional, IsString, MaxLength } from 'class-validator';
 
 export class CreateAbsenceDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   employeeId!: string;
 
   @IsDateString()

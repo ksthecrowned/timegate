@@ -1,6 +1,8 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { randomUUID } from 'crypto';
+import type { Request, Response } from 'express';
 
 function registerStdIoGuards() {
   const isIgnorableWriteError = (error: NodeJS.ErrnoException) =>
@@ -31,6 +33,12 @@ function registerStdIoGuards() {
 async function bootstrap() {
   registerStdIoGuards();
   const app = await NestFactory.create(AppModule);
+  app.use((req: Request, res: Response, next: () => void) => {
+    const requestId = `${req.headers['x-request-id'] ?? randomUUID()}`.trim();
+    req.headers['x-request-id'] = requestId;
+    res.setHeader('X-Request-Id', requestId);
+    next();
+  });
   const corsOriginEnv = process.env.CORS_ORIGIN ?? '';
   const allowedOrigins = corsOriginEnv
     .split(',')
@@ -47,9 +55,10 @@ async function bootstrap() {
           ],
     credentials: true,
     methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Idempotency-Key', 'X-Request-Id'],
+    exposedHeaders: ['X-Request-Id'],
   });
-  app.setGlobalPrefix('api');
+  app.setGlobalPrefix('api/v1');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -1,18 +1,19 @@
 import { WeekDay } from '@prisma/client';
-import { IsEnum, IsString, IsUUID, Matches } from 'class-validator';
+import { IsEnum, IsString, Matches, MaxLength } from 'class-validator';
 
 export class CreateWorkDayDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   scheduleId!: string;
 
   @IsEnum(WeekDay)
   day!: WeekDay;
 
   @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  @Matches(/^\d{1,2}:\d{2}$/)
   startTime!: string;
 
   @IsString()
-  @Matches(/^([01]\d|2[0-3]):([0-5]\d)$/)
+  @Matches(/^\d{1,2}:\d{2}$/)
   endTime!: string;
 }

@@ -1,0 +1,468 @@
+export type TimeGateRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+
+export type EmployeeSummary = {
+  id?: string
+  firstName?: string | null
+  lastName?: string | null
+  employeeName?: string | null
+  photoUrl?: string | null
+  branchId?: string | null
+}
+
+export type TimeGateUser = {
+  id: string
+  email: string
+  role: TimeGateRole
+  companyId: string | null
+  employeeId?: string | null
+}
+
+export type LoginResponse = {
+  access_token: string
+}
+
+export type SubscriptionStatus = {
+  active: boolean
+  role: TimeGateRole
+  subscription: {
+    id: string
+    plan: string
+    maxEmployees: number
+    maxKiosks: number
+    maxDevices: number
+    expiresAt: string
+  } | null
+}
+
+export type Branch = {
+  id: string
+  name: string
+  branchCode?: string | null
+  address?: string | null
+  timezone?: string | null
+  cityId?: string | null
+  countryId?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  checkinRadius?: number | null
+  phone?: string | null
+  email?: string | null
+  isHeadOffice?: boolean
+  isActive?: boolean
+  city?: { id: string; name: string } | null
+  country?: { id: string; name: string; isoCode: string } | null
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type Employee = {
+  id: string
+  firstName: string
+  lastName: string
+  email?: string | null
+  phone?: string | null
+  whatsappPhone?: string | null
+  hireDate?: string | null
+  isActive: boolean
+  status: string
+  companyId: string
+  branchId?: string | null
+  department?: string | null
+  designation?: string | null
+  branch?: { id: string; name: string; address?: string | null } | null
+  departmentId?: string | null
+  designationId?: string | null
+  defaultShiftId?: string | null
+  holidayListId?: string | null
+  birthDate?: string | null
+  gender?: string | null
+  nationality?: string | null
+  maritalStatus?: string | null
+  addressLine1?: string | null
+  addressLine2?: string | null
+  cityId?: string | null
+  countryId?: string | null
+  province?: string | null
+  postalCode?: string | null
+  emergencyContactName?: string | null
+  emergencyContactPhone?: string | null
+  nationalIdNumber?: string | null
+  passportNumber?: string | null
+  city?: { id: string; name: string } | null
+  country?: { id: string; name: string; isoCode: string } | null
+  defaultShift?: { id: string; name: string; branchId?: string | null } | null
+  holidayList?: { id: string; name: string } | null
+  photoUrl?: string | null
+  faceEnrolledAt?: string | null
+  hasFaceEmbedding?: boolean
+  hasKioskPin?: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type Kiosk = {
+  id: string
+  name: string
+  branchId: string
+  companyId: string
+  shiftLocationId?: string | null
+  shiftLocation?: { id: string; name: string } | null
+  location?: string | null
+  status: string
+  isActive: boolean
+  lastSeenAt?: string | null
+  apiKey?: string | null
+  branch?: { id: string; name: string } | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type AttendanceDay = {
+  id: string
+  employeeId: string
+  employeeName?: string | null
+  attendanceDate?: string
+  date: string
+  status: string
+  companyId?: string | null
+  shiftId?: string | null
+  leaveTypeId?: string | null
+  employee?: EmployeeSummary | null
+  leaveType?: { id: string; leaveTypeName: string } | null
+  shift?: { id: string; name?: string | null; startTime?: string | null; endTime?: string | null } | null
+}
+
+export type AttendanceDayStatus =
+  | 'PRESENT'
+  | 'ABSENT'
+  | 'HALF_DAY'
+  | 'ON_LEAVE'
+  | 'ON_HOLIDAY'
+  | 'WORK_FROM_HOME'
+
+export type EmployeeContract = {
+  id: string
+  employeeId: string
+  companyId: string
+  signedAt: string
+  expiresAt?: string | null
+  renewalsCount: number
+  contractFileUrl?: string | null
+  notes?: string | null
+  isCurrent: boolean
+  createdAt: string
+  updatedAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type ActivationKeyResult = {
+  id: string
+  companyId: string
+  plan: string
+  maxEmployees: number
+  maxKiosks: number
+  expiresAt: string
+  createdAt: string
+  activationKey: string
+}
+
+export type AttendanceEvent = {
+  id: string
+  employeeId?: string | null
+  kioskId?: string | null
+  type: string
+  status: string
+  source: string
+  confidence?: number | null
+  occurredAt: string
+  receivedAt?: string | null
+  rejectReason?: string | null
+  employee?: EmployeeSummary | null
+  kiosk?: { id: string; name: string } | null
+  branch?: { id: string; name: string } | null
+}
+
+export type NamedEntity = {
+  id: string
+  name: string
+  companyId?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+export type Department = NamedEntity & {
+  code?: string | null
+  description?: string | null
+  parentDepartmentId?: string | null
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
+export type Designation = Department
+
+export type LeaveType = {
+  id: string
+  name: string
+  leaveTypeName: string
+  companyId?: string | null
+  isLwp: boolean
+  isCarryForward: boolean
+  maxDaysPerYear?: number | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type HolidayList = {
+  id: string
+  name: string
+  holidayListName: string
+  companyId?: string | null
+  createdAt: string
+  updatedAt: string
+  company?: { id: string; name: string; sku?: string } | null
+}
+
+export type ShiftType = {
+  id: string
+  name: string
+  branchId: string
+  companyId: string
+  startTime: string
+  endTime: string
+  lateGraceMinutes?: number | null
+  createdAt: string
+  branch?: { id: string; name: string } | null
+  weekDays?: WorkDay[]
+}
+
+export type ShiftLocation = {
+  id: string
+  name: string
+  branchId?: string | null
+  checkinRadius?: number | null
+  latitude?: number | null
+  longitude?: number | null
+  isKioskLocation?: boolean
+  createdAt: string
+  updatedAt: string
+  branch?: { id: string; name: string } | null
+}
+
+export type ShiftAssignment = {
+  id: string
+  employeeId: string
+  shiftTypeId: string
+  shiftLocationId?: string | null
+  companyId: string
+  startDate?: string | null
+  endDate?: string | null
+  createdAt: string
+  updatedAt: string
+  employee?: EmployeeSummary | null
+  shiftType?: { id: string; name: string; branchId?: string | null } | null
+  shiftLocation?: { id: string; name: string } | null
+}
+
+export type WeekDayName =
+  | 'MONDAY'
+  | 'TUESDAY'
+  | 'WEDNESDAY'
+  | 'THURSDAY'
+  | 'FRIDAY'
+  | 'SATURDAY'
+  | 'SUNDAY'
+
+export type WorkDay = {
+  id: string
+  shiftTypeId: string
+  day: WeekDayName
+  startTime: string
+  endTime: string
+  shiftType?: { id: string; name: string; branchId?: string | null } | null
+}
+
+export type Holiday = {
+  id: string
+  companyId: string
+  holidayListId?: string | null
+  holidayListName?: string | null
+  name: string
+  date: string
+  createdAt: string
+  company?: { id: string; name: string; sku?: string } | null
+}
+
+export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+
+export type Leave = {
+  id: string
+  employeeId: string
+  companyId: string
+  startDate: string
+  endDate: string
+  reason?: string | null
+  status: LeaveStatus
+  type?: string | null
+  leaveTypeId?: string | null
+  createdAt: string
+  employee?: EmployeeSummary | null
+  leaveType?: { id: string; leaveTypeName: string } | null
+}
+
+export type Absence = {
+  id: string
+  employeeId: string
+  companyId: string
+  date: string
+  justified: boolean
+  reason?: string | null
+  justificationFileUrl?: string | null
+  createdAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type LateRecord = {
+  id: string
+  employeeId: string
+  companyId: string
+  attendanceId?: string | null
+  date: string
+  latenessMinutes: number
+  justified: boolean
+  reason?: string | null
+  justificationFileUrl?: string | null
+  createdAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type TimesheetDay = {
+  id: string
+  companyId: string
+  employeeId: string
+  date: string
+  workedMinutes: number
+  breakMinutes: number
+  lateMinutes: number
+  overtimeMinutes: number
+  status: string
+  ruleVersion?: string | null
+  anomalyFlags?: string[] | null
+  createdAt: string
+  updatedAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type TimesheetOverride = {
+  id: string
+  timesheetDayId: string
+  companyId: string
+  managerUserId: string
+  manager?: { id: string; email: string } | null
+  reason: string
+  meta?: Record<string, unknown> | null
+  createdAt: string
+}
+
+export type PayrollRunStatus = 'DRAFT' | 'LOCKED' | 'PAID'
+
+export type PayrollRun = {
+  id: string
+  companyId: string
+  year: number
+  month: number
+  status: PayrollRunStatus
+  ruleVersion?: string | null
+  createdAt: string
+  lockedAt?: string | null
+  paidAt?: string | null
+  _count?: { lines: number }
+}
+
+export type PayrollLine = {
+  id: string
+  payrollRunId: string
+  companyId: string
+  employeeId: string
+  baseSalary: number
+  overtimeAmount: number
+  penaltyAmount: number
+  absenceAmount: number
+  bonusAmount: number
+  netSalary: number
+  explainJson?: Record<string, unknown> | null
+  createdAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type SalaryStatus = 'PENDING' | 'PAID'
+
+export type Salary = {
+  id: string
+  employeeId: string
+  companyId: string
+  year: number
+  month: number
+  baseSalary: number
+  bonuses: number
+  deductions: number
+  netSalary: number
+  status: SalaryStatus
+  paidAt?: string | null
+  notes?: string | null
+  createdAt: string
+  employee?: EmployeeSummary | null
+}
+
+export type FaceRecognitionLog = {
+  id: string
+  kioskId?: string | null
+  branchId?: string | null
+  companyId: string
+  employeeId?: string | null
+  success: boolean
+  confidence?: number | null
+  imageUrl?: string | null
+  offlineSync?: boolean
+  capturedAt: string
+  createdAt: string
+  employee?: EmployeeSummary | null
+  kiosk?: {
+    id: string
+    name: string
+    branchId?: string | null
+    branch?: { id: string; name: string } | null
+  } | null
+}
+
+export type AuditLog = {
+  id: string
+  companyId: string
+  userId?: string | null
+  action: string
+  entity: string
+  entityId?: string | null
+  createdAt: string
+  user?: { id: string; email: string; role?: string | null } | null
+  company?: { id: string; name: string; sku?: string } | null
+}
+
+export type Subscription = {
+  id: string
+  companyId: string
+  plan: string
+  maxEmployees: number
+  maxKiosks: number
+  expiresAt: string
+  createdAt: string
+  company?: { id: string; name: string; sku?: string } | null
+}
+
+export type SystemConfig = {
+  id: string
+  companyId: string
+  minConfidence: number
+  lateThreshold: number
+  veryLateThreshold: number
+  company?: { id: string; name: string; sku?: string } | null
+}

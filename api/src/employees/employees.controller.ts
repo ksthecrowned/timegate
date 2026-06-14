@@ -4,8 +4,6 @@ import {
   Delete,
   Get,
   Param,
-  ParseFilePipeBuilder,
-  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -14,68 +12,139 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Role } from '@prisma/client';
+import { TimeGateUserRole } from '@prisma/client';
+import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
+import { BulkCreateEmployeesDto } from './dto/bulk-create-employees.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
-import { CreateEmployeeContractDto } from './dto/create-employee-contract.dto';
 import { EmployeeContractQueryDto } from './dto/employee-contract-query.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
+import { CreateEmployeeContractDto } from './dto/create-employee-contract.dto';
+import { UpdateEmployeeContractDto } from './dto/update-employee-contract.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
+import { SetKioskPinDto } from './dto/set-kiosk-pin.dto';
 import { EmployeesService } from './employees.service';
+import { LeaveBalancesService } from '../leaves/leave-balances.service';
+import {
+  LeaveBalanceQueryDto,
+  UpsertLeaveAllocationDto,
+} from '../leaves/dto/leave-balance-query.dto';
 
 @Controller('employees')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class EmployeesController {
-  constructor(private employees: EmployeesService) {}
+  constructor(
+    private employees: EmployeesService,
+    private leaveBalances: LeaveBalancesService,
+  ) {}
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateEmployeeDto) {
     return this.employees.create(dto);
   }
 
+  @Roles(TimeGateUserRole.ADMIN)
+  @Post('bulk')
+  bulkCreate(@Body() dto: BulkCreateEmployeesDto) {
+    return this.employees.bulkCreate(dto.employees);
+  }
+
   @Get()
-  findAll(@Query() query: EmployeeQueryDto) {
-    return this.employees.findAll(query);
+  findAll(@Query() query: EmployeeQueryDto, @CurrentUser() user: JwtUser) {
+    return this.employees.findAll(query, user);
   }
 
   @Get('contracts')
-  findContracts(@Query() query: EmployeeContractQueryDto) {
-    return this.employees.findContracts(query);
+  findContracts(@Query() query: EmployeeContractQueryDto, @CurrentUser() user: JwtUser) {
+    return this.employees.findContracts(query, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post(':id/contracts')
-  @UseInterceptors(FileInterceptor('contractFile', { limits: { fileSize: 20 * 1024 * 1024 } }))
+  @UseInterceptors(FileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
   createContract(
-    @Param('id', ParseUUIDPipe) id: string,
+    @Param('id', DocIdPipe) id: string,
     @Body() dto: CreateEmployeeContractDto,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addMaxSizeValidator({ maxSize: 20 * 1024 * 1024 })
-        .build({ fileIsRequired: false }),
-    )
-    file?: Express.Multer.File,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
     return this.employees.createContract(id, dto, file);
   }
 
+  @Roles(TimeGateUserRole.ADMIN)
+  @Patch(':id/contracts/:contractId')
+  @UseInterceptors(FileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  updateContract(
+    @Param('id', DocIdPipe) id: string,
+    @Param('contractId', DocIdPipe) contractId: string,
+    @Body() dto: UpdateEmployeeContractDto,
+    @CurrentUser() user: JwtUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.employees.updateContract(id, contractId, dto, user, file);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
+  @Delete(':id/contracts/:contractId')
+  removeContract(
+    @Param('id', DocIdPipe) id: string,
+    @Param('contractId', DocIdPipe) contractId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.removeContract(id, contractId, user);
+  }
+
+  @Get(':id/leave-balances')
+  getLeaveBalances(
+    @Param('id', DocIdPipe) id: string,
+    @Query() query: LeaveBalanceQueryDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.findOne(id, user).then(() =>
+      this.leaveBalances.getEmployeeBalances(id, query.year),
+    );
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
+  @Post(':id/leave-allocations')
+  upsertLeaveAllocation(
+    @Param('id', DocIdPipe) id: string,
+    @Body() dto: UpsertLeaveAllocationDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.findOne(id, user).then(() =>
+      this.leaveBalances.upsertAllocation(id, dto.leaveTypeId, dto.year, dto.allocatedDays),
+    );
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Patch(':id/kiosk-pin')
+  setKioskPin(
+    @Param('id', DocIdPipe) id: string,
+    @Body() dto: SetKioskPinDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.setKioskPin(id, dto, user);
+  }
+
   @Get(':id')
-  findOne(@Param('id', ParseUUIDPipe) id: string) {
-    return this.employees.findOne(id);
+  findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.employees.findOne(id, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateEmployeeDto) {
-    return this.employees.update(id, dto);
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateEmployeeDto, @CurrentUser() user: JwtUser) {
+    return this.employees.update(id, dto, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.employees.remove(id);
+  remove(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.employees.remove(id, user);
   }
 }

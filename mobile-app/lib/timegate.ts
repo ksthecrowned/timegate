@@ -1,8 +1,15 @@
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE = process.env.EXPO_PUBLIC_TIMEGATE_API_URL?.replace(/\/$/, "") ?? "http://localhost:4000/api";
+const API_BASE =
+  process.env.EXPO_PUBLIC_TIMEGATE_API_URL?.replace(/\/$/, "") ??
+  "http://localhost:4001/api/v1";
 const LIFETIME_TOKEN_KEY = "timegate_mobile_lifetime_token";
+const DEVICE_ID_KEY = "timegate_mobile_device_id";
 const DEVICE_NAME_KEY = "timegate_mobile_device_name";
+
+export function getTimeGateApiBase(): string {
+  return API_BASE;
+}
 
 function mobileLog(level: "log" | "warn" | "error", message: string, meta?: Record<string, unknown>) {
   if (!__DEV__) return;
@@ -16,12 +23,20 @@ export type VerifyFaceResult = {
   confidence: number | null;
   message: string;
   employeeName: string | null;
+  offlineSync?: boolean;
+  capturedAt?: string | null;
+};
+
+type VerifyFaceOptions = {
+  offlineSync?: boolean;
+  capturedAt?: string;
+  idempotencyKey?: string;
 };
 
 export type ProvisionInput = {
   operatorToken: string;
-  deviceId?: string;
-  siteId: string;
+  kioskId?: string;
+  branchId: string;
   deviceName?: string;
   location?: string;
 };
@@ -31,17 +46,17 @@ export type ProvisionState = {
   deviceName: string | null;
 };
 
-export type TimeGateSite = {
+export type TimeGateBranch = {
   id: string;
   name: string;
   address: string | null;
   timezone: string | null;
 };
 
-export type TimeGateDevice = {
+export type TimeGateKiosk = {
   id: string;
   name: string;
-  siteId: string;
+  branchId: string;
   location: string | null;
   status: "ONLINE" | "OFFLINE";
 };
@@ -76,7 +91,7 @@ async function parseErrorBody(res: Response): Promise<string> {
 
 export async function bootstrapOperator(email: string, password: string, sku: string): Promise<{
   operatorToken: string;
-  sites: TimeGateSite[];
+  branches: TimeGateBranch[];
 }> {
   const res = await fetch(`${API_BASE}/auth/mobile/bootstrap`, {
     method: "POST",
@@ -88,33 +103,36 @@ export async function bootstrapOperator(email: string, password: string, sku: st
     }),
   });
   if (!res.ok) {
-    console.error(res);
     const message = await parseErrorBody(res);
     throw new MobileApiError(`Echec connexion API: ${message}`, res.status);
   }
   const json = (await res.json()) as {
     operator_token?: string;
-    sites?: TimeGateSite[];
+    branches?: TimeGateBranch[];
   };
   if (!json.operator_token) {
     throw new Error("Token opérateur manquant dans la réponse /auth/mobile/bootstrap.");
   }
+  const branches = Array.isArray(json.branches) ? json.branches : [];
   return {
     operatorToken: json.operator_token,
-    sites: Array.isArray(json.sites) ? json.sites : [],
+    branches,
   };
 }
 
-export async function fetchDevicesForSite(operatorToken: string, siteId: string): Promise<TimeGateDevice[]> {
-  const url = `${API_BASE}/devices?siteId=${encodeURIComponent(siteId)}&page=1&limit=100`;
+export async function fetchKiosksForBranch(
+  operatorToken: string,
+  branchId: string,
+): Promise<TimeGateKiosk[]> {
+  const url = `${API_BASE}/kiosks?branchId=${encodeURIComponent(branchId)}&page=1&limit=100`;
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${operatorToken}` },
   });
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(`Impossible de charger les appareils: ${message}`, res.status);
+    throw new MobileApiError(`Impossible de charger les kiosks: ${message}`, res.status);
   }
-  const json = (await res.json()) as { data?: TimeGateDevice[] };
+  const json = (await res.json()) as { data?: TimeGateKiosk[] };
   return Array.isArray(json.data) ? json.data : [];
 }
 
@@ -124,6 +142,7 @@ async function getLifetimeToken(): Promise<string | null> {
 
 export async function clearProvisioning(): Promise<void> {
   await SecureStore.deleteItemAsync(LIFETIME_TOKEN_KEY);
+  await SecureStore.deleteItemAsync(DEVICE_ID_KEY);
   await SecureStore.deleteItemAsync(DEVICE_NAME_KEY);
 }
 
@@ -143,8 +162,8 @@ export async function provisionKiosk(input: ProvisionInput): Promise<ProvisionSt
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      siteId: input.siteId.trim(),
-      ...(input.deviceId?.trim() ? { deviceId: input.deviceId.trim() } : {}),
+      branchId: input.branchId.trim(),
+      ...(input.kioskId?.trim() ? { kioskId: input.kioskId.trim() } : {}),
       ...(input.deviceName?.trim() ? { deviceName: input.deviceName.trim() } : {}),
       ...(input.location?.trim() ? { location: input.location.trim() } : {}),
     }),
@@ -155,20 +174,121 @@ export async function provisionKiosk(input: ProvisionInput): Promise<ProvisionSt
   }
   const json = (await res.json()) as {
     lifetime_token: string;
-    device?: { name?: string };
+    kiosk?: { id?: string; name?: string };
   };
   if (!json.lifetime_token) {
     throw new Error("Token lifetime manquant dans la reponse de provision.");
   }
-  const deviceName = json.device?.name?.trim() || null;
+  const deviceName = json.kiosk?.name?.trim() || null;
+  const deviceId = json.kiosk?.id?.trim() || null;
   await SecureStore.setItemAsync(LIFETIME_TOKEN_KEY, json.lifetime_token);
+  if (deviceId) await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
   if (deviceName) await SecureStore.setItemAsync(DEVICE_NAME_KEY, deviceName);
   return { hasToken: true, deviceName };
 }
 
+/** Keeps kiosk ONLINE on dashboard while the app is open (lifetime token). */
+export async function sendKioskHeartbeat(): Promise<void> {
+  const token = await getLifetimeToken();
+  if (!token) return;
+  const res = await fetch(`${API_BASE}/auth/mobile/heartbeat`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    await clearProvisioning();
+    throw new MobileApiError("Session expiree. Reconfigurez l'appareil.", 401);
+  }
+  if (!res.ok) {
+    const message = await parseErrorBody(res);
+    throw new MobileApiError(message, res.status);
+  }
+}
+
+/** React Native multipart upload (Blob + fetch(file://) fails on Android). */
+type ReactNativeFormDataFile = {
+  uri: string;
+  name: string;
+  type: string;
+};
+
+function toUploadablePhotoUri(photoUri: string): string {
+  const trimmed = photoUri.trim();
+  if (trimmed.startsWith("file://") || trimmed.startsWith("content://")) {
+    return trimmed;
+  }
+  return `file://${trimmed}`;
+}
+
+function buildPhotoUploadPart(photoUri: string): ReactNativeFormDataFile {
+  const uri = toUploadablePhotoUri(photoUri);
+  const isPng = uri.toLowerCase().includes(".png");
+  return {
+    uri,
+    name: isPng ? "capture.png" : "capture.jpg",
+    type: isPng ? "image/png" : "image/jpeg",
+  };
+}
+
+export function isLikelyNetworkError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  return (
+    msg.includes("network request failed") ||
+    msg.includes("failed to fetch") ||
+    msg.includes("aborterror")
+  );
+}
+
+export function isRetryableVerificationError(error: unknown): boolean {
+  if (isLikelyNetworkError(error)) return true;
+  if (error instanceof MobileApiError) {
+    return error.status >= 500 || error.status === 429;
+  }
+  return false;
+}
+
+export function getVerificationUserMessage(error: unknown): string {
+  const raw =
+    error instanceof MobileApiError || error instanceof Error
+      ? (error.message ?? "")
+      : String(error);
+  const msg = raw.toLowerCase();
+
+  if (msg.includes("no face detected")) {
+    return "Aucun visage detecte. Placez votre visage dans le cadre, face a la camera, avec un bon eclairage.";
+  }
+  if (msg.includes("face engine") || msg.includes("face engine timeout")) {
+    return "Service de reconnaissance indisponible. Patientez quelques secondes puis reessayez.";
+  }
+  if (msg.includes("timeout") || msg.includes("verification trop longue")) {
+    return "Verification trop longue. Verifiez votre connexion puis reessayez.";
+  }
+  if (msg.includes("network request failed") || msg.includes("failed to fetch")) {
+    return "Impossible de joindre le serveur. Verifiez le reseau et l'adresse API.";
+  }
+  if (msg.includes("non provisionne") || msg.includes("missing bearer")) {
+    return "Appareil non configure. Reconfigurez l'application.";
+  }
+  if (error instanceof MobileApiError) {
+    if (error.status >= 500) {
+      return "Service temporairement indisponible. Reessayez dans quelques instants.";
+    }
+    if (error.status === 401) {
+      return "Session expiree. Reconfigurez l'appareil.";
+    }
+  }
+  if (raw.trim()) return raw.trim();
+  return "Verification echouee. Veuillez reessayer.";
+}
+
+export function createMobileIdempotencyKey(prefix = "verify"): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export async function verifyFacePhoto(
   photoUri: string,
-  timeoutMs = 20000,
+  timeoutMs = 60000,
+  options?: VerifyFaceOptions,
 ): Promise<VerifyFaceResult> {
   const startedAt = Date.now();
   mobileLog("log", "verifyFacePhoto started", { timeoutMs, apiBase: API_BASE });
@@ -177,12 +297,20 @@ export async function verifyFacePhoto(
     mobileLog("warn", "verifyFacePhoto aborted: no lifetime token");
     throw new Error("Appareil non provisionne. Configurez l'app au premier lancement.");
   }
+  const photoPart = buildPhotoUploadPart(photoUri);
+  mobileLog("log", "verifyFacePhoto payload", {
+    uri: photoPart.uri,
+    multipartName: photoPart.name,
+    mime: photoPart.type,
+  });
   const formData = new FormData();
-  formData.append("photo", {
-    uri: photoUri,
-    name: "capture.jpg",
-    type: "image/jpeg",
-  } as unknown as Blob);
+  formData.append("photo", photoPart as unknown as Blob);
+  if (options?.offlineSync) {
+    formData.append("offlineSync", "1");
+  }
+  if (options?.capturedAt) {
+    formData.append("capturedAt", options.capturedAt);
+  }
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -193,6 +321,7 @@ export async function verifyFacePhoto(
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
+        ...(options?.idempotencyKey ? { "X-Idempotency-Key": options.idempotencyKey } : {}),
       },
       body: formData,
       signal: controller.signal,
@@ -217,18 +346,22 @@ export async function verifyFacePhoto(
 
   if (!res.ok) {
     const message = await parseErrorBody(res);
+    const userMessage = getVerificationUserMessage(new MobileApiError(message, res.status));
     mobileLog("warn", "verifyFacePhoto API error", {
       status: res.status,
       elapsedMs: Date.now() - startedAt,
       message,
+      userMessage,
     });
-    throw new MobileApiError(message, res.status);
+    throw new MobileApiError(userMessage, res.status);
   }
 
   const json = (await res.json()) as {
     success: boolean;
     confidence?: number | null;
     message?: string;
+    offlineSync?: boolean;
+    capturedAt?: string | null;
     employee?: { firstName?: string; lastName?: string };
   };
   const employeeName = `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() || null;
@@ -238,6 +371,8 @@ export async function verifyFacePhoto(
     success: Boolean(json.success),
     confidence: typeof json.confidence === "number" ? json.confidence : null,
     employeeName,
+    offlineSync: Boolean(json.offlineSync),
+    capturedAt: typeof json.capturedAt === "string" ? json.capturedAt : null,
     message:
       apiMessage ??
       (json.success
@@ -250,7 +385,48 @@ export async function verifyFacePhoto(
   mobileLog("log", "verifyFacePhoto completed", {
     success: result.success,
     confidence: result.confidence,
+    requestId: res.headers.get("x-request-id"),
     elapsedMs: Date.now() - startedAt,
   });
   return result;
+}
+
+export async function verifyMobilePin(
+  employeeId: string,
+  pin: string,
+  options?: { idempotencyKey?: string },
+): Promise<VerifyFaceResult> {
+  const token = await getLifetimeToken();
+  if (!token) {
+    throw new Error("Appareil non provisionne. Configurez l'app au premier lancement.");
+  }
+  const res = await fetch(`${API_BASE}/auth/mobile/verify-pin`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options?.idempotencyKey ? { "X-Idempotency-Key": options.idempotencyKey } : {}),
+    },
+    body: JSON.stringify({ employeeId: employeeId.trim(), pin }),
+  });
+  if (res.status === 401) await clearProvisioning();
+  if (!res.ok) {
+    const message = await parseErrorBody(res);
+    throw new MobileApiError(getVerificationUserMessage(new MobileApiError(message, res.status)), res.status);
+  }
+  const json = (await res.json()) as {
+    success: boolean;
+    confidence?: number | null;
+    message?: string;
+    employee?: { firstName?: string; lastName?: string };
+  };
+  const employeeName = `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() || null;
+  return {
+    success: Boolean(json.success),
+    confidence: typeof json.confidence === "number" ? json.confidence : null,
+    employeeName,
+    offlineSync: false,
+    capturedAt: null,
+    message: json.message ?? (json.success ? `Bienvenue ${employeeName}` : "PIN incorrect"),
+  };
 }

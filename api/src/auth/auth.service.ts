@@ -8,7 +8,15 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { AttendanceType, DeviceStatus, Role, WeekDay } from '@prisma/client';
+import {
+  CheckinLogType,
+  EmployeeStatus,
+  KioskStatus,
+  TimeGateAttendanceEventSource,
+  TimeGateAttendanceEventStatus,
+  TimeGateAttendanceEventType,
+  TimeGateUserRole,
+} from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
@@ -16,18 +24,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FaceEmbeddingService } from '../face/face-embedding.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
+import { generateDocId } from '../common/utils/doc-id.util';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
+import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
+import { AttendanceEventStatusService } from '../attendance/attendance-event-status.service';
+import { resolveKioskEligibleEmployeeIds } from '../common/utils/kiosk-shift-rules.util';
 
 type MobileTokenPayload = {
   typ: 'mobile_device';
-  deviceId: string;
-  siteId: string | null;
+  kioskId: string;
+  branchId: string | null;
 };
 
 type MatchCandidate = {
@@ -42,9 +54,23 @@ type AttendanceDecision =
   | { kind: 'CHECK_OUT'; message: string }
   | { kind: 'NONE'; message: string };
 
+type VerifyMobileResult = {
+  success: boolean;
+  confidence: number | null;
+  message: string;
+  offlineSync: boolean;
+  capturedAt: string | null;
+  employee: { id: string; firstName: string; lastName: string } | null;
+  log: { id: string; success: boolean; confidence: number | null; imageUrl: string | null; createdAt: Date };
+};
+
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
+  private readonly verifyIdempotencyCache = new Map<
+    string,
+    { expiresAt: number; response: VerifyMobileResult }
+  >();
 
   constructor(
     private prisma: PrismaService,
@@ -52,65 +78,132 @@ export class AuthService {
     private config: ConfigService,
     private face: FaceEmbeddingService,
     private readonly storage: CloudflareR2Service,
+    private readonly eventStatus: AttendanceEventStatusService,
   ) {}
 
   async login(dto: LoginDto) {
     const user = await this.validateCredentials(dto);
     return {
-      access_token: await this.signToken(user.id, user.email, user.role, user.organizationId ?? null),
+      access_token: await this.signToken(
+        user.id,
+        user.email,
+        user.timeGateRole!,
+        user.companyId ?? null,
+      ),
+    };
+  }
+
+  /** Login for mobile/dashboard employee self-service (User linked to Employee). */
+  async employeeLogin(dto: LoginDto) {
+    const user = await this.validateEmployeeCredentials(dto);
+    if (user.timeGateRole !== TimeGateUserRole.EMPLOYEE) {
+      throw new UnauthorizedException('This account is not an employee portal user');
+    }
+    const employee = await this.prisma.employee.findUnique({
+      where: { userId: user.id },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeName: true,
+        status: true,
+        branchId: true,
+        companyId: true,
+      },
+    });
+    if (!employee || employee.status !== EmployeeStatus.ACTIVE) {
+      throw new UnauthorizedException('No active employee profile linked to this account');
+    }
+
+    const branch = employee.branchId
+      ? await this.prisma.branch.findUnique({
+          where: { id: employee.branchId },
+          select: { id: true, branchName: true },
+        })
+      : null;
+
+    return {
+      access_token: await this.signToken(
+        user.id,
+        user.email,
+        user.timeGateRole!,
+        user.companyId ?? null,
+      ),
+      employee: {
+        id: employee.id,
+        firstName: employee.firstName ?? employee.employeeName,
+        lastName: employee.lastName ?? '',
+        branchId: employee.branchId,
+        branchName: branch?.branchName ?? null,
+      },
     };
   }
 
   async mobileBootstrap(dto: LoginDto) {
     const user = await this.validateCredentials(dto);
-    if (user.role !== Role.ADMIN && user.role !== Role.MANAGER) {
+    if (user.timeGateRole !== TimeGateUserRole.ADMIN && user.timeGateRole !== TimeGateUserRole.MANAGER) {
       throw new UnauthorizedException('Only ADMIN/MANAGER can provision kiosk devices');
     }
-
-    if (!user.organizationId) {
-      throw new UnauthorizedException('Operator account must belong to an organization');
+    if (!user.companyId) {
+      throw new UnauthorizedException('Operator account must belong to a company');
     }
 
-    const sites = await this.prisma.site.findMany({
-      where: { organizationId: user.organizationId },
-      select: { id: true, name: true, address: true, timezone: true },
-      orderBy: { name: 'asc' },
+    const branches = await this.prisma.branch.findMany({
+      where: { companyId: user.companyId },
+      select: { id: true, branchName: true, address: true, timeZone: true },
+      orderBy: { branchName: 'asc' },
     });
 
     return {
-      operator_token: await this.signToken(user.id, user.email, user.role, user.organizationId ?? null),
-      operator: { id: user.id, email: user.email, role: user.role },
-      sites,
+      operator_token: await this.signToken(
+        user.id,
+        user.email,
+        user.timeGateRole!,
+        user.companyId ?? null,
+      ),
+      operator: { id: user.id, email: user.email, role: user.timeGateRole },
+      branches: branches.map((b) => ({
+        id: b.id,
+        name: b.branchName,
+        address: b.address,
+        timezone: b.timeZone,
+      })),
     };
   }
 
   async createUser(dto: CreateUserDto) {
-    if (dto.role !== Role.SUPER_ADMIN && !dto.organizationId) {
-      throw new BadRequestException('organizationId is required for ADMIN/MANAGER users');
+    if (dto.role !== TimeGateUserRole.SUPER_ADMIN && !dto.companyId) {
+      throw new BadRequestException('companyId is required for ADMIN/MANAGER users');
     }
     const existing = await this.prisma.user.findFirst({
       where: {
         email: dto.email.trim().toLowerCase(),
-        ...(dto.organizationId ? { organizationId: dto.organizationId } : { organizationId: null }),
+        companyId: dto.companyId ?? null,
       },
     });
     if (existing) {
       throw new ConflictException('Email already registered');
     }
-    const password = await bcrypt.hash(dto.password, 10);
+    const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
-      data: { email: dto.email, password, role: dto.role, organizationId: dto.organizationId ?? null },
-      select: { id: true, email: true, role: true, createdAt: true },
+      data: {
+        id: generateDocId('USR'),
+        email: dto.email.trim().toLowerCase(),
+        passwordHash,
+        timeGateRole: dto.role,
+        companyId: dto.companyId ?? null,
+      },
+      select: { id: true, email: true, timeGateRole: true, createdAt: true },
     });
-    return user;
+    return { ...user, role: user.timeGateRole };
   }
 
   async activateSubscription(user: JwtUser, dto: ActivateSubscriptionDto) {
     const keyHash = createHash('sha256').update(dto.activationKey.trim()).digest('hex');
     const now = new Date();
-    const activation = await this.prisma.activationKey.findUnique({
+    const activation = await this.prisma.timeGateActivationKey.findUnique({
       where: { keyHash },
-      include: { organization: { select: { id: true, sku: true, name: true } } },
+      include: { company: { select: { id: true, sku: true, name: true } } },
     });
     if (!activation) {
       throw new NotFoundException('Activation key not found');
@@ -124,37 +217,38 @@ export class AuthService {
     if (activation.expiresAt <= now) {
       throw new ForbiddenException('Activation key expired');
     }
-    if (user.role !== Role.SUPER_ADMIN && activation.organizationId !== user.organizationId) {
-      throw new ForbiddenException('Activation key does not belong to your organization');
+    if (user.role !== TimeGateUserRole.SUPER_ADMIN && activation.companyId !== user.companyId) {
+      throw new ForbiddenException('Activation key does not belong to your company');
     }
 
-    const existingSubscription = await this.prisma.subscription.findFirst({
-      where: { organizationId: activation.organizationId },
+    const existingSubscription = await this.prisma.timeGateSubscription.findFirst({
+      where: { companyId: activation.companyId },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
     });
 
     const [subscription] = await this.prisma.$transaction([
       existingSubscription
-        ? this.prisma.subscription.update({
+        ? this.prisma.timeGateSubscription.update({
             where: { id: existingSubscription.id },
             data: {
               plan: activation.plan,
               maxEmployees: activation.maxEmployees,
-              maxDevices: activation.maxDevices,
+              maxKiosks: activation.maxKiosks,
               expiresAt: activation.expiresAt,
             },
           })
-        : this.prisma.subscription.create({
+        : this.prisma.timeGateSubscription.create({
             data: {
-              organizationId: activation.organizationId,
+              id: generateDocId('SUB'),
+              companyId: activation.companyId,
               plan: activation.plan,
               maxEmployees: activation.maxEmployees,
-              maxDevices: activation.maxDevices,
+              maxKiosks: activation.maxKiosks,
               expiresAt: activation.expiresAt,
             },
           }),
-      this.prisma.activationKey.update({
+      this.prisma.timeGateActivationKey.update({
         where: { id: activation.id },
         data: { usedAt: now },
       }),
@@ -162,42 +256,121 @@ export class AuthService {
 
     return {
       activated: true,
-      organization: activation.organization,
+      company: {
+        id: activation.company.id,
+        sku: activation.company.sku,
+        name: activation.company.name,
+      },
       subscription: {
         plan: subscription.plan,
         maxEmployees: subscription.maxEmployees,
-        maxDevices: subscription.maxDevices,
+        maxKiosks: subscription.maxKiosks,
         expiresAt: subscription.expiresAt,
       },
     };
   }
 
   async listOrganizations() {
-    return this.prisma.organization.findMany({
+    const companies = await this.prisma.company.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        subscriptions: {
-          select: { id: true, plan: true, maxEmployees: true, maxDevices: true, expiresAt: true },
+        timeGateSubscriptions: {
+          select: { id: true, plan: true, maxEmployees: true, maxKiosks: true, expiresAt: true },
           take: 1,
           orderBy: { createdAt: 'desc' },
         },
         users: {
-          select: { id: true, email: true, role: true, createdAt: true },
-          where: { role: { in: [Role.ADMIN, Role.MANAGER] } },
+          select: { id: true, email: true, timeGateRole: true, createdAt: true },
+          where: { timeGateRole: { in: [TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER] } },
           orderBy: { createdAt: 'desc' },
         },
-        activationKeys: {
+        timeGateActivationKeys: {
           select: { id: true, plan: true, expiresAt: true, usedAt: true, revokedAt: true, createdAt: true },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
       },
     });
+
+    return companies.map((c) => ({
+      id: c.id,
+      name: c.name,
+      sku: c.sku,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      subscriptions: c.timeGateSubscriptions.map((s) => ({
+        ...s,
+        maxDevices: s.maxKiosks,
+      })),
+      users: c.users.map((u) => ({ ...u, role: u.timeGateRole })),
+      activationKeys: c.timeGateActivationKeys,
+    }));
+  }
+
+  async getOrganization(organizationId: string) {
+    const company = await this.prisma.company.findUnique({
+      where: { id: organizationId },
+      include: {
+        timeGateSubscriptions: {
+          select: { id: true, plan: true, maxEmployees: true, maxKiosks: true, expiresAt: true },
+          take: 1,
+          orderBy: { createdAt: 'desc' },
+        },
+        users: {
+          select: { id: true, email: true, timeGateRole: true, createdAt: true },
+          where: { timeGateRole: { in: [TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER] } },
+          orderBy: { createdAt: 'desc' },
+        },
+        timeGateActivationKeys: {
+          select: { id: true, plan: true, expiresAt: true, usedAt: true, revokedAt: true, createdAt: true },
+          orderBy: { createdAt: 'desc' },
+          take: 10,
+        },
+      },
+    });
+    if (!company) {
+      throw new NotFoundException('Organization not found');
+    }
+    return {
+      id: company.id,
+      name: company.name,
+      sku: company.sku,
+      createdAt: company.createdAt,
+      updatedAt: company.updatedAt,
+      subscriptions: company.timeGateSubscriptions.map((s) => ({
+        ...s,
+        maxDevices: s.maxKiosks,
+      })),
+      users: company.users.map((u) => ({ ...u, role: u.timeGateRole })),
+      activationKeys: company.timeGateActivationKeys,
+    };
+  }
+
+  async listUsers(user: JwtUser) {
+    if (!user.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    const users = await this.prisma.user.findMany({
+      where: {
+        companyId: user.companyId,
+        timeGateRole: { in: [TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER] },
+      },
+      select: {
+        id: true,
+        email: true,
+        timeGateRole: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return users.map((u) => ({ ...u, role: u.timeGateRole }));
   }
 
   async createOrganization(dto: CreateOrganizationDto) {
-    return this.prisma.organization.create({
+    return this.prisma.company.create({
       data: {
+        id: generateDocId('CO'),
         name: dto.name.trim(),
         sku: dto.sku.trim().toUpperCase(),
       },
@@ -205,31 +378,33 @@ export class AuthService {
   }
 
   async createOrganizationAdmin(organizationId: string, dto: CreateOrganizationAdminDto) {
-    const organization = await this.prisma.organization.findUnique({ where: { id: organizationId } });
-    if (!organization) {
+    const company = await this.prisma.company.findUnique({ where: { id: organizationId } });
+    if (!company) {
       throw new NotFoundException('Organization not found');
     }
-    const existing = await this.prisma.user.findUnique({
-      where: { email_organizationId: { email: dto.email, organizationId } },
+    const existing = await this.prisma.user.findFirst({
+      where: { email: dto.email.trim().toLowerCase(), companyId: organizationId },
     });
     if (existing) {
       throw new ConflictException('Admin email already exists for this organization');
     }
-    const password = await bcrypt.hash(dto.password, 10);
-    return this.prisma.user.create({
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const user = await this.prisma.user.create({
       data: {
+        id: generateDocId('USR'),
         email: dto.email.trim().toLowerCase(),
-        password,
-        role: Role.ADMIN,
-        organizationId,
+        passwordHash,
+        timeGateRole: TimeGateUserRole.ADMIN,
+        companyId: organizationId,
       },
-      select: { id: true, email: true, role: true, organizationId: true, createdAt: true },
+      select: { id: true, email: true, timeGateRole: true, companyId: true, createdAt: true },
     });
+    return { ...user, role: user.timeGateRole };
   }
 
   async createActivationKey(organizationId: string, dto: CreateActivationKeyDto) {
-    const organization = await this.prisma.organization.findUnique({ where: { id: organizationId } });
-    if (!organization) {
+    const company = await this.prisma.company.findUnique({ where: { id: organizationId } });
+    if (!company) {
       throw new NotFoundException('Organization not found');
     }
 
@@ -237,21 +412,22 @@ export class AuthService {
     const keyHash = createHash('sha256').update(plainKey).digest('hex');
     const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : new Date(Date.now() + 1000 * 60 * 60 * 24 * 365);
 
-    const created = await this.prisma.activationKey.create({
+    const created = await this.prisma.timeGateActivationKey.create({
       data: {
-        organizationId,
+        id: generateDocId('KEY'),
+        companyId: organizationId,
         keyHash,
         plan: dto.plan,
         maxEmployees: dto.maxEmployees,
-        maxDevices: dto.maxDevices,
+        maxKiosks: dto.maxDevices,
         expiresAt,
       },
       select: {
         id: true,
-        organizationId: true,
+        companyId: true,
         plan: true,
         maxEmployees: true,
-        maxDevices: true,
+        maxKiosks: true,
         expiresAt: true,
         createdAt: true,
       },
@@ -259,27 +435,36 @@ export class AuthService {
 
     return {
       ...created,
+      maxKiosks: created.maxKiosks,
       activationKey: plainKey,
     };
   }
 
+  getMe(user: JwtUser) {
+    return {
+      id: user.sub,
+      email: user.email,
+      role: user.role,
+      companyId: user.companyId,
+      employeeId: user.employeeId ?? null,
+    };
+  }
+
   async getSubscriptionStatus(user: JwtUser) {
-    if (user.role === Role.SUPER_ADMIN) {
+    if (user.role === TimeGateUserRole.SUPER_ADMIN) {
       return { active: true, role: user.role, subscription: null };
     }
-    if (!user.organizationId) {
+    if (!user.companyId) {
       return { active: false, role: user.role, subscription: null };
     }
-    const subscription = await this.prisma.subscription.findFirst({
-      where: {
-        organizationId: user.organizationId,
-      },
+    const subscription = await this.prisma.timeGateSubscription.findFirst({
+      where: { companyId: user.companyId },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         plan: true,
         maxEmployees: true,
-        maxDevices: true,
+        maxKiosks: true,
         expiresAt: true,
       },
     });
@@ -287,21 +472,41 @@ export class AuthService {
     return {
       active,
       role: user.role,
-      subscription,
+      subscription: subscription
+        ? {
+            ...subscription,
+            maxDevices: subscription.maxKiosks,
+          }
+        : null,
     };
   }
 
-  private signToken(userId: string, email: string, role: string, organizationId: string | null) {
-    return this.jwt.signAsync({ sub: userId, email, role, organizationId });
+  private signToken(userId: string, email: string, role: TimeGateUserRole, companyId: string | null) {
+    return this.jwt.signAsync({ sub: userId, email, role, companyId });
+  }
+
+  private async validateEmployeeCredentials(dto: LoginDto) {
+    const normalizedEmail = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, timeGateRole: TimeGateUserRole.EMPLOYEE },
+    });
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const ok = await bcrypt.compare(dto.password, user.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    return user;
   }
 
   private async validateCredentials(dto: LoginDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const superAdmin = await this.prisma.user.findFirst({
-      where: { email: normalizedEmail, role: Role.SUPER_ADMIN, organizationId: null },
+      where: { email: normalizedEmail, timeGateRole: TimeGateUserRole.SUPER_ADMIN, companyId: null },
     });
     if (superAdmin) {
-      const ok = await bcrypt.compare(dto.password, superAdmin.password);
+      const ok = await bcrypt.compare(dto.password, superAdmin.passwordHash);
       if (!ok) {
         throw new UnauthorizedException('Invalid credentials');
       }
@@ -312,23 +517,21 @@ export class AuthService {
       throw new UnauthorizedException('Organization SKU is required');
     }
 
-    const organization = await this.prisma.organization.findUnique({
+    const company = await this.prisma.company.findFirst({
       where: { sku: dto.sku.trim().toUpperCase() },
       select: { id: true },
     });
-    if (!organization) {
+    if (!company) {
       throw new UnauthorizedException('Invalid organization SKU');
     }
 
-    const user = await this.prisma.user.findUnique({
-      where: {
-        email_organizationId: { email: normalizedEmail, organizationId: organization.id },
-      },
+    const user = await this.prisma.user.findFirst({
+      where: { email: normalizedEmail, companyId: company.id },
     });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    const ok = await bcrypt.compare(dto.password, user.password);
+    const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -336,126 +539,130 @@ export class AuthService {
   }
 
   async provisionMobile(dto: MobileProvisionDto) {
-    const device = dto.deviceId
-      ? await this.prisma.device.findUnique({ where: { id: dto.deviceId } })
-      : await this.createProvisionedDevice(dto.siteId ?? null, dto.deviceName, dto.location);
+    const branchId = dto.branchId;
+    const kiosk = dto.kioskId
+      ? await this.prisma.timeGateKiosk.findUnique({ where: { id: dto.kioskId } })
+      : await this.createProvisionedKiosk(branchId ?? null, dto.deviceName);
 
-    if (!device) {
-      throw new NotFoundException('Device not found');
+    if (!kiosk) {
+      throw new NotFoundException('Kiosk not found');
     }
 
     const lifetime_token = await this.jwt.signAsync(
       {
         typ: 'mobile_device',
-        deviceId: device.id,
-        siteId: device.siteId,
+        kioskId: kiosk.id,
+        branchId: kiosk.branchId,
       } satisfies MobileTokenPayload,
       { expiresIn: this.config.get<string>('MOBILE_LIFETIME_TOKEN_EXPIRES_IN') ?? '100y' },
     );
 
     return {
       lifetime_token,
-      device: {
-        id: device.id,
-        name: device.name,
-        siteId: device.siteId,
+      kiosk: {
+        id: kiosk.id,
+        name: kiosk.kioskName,
+        branchId: kiosk.branchId,
       },
     };
   }
 
-  async verifyMobilePhoto(token: string, file: Express.Multer.File) {
+  async verifyMobilePhoto(
+    token: string,
+    file: Express.Multer.File,
+    options?: { offlineSync?: boolean; capturedAt?: Date; idempotencyKey?: string; requestId?: string },
+  ) {
     const verifyId = randomBytes(4).toString('hex');
     const startedAt = Date.now();
-    console.log(
-      `[TimeGateAPI][verify:${verifyId}] start photoSize=${file?.size ?? 0} mime=${file?.mimetype ?? 'unknown'}`,
-    );
-    this.logger.log(
-      `[verify:${verifyId}] mobile verify requested (photoSize=${file?.size ?? 0} bytes, mimetype=${file?.mimetype ?? 'unknown'})`,
-    );
+    const reqTag = options?.requestId ? ` reqId=${options.requestId}` : '';
 
     try {
       const payload = await this.verifyMobileToken(token);
-      this.logger.log(`[verify:${verifyId}] token validated for device=${payload.deviceId}`);
+      this.compactVerifyIdempotencyCache();
+      const idempotencyKey = options?.idempotencyKey?.trim();
+      const idempotencyCacheKey = idempotencyKey ? `${payload.kioskId}:${idempotencyKey}` : null;
+      if (idempotencyCacheKey) {
+        const cached = this.verifyIdempotencyCache.get(idempotencyCacheKey);
+        if (cached && cached.expiresAt > Date.now()) {
+          return cached.response;
+        }
+      }
+
       if (!file?.buffer?.length) {
         throw new BadRequestException('Empty file');
       }
 
-      const device = await this.prisma.device.findUnique({ where: { id: payload.deviceId } });
-      if (!device) {
-        throw new NotFoundException('Device not found');
+      const kiosk = await this.prisma.timeGateKiosk.findUnique({
+        where: { id: payload.kioskId },
+        select: {
+          id: true,
+          companyId: true,
+          branchId: true,
+          shiftLocationId: true,
+        },
+      });
+      if (!kiosk) {
+        throw new NotFoundException('Kiosk not found');
       }
-      this.logger.log(
-        `[verify:${verifyId}] device loaded (id=${device.id}, siteId=${device.siteId ?? 'none'}, org=${device.organizationId})`,
-      );
+
+      await this.prisma.timeGateKiosk.update({
+        where: { id: kiosk.id },
+        data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+      });
 
       const threshold = Number(this.config.get('FACE_VERIFY_THRESHOLD') ?? 0.82);
       const t = Number.isFinite(threshold) && threshold > 0 && threshold <= 1 ? threshold : 0.82;
       const probe = await this.face.embedFromBuffer(file.buffer);
-      this.logger.log(`[verify:${verifyId}] probe embedding generated (vectorLength=${probe.length}, threshold=${t})`);
 
+      const locationEmployeeIds = await resolveKioskEligibleEmployeeIds(this.prisma, kiosk);
       const employees = await this.prisma.employee.findMany({
         where: {
-          isActive: true,
-          organizationId: device.organizationId,
-          ...(device.siteId ? { siteId: device.siteId } : {}),
+          status: EmployeeStatus.ACTIVE,
+          companyId: kiosk.companyId,
+          ...(kiosk.branchId ? { branchId: kiosk.branchId } : {}),
+          ...(locationEmployeeIds
+            ? { id: { in: locationEmployeeIds.length ? locationEmployeeIds : ['__none__'] } }
+            : {}),
         },
         select: {
           id: true,
           firstName: true,
           lastName: true,
+          employeeName: true,
           faceEmbedding: true,
         },
         take: 500,
       });
       if (!employees.length) {
-        throw new BadRequestException('No enrolled employees available for this device/site');
+        throw new BadRequestException('No enrolled employees available for this kiosk/branch');
       }
 
-      const concurrency = Number(this.config.get('MOBILE_VERIFY_CONCURRENCY') ?? 6);
-      const workerCount = Number.isFinite(concurrency) && concurrency > 0 ? Math.min(20, Math.floor(concurrency)) : 6;
-      this.logger.log(`[verify:${verifyId}] matching started (employees=${employees.length}, workers=${workerCount})`);
-      let nextIndex = 0;
-
-      const worker = async (): Promise<MatchCandidate | null> => {
-        let localBest: MatchCandidate | null = null;
-        while (true) {
-          const index = nextIndex++;
-          if (index >= employees.length) return localBest;
-          const employee = employees[index];
-          const enrolled = this.toVector(employee.faceEmbedding);
-          if (!enrolled) continue;
-          const similarity = this.face.cosineSimilarity(probe, enrolled);
-          if (similarity < t) continue;
-
-          const candidate: MatchCandidate = {
-            employeeId: employee.id,
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            similarity,
-          };
-
-          const candidateScore = candidate.similarity;
-          const localBestScore = localBest?.similarity ?? 0;
-          if (!localBest || candidateScore > localBestScore) {
-            localBest = candidate;
-          }
+      let matched: MatchCandidate | null = null;
+      for (const employee of employees) {
+        const enrolled = this.toVector(employee.faceEmbedding);
+        if (!enrolled) continue;
+        const similarity = this.face.cosineSimilarity(probe, enrolled);
+        if (similarity < t) continue;
+        const firstName = employee.firstName ?? employee.employeeName;
+        const lastName = employee.lastName ?? '';
+        const candidate: MatchCandidate = {
+          employeeId: employee.id,
+          firstName,
+          lastName,
+          similarity,
+        };
+        if (!matched || candidate.similarity > matched.similarity) {
+          matched = candidate;
         }
-      };
+      }
 
-      const candidates = await Promise.all(Array.from({ length: workerCount }, () => worker()));
-      const matched = candidates.reduce<MatchCandidate | null>((best, candidate) => {
-        if (!candidate) return best;
-        const candidateScore = candidate.similarity;
-        const bestScore = best?.similarity ?? 0;
-        return !best || candidateScore > bestScore ? candidate : best;
-      }, null);
       const success = Boolean(matched);
       const confidence = matched?.similarity ?? null;
       let imageUrl: string | null = null;
       try {
         imageUrl = await this.storage.uploadRecognitionImage({
-          organizationId: device.organizationId,
-          deviceId: device.id,
+          organizationId: kiosk.companyId,
+          deviceId: kiosk.id,
           contentType: file.mimetype,
           buffer: file.buffer,
         });
@@ -467,43 +674,65 @@ export class AuthService {
         );
       }
 
-      const log = await this.prisma.recognitionLog.create({
+      const log = await this.prisma.faceRecognitionLog.create({
         data: {
+          id: generateDocId('FRL'),
+          kioskId: kiosk.id,
+          branchId: kiosk.branchId,
+          companyId: kiosk.companyId,
           employeeId: matched?.employeeId ?? null,
-          deviceId: device.id,
-          organizationId: device.organizationId,
+          employeeName: matched ? `${matched.firstName} ${matched.lastName}`.trim() : null,
           success,
           confidence: confidence ?? undefined,
-          imageUrl: imageUrl ?? undefined,
+          photo: imageUrl ?? undefined,
+          isOfflineSync: Boolean(options?.offlineSync),
+          capturedAt: options?.capturedAt,
+          idempotencyKey: idempotencyKey ?? undefined,
         },
-        select: { id: true, success: true, confidence: true, imageUrl: true, createdAt: true },
+        select: { id: true, success: true, confidence: true, photo: true, createdAt: true },
       });
-      this.logger.log(
-        `[verify:${verifyId}] completed success=${success} confidence=${confidence ?? 'n/a'} logId=${log.id} in ${Date.now() - startedAt}ms`,
-      );
-      console.log(
-        `[TimeGateAPI][verify:${verifyId}] done success=${success} confidence=${confidence ?? 'n/a'} elapsedMs=${Date.now() - startedAt}`,
-      );
+
+      if (options?.offlineSync) {
+        await this.prisma.timeGateAuditLog.create({
+          data: {
+            id: generateDocId('AUD'),
+            userId: null,
+            companyId: kiosk.companyId,
+            action: 'OFFLINE_SYNC_VERIFY',
+            entity: 'FaceRecognitionLog',
+            entityId: log.id,
+          },
+        });
+      }
 
       let attendanceMessage: string | null = null;
       let birthdayMessage: string | null = null;
       if (success && matched) {
         attendanceMessage = await this.applyAttendanceFromVerification({
           employeeId: matched.employeeId,
-          deviceId: device.id,
-          organizationId: device.organizationId,
+          kioskId: kiosk.id,
+          branchId: kiosk.branchId,
+          companyId: kiosk.companyId,
           confidence: confidence ?? 1,
+          verificationRef: log.id,
+          source: options?.offlineSync
+            ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
+            : TimeGateAttendanceEventSource.KIOSK_ONLINE,
         });
         birthdayMessage = await this.buildBirthdayMessage(matched.employeeId);
       }
 
-      const welcomeMessage = success ? `Bienvenue ${matched!.firstName} ${matched!.lastName}` : 'Visage non reconnu';
+      const welcomeMessage = success
+        ? `Bienvenue ${matched!.firstName} ${matched!.lastName}`
+        : 'Visage non reconnu';
       const message = [welcomeMessage, attendanceMessage, birthdayMessage].filter(Boolean).join(' | ');
 
-      return {
+      const response: VerifyMobileResult = {
         success,
         confidence,
         message,
+        offlineSync: Boolean(options?.offlineSync),
+        capturedAt: options?.capturedAt?.toISOString() ?? null,
         employee: success
           ? {
               id: matched!.employeeId,
@@ -511,14 +740,23 @@ export class AuthService {
               lastName: matched!.lastName,
             }
           : null,
-        log,
+        log: {
+          id: log.id,
+          success: log.success,
+          confidence: log.confidence ? Number(log.confidence) : null,
+          imageUrl: log.photo,
+          createdAt: log.createdAt,
+        },
       };
+
+      if (idempotencyCacheKey) {
+        this.verifyIdempotencyCache.set(idempotencyCacheKey, {
+          response,
+          expiresAt: Date.now() + 10 * 60 * 1000,
+        });
+      }
+      return response;
     } catch (error) {
-      console.log(
-        `[TimeGateAPI][verify:${verifyId}] error elapsedMs=${Date.now() - startedAt} message=${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
       this.logger.error(
         `[verify:${verifyId}] failed after ${Date.now() - startedAt}ms: ${
           error instanceof Error ? error.message : String(error)
@@ -528,21 +766,149 @@ export class AuthService {
     }
   }
 
+  async verifyMobilePin(
+    token: string,
+    dto: MobileVerifyPinDto,
+    options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
+  ) {
+    const payload = await this.verifyMobileToken(token);
+    this.compactVerifyIdempotencyCache();
+    const idempotencyKey = options?.idempotencyKey?.trim();
+    const idempotencyCacheKey = idempotencyKey ? `${payload.kioskId}:pin:${idempotencyKey}` : null;
+    if (idempotencyCacheKey) {
+      const cached = this.verifyIdempotencyCache.get(idempotencyCacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.response;
+      }
+    }
+
+    const kiosk = await this.prisma.timeGateKiosk.findUnique({
+      where: { id: payload.kioskId },
+      select: { id: true, companyId: true, branchId: true },
+    });
+    if (!kiosk) throw new NotFoundException('Kiosk not found');
+
+    await this.prisma.timeGateKiosk.update({
+      where: { id: kiosk.id },
+      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+    });
+
+    const locationEmployeeIds = await resolveKioskEligibleEmployeeIds(this.prisma, kiosk);
+    if (locationEmployeeIds && !locationEmployeeIds.includes(dto.employeeId)) {
+      throw new BadRequestException('Employee not eligible for this kiosk');
+    }
+
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        id: dto.employeeId,
+        status: EmployeeStatus.ACTIVE,
+        companyId: kiosk.companyId,
+        ...(kiosk.branchId ? { branchId: kiosk.branchId } : {}),
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeName: true,
+        kioskPinHash: true,
+      },
+    });
+    if (!employee?.kioskPinHash) {
+      throw new BadRequestException('PIN kiosk non configure pour cet employe');
+    }
+
+    const pinOk = await bcrypt.compare(dto.pin, employee.kioskPinHash);
+    if (!pinOk) {
+      throw new UnauthorizedException('PIN incorrect');
+    }
+
+    const firstName = employee.firstName ?? employee.employeeName;
+    const lastName = employee.lastName ?? '';
+    const log = await this.prisma.faceRecognitionLog.create({
+      data: {
+        id: generateDocId('FRL'),
+        kioskId: kiosk.id,
+        branchId: kiosk.branchId,
+        companyId: kiosk.companyId,
+        employeeId: employee.id,
+        employeeName: `${firstName} ${lastName}`.trim(),
+        success: true,
+        confidence: 1,
+        isOfflineSync: Boolean(options?.offlineSync),
+        capturedAt: options?.capturedAt,
+        idempotencyKey: idempotencyKey ?? undefined,
+      },
+      select: { id: true, success: true, confidence: true, photo: true, createdAt: true },
+    });
+
+    const attendanceMessage = await this.applyAttendanceFromVerification({
+      employeeId: employee.id,
+      kioskId: kiosk.id,
+      branchId: kiosk.branchId,
+      companyId: kiosk.companyId,
+      confidence: 1,
+      verificationRef: log.id,
+      source: options?.offlineSync
+        ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
+        : TimeGateAttendanceEventSource.KIOSK_ONLINE,
+    });
+    const birthdayMessage = await this.buildBirthdayMessage(employee.id);
+    const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
+      .filter(Boolean)
+      .join(' | ');
+
+    const response: VerifyMobileResult = {
+      success: true,
+      confidence: 1,
+      message,
+      offlineSync: Boolean(options?.offlineSync),
+      capturedAt: options?.capturedAt?.toISOString() ?? null,
+      employee: { id: employee.id, firstName, lastName },
+      log: {
+        id: log.id,
+        success: log.success,
+        confidence: log.confidence ? Number(log.confidence) : 1,
+        imageUrl: log.photo,
+        createdAt: log.createdAt,
+      },
+    };
+
+    if (idempotencyCacheKey) {
+      this.verifyIdempotencyCache.set(idempotencyCacheKey, {
+        response,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+    }
+    return response;
+  }
+
+  private compactVerifyIdempotencyCache() {
+    const now = Date.now();
+    for (const [key, value] of this.verifyIdempotencyCache.entries()) {
+      if (value.expiresAt <= now) {
+        this.verifyIdempotencyCache.delete(key);
+      }
+    }
+  }
+
   private async applyAttendanceFromVerification(params: {
     employeeId: string;
-    deviceId: string;
-    organizationId: string;
+    kioskId: string;
+    branchId: string;
+    companyId: string;
     confidence: number;
+    verificationRef?: string;
+    source?: TimeGateAttendanceEventSource;
   }): Promise<string> {
     const employee = await this.prisma.employee.findUnique({
       where: { id: params.employeeId },
-      include: {
-        schedule: { include: { workDays: true } },
-        site: { select: { id: true, timezone: true } },
-      },
+      select: { id: true, employeeName: true, firstName: true, lastName: true, status: true, branchId: true },
     });
-    if (!employee) {
-      return 'Employe introuvable pour le pointage.';
+    if (!employee || employee.status !== EmployeeStatus.ACTIVE) {
+      return 'Employe introuvable ou inactif pour le pointage.';
+    }
+    if (!employee.branchId) {
+      return "Employe sans site d'affectation. Pointage non enregistre.";
     }
 
     const now = new Date();
@@ -551,186 +917,111 @@ export class AuthService {
     const dayEnd = new Date(now);
     dayEnd.setHours(23, 59, 59, 999);
 
-    const isHoliday = await this.prisma.holiday.findFirst({
-      where: {
-        organizationId: params.organizationId,
-        date: { gte: dayStart, lte: dayEnd },
-      },
-      select: { id: true, name: true },
+    const todaysCheckins = await this.prisma.employeeCheckin.findMany({
+      where: { employeeId: params.employeeId, time: { gte: dayStart, lte: dayEnd } },
+      orderBy: { time: 'asc' },
+      select: { logType: true },
     });
-    if (isHoliday) {
-      return `Aucun pointage enregistre: jour ferie (${isHoliday.name}).`;
-    }
+    const hasCheckIn = todaysCheckins.some((c) => c.logType === CheckinLogType.IN);
+    const hasCheckOut = todaysCheckins.some((c) => c.logType === CheckinLogType.OUT);
 
-    const effectiveSchedule =
-      employee.schedule ??
-      (await this.prisma.workSchedule.findFirst({
-        where: { siteId: employee.siteId, organizationId: params.organizationId },
-        include: { workDays: true },
-        orderBy: { createdAt: 'asc' },
-      }));
-
-    if (!effectiveSchedule) {
-      return "Aucun planning associe. Le pointage n'a pas ete enregistre.";
-    }
-
-    const weekday = this.weekDayFromDate(now);
-    const dayRule = effectiveSchedule.workDays.find((d) => d.day === weekday);
-    if (!dayRule) {
-      return "Aucun service prevu aujourd'hui (jour off).";
-    }
-
-    const startMinutes = this.timeToMinutes(dayRule.startTime);
-    const endMinutes = this.timeToMinutes(dayRule.endTime);
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const earliestCheckIn = startMinutes - 120;
-
-    const todaysAttendances = await this.prisma.attendance.findMany({
-      where: {
-        employeeId: params.employeeId,
-        timestamp: { gte: dayStart, lte: dayEnd },
-      },
-      select: { id: true, type: true, timestamp: true },
-      orderBy: { timestamp: 'asc' },
-    });
-    const hasCheckIn = todaysAttendances.some((a) => a.type === AttendanceType.CHECK_IN);
-    const hasCheckOut = todaysAttendances.some((a) => a.type === AttendanceType.CHECK_OUT);
-
-    const decision = this.decideAttendance({
-      nowMinutes,
-      startMinutes,
-      endMinutes,
-      earliestCheckIn,
-      hasCheckIn,
-      hasCheckOut,
-    });
-
+    const decision = this.decideAttendance({ hasCheckIn, hasCheckOut });
     if (decision.kind === 'NONE') {
       return decision.message;
     }
 
-    const attendance = await this.prisma.attendance.create({
+    const eventType =
+      decision.kind === 'CHECK_IN'
+        ? TimeGateAttendanceEventType.CHECK_IN
+        : TimeGateAttendanceEventType.CHECK_OUT;
+
+    const { status, autoReviewReason } = await this.eventStatus.resolveForCompany(
+      params.companyId,
+      params.confidence,
+    );
+    const pendingMeta = this.eventStatus.buildPendingMeta({ status, autoReviewReason });
+
+    const event = await this.prisma.timeGateAttendanceEvent.create({
       data: {
+        id: generateDocId('AEV'),
+        companyId: params.companyId,
+        branchId: params.branchId,
+        kioskId: params.kioskId,
         employeeId: params.employeeId,
-        deviceId: params.deviceId,
-        organizationId: params.organizationId,
-        type: decision.kind,
+        source: params.source ?? TimeGateAttendanceEventSource.KIOSK_ONLINE,
+        type: eventType,
+        status,
+        occurredAt: now,
         confidence: params.confidence,
-        timestamp: now,
+        verificationRef: params.verificationRef,
+        idempotencyKey: params.verificationRef
+          ? `verify:${params.verificationRef}:attendance:${decision.kind}`
+          : undefined,
+        meta: pendingMeta,
       },
     });
 
-    if (decision.kind === 'CHECK_IN') {
-      const latenessMinutes = nowMinutes - (startMinutes + (effectiveSchedule.lateGraceMinutes ?? 0));
-      if (latenessMinutes > 0) {
-        const hasLate = await this.prisma.lateRecord.findFirst({
-          where: {
-            employeeId: params.employeeId,
-            date: { gte: dayStart, lte: dayEnd },
-          },
-          select: { id: true },
-        });
-        if (!hasLate) {
-          await this.prisma.lateRecord.create({
-            data: {
-              employeeId: params.employeeId,
-              organizationId: params.organizationId,
-              attendanceId: attendance.id,
-              date: now,
-              latenessMinutes,
-              justified: false,
-            },
-          });
-        }
-        return `${decision.message} Retard detecte: ${latenessMinutes} min.`;
-      }
+    if (status === TimeGateAttendanceEventStatus.ACCEPTED) {
+      await this.eventStatus.materializeAcceptedEvent(event);
+      return decision.message;
     }
 
-    return decision.message;
+    return `${decision.message} En attente de validation manager (confiance ${params.confidence.toFixed(2)}).`;
   }
 
-  private decideAttendance(params: {
-    nowMinutes: number;
-    startMinutes: number;
-    endMinutes: number;
-    earliestCheckIn: number;
-    hasCheckIn: boolean;
-    hasCheckOut: boolean;
-  }): AttendanceDecision {
-    const formatHm = (minutes: number) => {
-      const normalized = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
-      const hh = String(Math.floor(normalized / 60)).padStart(2, '0');
-      const mm = String(normalized % 60).padStart(2, '0');
-      return `${hh}:${mm}`;
-    };
-
-    if (params.nowMinutes >= params.endMinutes) {
-      if (params.hasCheckOut) {
-        return { kind: 'NONE', message: 'Pointage de fin deja enregistre pour aujourd\'hui.' };
-      }
+  private decideAttendance(params: { hasCheckIn: boolean; hasCheckOut: boolean }): AttendanceDecision {
+    if (params.hasCheckOut) {
+      return { kind: 'NONE', message: "Pointage de fin deja enregistre pour aujourd'hui." };
+    }
+    if (params.hasCheckIn) {
       return { kind: 'CHECK_OUT', message: 'Pointage de fin enregistre.' };
     }
-
-    if (params.nowMinutes < params.earliestCheckIn) {
-      return {
-        kind: 'NONE',
-        message: `Pointage d'arrivee autorise a partir de ${formatHm(params.earliestCheckIn)}.`,
-      };
-    }
-
-    if (params.hasCheckIn) {
-      return { kind: 'NONE', message: "Pointage d'arrivee deja enregistre pour aujourd'hui." };
-    }
-
     return { kind: 'CHECK_IN', message: "Pointage d'arrivee enregistre." };
-  }
-
-  private weekDayFromDate(date: Date): WeekDay {
-    const map: WeekDay[] = [
-      WeekDay.SUNDAY,
-      WeekDay.MONDAY,
-      WeekDay.TUESDAY,
-      WeekDay.WEDNESDAY,
-      WeekDay.THURSDAY,
-      WeekDay.FRIDAY,
-      WeekDay.SATURDAY,
-    ];
-    return map[date.getDay()];
-  }
-
-  private timeToMinutes(value: string): number {
-    const [h, m] = value.split(':');
-    const hours = Number(h);
-    const minutes = Number(m);
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
-    return hours * 60 + minutes;
   }
 
   private async buildBirthdayMessage(employeeId: string): Promise<string | null> {
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
-      select: { firstName: true, birthDate: true, whatsappPhone: true },
+      select: { firstName: true, employeeName: true, dateOfBirth: true, cellNumber: true },
     });
-    if (!employee?.birthDate) return null;
+    if (!employee?.dateOfBirth) return null;
     const today = new Date();
     if (
-      employee.birthDate.getDate() === today.getDate() &&
-      employee.birthDate.getMonth() === today.getMonth()
+      employee.dateOfBirth.getDate() === today.getDate() &&
+      employee.dateOfBirth.getMonth() === today.getMonth()
     ) {
-      if (employee.whatsappPhone) {
+      const name = employee.firstName ?? employee.employeeName;
+      if (employee.cellNumber) {
         this.logger.log(
-          `[birthday] WhatsApp enqueue simulated for employee=${employeeId} to=${employee.whatsappPhone}`,
+          `[birthday] WhatsApp enqueue simulated for employee=${employeeId} to=${employee.cellNumber}`,
         );
       }
-      return `Joyeux anniversaire ${employee.firstName} !`;
+      return `Joyeux anniversaire ${name} !`;
     }
     return null;
+  }
+
+  async heartbeatMobile(token: string) {
+    const payload = await this.verifyMobileToken(token);
+    const kiosk = await this.prisma.timeGateKiosk.update({
+      where: { id: payload.kioskId },
+      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+      select: { id: true, status: true, lastSeenAt: true },
+    });
+    return {
+      ok: true,
+      device: {
+        id: kiosk.id,
+        status: kiosk.status,
+        lastSeenAt: kiosk.lastSeenAt,
+      },
+    };
   }
 
   private async verifyMobileToken(token: string): Promise<MobileTokenPayload> {
     try {
       const payload = await this.jwt.verifyAsync<MobileTokenPayload>(token);
-      if (payload?.typ !== 'mobile_device' || !payload.deviceId) {
+      if (payload?.typ !== 'mobile_device' || !payload.kioskId) {
         throw new UnauthorizedException('Invalid mobile token');
       }
       return payload;
@@ -739,28 +1030,33 @@ export class AuthService {
     }
   }
 
-  private async createProvisionedDevice(
-    siteId: string | null,
+  private async createProvisionedKiosk(
+    branchId: string | null,
     deviceName: string | undefined,
-    location: string | undefined,
   ) {
-    if (!siteId) {
-      throw new BadRequestException('Missing siteId for new device creation.');
+    if (!branchId) {
+      throw new BadRequestException('Missing branchId for new kiosk creation.');
     }
     const name = deviceName?.trim() || `Kiosk-${Date.now().toString().slice(-6)}`;
-    const site = await this.prisma.site.findUnique({ where: { id: siteId } });
-    if (!site) {
-      throw new NotFoundException('Site not found');
+    const branch = await this.prisma.branch.findUnique({ where: { id: branchId } });
+    if (!branch) {
+      throw new NotFoundException('Branch not found');
     }
 
-    return this.prisma.device.create({
+    const existing = await this.prisma.timeGateKiosk.findUnique({ where: { branchId } });
+    if (existing) {
+      return existing;
+    }
+
+    return this.prisma.timeGateKiosk.create({
       data: {
-        name,
-        siteId,
-        organizationId: site.organizationId,
-        apiKey: randomBytes(24).toString('hex'),
-        location: location?.trim() || 'Mobile app',
-        status: DeviceStatus.ONLINE,
+        id: generateDocId('KSK'),
+        kioskName: name,
+        branchId,
+        companyId: branch.companyId,
+        deviceApiKey: randomBytes(24).toString('hex'),
+        status: KioskStatus.ONLINE,
+        lastSeenAt: new Date(),
       },
     });
   }

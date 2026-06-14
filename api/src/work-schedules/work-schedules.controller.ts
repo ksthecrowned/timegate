@@ -1,19 +1,21 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';
 import { WorkSchedulesService } from './work-schedules.service';
 
-@Controller('work-schedules')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@Controller('shift-types')
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class WorkSchedulesController {
   constructor(private readonly service: WorkSchedulesService) {}
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post()
   create(@Body() dto: CreateWorkScheduleDto) {
     return this.service.create(dto);
@@ -24,15 +26,20 @@ export class WorkSchedulesController {
     return this.service.findAll(query);
   }
 
-  @Roles(Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id', DocIdPipe) id: string) {
+    return this.service.findOne(id);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateWorkScheduleDto) {
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateWorkScheduleDto) {
     return this.service.update(id, dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
+  remove(@Param('id', DocIdPipe) id: string) {
     return this.service.remove(id);
   }
 }

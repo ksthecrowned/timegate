@@ -1,13 +1,15 @@
-import { IsOptional, IsString, IsUUID, MaxLength, MinLength } from 'class-validator';
+import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class MobileProvisionDto {
   @IsOptional()
-  @IsUUID()
-  deviceId?: string;
+  @IsString()
+  @MaxLength(140)
+  kioskId?: string;
 
   @IsOptional()
-  @IsUUID()
-  siteId?: string;
+  @IsString()
+  @MaxLength(140)
+  branchId?: string;
 
   @IsOptional()
   @IsString()
@@ -20,4 +22,3 @@ export class MobileProvisionDto {
   @MaxLength(200)
   location?: string;
 }
-

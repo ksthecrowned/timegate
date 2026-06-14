@@ -15,7 +15,8 @@
       "adaptiveIcon": {
         "backgroundColor": "#FFD23F"
       },
-      "package": "com.timegate.mobile"
+      "package": "com.timegate.mobile",
+      "usesCleartextTraffic": true
     },
     "plugins": [
       "expo-router",

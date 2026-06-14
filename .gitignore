@@ -7,3 +7,4 @@ mobile-app/.env
 api/.env.*
 dashboard/.env.*
 mobile-app/.env.*
+api-deprecation.log

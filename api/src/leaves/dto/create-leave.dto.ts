@@ -1,8 +1,15 @@
-import { LeaveStatus, LeaveType } from '@prisma/client';
-import { IsDateString, IsEnum, IsOptional, IsString, IsUUID, MaxLength } from 'class-validator';
+import { IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+
+/** Legacy dashboard status values (maps to LeaveApplicationStatus). */
+export enum LegacyLeaveStatus {
+  PENDING = 'PENDING',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
+}
 
 export class CreateLeaveDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   employeeId!: string;
 
   @IsDateString()
@@ -17,10 +24,11 @@ export class CreateLeaveDto {
   reason?: string;
 
   @IsOptional()
-  @IsEnum(LeaveStatus)
-  status?: LeaveStatus;
+  @IsEnum(LegacyLeaveStatus)
+  status?: LegacyLeaveStatus;
 
   @IsOptional()
-  @IsEnum(LeaveType)
-  type?: LeaveType;
+  @IsString()
+  @MaxLength(140)
+  leaveTypeId?: string;
 }

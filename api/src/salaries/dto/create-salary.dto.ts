@@ -1,35 +1,31 @@
-import { Type } from 'class-transformer';
-import { IsInt, IsNumber, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CreateSalaryDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   employeeId!: string;
 
-  @Type(() => Number)
   @IsInt()
   @Min(2000)
-  @Max(3000)
   year!: number;
 
-  @Type(() => Number)
   @IsInt()
   @Min(1)
   @Max(12)
   month!: number;
 
-  @Type(() => Number)
   @IsNumber()
   @Min(0)
   baseSalary!: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Min(0)
   bonuses?: number;
 
   @IsOptional()
-  @Type(() => Number)
   @IsNumber()
+  @Min(0)
   deductions?: number;
 
   @IsOptional()

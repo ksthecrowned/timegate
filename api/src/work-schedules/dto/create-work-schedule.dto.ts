@@ -1,17 +1,18 @@
-import { IsDateString, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateWorkScheduleDto {
-  @IsUUID()
-  siteId!: string;
+  @IsString()
+  @MaxLength(140)
+  branchId!: string;
 
   @IsString()
-  @MaxLength(120)
+  @MaxLength(140)
   name!: string;
 
-  @IsDateString()
+  @IsString()
   startTime!: string;
 
-  @IsDateString()
+  @IsString()
   endTime!: string;
 
   @IsOptional()

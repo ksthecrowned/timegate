@@ -1,38 +1,55 @@
-import { Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
-import { Role } from '@prisma/client';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
-import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { AbsencesService } from './absences.service';
+import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
+import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { SyncRecordsDto } from '../common/dto/sync-records.dto';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { CreateAbsenceDto } from './dto/create-absence.dto';
 import { UpdateAbsenceDto } from './dto/update-absence.dto';
+import { AbsencesService } from './absences.service';
 
 @Controller('absences')
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
 export class AbsencesController {
-  constructor(private absences: AbsencesService) {}
+  constructor(private readonly service: AbsencesService) {}
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post()
   create(@Body() dto: CreateAbsenceDto) {
-    return this.absences.create(dto);
+    return this.service.create(dto);
   }
 
   @Get()
-  findAll(@Query() query: PaginationQueryDto) {
-    return this.absences.findAll(query);
+  findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
+    const companyId =
+      user.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user.companyId ?? undefined;
+    return this.service.findAll(query, companyId);
   }
 
-  @Roles(Role.ADMIN)
+  @Get(':id')
+  findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.findOne(id, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Post('sync')
+  sync(@Body() dto: SyncRecordsDto, @CurrentUser() user: JwtUser) {
+    return this.service.syncFromAttendance(dto, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Patch(':id')
-  update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateAbsenceDto) {
-    return this.absences.update(id, dto);
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateAbsenceDto, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Delete(':id')
-  remove(@Param('id', ParseUUIDPipe) id: string) {
-    return this.absences.remove(id);
+  remove(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }

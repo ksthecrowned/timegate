@@ -5,5 +5,6 @@ import { WorkDaysService } from './work-days.service';
 @Module({
   controllers: [WorkDaysController],
   providers: [WorkDaysService],
+  exports: [WorkDaysService],
 })
 export class WorkDaysModule {}

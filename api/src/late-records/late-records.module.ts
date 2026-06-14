@@ -5,5 +5,6 @@ import { LateRecordsService } from './late-records.service';
 @Module({
   controllers: [LateRecordsController],
   providers: [LateRecordsService],
+  exports: [LateRecordsService],
 })
 export class LateRecordsModule {}

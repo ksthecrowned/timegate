@@ -7,17 +7,17 @@ import {
   Logger,
   Param,
   ParseFilePipeBuilder,
-  ParseUUIDPipe,
   Post,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { Role } from '@prisma/client';
+import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AllowInactiveSubscription } from '../common/decorators/allow-inactive-subscription.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { AuthService } from './auth.service';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
@@ -26,6 +26,7 @@ import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
+import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -40,28 +41,46 @@ export class AuthController {
   }
 
   @Public()
+  @Post('employee/login')
+  employeeLogin(@Body() dto: LoginDto) {
+    return this.auth.employeeLogin(dto);
+  }
+
+  @Public()
   @Post('mobile/bootstrap')
   mobileBootstrap(@Body() dto: LoginDto) {
     return this.auth.mobileBootstrap(dto);
   }
 
-  @Roles(Role.ADMIN)
+  @Roles(TimeGateUserRole.ADMIN)
   @Post('users')
   createUser(@Body() dto: CreateUserDto) {
     return this.auth.createUser(dto);
   }
 
+  @Roles(TimeGateUserRole.ADMIN)
+  @Get('users')
+  listUsers(@CurrentUser() user: JwtUser) {
+    return this.auth.listUsers(user);
+  }
+
   @AllowInactiveSubscription()
-  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.SUPER_ADMIN)
   @Post('activate')
   activate(@CurrentUser() user: JwtUser, @Body() dto: ActivateSubscriptionDto) {
     return this.auth.activateSubscription(user, dto);
   }
 
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
   @Get('super-admin/organizations')
   listOrganizations() {
     return this.auth.listOrganizations();
+  }
+
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Get('super-admin/organizations/:organizationId')
+  getOrganization(@Param('organizationId', DocIdPipe) organizationId: string) {
+    return this.auth.getOrganization(organizationId);
   }
 
   @AllowInactiveSubscription()
@@ -70,34 +89,47 @@ export class AuthController {
     return this.auth.getSubscriptionStatus(user);
   }
 
-  @Roles(Role.SUPER_ADMIN)
+  @AllowInactiveSubscription()
+  @Get('me')
+  me(@CurrentUser() user: JwtUser) {
+    return this.auth.getMe(user);
+  }
+
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
   @Post('super-admin/organizations')
   createOrganization(@Body() dto: CreateOrganizationDto) {
     return this.auth.createOrganization(dto);
   }
 
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
   @Post('super-admin/organizations/:organizationId/admins')
   createOrganizationAdmin(
-    @Param('organizationId', ParseUUIDPipe) organizationId: string,
+    @Param('organizationId', DocIdPipe) organizationId: string,
     @Body() dto: CreateOrganizationAdminDto,
   ) {
     return this.auth.createOrganizationAdmin(organizationId, dto);
   }
 
-  @Roles(Role.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
   @Post('super-admin/organizations/:organizationId/activation-keys')
   createActivationKey(
-    @Param('organizationId', ParseUUIDPipe) organizationId: string,
+    @Param('organizationId', DocIdPipe) organizationId: string,
     @Body() dto: CreateActivationKeyDto,
   ) {
     return this.auth.createActivationKey(organizationId, dto);
   }
 
-  @Roles(Role.ADMIN, Role.MANAGER)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post('mobile/provision')
   provisionMobile(@Body() dto: MobileProvisionDto) {
     return this.auth.provisionMobile(dto);
+  }
+
+  @Public()
+  @Post('mobile/heartbeat')
+  mobileHeartbeat(@Headers('authorization') authorization: string | undefined) {
+    const token = this.extractBearerToken(authorization);
+    return this.auth.heartbeatMobile(token);
   }
 
   @Public()
@@ -105,6 +137,10 @@ export class AuthController {
   @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   verifyMobile(
     @Headers('authorization') authorization: string | undefined,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body('offlineSync') offlineSyncRaw: string | undefined,
+    @Body('capturedAt') capturedAtRaw: string | undefined,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
@@ -112,15 +148,36 @@ export class AuthController {
     )
     file: Express.Multer.File,
   ) {
-    // Fallback raw logs to ease field debugging even if Nest logger levels/config differ.
-    console.log(
-      `[TimeGateAPI][mobile/verify] incoming request photoSize=${file?.size ?? 0} hasAuth=${Boolean(authorization)}`,
-    );
-    this.logger.log(
-      `[mobile/verify] request received (photoSize=${file?.size ?? 0} bytes, hasAuth=${Boolean(authorization)})`,
-    );
     const token = this.extractBearerToken(authorization);
-    return this.auth.verifyMobilePhoto(token, file);
+    const offlineSync = `${offlineSyncRaw ?? ''}`.trim().toLowerCase() === '1';
+    const capturedAt = capturedAtRaw?.trim() ? new Date(capturedAtRaw) : undefined;
+    return this.auth.verifyMobilePhoto(token, file, {
+      idempotencyKey: idempotencyKey?.trim() || undefined,
+      requestId: requestId?.trim() || undefined,
+      offlineSync,
+      capturedAt: capturedAt && !Number.isNaN(capturedAt.getTime()) ? capturedAt : undefined,
+    });
+  }
+
+  @Public()
+  @Post('mobile/verify-pin')
+  verifyMobilePin(
+    @Headers('authorization') authorization: string | undefined,
+    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
+    @Headers('x-request-id') requestId: string | undefined,
+    @Body() dto: MobileVerifyPinDto,
+    @Body('offlineSync') offlineSyncRaw?: string,
+    @Body('capturedAt') capturedAtRaw?: string,
+  ) {
+    const token = this.extractBearerToken(authorization);
+    const offlineSync = `${offlineSyncRaw ?? ''}`.trim().toLowerCase() === '1';
+    const capturedAt = capturedAtRaw?.trim() ? new Date(capturedAtRaw) : undefined;
+    return this.auth.verifyMobilePin(token, dto, {
+      idempotencyKey: idempotencyKey?.trim() || undefined,
+      requestId: requestId?.trim() || undefined,
+      offlineSync,
+      capturedAt: capturedAt && !Number.isNaN(capturedAt.getTime()) ? capturedAt : undefined,
+    });
   }
 
   private extractBearerToken(authorization: string | undefined): string {

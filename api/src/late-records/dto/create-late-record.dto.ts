@@ -1,7 +1,8 @@
-import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, IsUUID, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsDateString, IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class CreateLateRecordDto {
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   employeeId!: string;
 
   @IsDateString()

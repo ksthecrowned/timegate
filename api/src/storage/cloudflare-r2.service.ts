@@ -73,6 +73,18 @@ export class CloudflareR2Service {
     });
   }
 
+  async uploadCompanyLogo(params: {
+    organizationId: string;
+    contentType?: string;
+    buffer: Buffer;
+  }): Promise<string | null> {
+    return this.upload({
+      folder: `company-logos/${params.organizationId}`,
+      contentType: params.contentType,
+      buffer: params.buffer,
+    });
+  }
+
   private async upload(params: { folder: string; contentType?: string; buffer: Buffer }): Promise<string | null> {
     if (!this.client || !this.bucket || !this.publicBaseUrl) {
       return null;

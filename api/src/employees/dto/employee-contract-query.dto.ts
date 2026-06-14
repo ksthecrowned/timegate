@@ -1,8 +1,9 @@
-import { IsOptional, IsUUID } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 export class EmployeeContractQueryDto extends PaginationQueryDto {
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
   employeeId?: string;
 }

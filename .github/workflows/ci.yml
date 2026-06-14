@@ -1,0 +1,120 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: timegate
+          POSTGRES_PASSWORD: timegate
+          POSTGRES_DB: timegate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U timegate -d timegate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://timegate:timegate@localhost:5432/timegate
+      JWT_SECRET: ci-test-secret-change-me
+      JWT_EXPIRES_IN: 8h
+      PORT: 4001
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001
+      TIMEGATE_WAIT_API: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.0"
+
+      - name: Install API dependencies
+        working-directory: api
+        run: bun install --frozen-lockfile
+
+      - name: Prisma migrate
+        working-directory: api
+        run: bunx prisma migrate deploy
+
+      - name: Prisma seed
+        working-directory: api
+        run: bunx prisma db seed
+
+      - name: Build API
+        working-directory: api
+        run: bun run build
+
+      - name: Start API
+        working-directory: api
+        run: |
+          bun run start:prod &
+          echo $! > api.pid
+
+      - name: Run use-case tests
+        working-directory: api
+        run: bun run test:use-cases
+
+      - name: Stop API
+        if: always()
+        working-directory: api
+        run: |
+          if [ -f api.pid ]; then kill "$(cat api.pid)" || true; fi
+
+  frontend:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - app: dashboard
+            installer: bun
+          - app: employee-web
+            installer: npm
+          - app: mobile-app
+            installer: bun
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: ${{ matrix.installer == 'npm' && 'npm' || '' }}
+          cache-dependency-path: ${{ matrix.installer == 'npm' && format('{0}/package-lock.json', matrix.app) || '' }}
+
+      - uses: oven-sh/setup-bun@v2
+        if: matrix.installer == 'bun'
+        with:
+          bun-version: "1.3.0"
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.app }}
+        run: |
+          if [ "${{ matrix.installer }}" = "bun" ]; then
+            bun install --frozen-lockfile
+          else
+            npm ci
+          fi
+
+      - name: Typecheck
+        working-directory: ${{ matrix.app }}
+        run: |
+          if [ "${{ matrix.installer }}" = "bun" ]; then
+            bunx tsc --noEmit
+          else
+            npx tsc --noEmit
+          fi

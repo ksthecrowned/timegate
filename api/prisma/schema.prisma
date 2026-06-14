@@ -1,3 +1,5 @@
+// Time Gate 1.2.0 
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -6,37 +8,118 @@ datasource db {
   provider = "postgresql"
 }
 
-//////////////////////////////////////////////////
-// ENUMS
-//////////////////////////////////////////////////
+// ---------------------------------------------------------------------------
+// Enums — Frappe / HRMS
+// ---------------------------------------------------------------------------
 
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  MANAGER
+enum DocStatus {
+  DRAFT
+  SUBMITTED
+  CANCELLED
 }
 
-enum AttendanceType {
-  CHECK_IN
-  CHECK_OUT
+enum EmployeeStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  LEFT
+}
+
+enum CheckinLogType {
+  IN
+  OUT
 }
 
 enum AttendanceStatus {
-  ON_TIME
-  LATE
-  VERY_LATE
-  EARLY_LEAVE
+  PRESENT
+  ABSENT
+  HALF_DAY
+  ON_LEAVE
+  ON_HOLIDAY
+  WORK_FROM_HOME
 }
 
-enum DeviceStatus {
+enum PayrollEntryStatus {
+  DRAFT
+  SUBMITTED
+  CANCELLED
+}
+
+enum KioskStatus {
   ONLINE
   OFFLINE
 }
 
-enum LeaveStatus {
+enum LeaveApplicationStatus {
+  OPEN
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum SalaryComponentType {
+  EARNING
+  DEDUCTION
+}
+
+enum PaymentEntryType {
+  PAY
+  RECEIVE
+  INTERNAL_TRANSFER
+}
+
+// ---------------------------------------------------------------------------
+// Enums — TimeGate platform
+// ---------------------------------------------------------------------------
+
+enum TimeGateUserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum TimeGateAttendanceEventType {
+  CHECK_IN
+  CHECK_OUT
+  BREAK_START
+  BREAK_END
+}
+
+enum TimeGateAttendanceEventSource {
+  KIOSK_ONLINE
+  KIOSK_OFFLINE_SYNC
+  MANUAL
+}
+
+enum TimeGateAttendanceEventStatus {
+  ACCEPTED
+  REJECTED
+  REVIEW_REQUIRED
+}
+
+enum TimeGateTimesheetDayStatus {
+  OPEN
+  CLOSED
+  REVIEW_REQUIRED
+}
+
+enum TimeGateSalaryStatus {
+  PENDING
+  PAID
+}
+
+enum TimeGatePayrollRunStatus {
+  DRAFT
+  LOCKED
+  PAID
+}
+
+enum TimeGateShiftSwapStatus {
   PENDING
   APPROVED
   REJECTED
+  CANCELLED
 }
 
 enum WeekDay {
@@ -49,553 +132,1105 @@ enum WeekDay {
   SUNDAY
 }
 
-enum LeaveType {
-  ANNUAL
-  SICK
-  UNPAID
-  MATERNITY
+// ---------------------------------------------------------------------------
+// Tenant & organisation
+// ---------------------------------------------------------------------------
+
+model Company {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  ownerId   String?   @map("owner") @db.VarChar(140)
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  name     String? @map("company_name") @db.VarChar(140)
+  sku      String? @unique @db.VarChar(140)
+  abbr     String? @db.VarChar(140)
+  timeZone String? @map("time_zone") @db.VarChar(140)
+  logoUrl  String? @map("logo_url") @db.VarChar(500)
+  phone    String? @db.VarChar(50)
+  email    String? @db.VarChar(140)
+  website  String? @db.VarChar(500)
+  address  String? @db.VarChar(500)
+
+  defaultPayrollPayableAccountId String? @map("default_payroll_payable_account") @db.VarChar(140)
+  defaultPayrollPayableAccount   Account? @relation("CompanyPayrollPayableAccount", fields: [defaultPayrollPayableAccountId], references: [id], onDelete: SetNull)
+
+  branches    Branch[]
+  accounts    Account[]
+  salaryComponents     SalaryComponent[]
+  salaryStructures     SalaryStructure[]
+  salaryStructureAssignments SalaryStructureAssignment[]
+  payrollEntries       PayrollEntry[]
+  paymentEntries       PaymentEntry[]
+  departments Department[]
+  employees   Employee[]
+  kiosks      TimeGateKiosk[]
+  shiftTypes  ShiftType[]
+  users       User[]
+
+  timeGateSubscriptions    TimeGateSubscription[]
+  timeGateActivationKeys   TimeGateActivationKey[]
+  timeGateSystemSettings   TimeGateSystemSettings?
+  timeGateAuditLogs        TimeGateAuditLog[]
+  timeGateAttendanceEvents TimeGateAttendanceEvent[]
+  holidayLists             HolidayList[]
+  leaveTypes               LeaveType[]
+  timeGateTimesheetDays    TimeGateTimesheetDay[]
+  timeGateLateRecords      TimeGateLateRecord[]
+  timeGateAbsenceRecords   TimeGateAbsenceRecord[]
+  timeGateSalaryRecords    TimeGateSalaryRecord[]
+  timeGatePayrollRuns      TimeGatePayrollRun[]
+  timeGateEmployeeContracts TimeGateEmployeeContract[]
+  designations              Designation[]
+  shiftSwapRequests         TimeGateShiftSwapRequest[]
+
+  @@map("tabCompany")
 }
 
-enum AttendanceAnomaly {
-  NONE
-  MISSING_CHECKOUT
-  DOUBLE_CHECKIN
-  LOW_CONFIDENCE
+model Country {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  name      String  @db.VarChar(140)
+  isoCode   String  @unique @map("iso_code") @db.VarChar(10)
+  phoneCode String? @map("phone_code") @db.VarChar(20)
+
+  cities    City[]
+  branches  Branch[]
+  employees Employee[]
+
+  @@map("tabCountry")
 }
 
-enum SalaryStatus {
-  PENDING
-  PAID
+model City {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  name      String  @db.VarChar(140)
+  countryId String  @map("country") @db.VarChar(140)
+  country   Country @relation(fields: [countryId], references: [id])
+  latitude  Float?
+  longitude Float?
+
+  branches  Branch[]
+  employees Employee[]
+
+  @@unique([countryId, name])
+  @@map("tabCity")
 }
 
-//////////////////////////////////////////////////
-// SAAS CORE (MULTI-TENANT)
-//////////////////////////////////////////////////
+model Branch {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-model Organization {
-  id        String   @id @default(uuid())
-  name      String
-  sku       String   @unique
+  branchName String  @map("branch") @db.VarChar(140)
+  companyId  String  @map("company") @db.VarChar(140)
+  company    Company @relation(fields: [companyId], references: [id])
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  address  String? @db.Text
+  timeZone String  @default("UTC") @map("time_zone") @db.VarChar(140)
 
-  users            User[]
-  sites            Site[]
-  configs          SystemConfig[]
-  subscriptions    Subscription[]
-  activationKeys  ActivationKey[]
-  employees        Employee[]
-  lateRecords      LateRecord[]
-  absenceRecords   AbsenceRecord[]
-  salaryRecords    SalaryRecord[]
-  devices          Device[]
-  attendances      Attendance[]
-  workSessions     WorkSession[]
-  workSchedules    WorkSchedule[]
-  leaves           Leave[]
-  holidays         Holiday[]
-  employeeContracts EmployeeContract[]
-  recognitionLogs  RecognitionLog[]
-  auditLogs        AuditLog[]
+  branchCode     String?  @map("branch_code") @db.VarChar(40)
+  cityId         String?  @map("city") @db.VarChar(140)
+  city           City?    @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  countryId      String?  @map("country") @db.VarChar(140)
+  country        Country? @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  latitude       Decimal? @db.Decimal(21, 7)
+  longitude      Decimal? @db.Decimal(21, 7)
+  checkinRadius  Int?     @map("checkin_radius")
+  phone          String?  @db.VarChar(40)
+  email          String?  @db.VarChar(140)
+  isHeadOffice   Boolean  @default(false) @map("is_head_office")
+  isActive       Boolean  @default(true) @map("is_active")
 
-  @@index([name])
+  employees      Employee[]
+  shiftLocations ShiftLocation[]
+  shiftTypes     ShiftType[]
+  kiosk          TimeGateKiosk?
+  faceLogs       FaceRecognitionLog[]
+  userBranches   TimeGateUserBranch[]
+  timeGateAttendanceEvents TimeGateAttendanceEvent[]
+
+  @@map("tabBranch")
 }
 
-//////////////////////////////////////////////////
-// AUTH & ACCESS
-//////////////////////////////////////////////////
+model Department {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-model User {
-  id        String   @id @default(uuid())
-  email     String
-  password  String
+  departmentName String  @map("department_name") @db.VarChar(140)
+  companyId      String  @map("company") @db.VarChar(140)
+  company        Company @relation(fields: [companyId], references: [id])
 
-  role      Role     @default(MANAGER)
+  code               String?      @db.VarChar(40)
+  description        String?      @db.Text
+  parentDepartmentId String?      @map("parent_department") @db.VarChar(140)
+  parentDepartment   Department?  @relation("DepartmentHierarchy", fields: [parentDepartmentId], references: [id], onDelete: SetNull)
+  childDepartments   Department[] @relation("DepartmentHierarchy")
 
-  organizationId String?
+  employees Employee[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  sites     UserSite[]
-  auditLogs AuditLog[]
-  validatedWorkSessions WorkSession[] @relation("WorkSessionValidatedBy")
-
-  @@unique([email, organizationId])
+  @@map("tabDepartment")
 }
 
-model UserSite {
-  id     String @id @default(uuid())
-  userId String
-  siteId String
+model Designation {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  designationName String  @map("designation_name") @db.VarChar(140)
+  companyId       String  @map("company") @db.VarChar(140)
+  company         Company @relation(fields: [companyId], references: [id])
 
-  @@unique([userId, siteId])
+  description String? @db.Text
+  grade       String? @db.VarChar(80)
+
+  employees Employee[]
+
+  @@unique([companyId, designationName])
+  @@map("tabDesignation")
 }
 
-//////////////////////////////////////////////////
-// STRUCTURE
-//////////////////////////////////////////////////
+model EmploymentType {
+  id               String @id @db.VarChar(140)
+  employeeTypeName String @map("employee_type_name") @db.VarChar(140)
 
-model Site {
-  id        String   @id @default(uuid())
-  name      String
-  address   String?
-  timezone  String   @default("UTC")
+  employees Employee[]
 
-  organizationId String
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  devices    Device[]
-  employees  Employee[]
-  schedules  WorkSchedule[]
-  users      UserSite[]
-
-  @@index([organizationId])
+  @@map("tabEmployment Type")
 }
 
-//////////////////////////////////////////////////
-// EMPLOYEES
-//////////////////////////////////////////////////
+// ---------------------------------------------------------------------------
+// Employees
+// ---------------------------------------------------------------------------
 
 model Employee {
-  id          String   @id @default(uuid())
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  ownerId   String?   @map("owner") @db.VarChar(140)
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  firstName   String
-  lastName    String
-  email       String?
-  birthDate   DateTime?
-  whatsappPhone String?
-  phone       String?
-  address     String?
-  employeeCode String?
-  hireDate    DateTime?
-  contractType String?
-  nationalId  String?
-  emergencyContactName  String?
-  emergencyContactPhone String?
-  photoUrl    String?
+  employeeName  String         @map("employee_name") @db.VarChar(140)
+  firstName     String?        @map("first_name") @db.VarChar(140)
+  lastName      String?        @map("last_name") @db.VarChar(140)
+  status        EmployeeStatus @default(ACTIVE)
+  gender        String?        @db.VarChar(140)
+  dateOfBirth   DateTime?      @map("date_of_birth") @db.Date
+  dateOfJoining DateTime?      @map("date_of_joining") @db.Date
+  nationality   String?        @db.VarChar(140)
+  maritalStatus String?        @map("marital_status") @db.VarChar(80)
 
-  department  String?
-  position    String?
-  isActive    Boolean  @default(true)
+  addressLine1          String? @map("address_line1") @db.VarChar(255)
+  addressLine2          String? @map("address_line2") @db.VarChar(255)
+  cityId                String? @map("city") @db.VarChar(140)
+  city                  City?   @relation(fields: [cityId], references: [id], onDelete: SetNull)
+  countryId             String? @map("country") @db.VarChar(140)
+  country               Country? @relation(fields: [countryId], references: [id], onDelete: SetNull)
+  province              String? @db.VarChar(140)
+  postalCode            String? @map("postal_code") @db.VarChar(40)
+  emergencyContactName  String? @map("emergency_contact_name") @db.VarChar(140)
+  emergencyContactPhone String? @map("emergency_contact_phone") @db.VarChar(40)
+  nationalIdNumber      String? @map("national_id_number") @db.VarChar(80)
+  passportNumber        String? @map("passport_number") @db.VarChar(80)
 
-  siteId          String
-  organizationId  String
-  scheduleId     String?
+  companyId        String  @map("company") @db.VarChar(140)
+  company          Company @relation(fields: [companyId], references: [id])
+  branchId         String? @map("branch") @db.VarChar(140)
+  branch           Branch? @relation(fields: [branchId], references: [id])
+  departmentId     String? @map("department") @db.VarChar(140)
+  department       Department? @relation(fields: [departmentId], references: [id])
+  designationId    String? @map("designation") @db.VarChar(140)
+  designation      Designation? @relation(fields: [designationId], references: [id])
+  employmentTypeId String? @map("employment_type") @db.VarChar(140)
+  employmentType   EmploymentType? @relation(fields: [employmentTypeId], references: [id])
+  userId           String? @unique @map("user_id") @db.VarChar(140)
+  user             User?   @relation(fields: [userId], references: [id])
+  defaultShiftId   String? @map("default_shift") @db.VarChar(140)
+  defaultShift     ShiftType? @relation(fields: [defaultShiftId], references: [id])
+  holidayListId    String? @map("holiday_list") @db.VarChar(140)
+  holidayList      HolidayList? @relation(fields: [holidayListId], references: [id], onDelete: SetNull)
 
-  faceEmbedding      Json?
-  luxandPersonUuid   String? @unique
+  cellNumber     String? @map("cell_number") @db.VarChar(140)
+  personalEmail  String? @map("personal_email") @db.VarChar(140)
+  salaryCurrency String? @map("salary_currency") @db.VarChar(140)
+  ctc            Decimal? @db.Decimal(21, 9)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  faceEnrollmentPhoto String?   @map("face_enrollment_photo") @db.Text
+  faceEnrolledAt      DateTime? @map("face_enrolled_at")
+  faceEmbedding       Json?     @map("face_embedding")
+  kioskPinHash        String?   @map("kiosk_pin_hash") @db.VarChar(255)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
-  schedule     WorkSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  checkins                 EmployeeCheckin[]
+  attendances              Attendance[]
+  faceLogs                 FaceRecognitionLog[]
+  leaveApplications        LeaveApplication[]
+  leaveAllocations         LeaveAllocation[]
+  shiftAssignments         ShiftAssignment[]
+  timesheets               Timesheet[]
+  salarySlips              SalarySlip[]
+  timeGateAttendanceEvents TimeGateAttendanceEvent[]
+  timeGateTimesheetDays    TimeGateTimesheetDay[]
+  timeGateLateRecords      TimeGateLateRecord[]
+  timeGateAbsenceRecords   TimeGateAbsenceRecord[]
+  timeGateSalaryRecords    TimeGateSalaryRecord[]
+  timeGatePayrollLines     TimeGatePayrollLine[]
+  timeGateEmployeeContracts TimeGateEmployeeContract[]
+  salaryStructureAssignments SalaryStructureAssignment[]
+  shiftSwapRequestsRequested TimeGateShiftSwapRequest[] @relation("ShiftSwapRequester")
+  shiftSwapRequestsTarget    TimeGateShiftSwapRequest[] @relation("ShiftSwapTarget")
 
-  attendances Attendance[]
-  sessions    WorkSession[]
-  leaves      Leave[]
-  logs        RecognitionLog[]
-  contracts   EmployeeContract[]
-  lateRecords LateRecord[]
-  absenceRecords AbsenceRecord[]
-  salaryRecords SalaryRecord[]
-
-  @@index([organizationId])
-  @@index([siteId])
-  @@index([lastName, firstName])
-  @@unique([email, organizationId])
+  @@map("tabEmployee")
 }
 
-model LateRecord {
-  id             String   @id @default(uuid())
-  employeeId     String
-  organizationId String
-  attendanceId   String?
-  date           DateTime
-  latenessMinutes Int
-  justified      Boolean  @default(false)
-  reason         String?
-  justificationFileUrl String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+// ---------------------------------------------------------------------------
+// Kiosk & attendance (Time Gate core)
+// ---------------------------------------------------------------------------
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  attendance   Attendance?  @relation(fields: [attendanceId], references: [id], onDelete: SetNull)
+model TimeGateKiosk {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  @@index([organizationId, date])
-  @@index([employeeId, date])
+  kioskName       String      @unique @map("kiosk_name") @db.VarChar(140)
+  companyId       String      @map("company") @db.VarChar(140)
+  company         Company     @relation(fields: [companyId], references: [id])
+  branchId        String      @unique @map("branch") @db.VarChar(140)
+  branch          Branch      @relation(fields: [branchId], references: [id])
+  shiftLocationId String?     @map("shift_location") @db.VarChar(140)
+  shiftLocation   ShiftLocation? @relation(fields: [shiftLocationId], references: [id])
+  status          KioskStatus @default(OFFLINE)
+  isActive        Boolean     @default(true) @map("is_active")
+  lastSeenAt      DateTime?   @map("last_seen_at")
+  deviceApiKey    String?     @unique @map("device_api_key") @db.VarChar(140)
+  deviceToken     String?     @map("device_token") @db.Text
+
+  faceLogs                 FaceRecognitionLog[]
+  timeGateAttendanceEvents TimeGateAttendanceEvent[]
+
+  @@map("tabTimeGate Kiosk")
 }
 
-model AbsenceRecord {
-  id             String   @id @default(uuid())
-  employeeId     String
-  organizationId String
-  date           DateTime
-  justified      Boolean  @default(false)
-  reason         String?
-  justificationFileUrl String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model FaceRecognitionLog {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  kioskId           String  @map("kiosk") @db.VarChar(140)
+  kiosk             TimeGateKiosk @relation(fields: [kioskId], references: [id])
+  branchId          String? @map("branch") @db.VarChar(140)
+  branch            Branch? @relation(fields: [branchId], references: [id])
+  companyId         String? @map("company") @db.VarChar(140)
+  employeeId        String? @map("employee") @db.VarChar(140)
+  employee          Employee? @relation(fields: [employeeId], references: [id])
+  employeeName      String? @map("employee_name") @db.VarChar(140)
+  success           Boolean @default(false)
+  confidence        Decimal? @db.Decimal(21, 9)
+  message           String? @db.Text
+  employeeCheckinId String? @unique @map("employee_checkin") @db.VarChar(140)
+  employeeCheckin   EmployeeCheckin? @relation(fields: [employeeCheckinId], references: [id])
+  photo             String? @db.Text
+  idempotencyKey    String? @map("idempotency_key") @db.VarChar(140)
+  isOfflineSync     Boolean @default(false) @map("is_offline_sync")
+  capturedAt        DateTime? @map("captured_at")
 
-  @@index([organizationId, date])
-  @@index([employeeId, date])
-  @@unique([employeeId, date])
+  @@index([idempotencyKey, kioskId])
+  @@map("tabFace Recognition Log")
 }
 
-model SalaryRecord {
-  id             String   @id @default(uuid())
-  employeeId     String
-  organizationId String
-  year           Int
-  month          Int
-  baseSalary     Float
-  bonuses        Float    @default(0)
-  deductions     Float    @default(0)
-  netSalary      Float
-  status         SalaryStatus @default(PENDING)
-  paidAt         DateTime?
-  notes          String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+model EmployeeCheckin {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  employeeId   String         @map("employee") @db.VarChar(140)
+  employee     Employee       @relation(fields: [employeeId], references: [id])
+  employeeName String?        @map("employee_name") @db.VarChar(140)
+  logType      CheckinLogType @map("log_type")
+  time         DateTime
+  deviceId     String?        @map("device_id") @db.VarChar(140)
+  shiftId      String?        @map("shift") @db.VarChar(140)
+  shift        ShiftType?     @relation(fields: [shiftId], references: [id])
+  attendanceId String?        @map("attendance") @db.VarChar(140)
+  attendance   Attendance?    @relation(fields: [attendanceId], references: [id])
+  latitude     Decimal?       @db.Decimal(21, 7)
+  longitude    Decimal?       @db.Decimal(21, 7)
+  offshift     Boolean        @default(false)
 
-  @@index([organizationId, year, month])
-  @@index([employeeId, year, month])
-  @@unique([employeeId, year, month])
+  faceLog FaceRecognitionLog?
+
+  @@index([employeeId, time])
+  @@map("tabEmployee Checkin")
 }
-
-model EmployeeContract {
-  id               String   @id @default(uuid())
-  employeeId       String
-  organizationId   String
-  signedAt         DateTime
-  expiresAt        DateTime?
-  renewalsCount    Int      @default(0)
-  contractFileUrl  String?
-  notes            String?
-  isCurrent        Boolean  @default(true)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([employeeId, createdAt])
-  @@index([employeeId, isCurrent])
-}
-
-//////////////////////////////////////////////////
-// DEVICES
-//////////////////////////////////////////////////
-
-model Device {
-  id          String       @id @default(uuid())
-  name        String
-
-  siteId         String
-  organizationId String
-
-  location    String?
-
-  status      DeviceStatus @default(OFFLINE)
-  apiKey      String       @unique
-
-  lastSeenAt  DateTime?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  attendances Attendance[]
-  logs        RecognitionLog[]
-
-  @@index([organizationId])
-  @@index([siteId])
-  @@index([status])
-}
-
-//////////////////////////////////////////////////
-// ATTENDANCE (RAW EVENTS)
-//////////////////////////////////////////////////
 
 model Attendance {
-  id           String   @id @default(uuid())
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  employeeId   String
-  deviceId     String
-  organizationId String
+  employeeId     String           @map("employee") @db.VarChar(140)
+  employee       Employee         @relation(fields: [employeeId], references: [id])
+  employeeName   String?          @map("employee_name") @db.VarChar(140)
+  attendanceDate DateTime         @map("attendance_date") @db.Date
+  status         AttendanceStatus
+  companyId      String?          @map("company") @db.VarChar(140)
+  shiftId        String?          @map("shift") @db.VarChar(140)
+  shift          ShiftType?       @relation(fields: [shiftId], references: [id])
+  leaveTypeId    String?          @map("leave_type") @db.VarChar(140)
+  leaveType      LeaveType?       @relation(fields: [leaveTypeId], references: [id])
 
-  type         AttendanceType
-  status       AttendanceStatus?
-  anomaly      AttendanceAnomaly? @default(NONE)
+  checkins EmployeeCheckin[]
 
-  timestamp    DateTime @default(now())
-  confidence   Float
-
-  sessionId    String?
-
-  createdAt    DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  device   Device   @relation(fields: [deviceId], references: [id], onDelete: Restrict)
-  session  WorkSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
-  lateRecords LateRecord[]
-
-  @@index([organizationId])
-  @@index([employeeId, timestamp])
-  @@index([deviceId, timestamp])
+  @@unique([employeeId, attendanceDate])
+  @@index([employeeId, attendanceDate])
+  @@index([companyId, attendanceDate])
+  @@map("tabAttendance")
 }
 
-//////////////////////////////////////////////////
-// WORK SESSION
-//////////////////////////////////////////////////
+model ShiftType {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-model WorkSession {
-  id          String   @id @default(uuid())
+  shiftName        String  @map("shift_type_name") @db.VarChar(140)
+  companyId        String? @map("company") @db.VarChar(140)
+  company          Company? @relation(fields: [companyId], references: [id])
+  branchId         String? @map("branch") @db.VarChar(140)
+  branch           Branch? @relation(fields: [branchId], references: [id])
+  startTime        DateTime? @map("start_time") @db.Time
+  endTime          DateTime? @map("end_time") @db.Time
+  lateGraceMinutes Int     @default(5) @map("late_grace_minutes")
 
-  employeeId  String
-  organizationId String
-
-  checkInId   String
-  checkOutId  String?
-
-  startedAt   DateTime
-  endedAt     DateTime?
-
-  duration    Int?
-  normalDuration   Int?
-  overtimeDuration Int?
-
-  validatedById String?
-  validatedAt   DateTime?
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  validatedBy User? @relation("WorkSessionValidatedBy", fields: [validatedById], references: [id], onDelete: SetNull)
+  weekDays    ShiftTypeWeekDay[]
+  employees   Employee[]
+  assignments ShiftAssignment[]
+  checkins    EmployeeCheckin[]
   attendances Attendance[]
 
-  @@index([organizationId])
-  @@index([employeeId, startedAt])
+  @@index([companyId])
+  @@index([branchId])
+  @@map("tabShift Type")
 }
 
-//////////////////////////////////////////////////
-// SCHEDULES
-//////////////////////////////////////////////////
+model ShiftTypeWeekDay {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  idx       Int      @default(0)
 
-model WorkSchedule {
-  id              String   @id @default(uuid())
-
-  siteId          String
-  organizationId  String
-
-  name            String
-
-  startTime       DateTime
-  endTime         DateTime
-
-  lateGraceMinutes Int @default(5)
-
-  createdAt       DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  site         Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
-
-  employees  Employee[]
-  workDays   WorkDay[]
-
-  @@index([organizationId])
-  @@index([siteId])
-}
-
-//////////////////////////////////////////////////
-// LEAVE
-//////////////////////////////////////////////////
-
-model Leave {
-  id          String   @id @default(uuid())
-
-  employeeId  String
-  organizationId String
-
-  startDate   DateTime
-  endDate     DateTime
-
-  reason      String?
-  status      LeaveStatus @default(PENDING)
-  type        LeaveType   @default(ANNUAL)
-
-  createdAt   DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([employeeId, startDate])
-}
-
-model WorkDay {
-  id          String   @id @default(uuid())
-  scheduleId  String
+  shiftTypeId String    @map("parent") @db.VarChar(140)
+  shiftType   ShiftType @relation(fields: [shiftTypeId], references: [id], onDelete: Cascade)
   day         WeekDay
-  startTime   String
-  endTime     String
+  startTime   String  @map("start_time") @db.VarChar(10)
+  endTime     String  @map("end_time") @db.VarChar(10)
 
-  schedule WorkSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  @@unique([shiftTypeId, day])
+  @@map("timegate_shift_type_week_day")
+}
 
-  @@unique([scheduleId, day])
-  @@index([scheduleId])
+model ShiftLocation {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  locationName    String  @unique @map("location_name") @db.VarChar(140)
+  checkinRadius   Int?    @map("checkin_radius")
+  latitude        Float?
+  longitude       Float?
+  branchId        String? @map("branch") @db.VarChar(140)
+  branch          Branch? @relation(fields: [branchId], references: [id])
+  isKioskLocation Boolean @default(false) @map("is_kiosk_location")
+
+  kiosks      TimeGateKiosk[]
+  assignments ShiftAssignment[]
+
+  @@map("tabShift Location")
+}
+
+model ShiftAssignment {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  employeeId      String        @map("employee") @db.VarChar(140)
+  employee        Employee      @relation(fields: [employeeId], references: [id])
+  shiftTypeId     String        @map("shift_type") @db.VarChar(140)
+  shiftType       ShiftType     @relation(fields: [shiftTypeId], references: [id])
+  shiftLocationId String?       @map("shift_location") @db.VarChar(140)
+  shiftLocation   ShiftLocation? @relation(fields: [shiftLocationId], references: [id])
+  companyId       String?       @map("company") @db.VarChar(140)
+  startDate       DateTime?     @map("start_date") @db.Date
+  endDate         DateTime?     @map("end_date") @db.Date
+
+  shiftSwapRequests TimeGateShiftSwapRequest[]
+
+  @@map("tabShift Assignment")
+}
+
+model HolidayList {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  holidayListName String  @map("holiday_list_name") @db.VarChar(140)
+  companyId       String? @unique @map("company") @db.VarChar(140)
+  company         Company? @relation(fields: [companyId], references: [id])
+  holidays        Holiday[]
+  employees       Employee[]
+
+  @@map("tabHoliday List")
 }
 
 model Holiday {
-  id             String   @id @default(uuid())
-  organizationId String
-  name           String
-  date           DateTime
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  idx       Int      @default(0)
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  parentId    String      @map("parent") @db.VarChar(140)
+  holidayList HolidayList @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  holidayDate DateTime?   @map("holiday_date") @db.Date
+  description String?     @db.VarChar(140)
 
-  @@index([organizationId, date])
+  @@map("tabHoliday")
 }
 
-//////////////////////////////////////////////////
-// RECOGNITION LOG
-//////////////////////////////////////////////////
+// ---------------------------------------------------------------------------
+// Leave
+// ---------------------------------------------------------------------------
 
-model RecognitionLog {
-  id           String   @id @default(uuid())
+model LeaveType {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  employeeId   String?
-  deviceId     String
-  organizationId String
+  leaveTypeName  String  @map("leave_type_name") @db.VarChar(140)
+  isLwp          Boolean @default(false) @map("is_lwp")
+  isCarryForward Boolean @default(false) @map("is_carry_forward")
+  maxDaysPerYear Int?    @map("max_days_per_year")
+  companyId      String? @map("company") @db.VarChar(140)
+  company        Company? @relation(fields: [companyId], references: [id])
 
-  success      Boolean
-  confidence   Float?
+  applications LeaveApplication[]
+  attendances  Attendance[]
+  allocations  LeaveAllocation[]
 
-  imageUrl     String?
-
-  createdAt    DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  employee Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
-  device   Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId])
-  @@index([deviceId, createdAt])
-  @@index([employeeId, createdAt])
+  @@unique([companyId, leaveTypeName])
+  @@map("tabLeave Type")
 }
 
-//////////////////////////////////////////////////
-// CONFIG
-//////////////////////////////////////////////////
+model LeaveApplication {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-model SystemConfig {
-  id              String  @id @default(uuid())
+  employeeId   String                 @map("employee") @db.VarChar(140)
+  employee     Employee               @relation(fields: [employeeId], references: [id])
+  leaveTypeId  String                 @map("leave_type") @db.VarChar(140)
+  leaveType    LeaveType              @relation(fields: [leaveTypeId], references: [id])
+  companyId    String?                @map("company") @db.VarChar(140)
+  fromDate     DateTime?              @map("from_date") @db.Date
+  toDate       DateTime?              @map("to_date") @db.Date
+  status       LeaveApplicationStatus @default(OPEN)
+  reason       String?                @db.VarChar(500)
 
-  organizationId  String
+  @@map("tabLeave Application")
+}
 
+model LeaveAllocation {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  employeeId    String   @map("employee") @db.VarChar(140)
+  employee      Employee @relation(fields: [employeeId], references: [id])
+  leaveTypeId   String   @map("leave_type") @db.VarChar(140)
+  leaveType     LeaveType @relation(fields: [leaveTypeId], references: [id])
+  year          Int
+  allocatedDays Decimal  @map("allocated_days") @db.Decimal(6, 2)
+
+  @@unique([employeeId, leaveTypeId, year])
+  @@map("tabLeave Allocation")
+}
+
+// ---------------------------------------------------------------------------
+// Payroll & accounting (Frappe HRMS référentiel)
+// ---------------------------------------------------------------------------
+
+model Account {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  accountName String  @map("account_name") @db.VarChar(140)
+  companyId   String? @map("company") @db.VarChar(140)
+  company     Company? @relation(fields: [companyId], references: [id])
+  accountType String? @map("account_type") @db.VarChar(140)
+  isGroup     Boolean @default(false) @map("is_group")
+  parentAccountId String? @map("parent_account") @db.VarChar(140)
+
+  payrollPayableForCompanies Company[] @relation("CompanyPayrollPayableAccount")
+
+  @@unique([companyId, accountName])
+  @@map("tabAccount")
+}
+
+model SalaryComponent {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  salaryComponentName String              @map("salary_component") @db.VarChar(140)
+  type                SalaryComponentType
+  companyId           String?             @map("company") @db.VarChar(140)
+  company             Company?            @relation(fields: [companyId], references: [id])
+  isTaxApplicable     Boolean             @default(false) @map("is_tax_applicable")
+
+  structureDetails SalaryStructureDetail[]
+
+  @@unique([companyId, salaryComponentName])
+  @@map("tabSalary Component")
+}
+
+model SalaryStructure {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  name             String  @map("name") @db.VarChar(140)
+  companyId        String? @map("company") @db.VarChar(140)
+  company          Company? @relation(fields: [companyId], references: [id])
+  payrollFrequency String? @map("payroll_frequency") @db.VarChar(140)
+  isActive         Boolean @default(true) @map("is_active")
+
+  details     SalaryStructureDetail[]
+  assignments SalaryStructureAssignment[]
+
+  @@unique([companyId, name])
+  @@map("tabSalary Structure")
+}
+
+model SalaryStructureDetail {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  idx       Int      @default(0)
+
+  parentId          String          @map("parent") @db.VarChar(140)
+  salaryStructure   SalaryStructure @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  salaryComponentId String          @map("salary_component") @db.VarChar(140)
+  salaryComponent   SalaryComponent @relation(fields: [salaryComponentId], references: [id])
+  amount            Decimal?        @db.Decimal(21, 9)
+  formula           String?         @db.VarChar(500)
+
+  @@map("tabSalary Structure Detail")
+}
+
+model SalaryStructureAssignment {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  employeeId        String          @map("employee") @db.VarChar(140)
+  employee          Employee        @relation(fields: [employeeId], references: [id])
+  salaryStructureId String          @map("salary_structure") @db.VarChar(140)
+  salaryStructure   SalaryStructure @relation(fields: [salaryStructureId], references: [id])
+  companyId         String?         @map("company") @db.VarChar(140)
+  company           Company?        @relation(fields: [companyId], references: [id])
+  fromDate          DateTime?       @map("from_date") @db.Date
+  toDate            DateTime?       @map("to_date") @db.Date
+
+  @@index([employeeId, fromDate])
+  @@map("tabSalary Structure Assignment")
+}
+
+model PayrollEntry {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  companyId  String?            @map("company") @db.VarChar(140)
+  company    Company?           @relation(fields: [companyId], references: [id])
+  startDate  DateTime?          @map("start_date") @db.Date
+  endDate    DateTime?          @map("end_date") @db.Date
+  status     PayrollEntryStatus @default(DRAFT)
+  postingDate DateTime?         @map("posting_date") @db.Date
+
+  salarySlips SalarySlip[]
+
+  @@index([companyId, startDate])
+  @@map("tabPayroll Entry")
+}
+
+model PaymentEntry {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  companyId   String?           @map("company") @db.VarChar(140)
+  company     Company?          @relation(fields: [companyId], references: [id])
+  paymentType PaymentEntryType  @map("payment_type")
+  postingDate DateTime?         @map("posting_date") @db.Date
+  paidAmount  Decimal?          @map("paid_amount") @db.Decimal(21, 9)
+  partyType   String?           @map("party_type") @db.VarChar(140)
+  party       String?             @db.VarChar(140)
+
+  @@index([companyId, postingDate])
+  @@map("tabPayment Entry")
+}
+
+model Timesheet {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  employeeId String   @map("employee") @db.VarChar(140)
+  employee   Employee @relation(fields: [employeeId], references: [id])
+  details    TimesheetDetail[]
+
+  @@map("tabTimesheet")
+}
+
+model TimesheetDetail {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  idx       Int      @default(0)
+
+  parentId  String    @map("parent") @db.VarChar(140)
+  timesheet Timesheet @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  hours     Decimal?  @db.Decimal(21, 9)
+
+  @@map("tabTimesheet Detail")
+}
+
+model SalarySlip {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  employeeId     String        @map("employee") @db.VarChar(140)
+  employee       Employee      @relation(fields: [employeeId], references: [id])
+  companyId      String?       @map("company") @db.VarChar(140)
+  payrollEntryId String?       @map("payroll_entry") @db.VarChar(140)
+  payrollEntry   PayrollEntry? @relation(fields: [payrollEntryId], references: [id], onDelete: SetNull)
+  startDate      DateTime?     @map("start_date") @db.Date
+  endDate        DateTime?     @map("end_date") @db.Date
+  grossPay       Decimal?      @map("gross_pay") @db.Decimal(21, 9)
+  netPay         Decimal?      @map("net_pay") @db.Decimal(21, 9)
+
+  @@index([payrollEntryId])
+  @@map("tabSalary Slip")
+}
+
+// ---------------------------------------------------------------------------
+// Auth & files
+// ---------------------------------------------------------------------------
+
+model User {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  email        String  @db.VarChar(140)
+  firstName    String? @map("first_name") @db.VarChar(140)
+  lastName     String? @map("last_name") @db.VarChar(140)
+  enabled      Boolean @default(true)
+  language     String? @db.VarChar(140)
+  passwordHash String  @map("password_hash") @db.VarChar(255)
+  timeGateRole TimeGateUserRole? @map("timegate_role")
+  companyId    String? @map("company") @db.VarChar(140)
+  company      Company? @relation(fields: [companyId], references: [id])
+
+  employee     Employee?
+  roles        UserRole[]
+  permissions  UserPermission[]
+  notifications NotificationLog[]
+  branches     TimeGateUserBranch[]
+  auditLogs    TimeGateAuditLog[]
+  timesheetOverrides TimeGateTimesheetOverride[]
+  reviewedShiftSwaps TimeGateShiftSwapRequest[]
+
+  @@unique([email, companyId])
+  @@map("tabUser")
+}
+
+model Role {
+  id       String @id @db.VarChar(140)
+  roleName String @unique @map("role_name") @db.VarChar(140)
+
+  users UserRole[]
+
+  @@map("tabRole")
+}
+
+model UserRole {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  idx       Int      @default(0)
+
+  parentId String @map("parent") @db.VarChar(140)
+  user     User   @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  roleId   String @map("role") @db.VarChar(140)
+  role     Role   @relation(fields: [roleId], references: [id])
+
+  @@map("tabHas Role")
+}
+
+model UserPermission {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  userId   String @map("user") @db.VarChar(140)
+  user     User   @relation(fields: [userId], references: [id])
+  allow    String? @db.VarChar(140)
+  forValue String? @map("for_value") @db.VarChar(140)
+
+  @@map("tabUser Permission")
+}
+
+model NotificationLog {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  forUserId String? @map("for_user") @db.VarChar(140)
+  forUser   User?   @relation(fields: [forUserId], references: [id])
+  subject   String? @db.VarChar(140)
+  read      Boolean @default(false)
+
+  @@map("tabNotification Log")
+}
+
+// ---------------------------------------------------------------------------
+// TimeGate SaaS & platform models
+// ---------------------------------------------------------------------------
+
+model TimeGateSubscription {
+  id           String    @id @db.VarChar(140)
+  companyId    String    @map("company") @db.VarChar(140)
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan         String    @db.VarChar(140)
+  maxEmployees Int
+  maxKiosks    Int       @map("max_devices")
+  expiresAt    DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@index([companyId, createdAt])
+  @@map("timegate_subscription")
+}
+
+model TimeGateActivationKey {
+  id         String    @id @db.VarChar(140)
+  companyId  String    @map("company") @db.VarChar(140)
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  keyHash    String    @unique @db.VarChar(140)
+  plan       String    @db.VarChar(140)
+  maxEmployees Int
+  maxKiosks  Int       @map("max_devices")
+  expiresAt  DateTime
+  createdAt  DateTime  @default(now())
+  usedAt     DateTime?
+  revokedAt  DateTime?
+
+  @@index([companyId, expiresAt])
+  @@map("timegate_activation_key")
+}
+
+model TimeGateSystemSettings {
+  id              String  @id @db.VarChar(140)
+  companyId       String  @unique @map("company") @db.VarChar(140)
+  company         Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
   minConfidence   Float   @default(0.75)
   lateThreshold   Int     @default(10)
-  veryLateThreshold Int   @default(30)
+  veryLateThreshold Int   @default(30) @map("very_late_threshold")
 
-  createdAt       DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@unique([organizationId])
+  @@map("timegate_system_settings")
 }
 
-//////////////////////////////////////////////////
-// SUBSCRIPTION (SAAS)
-//////////////////////////////////////////////////
+model TimeGateUserBranch {
+  id       String @id @db.VarChar(140)
+  userId   String @map("user") @db.VarChar(140)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  branchId String @map("branch") @db.VarChar(140)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
 
-model Subscription {
-  id             String @id @default(uuid())
-
-  organizationId String
-
-  plan           String
-  maxEmployees   Int
-  maxDevices     Int
-
-  expiresAt      DateTime?
-
-  createdAt      DateTime @default(now())
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  @@unique([userId, branchId])
+  @@map("timegate_user_branch")
 }
 
-//////////////////////////////////////////////////
-// ACTIVATION KEYS (SINGLE ORG 1:1)
-//////////////////////////////////////////////////
+model TimeGateAttendanceEvent {
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-model ActivationKey {
-  id            String   @id @default(uuid())
+  companyId      String                        @map("company") @db.VarChar(140)
+  company        Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId       String                        @map("branch") @db.VarChar(140)
+  branch         Branch                        @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  kioskId        String                        @map("kiosk") @db.VarChar(140)
+  kiosk          TimeGateKiosk                 @relation(fields: [kioskId], references: [id], onDelete: Cascade)
+  employeeId     String?                       @map("employee") @db.VarChar(140)
+  employee       Employee?                     @relation(fields: [employeeId], references: [id], onDelete: SetNull)
 
-  organizationId String
-  keyHash        String   @unique
+  source         TimeGateAttendanceEventSource @default(KIOSK_ONLINE)
+  type           TimeGateAttendanceEventType
+  status         TimeGateAttendanceEventStatus @default(ACCEPTED)
+  occurredAt     DateTime
+  receivedAt     DateTime                      @default(now())
+  confidence     Decimal?                      @db.Decimal(21, 9)
+  verificationRef String?                      @map("verification_ref") @db.VarChar(140)
+  idempotencyKey String?                       @map("idempotency_key") @db.VarChar(140)
+  rejectReason   String?                       @map("reject_reason") @db.Text
+  meta           Json?
 
-  plan           String
-  maxEmployees   Int
-  maxDevices     Int
-
-  expiresAt      DateTime
-  createdAt      DateTime @default(now())
-  usedAt         DateTime?
-  revokedAt      DateTime?
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-
-  @@index([organizationId, expiresAt])
+  @@unique([companyId, idempotencyKey])
+  @@index([companyId, occurredAt])
+  @@index([employeeId, occurredAt])
+  @@index([kioskId, occurredAt])
+  @@index([branchId, occurredAt])
+  @@map("timegate_attendance_event")
 }
 
-//////////////////////////////////////////////////
-// AUDIT
-//////////////////////////////////////////////////
+model TimeGateTimesheetDay {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
 
-model AuditLog {
-  id              String   @id @default(uuid())
+  companyId   String                     @map("company") @db.VarChar(140)
+  company     Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId  String                     @map("employee") @db.VarChar(140)
+  employee    Employee                   @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate    DateTime                   @map("work_date") @db.Date
 
-  userId          String?
-  organizationId  String
+  workedMinutes   Int                      @default(0) @map("worked_minutes")
+  breakMinutes    Int                      @default(0) @map("break_minutes")
+  lateMinutes     Int                      @default(0) @map("late_minutes")
+  overtimeMinutes Int                      @default(0) @map("overtime_minutes")
+  status          TimeGateTimesheetDayStatus @default(OPEN)
+  ruleVersion     String                   @default("v1") @map("rule_version") @db.VarChar(32)
+  anomalyFlags    Json?                    @map("anomaly_flags")
 
-  action          String
-  entity          String
-  entityId        String
+  overrides   TimeGateTimesheetOverride[]
+  lateRecords TimeGateLateRecord[]
 
-  createdAt       DateTime @default(now())
+  @@unique([employeeId, workDate])
+  @@index([companyId, workDate])
+  @@map("timegate_timesheet_day")
+}
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+model TimeGateTimesheetOverride {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
 
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  timesheetDayId String               @map("timesheet_day") @db.VarChar(140)
+  timesheetDay   TimeGateTimesheetDay @relation(fields: [timesheetDayId], references: [id], onDelete: Cascade)
+  companyId      String               @map("company") @db.VarChar(140)
+  managerUserId  String?              @map("manager_user") @db.VarChar(140)
+  managerUser    User?                @relation(fields: [managerUserId], references: [id], onDelete: SetNull)
+  reason         String               @db.VarChar(500)
+  meta           Json?
 
-  @@index([organizationId])
+  @@index([timesheetDayId, createdAt])
+  @@map("timegate_timesheet_override")
+}
+
+model TimeGateLateRecord {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId             String   @map("company") @db.VarChar(140)
+  company               Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId            String   @map("employee") @db.VarChar(140)
+  employee              Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  recordDate            DateTime @map("record_date") @db.Date
+  recordAt              DateTime @map("record_at")
+  latenessMinutes       Int      @map("lateness_minutes")
+  justified             Boolean  @default(false)
+  reason                String?  @db.VarChar(500)
+  justificationFileUrl  String?  @map("justification_file_url") @db.VarChar(2000)
+  attendanceId          String?  @map("attendance") @db.VarChar(140)
+  timesheetDayId        String?  @unique @map("timesheet_day") @db.VarChar(140)
+  timesheetDay          TimeGateTimesheetDay? @relation(fields: [timesheetDayId], references: [id], onDelete: SetNull)
+
+  @@unique([employeeId, recordDate])
+  @@index([companyId, recordDate])
+  @@map("timegate_late_record")
+}
+
+model TimeGateAbsenceRecord {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId            String   @map("company") @db.VarChar(140)
+  company              Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId           String   @map("employee") @db.VarChar(140)
+  employee             Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  recordDate           DateTime @map("record_date") @db.Date
+  justified            Boolean  @default(false)
+  reason               String?  @db.VarChar(500)
+  justificationFileUrl String?  @map("justification_file_url") @db.VarChar(2000)
+  attendanceId         String?  @unique @map("attendance") @db.VarChar(140)
+
+  @@unique([employeeId, recordDate])
+  @@index([companyId, recordDate])
+  @@map("timegate_absence_record")
+}
+
+model TimeGateSalaryRecord {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId   String              @map("company") @db.VarChar(140)
+  company     Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId  String              @map("employee") @db.VarChar(140)
+  employee    Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  year        Int
+  month       Int
+  baseSalary  Decimal             @map("base_salary") @db.Decimal(21, 9)
+  bonuses     Decimal             @default(0) @db.Decimal(21, 9)
+  deductions  Decimal             @default(0) @db.Decimal(21, 9)
+  netSalary   Decimal             @map("net_salary") @db.Decimal(21, 9)
+  status      TimeGateSalaryStatus @default(PENDING)
+  paidAt      DateTime?           @map("paid_at")
+  notes       String?             @db.VarChar(500)
+
+  @@unique([employeeId, year, month])
+  @@index([companyId, year, month])
+  @@map("timegate_salary_record")
+}
+
+model TimeGatePayrollRun {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId   String                   @map("company") @db.VarChar(140)
+  company     Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  year        Int
+  month       Int
+  status      TimeGatePayrollRunStatus @default(DRAFT)
+  ruleVersion String                   @default("v1") @map("rule_version") @db.VarChar(32)
+  lockedAt    DateTime?                @map("locked_at")
+  paidAt      DateTime?                @map("paid_at")
+
+  lines TimeGatePayrollLine[]
+
+  @@unique([companyId, year, month])
+  @@map("timegate_payroll_run")
+}
+
+model TimeGatePayrollLine {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+
+  payrollRunId   String             @map("payroll_run") @db.VarChar(140)
+  payrollRun     TimeGatePayrollRun @relation(fields: [payrollRunId], references: [id], onDelete: Cascade)
+  companyId      String             @map("company") @db.VarChar(140)
+  employeeId     String             @map("employee") @db.VarChar(140)
+  employee       Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  baseSalary     Decimal            @default(0) @map("base_salary") @db.Decimal(21, 9)
+  overtimeAmount Decimal            @default(0) @map("overtime_amount") @db.Decimal(21, 9)
+  penaltyAmount  Decimal            @default(0) @map("penalty_amount") @db.Decimal(21, 9)
+  absenceAmount  Decimal            @default(0) @map("absence_amount") @db.Decimal(21, 9)
+  bonusAmount    Decimal            @default(0) @map("bonus_amount") @db.Decimal(21, 9)
+  netSalary      Decimal            @default(0) @map("net_salary") @db.Decimal(21, 9)
+  explainJson    Json?              @map("explain_json")
+
+  @@unique([payrollRunId, employeeId])
+  @@index([companyId])
+  @@map("timegate_payroll_line")
+}
+
+model TimeGateEmployeeContract {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId        String   @map("company") @db.VarChar(140)
+  company          Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId       String   @map("employee") @db.VarChar(140)
+  employee         Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  signedAt         DateTime @map("signed_at")
+  expiresAt        DateTime? @map("expires_at") @db.Date
+  renewalsCount    Int      @default(0) @map("renewals_count")
+  contractFileUrl  String?  @map("contract_file_url") @db.VarChar(2000)
+  notes            String?  @db.VarChar(2000)
+  isCurrent        Boolean  @default(true) @map("is_current")
+
+  @@index([companyId, employeeId])
+  @@index([employeeId, isCurrent])
+  @@map("timegate_employee_contract")
+}
+
+model TimeGateShiftSwapRequest {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId           String                  @map("company") @db.VarChar(140)
+  company             Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  requesterEmployeeId String                  @map("requester") @db.VarChar(140)
+  requester           Employee                @relation("ShiftSwapRequester", fields: [requesterEmployeeId], references: [id])
+  targetEmployeeId    String?                 @map("target_employee") @db.VarChar(140)
+  target              Employee?               @relation("ShiftSwapTarget", fields: [targetEmployeeId], references: [id], onDelete: SetNull)
+  shiftAssignmentId   String?                 @map("shift_assignment") @db.VarChar(140)
+  shiftAssignment     ShiftAssignment?        @relation(fields: [shiftAssignmentId], references: [id], onDelete: SetNull)
+  swapDate            DateTime                @map("swap_date") @db.Date
+  reason              String?                 @db.VarChar(500)
+  status              TimeGateShiftSwapStatus @default(PENDING)
+  reviewedByUserId    String?                 @map("reviewed_by") @db.VarChar(140)
+  reviewedBy          User?                   @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt          DateTime?               @map("reviewed_at")
+  reviewNote          String?                 @map("review_note") @db.VarChar(500)
+
+  @@index([companyId, status])
+  @@index([requesterEmployeeId])
+  @@map("timegate_shift_swap_request")
+}
+
+model TimeGateAuditLog {
+  id        String   @id @db.VarChar(140)
+  userId    String?  @map("user") @db.VarChar(140)
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId String   @map("company") @db.VarChar(140)
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  action    String   @db.VarChar(140)
+  entity    String   @db.VarChar(140)
+  entityId  String   @map("entity_id") @db.VarChar(140)
+  createdAt DateTime @default(now())
+
+  @@index([companyId, createdAt])
   @@index([entity, entityId])
+  @@map("timegate_audit_log")
 }

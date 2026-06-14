@@ -6,6 +6,8 @@ import { resolve } from 'path';
 @Injectable()
 export class FaceEmbeddingService {
   private readonly logger = new Logger(FaceEmbeddingService.name);
+  /** One Python face_engine process at a time (parallel spawns cause timeouts). */
+  private embedChain: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: ConfigService) { }
 
@@ -21,7 +23,7 @@ export class FaceEmbeddingService {
     console.log(`[TimeGateAPI][face-embed] start bytes=${buffer.length}`);
     this.logger.log(`[face-embed] started (bytes=${buffer.length})`);
     try {
-      const embedding = await this.embedWithPython(buffer);
+      const embedding = await this.runSerialized(() => this.embedWithPython(buffer));
       console.log(
         `[TimeGateAPI][face-embed] success vectorLength=${embedding.length} elapsedMs=${Date.now() - startedAt}`,
       );
@@ -65,11 +67,20 @@ export class FaceEmbeddingService {
     }
   }
 
+  private runSerialized<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.embedChain.then(task, task);
+    this.embedChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
   private async embedWithPython(buffer: Buffer): Promise<number[]> {
     const pythonBin = this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? 'python';
     const scriptPath =
       this.config.get<string>('FACE_ENGINE_SCRIPT_PATH') ?? resolve(process.cwd(), 'python', 'face_engine.py');
-    const timeoutMs = Number(this.config.get<string>('FACE_ENGINE_TIMEOUT_MS') ?? 10000);
+    const timeoutMs = Number(this.config.get<string>('FACE_ENGINE_TIMEOUT_MS') ?? 30000);
 
     const summarizeEngineText = (stdout: string, stderr: string) => {
       const out = stdout.trim();

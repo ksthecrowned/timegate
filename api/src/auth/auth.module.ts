@@ -10,12 +10,14 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { FaceModule } from '../face/face.module';
+import { AttendanceModule } from '../attendance/attendance.module';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     FaceModule,
+    AttendanceModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

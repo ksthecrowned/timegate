@@ -5,6 +5,7 @@ TimeGate est une solution de **pointage intelligent par reconnaissance faciale**
 - une app mobile kiosk pour la capture/verification en temps reel
 - une API metier (auth, RH, planning, logs, contrats, salaires, absences)
 - un dashboard admin pour piloter les operations
+- une webapp employé mobile-first pour consulter pointages et congés
 
 Le projet est organise en monorepo.
 
@@ -28,9 +29,10 @@ Objectifs principaux:
 
 ```text
 TimeGate/
-  api/         -> NestJS + Prisma + PostgreSQL + moteur facial Python
-  dashboard/   -> Next.js (backoffice admin)
-  mobile-app/  -> Expo / React Native (kiosk facial)
+  api/           -> NestJS + Prisma + PostgreSQL + moteur facial Python
+  dashboard/     -> Next.js (backoffice admin, port 3000)
+  employee-web/  -> Next.js (espace employé mobile-first, port 3001)
+  mobile-app/    -> Expo / React Native (kiosk facial)
 ```
 
 ### `api`
@@ -58,6 +60,16 @@ Backoffice web pour les equipes admin/RH:
 - gestion des contrats et salaires
 - suivi des logs de verification faciale
 - administration globale (selon role)
+
+### `employee-web`
+
+Application web **mobile-first** pour les employes (separee du dashboard admin) :
+
+- connexion via `POST /auth/employee/login`
+- consultation des pointages et soldes de conges
+- demandes de conge
+
+URL locale : `http://localhost:3001`
 
 ### `mobile-app`
 
@@ -87,8 +99,14 @@ bun run prisma:generate
 bun run start:dev
 ```
 
-Variables importantes dans `api/.env`:
+L'API ecoute par defaut sur le port **4001** avec le prefixe global **`/api/v1`**.
 
+Copier `api/.env.example` vers `api/.env`.
+
+Variables importantes dans `api/.env` :
+
+- `PORT` (defaut `4001`)
+- `CORS_ORIGIN` (ex: `http://localhost:3000,http://localhost:3001` pour dashboard + espace employé)
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `FACE_ENGINE_PYTHON_BIN`
@@ -107,7 +125,27 @@ bun run dev
 
 URL par defaut: `http://localhost:3000`
 
-## 3) Mobile App
+Copier `dashboard/.env.example` vers `dashboard/.env.local` :
+
+- `NEXT_PUBLIC_TIMEGATE_API_URL=http://localhost:4001/api/v1` (API Nest sur port **4001**, prefixe **/api/v1**)
+
+## 3) Espace employé (web)
+
+```bash
+cd employee-web
+bun install
+bun run dev
+```
+
+URL par defaut: `http://localhost:3001`
+
+Copier `employee-web/.env.example` vers `employee-web/.env` :
+
+- `NEXT_PUBLIC_TIMEGATE_API_URL=http://localhost:4001/api/v1`
+
+Compte seed employe : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!`
+
+## 4) Mobile App
 
 ```bash
 cd mobile-app
@@ -115,9 +153,9 @@ bun install
 bun run android
 ```
 
-Variable importante dans `mobile-app/.env`:
+Copier `mobile-app/.env.example` vers `mobile-app/.env` :
 
-- `EXPO_PUBLIC_TIMEGATE_API_URL` (ex: `http://<IP-LAN>:4001/api`)
+- `EXPO_PUBLIC_TIMEGATE_API_URL` (ex: `http://<IP-LAN>:4001/api/v1` sur appareil physique)
 
 ## Bonnes pratiques
 
@@ -133,4 +171,11 @@ Projet en evolution active, avec focus sur:
 - ergonomie kiosk mobile
 - industrialisation SaaS / multi-tenant
 - extraction des modules reutilisables (ex: service facial dedie)
+
+## CI
+
+Workflow GitHub Actions : [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+- Job **api** : Postgres, migrate, seed, tests use-cases (`bun run test:use-cases`)
+- Job **frontend** : `tsc --noEmit` sur `dashboard`, `employee-web` et `mobile-app`
 

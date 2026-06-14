@@ -1,5 +1,5 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
-import { Role } from '@prisma/client';
+import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { TimeGateUserRole } from '@prisma/client';
 
 export class CreateUserDto {
   @IsEmail()
@@ -9,10 +9,11 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
-  @IsEnum(Role)
-  role!: Role;
+  @IsEnum(TimeGateUserRole)
+  role!: TimeGateUserRole;
 
   @IsOptional()
   @IsString()
-  organizationId?: string;
+  @MaxLength(140)
+  companyId?: string;
 }

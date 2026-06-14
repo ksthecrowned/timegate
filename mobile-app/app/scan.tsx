@@ -12,32 +12,26 @@ import {
   useCameraPermissions,
 } from "react-native-face-detector-camera";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { getProvisionState, verifyFacePhoto } from "../lib/timegate";
+import {
+  createMobileIdempotencyKey,
+  getProvisionState,
+  getVerificationUserMessage,
+  isLikelyNetworkError,
+  verifyFacePhoto,
+} from "../lib/timegate";
+import {
+  enqueueOfflineVerification,
+  getPendingVerifyCount,
+  syncOfflineVerifications,
+} from "../lib/offline-verify-queue";
 import { darkTheme } from "../theme/colors";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
-const VERIFY_TIMEOUT_SECONDS = 20;
+const VERIFY_TIMEOUT_SECONDS = 60;
 const AUTO_RESET_SECONDS = 10;
 const SUCCESS_REDIRECT_SECONDS = 2;
 const LOCAL_DETECTION_COOLDOWN_MS = 10000;
-
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    const raw = error.message ?? "";
-    const msg = raw.toLowerCase();
-    if (msg.includes("no face detected")) {
-      return "Aucun visage detecte. Placez bien votre visage dans le cadre.";
-    }
-    if (msg.includes("timeout") || msg.includes("verification trop longue")) {
-      return "Verification trop longue. Verifiez votre connexion puis reessayez.";
-    }
-    if (msg.includes("network request failed") || msg.includes("failed to fetch")) {
-      return "Impossible de joindre le serveur. Verifiez le reseau et l'adresse API.";
-    }
-    return raw;
-  }
-  return "Une erreur est survenue pendant la verification.";
-}
+const OFFLINE_SYNC_INTERVAL_MS = 15000;
 
 function speakMessage(message: string, useFallback = false) {
   const text = message.trim();
@@ -78,6 +72,7 @@ export default function ScanScreen() {
   const [confidence, setConfidence] = useState<number | null>(null);
   const [verifyElapsedSeconds, setVerifyElapsedSeconds] = useState(0);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
 
   const resetToIdle = useCallback(() => {
@@ -115,24 +110,32 @@ export default function ScanScreen() {
     captureInFlight.current = true;
     let shouldAutoReset = false;
     let shouldRedirectHome = false;
+    let capturedPhotoForRetry: string | null = null;
 
     try {
       setVerifyState("verifying");
       setVerifyElapsedSeconds(0);
       setStatusMessage("Visage detecte en direct. Capture et envoi au serveur...");
-      const photo = await cameraRef.current.takePictureAsync({ skipProcessing: true });
+      const photo = await cameraRef.current.takePictureAsync({
+        skipProcessing: false,
+        quality: 0.88,
+      });
       if (!photo?.uri) {
         throw new Error("Capture photo indisponible.");
       }
-      console.log('photo.uri', photo.uri);
+      capturedPhotoForRetry = photo.uri;
       setCapturedPhotoUri(photo.uri);
 
-      const result = await verifyFacePhoto(photo.uri, VERIFY_TIMEOUT_SECONDS * 1000);
+      const result = await verifyFacePhoto(photo.uri, VERIFY_TIMEOUT_SECONDS * 1000, {
+        idempotencyKey: createMobileIdempotencyKey("verify-online"),
+      });
       setConfidence(result.confidence);
       const resultMessage = result.message?.trim()
         ? result.message
         : "Verification echouee. Veuillez reessayer.";
       setStatusMessage(resultMessage);
+
+      console.log("[TimeGateMobile][scan] verification result", result);
 
       if (result.success) {
         setVerifyState("success");
@@ -145,17 +148,32 @@ export default function ScanScreen() {
       } else {
         setVerifyState("error");
         shouldAutoReset = true;
+        speakMessage(resultMessage);
         console.warn("[TimeGateMobile][scan] verification failed (not matched)", {
           confidence: result.confidence,
           message: resultMessage,
         });
       }
     } catch (error) {
-      setVerifyState("error");
-      shouldAutoReset = true;
-      const friendlyMessage = getErrorMessage(error);
-      setStatusMessage(friendlyMessage);
-      console.error("[TimeGateMobile][scan] verification error", error);
+      if (isLikelyNetworkError(error) && capturedPhotoForRetry) {
+        const pending = await enqueueOfflineVerification(capturedPhotoForRetry);
+        setPendingSyncCount(pending);
+        setVerifyState("success");
+        shouldAutoReset = true;
+        setStatusMessage(
+          `Mode hors ligne: capture enregistree. Synchronisation auto des que le reseau revient (${pending} en attente).`,
+        );
+        console.warn("[TimeGateMobile][scan] network unavailable, verification queued offline", {
+          pending,
+        });
+      } else {
+        setVerifyState("error");
+        shouldAutoReset = true;
+        const friendlyMessage = getVerificationUserMessage(error);
+        setStatusMessage(friendlyMessage);
+        speakMessage(friendlyMessage);
+        console.warn("[TimeGateMobile][scan] verification failed", { message: friendlyMessage });
+      }
     } finally {
       captureInFlight.current = false;
       if (shouldRedirectHome) {
@@ -178,6 +196,41 @@ export default function ScanScreen() {
     }, 1000);
     return () => clearInterval(id);
   }, [verifyState]);
+
+  useEffect(() => {
+    let mounted = true;
+    const refreshAndSync = async () => {
+      if (captureInFlight.current) return;
+      try {
+        const result = await syncOfflineVerifications(VERIFY_TIMEOUT_SECONDS * 1000);
+        if (mounted) {
+          setPendingSyncCount(result.pending);
+          if (result.synced > 0) {
+            setStatusMessage(
+              `Synchronisation hors ligne terminee: ${result.synced} verification(s) provisoire(s) validee(s).`,
+            );
+          }
+        }
+      } catch {
+        if (mounted) {
+          const count = await getPendingVerifyCount();
+          setPendingSyncCount(count);
+        }
+      }
+    };
+    void (async () => {
+      const count = await getPendingVerifyCount();
+      if (mounted) setPendingSyncCount(count);
+      await refreshAndSync();
+    })();
+    const id = setInterval(() => {
+      void refreshAndSync();
+    }, OFFLINE_SYNC_INTERVAL_MS);
+    return () => {
+      mounted = false;
+      clearInterval(id);
+    };
+  }, []);
 
   const processFacesDetected = useCallback(
     ({ faces }: FaceDetectionResult) => {
@@ -310,8 +363,10 @@ export default function ScanScreen() {
           <Pressable style={styles.iconBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#FFF" />
           </Pressable>
-          <View style={{ width: 40 }} />
-          <View>
+          <Pressable style={styles.pinLink} onPress={() => router.push("/pin")}>
+            <Text style={styles.pinLinkText}>PIN</Text>
+          </Pressable>
+          <View style={{ flex: 1 }}>
             <Text style={styles.headerTitle}>Verification faciale...</Text>
             <Text style={styles.headerSubTitle}>Placez votre visage dans le cadre pour lancer la verification.</Text>
           </View>
@@ -328,6 +383,9 @@ export default function ScanScreen() {
                   ? "Verification echouee"
                   : "En attente de verification"}
           </Text>
+          {pendingSyncCount > 0 ? (
+            <Text style={styles.confidence}>{`${pendingSyncCount} verification(s) en attente de synchro`}</Text>
+          ) : null}
         </View>
       </View>
     </View>
@@ -347,7 +405,9 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 14,
     paddingTop: 8,
-    gap: 8
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
   },
   iconBtn: {
     width: 34,
@@ -359,6 +419,15 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
+  pinLink: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.35)",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  pinLinkText: { color: "#FFF", fontWeight: "700", fontSize: 12 },
   headerTitle: {
     color: "#FFF",
     fontSize: 28,

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsDateString, IsInt, IsOptional, IsUUID, Max, Min } from 'class-validator';
+import { IsDateString, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class PaginationQueryDto {
   @IsOptional()
@@ -16,11 +16,18 @@ export class PaginationQueryDto {
   limit?: number = 20;
 
   @IsOptional()
-  @IsUUID()
-  siteId?: string;
+  @IsString()
+  @MaxLength(140)
+  branchId?: string;
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
+  @MaxLength(140)
+  kioskId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
   employeeId?: string;
 
   @IsOptional()
@@ -30,4 +37,8 @@ export class PaginationQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+
+  resolvedBranchId(): string | undefined {
+    return this.branchId;
+  }
 }

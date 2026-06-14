@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -18,12 +18,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import {
   bootstrapOperator,
   clearProvisioning,
-  fetchDevicesForSite,
+  fetchKiosksForBranch,
   getProvisionState,
+  getTimeGateApiBase,
   provisionKiosk,
-  type TimeGateDevice,
-  type TimeGateSite,
+  type TimeGateKiosk,
+  type TimeGateBranch,
 } from "../lib/timegate";
+import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
 import { darkTheme } from "../theme/colors";
 
 type SetupStep = "login" | "site" | "device";
@@ -38,15 +40,17 @@ export default function HomeScreen() {
   const [password, setPassword] = useState("");
   const [sku, setSku] = useState("");
   const [operatorToken, setOperatorToken] = useState<string | null>(null);
-  const [sites, setSites] = useState<TimeGateSite[]>([]);
-  const [selectedSite, setSelectedSite] = useState<TimeGateSite | null>(null);
-  const [devices, setDevices] = useState<TimeGateDevice[]>([]);
-  const [selectedDeviceId, setSelectedDeviceId] = useState<string>("");
-  const [creatingNewDevice, setCreatingNewDevice] = useState(false);
-  const [inputDeviceName, setInputDeviceName] = useState("Borne principale");
+  const [branches, setBranches] = useState<TimeGateBranch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<TimeGateBranch | null>(null);
+  const [kiosks, setKiosks] = useState<TimeGateKiosk[]>([]);
+  const [selectedKioskId, setSelectedKioskId] = useState<string>("");
+  const [creatingNewKiosk, setCreatingNewKiosk] = useState(false);
+  const [inputKioskName, setInputKioskName] = useState("Borne principale");
   const [location, setLocation] = useState("Accueil");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const [syncingOffline, setSyncingOffline] = useState(false);
 
   function deviceStatusLabel(status?: string) {
     if (!status) return "Inconnu";
@@ -60,9 +64,29 @@ export default function HomeScreen() {
       const state = await getProvisionState();
       setConfigured(state.hasToken);
       setDeviceName(state.deviceName);
+      if (state.hasToken) {
+        setPendingOfflineCount(await getPendingVerifyCount());
+      }
       setLoading(false);
     })();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!configured) return;
+      void getPendingVerifyCount().then(setPendingOfflineCount);
+    }, [configured]),
+  );
+
+  async function handleOfflineSync() {
+    setSyncingOffline(true);
+    try {
+      const result = await syncOfflineVerifications(60_000);
+      setPendingOfflineCount(result.pending);
+    } finally {
+      setSyncingOffline(false);
+    }
+  }
 
   async function handleLoginStep() {
     setError(null);
@@ -70,10 +94,10 @@ export default function HomeScreen() {
     try {
       const data = await bootstrapOperator(email.trim(), password, sku.trim());
       setOperatorToken(data.operatorToken);
-      setSites(data.sites);
+      setBranches(data.branches);
       setStep("site");
-      if (data.sites.length === 1) {
-        await handleChooseSite(data.sites[0], data.operatorToken);
+      if (data.branches.length === 1) {
+        await handleChooseBranch(data.branches[0], data.operatorToken);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Connexion impossible");
@@ -82,17 +106,17 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleChooseSite(site: TimeGateSite, tokenFromArg?: string) {
+  async function handleChooseBranch(site: TimeGateBranch, tokenFromArg?: string) {
     const token = tokenFromArg ?? operatorToken;
     if (!token) return;
     setError(null);
     setSubmitting(true);
     try {
-      const fetchedDevices = await fetchDevicesForSite(token, site.id);
-      setSelectedSite(site);
-      setDevices(fetchedDevices);
-      setSelectedDeviceId("");
-      setCreatingNewDevice(false);
+      const fetchedKiosks = await fetchKiosksForBranch(token, site.id);
+      setSelectedBranch(site);
+      setKiosks(fetchedKiosks);
+      setSelectedKioskId("");
+      setCreatingNewKiosk(false);
       setStep("device");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Impossible de charger les appareils");
@@ -102,15 +126,15 @@ export default function HomeScreen() {
   }
 
   async function handleProvision() {
-    if (!operatorToken || !selectedSite) return;
+    if (!operatorToken || !selectedBranch) return;
     setError(null);
     setSubmitting(true);
     try {
       const state = await provisionKiosk({
         operatorToken,
-        siteId: selectedSite.id,
-        deviceId: creatingNewDevice ? undefined : selectedDeviceId || undefined,
-        deviceName: creatingNewDevice ? inputDeviceName : undefined,
+        branchId: selectedBranch.id,
+        kioskId: creatingNewKiosk ? undefined : selectedKioskId || undefined,
+        deviceName: creatingNewKiosk ? inputKioskName : undefined,
         location: location || undefined,
       });
       setConfigured(state.hasToken);
@@ -170,6 +194,26 @@ export default function HomeScreen() {
               </View>
 
               <Text style={styles.readyDeviceName}>{deviceName ?? "Appareil pret"}</Text>
+              {pendingOfflineCount > 0 ? (
+                <>
+                  <Text style={styles.offlinePending}>
+                    {pendingOfflineCount} verification(s) en attente de synchronisation
+                  </Text>
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.secondaryButton,
+                      pressed && styles.choicePressed,
+                      syncingOffline && styles.disabled,
+                    ]}
+                    disabled={syncingOffline}
+                    onPress={() => void handleOfflineSync()}
+                  >
+                    <Text style={styles.secondaryButtonText}>
+                      {syncingOffline ? "Synchronisation..." : "Synchroniser maintenant"}
+                    </Text>
+                  </Pressable>
+                </>
+              ) : null}
 
               <Pressable
                 style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
@@ -183,6 +227,7 @@ export default function HomeScreen() {
                   void clearProvisioning();
                   setConfigured(false);
                   setDeviceName(null);
+                  setPendingOfflineCount(0);
                 }}
                 style={styles.linkBtn}
               >
@@ -205,6 +250,9 @@ export default function HomeScreen() {
                 <Text style={styles.panelText}>
                   Connectez un compte ADMIN/MANAGER puis associez ce terminal à un site et à un appareil.
                 </Text>
+                {__DEV__ && step === "login" && (
+                  <Text style={styles.devApi}>API: {getTimeGateApiBase()}</Text>
+                )}
                 {!!error && <Text style={styles.error}>{error}</Text>}
 
                 {step === "login" && (
@@ -213,7 +261,7 @@ export default function HomeScreen() {
                     <Text style={styles.inputLabel}>Email</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="admin@timegate.local"
+                      placeholder="admin@monorganisation.com"
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -233,7 +281,7 @@ export default function HomeScreen() {
                     <Text style={styles.inputLabel}>SKU organisation</Text>
                     <TextInput
                       style={styles.input}
-                      placeholder="TMGT"
+                      placeholder="SOTR"
                       placeholderTextColor="rgba(255,255,255,0.45)"
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -262,14 +310,14 @@ export default function HomeScreen() {
                     <Text style={styles.helperText}>
                       Sélectionnez le site par son nom.
                     </Text>
-                    {sites.map((site) => (
+                    {branches.map((site) => (
                       <Pressable
                         key={site.id}
                         style={({ pressed }) => [
                           styles.choiceCard,
                           pressed && styles.choicePressed,
                         ]}
-                        onPress={() => void handleChooseSite(site)}
+                        onPress={() => void handleChooseBranch(site)}
                       >
                         <Text style={styles.choiceTitle}>{site.name}</Text>
                         <Text style={styles.choiceMeta}>
@@ -277,33 +325,33 @@ export default function HomeScreen() {
                         </Text>
                       </Pressable>
                     ))}
-                    {sites.length === 0 && (
+                    {branches.length === 0 && (
                       <Text style={styles.helperText}>Aucun site disponible pour ce compte.</Text>
                     )}
                   </View>
                 )}
 
-                {step === "device" && selectedSite && (
+                {step === "device" && selectedBranch && (
                   <View style={styles.block}>
                     <Text style={styles.groupLabel}>Étape 3 - Appareil</Text>
                     <Text style={styles.helperText}>
-                      Site sélectionné: {selectedSite.name}
+                      Site sélectionné: {selectedBranch.name}
                     </Text>
 
-                    {devices.length > 0 && (
+                    {kiosks.length > 0 && (
                       <>
                         <Text style={styles.inputLabel}>Appareils existants</Text>
-                        {devices.map((device) => (
+                        {kiosks.map((device) => (
                           <Pressable
                             key={device.id}
                             style={({ pressed }) => [
                               styles.choiceCard,
-                              selectedDeviceId === device.id && styles.choiceSelected,
+                              selectedKioskId === device.id && styles.choiceSelected,
                               pressed && styles.choicePressed,
                             ]}
                             onPress={() => {
-                              setSelectedDeviceId(device.id);
-                              setCreatingNewDevice(false);
+                              setSelectedKioskId(device.id);
+                              setCreatingNewKiosk(false);
                             }}
                           >
                             <Text style={styles.choiceTitle}>{device.name}</Text>
@@ -321,22 +369,22 @@ export default function HomeScreen() {
                         pressed && styles.choicePressed,
                       ]}
                       onPress={() => {
-                        setCreatingNewDevice(true);
-                        setSelectedDeviceId("");
+                        setCreatingNewKiosk(true);
+                        setSelectedKioskId("");
                       }}
                     >
                       <Text style={styles.secondaryButtonText}>+ Ajouter un nouvel appareil</Text>
                     </Pressable>
 
-                    {creatingNewDevice && (
+                    {creatingNewKiosk && (
                       <>
                         <Text style={styles.inputLabel}>Nom du nouvel appareil</Text>
                         <TextInput
                           style={styles.input}
                           placeholder="Borne principale"
                           placeholderTextColor="rgba(255,255,255,0.45)"
-                          value={inputDeviceName}
-                          onChangeText={setInputDeviceName}
+                          value={inputKioskName}
+                          onChangeText={setInputKioskName}
                         />
                       </>
                     )}
@@ -356,7 +404,7 @@ export default function HomeScreen() {
                         pressed && styles.buttonPressed,
                         submitting && styles.disabled,
                       ]}
-                      disabled={submitting || (!creatingNewDevice && !selectedDeviceId)}
+                      disabled={submitting || (!creatingNewKiosk && !selectedKioskId)}
                       onPress={() => void handleProvision()}
                     >
                       <Text style={styles.buttonText}>
@@ -497,6 +545,13 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: 6,
   },
+  offlinePending: {
+    color: "#FDE68A",
+    fontSize: 12,
+    textAlign: "center",
+    marginBottom: 8,
+    paddingHorizontal: 12,
+  },
   block: { gap: 8 },
   groupLabel: {
     color: "#E8E2F6",
@@ -547,6 +602,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: { color: "#FFF", fontWeight: "600" },
   helperText: { color: "rgba(255,255,255,0.62)", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  devApi: { color: "rgba(255,255,255,0.45)", fontSize: 11, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" },
   error: { color: "#FECACA", fontSize: 13 },
   disabled: { opacity: 0.6 },
   linkBtn: { marginTop: 2, alignItems: "center", paddingVertical: 8 },
