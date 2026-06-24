@@ -17,7 +17,7 @@ export function DetailCard({
   actions?: React.ReactNode
 }) {
   return (
-    <div className="tg-card border-t-4 border-t-primary">
+    <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
         {actions}
@@ -46,7 +46,7 @@ export function FormCard({
   footer?: React.ReactNode
 }) {
   return (
-    <div className="tg-card border-t-4 border-t-primary">
+    <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
         <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
       </div>
@@ -61,7 +61,7 @@ export function FormCard({
 }
 
 export const primaryBtnClass =
-  'py-2 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-primary text-white shadow-sm hover:bg-secondary disabled:opacity-50 transition-colors'
+  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-primary text-white shadow-sm hover:bg-secondary disabled:opacity-50 transition-colors'
 
 export const secondaryBtnClass =
-  'py-2 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'
+  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'

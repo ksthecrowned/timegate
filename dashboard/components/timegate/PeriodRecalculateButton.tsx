@@ -1,52 +1,59 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { FormField, DateField } from '@/components/ui/FormField'
-import { ApiErrorBanner, primaryBtnClass } from '@/components/timegate/ui'
-import { lastNDaysRange } from '@/lib/timegate/period-range'
-import { parseApiDate } from '@/lib/date-utils'
-import { HttpError } from '@/lib/http'
+import { useState } from "react";
+import { FormField, DateField } from "@/components/ui/FormField";
+import { ApiErrorBanner, primaryBtnClass } from "@/components/timegate/ui";
+import { lastNDaysRange } from "@/lib/timegate/period-range";
+import { parseApiDate } from "@/lib/date-utils";
+import { HttpError } from "@/lib/http";
 
 type PeriodRecalculateButtonProps = {
-  label?: string
-  defaultDays?: number
-  onRecalculate: (range: { from: string; to: string }) => Promise<{ message: string }>
-}
+  label?: string;
+  defaultDays?: number;
+  onRecalculate: (range: {
+    from: string;
+    to: string;
+  }) => Promise<{ message: string }>;
+};
 
 export default function PeriodRecalculateButton({
-  label = 'Recalculer',
+  label = "Recalculer",
   defaultDays = 30,
   onRecalculate,
 }: PeriodRecalculateButtonProps) {
-  const defaults = lastNDaysRange(defaultDays)
-  const [from, setFrom] = useState(defaults.from)
-  const [to, setTo] = useState(defaults.to)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
+  const defaults = lastNDaysRange(defaultDays);
+  const [from, setFrom] = useState(defaults.from);
+  const [to, setTo] = useState(defaults.to);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   async function handleRecalculate() {
-    setLoading(true)
-    setError('')
-    setSuccess('')
+    setLoading(true);
+    setError("");
+    setSuccess("");
     try {
-      const res = await onRecalculate({ from, to })
-      setSuccess(res.message)
+      const res = await onRecalculate({ from, to });
+      setSuccess(res.message);
     } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Recalcul impossible.')
+      setError(err instanceof HttpError ? err.message : "Recalcul impossible.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 dark:border-neutral-700 dark:bg-neutral-900">
+    <div className="mb-4 rounded-xl border border-slate-200/80 dark:border-border-dark tg-card p-4">
       <div className="flex flex-wrap items-end gap-3">
         <FormField label="Du">
           <DateField value={from} onChange={setFrom} />
         </FormField>
         <FormField label="Au">
-          <DateField value={to} onChange={setTo} minDate={parseApiDate(from) ?? undefined} />
+          <DateField
+            value={to}
+            onChange={setTo}
+            minDate={parseApiDate(from) ?? undefined}
+          />
         </FormField>
         <button
           type="button"
@@ -54,7 +61,7 @@ export default function PeriodRecalculateButton({
           onClick={() => void handleRecalculate()}
           className={primaryBtnClass}
         >
-          {loading ? 'Recalcul…' : label}
+          {loading ? "Recalcul…" : label}
         </button>
       </div>
       <ApiErrorBanner message={error} />
@@ -64,5 +71,5 @@ export default function PeriodRecalculateButton({
         </div>
       )}
     </div>
-  )
+  );
 }

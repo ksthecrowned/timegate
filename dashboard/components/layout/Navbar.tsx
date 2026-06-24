@@ -399,9 +399,11 @@ function getGreeting() {
 export default function Navbar() {
   const { data: session } = useSession()
   const [profileOpen, setProfileOpen] = useState(false)
-  const [notifOpen, setNotifOpen] = useState(false)
 
   const adminEmail = session?.user?.email ?? 'admin@timegate.com'
+  const displayName =
+    [session?.user?.firstName, session?.user?.lastName].filter(Boolean).join(' ') ||
+    adminEmail.split('@')[0]
   const roleLabel = getRoleLabel(session?.user?.role)
 
   const handleLogout = () => {
@@ -474,22 +476,6 @@ export default function Navbar() {
                 </svg>
               </button>
 
-              {/* Notifications */}
-              <button
-                type="button"
-                onClick={() => setNotifOpen(true)}
-                className="m-1 ms-0 relative inline-flex items-center py-2 px-3 bg-black/10 dark:bg-white/10 rounded-full text-sm text-black dark:text-white hover:bg-black/20 dark:hover:bg-white/20 focus:outline-none focus:bg-black/20 dark:focus:bg-white/20"
-                aria-haspopup="dialog"
-                aria-expanded={notifOpen}
-                aria-controls="hs-offcanvas-right"
-              >
-                <i className="fa-regular fa-bell " />
-                <span className="hidden absolute top-0 end-0 size-3 -mt-1.5 -me-1.5 marker-notification">
-                  <span className="animate-ping absolute inline-flex size-full rounded-full bg-red-400 opacity-75 dark:bg-red-600" />
-                  <span className="relative inline-flex rounded-full size-3 bg-red-500" />
-                </span>
-              </button>
-
               {/* Dropdown profile */}
               <div className="hs-dropdown relative inline-flex">
                 <button
@@ -507,7 +493,7 @@ export default function Navbar() {
                     alt="Avatar"
                   />
                   <span className="font-medium truncate max-w-[7.5rem]">
-                    {adminEmail.split('@')[0]}
+                    {displayName}
                   </span>
                   <svg
                     className={`size-4 transition-transform ${profileOpen ? 'rotate-180' : ''}`}
@@ -620,39 +606,6 @@ export default function Navbar() {
         </div>
       </div>
       {/* ========== END BREADCRUMB MOBILE ========== */}
-
-      {/* ========== OFFCANVAS NOTIFICATIONS ========== */}
-      {notifOpen && (
-        <div
-          id="hs-offcanvas-right"
-          className="fixed top-0 end-0 h-full max-w-xs w-full z-[80] bg-white border-s dark:bg-neutral-800 dark:border-neutral-700 shadow-xl"
-          role="dialog"
-          tabIndex={-1}
-          aria-labelledby="hs-offcanvas-right-label"
-        >
-          <div className="flex justify-between items-center py-3 px-4 border-b dark:border-neutral-700">
-            <h3 id="hs-offcanvas-right-label" className="font-bold text-gray-800 dark:text-white">
-              Notifications
-            </h3>
-            <button
-              type="button"
-              onClick={() => setNotifOpen(false)}
-              className="size-8 inline-flex justify-center items-center gap-x-2 rounded-full border border-transparent bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-none focus:bg-gray-200 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:text-neutral-400 dark:focus:bg-neutral-600"
-              aria-label="Close"
-            >
-              <span className="sr-only">Close</span>
-              <svg className="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 6 6 18" />
-                <path d="m6 6 12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="p-4 overflow-y-scroll" id="notificationsList">
-            {/* TODO: liste des notifications */}
-          </div>
-        </div>
-      )}
-      {/* ========== END OFFCANVAS NOTIFICATIONS ========== */}
     </>
   )
 }

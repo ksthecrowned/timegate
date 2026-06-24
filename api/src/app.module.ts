@@ -30,6 +30,7 @@ import { CompaniesModule } from './companies/companies.module';
 import { PlanningModule } from './planning/planning.module';
 import { SearchModule } from './search/search.module';
 import { ShiftSwapsModule } from './shift-swaps/shift-swaps.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { ShiftSwapsModule } from './shift-swaps/shift-swaps.module';
     PlanningModule,
     SearchModule,
     ShiftSwapsModule,
+    DashboardModule,
   ],
 })
 export class AppModule {}

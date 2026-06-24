@@ -1,13 +1,13 @@
-import { ValidationPipe } from '@nestjs/common';
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { randomUUID } from 'crypto';
-import type { Request, Response } from 'express';
+import { ValidationPipe } from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { AppModule } from "./app.module";
+import { randomUUID } from "crypto";
+import type { Request, Response } from "express";
 
 function registerStdIoGuards() {
   const isIgnorableWriteError = (error: NodeJS.ErrnoException) =>
-    (error?.code === 'EPIPE' || error?.code === 'EOF') &&
-    (error?.syscall === 'write' || !error?.syscall);
+    (error?.code === "EPIPE" || error?.code === "EOF") &&
+    (error?.syscall === "write" || !error?.syscall);
 
   const handleStreamError = (error: NodeJS.ErrnoException) => {
     // On Windows + watch terminals, stdout/stderr can be closed unexpectedly.
@@ -18,7 +18,7 @@ function registerStdIoGuards() {
     throw error;
   };
 
-  process.on('uncaughtException', (error: unknown) => {
+  process.on("uncaughtException", (error: unknown) => {
     const errnoError = error as NodeJS.ErrnoException;
     if (isIgnorableWriteError(errnoError)) {
       return;
@@ -26,22 +26,22 @@ function registerStdIoGuards() {
     throw error;
   });
 
-  process.stdout.on('error', handleStreamError);
-  process.stderr.on('error', handleStreamError);
+  process.stdout.on("error", handleStreamError);
+  process.stderr.on("error", handleStreamError);
 }
 
 async function bootstrap() {
   registerStdIoGuards();
   const app = await NestFactory.create(AppModule);
   app.use((req: Request, res: Response, next: () => void) => {
-    const requestId = `${req.headers['x-request-id'] ?? randomUUID()}`.trim();
-    req.headers['x-request-id'] = requestId;
-    res.setHeader('X-Request-Id', requestId);
+    const requestId = `${req.headers["x-request-id"] ?? randomUUID()}`.trim();
+    req.headers["x-request-id"] = requestId;
+    res.setHeader("X-Request-Id", requestId);
     next();
   });
-  const corsOriginEnv = process.env.CORS_ORIGIN ?? '';
+  const corsOriginEnv = process.env.CORS_ORIGIN ?? "";
   const allowedOrigins = corsOriginEnv
-    .split(',')
+    .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   app.enableCors({
@@ -49,16 +49,21 @@ async function bootstrap() {
       allowedOrigins.length > 0
         ? allowedOrigins
         : [
-            'http://localhost:3000',
-            'http://127.0.0.1:3000',
-            'http://172.20.10.2:3000',
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "http://172.20.10.2:3000",
           ],
     credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Idempotency-Key', 'X-Request-Id'],
-    exposedHeaders: ['X-Request-Id'],
+    methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Idempotency-Key",
+      "X-Request-Id",
+    ],
+    exposedHeaders: ["X-Request-Id"],
   });
-  app.setGlobalPrefix('api/v1');
+  app.setGlobalPrefix("api/v1");
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

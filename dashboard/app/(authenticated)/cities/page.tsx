@@ -43,7 +43,7 @@ export default function CitiesPage() {
     setError('')
     try {
       const res = await listCities({
-        limit: 500,
+        limit: 100,
         ...(countryFilter ? { countryId: countryFilter } : {}),
       })
       setData(res.data)

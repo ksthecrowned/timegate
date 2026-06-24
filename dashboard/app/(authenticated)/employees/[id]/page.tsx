@@ -62,7 +62,7 @@ export default function EmployeeDetailPage() {
       {loading ? (
         <SkeletonDetailCard />
       ) : employee ? (
-        <div className="space-y-6">
+        <div className="space-y-0">
           <ResourceProfileHeader
             title={fullName}
             subtitle={[employee.designation, employee.department].filter(Boolean).join(' · ') || undefined}
@@ -81,6 +81,7 @@ export default function EmployeeDetailPage() {
               />
             </div>
           </ResourceProfileHeader>
+          <div className="h-6" />
 
           <div className="grid gap-6 lg:grid-cols-2">
             <ResourceDetailSection

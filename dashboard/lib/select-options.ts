@@ -19,6 +19,7 @@ export function toSelectOptions(
 }
 
 export function findOption(options: SelectOption[], value: string): SelectOption | null {
+  console.log('value', value)
   if (!value) return null
   return options.find((o) => o.value === value) ?? null
 }

@@ -34,6 +34,23 @@
 
 | 29 | **Vocabulaire Frappe unique** | JSON + JWT `companyId` ; dashboard + mobile ; `frappe-json-schema.md` |
 | 30 | **Routes canoniques** | `/branches`, `/kiosks`, `/shift-types` ; `/sites`, `/devices` → 404 |
+| 32 | **Soldes congés temps réel** | API + dashboard + employee-web |
+| 33 | **Import employés CSV** | `POST /employees/bulk` + page dashboard |
+| 34 | **Planning calendrier équipe** | `/planning` + API calendar |
+| 35 | **PIN fallback kiosk** | Mobile `/pin` + API verify-pin |
+| 36 | **Portail employé web PWA** | `employee-web` port 3001, manifest + SW |
+| 38 | **Export présence CSV/PDF** | API `format=csv|pdf` |
+| 39 | **Échange shifts** | `/shift-swaps` |
+| 40 | **Prévu vs réalisé** | `GET /dashboard/planning-vs-actual` + home KPI |
+| 41 | **Recherche globale** | `GET /search` + navbar |
+
+## Lot ABC 2026-06 (livré)
+
+| Item | Livrable |
+|------|----------|
+| A | `PATCH /auth/me/password`, `PATCH /auth/me`, profil dashboard + employee-web |
+| B | Playwright `e2e/` + job CI |
+| C | Export PDF serveur, KPI planning, PWA employee-web |
 
 ## Optionnel / qualité
 

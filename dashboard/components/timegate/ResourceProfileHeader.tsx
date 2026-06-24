@@ -22,8 +22,8 @@ export default function ResourceProfileHeader({
   const fallback = initials ?? title.slice(0, 2).toUpperCase()
 
   return (
-    <div className="bg-white border border-gray-200 shadow-2xs rounded-xl dark:bg-neutral-800 dark:border-neutral-700 overflow-hidden">
-      <div className="h-24 bg-gradient-to-r from-primary to-secondary" />
+    <div className="tg-card border border-slate-200/80 shadow-2xs rounded-xl dark:border-border-dark">
+      <div className="h-24 bg-linear-to-r from-primary to-secondary rounded-t-xl" />
       <div className="px-5 pb-5 -mt-12">
         <div className="flex flex-col sm:flex-row sm:items-end gap-4 justify-between">
           <div className="flex items-end gap-4">
@@ -35,7 +35,7 @@ export default function ResourceProfileHeader({
                 className="size-24 rounded-xl border-4 border-white dark:border-neutral-800 object-cover shadow-md"
               />
             ) : (
-              <div className="size-24 rounded-xl border-4 border-white dark:border-neutral-800 bg-primary/10 flex items-center justify-center text-2xl font-bold text-primary shadow-md">
+              <div className="size-24 rounded-xl border-4 border-white dark:border-neutral-800 bg-primary flex items-center justify-center text-2xl font-bold text-white shadow-md">
                 {fallback}
               </div>
             )}

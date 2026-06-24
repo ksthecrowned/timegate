@@ -15,7 +15,7 @@ export function listHolidays(params?: { page?: number; limit?: number; from?: st
 export function listHolidaysForYear(year: number) {
   return listHolidays({
     page: 1,
-    limit: 500,
+    limit: 100,
     from: `${year}-01-01`,
     to: `${year}-12-31`,
   })

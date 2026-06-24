@@ -26,6 +26,7 @@ import { RecalculateAttendanceDaysDto } from './dto/recalculate-attendance-days.
 import { UpdateAttendanceDayDto } from './dto/update-attendance-day.dto';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
+import { buildAttendanceDaysPdf } from './attendance-pdf.util';
 
 @Injectable()
 export class AttendanceDaysService {
@@ -83,7 +84,47 @@ export class AttendanceDaysService {
     };
   }
 
+  async exportDays(query: ExportAttendanceDaysQueryDto, user?: JwtUser) {
+    const items = await this.fetchExportRows(query, user);
+    const format = query.format ?? 'csv';
+
+    if (format === 'pdf') {
+      const companyId = this.resolveCompanyFilter(user);
+      const company = companyId
+        ? await this.prisma.company.findUnique({
+            where: { id: companyId },
+            select: { name: true },
+          })
+        : null;
+      const pdfRows = items.map((row) => ({
+        date: row.attendanceDate.toISOString().slice(0, 10),
+        employeeName: [row.employee?.firstName, row.employee?.lastName].filter(Boolean).join(' '),
+        branch: row.employee?.branch?.branchName ?? '',
+        status: row.status,
+        shift: row.shift?.shiftName ?? '',
+        leaveType: row.leaveType?.leaveTypeName ?? '',
+        checkinsCount: row._count.checkins,
+      }));
+      const pdfBuffer = await buildAttendanceDaysPdf(pdfRows, {
+        from: query.from!,
+        to: query.to!,
+        companyName: company?.name,
+      });
+      return {
+        filename: `attendance-days-${query.from}_${query.to}.pdf`,
+        contentBase64: pdfBuffer.toString('base64'),
+        mimeType: 'application/pdf',
+      };
+    }
+
+    return this.toCsvResponse(items, query);
+  }
+
   async exportCsv(query: ExportAttendanceDaysQueryDto, user?: JwtUser) {
+    return this.exportDays(query, user);
+  }
+
+  private async fetchExportRows(query: ExportAttendanceDaysQueryDto, user?: JwtUser) {
     if (!query.from || !query.to) {
       throw new BadRequestException('from and to are required');
     }
@@ -106,7 +147,7 @@ export class AttendanceDaysService {
       },
     };
 
-    const items = await this.prisma.attendance.findMany({
+    return this.prisma.attendance.findMany({
       where,
       orderBy: [{ attendanceDate: 'asc' }, { employeeId: 'asc' }],
       include: {
@@ -121,7 +162,12 @@ export class AttendanceDaysService {
         _count: { select: { checkins: true } },
       },
     });
+  }
 
+  private toCsvResponse(
+    items: Awaited<ReturnType<AttendanceDaysService['fetchExportRows']>>,
+    query: ExportAttendanceDaysQueryDto,
+  ) {
     const header =
       'date,employeeId,firstName,lastName,branch,status,shift,leaveType,checkinsCount';
     const body = items

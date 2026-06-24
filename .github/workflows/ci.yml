@@ -118,3 +118,78 @@ jobs:
           else
             npx tsc --noEmit
           fi
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: [api, frontend]
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: timegate
+          POSTGRES_PASSWORD: timegate
+          POSTGRES_DB: timegate
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U timegate -d timegate"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://timegate:timegate@localhost:5432/timegate
+      JWT_SECRET: ci-test-secret-change-me
+      JWT_EXPIRES_IN: 8h
+      PORT: 4001
+      CORS_ORIGIN: http://localhost:3000,http://localhost:3001
+      PLAYWRIGHT_BASE_URL_DASHBOARD: http://localhost:3000
+      PLAYWRIGHT_BASE_URL_EMPLOYEE: http://localhost:3001
+      TIMEGATE_API_URL: http://127.0.0.1:4001/api/v1
+      AUTH_SECRET: ci-e2e-auth-secret-change-me
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.0"
+
+      - name: Install API and start stack
+        run: |
+          cd api && bun install --frozen-lockfile
+          bunx prisma migrate deploy
+          bunx prisma db seed
+          bun run build
+          bun run start:prod &
+          echo $! > api.pid
+          cd ../dashboard && bun install --frozen-lockfile && bun run build && bun run start &
+          echo $! > dashboard.pid
+          cd ../employee-web && npm ci && npm run build && npm run start &
+          echo $! > employee.pid
+          sleep 15
+
+      - name: Install Playwright and run e2e
+        working-directory: e2e
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report/
+
+      - name: Stop services
+        if: always()
+        run: |
+          for f in api/api.pid dashboard/dashboard.pid employee-web/employee.pid; do
+            if [ -f "$f" ]; then kill "$(cat "$f")" || true; fi
+          done

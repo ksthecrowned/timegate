@@ -10,17 +10,21 @@ type ResourceDetailSectionProps = {
 
 export default function ResourceDetailSection({ title, items }: ResourceDetailSectionProps) {
   return (
-    <div className="bg-white border border-gray-200 shadow-2xs rounded-xl dark:bg-neutral-800 dark:border-neutral-700">
-      <div className="border-b border-gray-200 px-5 py-3 dark:border-neutral-700">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-neutral-400">
+    <div className="tg-card border-t-4 border-t-primary mb-4">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
           {title}
         </h2>
       </div>
-      <dl className="divide-y divide-gray-100 dark:divide-neutral-700">
+      <dl className="space-y-3">
         {items.map((item) => (
-          <div key={item.label} className="grid grid-cols-1 sm:grid-cols-3 gap-1 px-5 py-3">
-            <dt className="text-sm text-gray-500 dark:text-neutral-400">{item.label}</dt>
-            <dd className="sm:col-span-2 text-sm font-medium text-gray-900 dark:text-neutral-100">
+          <div key={item.label}
+            className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 dark:border-border-dark px-5 py-3 last:border-0"
+          >
+            <dt className="text-sm font-medium text-slate-800 dark:text-slate-200">
+              {item.label}
+            </dt>
+            <dd className="text-sm text-slate-600 dark:text-slate-400">
               {item.value ?? '—'}
             </dd>
           </div>

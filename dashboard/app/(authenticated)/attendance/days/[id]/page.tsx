@@ -12,6 +12,8 @@ import { getAttendanceDay } from '@/lib/timegate/attendance'
 import type { AttendanceDay } from '@/lib/timegate/types'
 import { formatApiDate } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
+import { findOption } from '@/lib/select-options'
+import { STATUS_OPTIONS } from '@/constants'
 
 export default function AttendanceDayDetailPage() {
   const params = useParams<{ id: string }>()
@@ -64,7 +66,7 @@ export default function AttendanceDayDetailPage() {
             <DetailRow label="Date" value={formatApiDate(day.date)} />
             <DetailRow
               label="Statut"
-              value={<StatusBadge status={String(day.status).toLowerCase()} />}
+              value={<StatusBadge status={findOption(STATUS_OPTIONS, day.status)?.label || ""} />}
             />
             <DetailRow label="Horaire" value={day.shift?.name ?? '—'} />
             <DetailRow label="Type congé" value={day.leaveType?.leaveTypeName ?? '—'} />

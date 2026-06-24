@@ -2,9 +2,62 @@
 api/.env
 dashboard/.env
 mobile-app/.env
+employee-app/.env
+employee-app/.env.*
 
-# Also ignore variant env files
+# Variant env files
 api/.env.*
 dashboard/.env.*
 mobile-app/.env.*
+
+# TimeGate: misc
 api-deprecation.log
+.aider*
+
+# Node / build artifacts
+node_modules/
+dist/
+build/
+.next/
+.expo/
+.expo-shared/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+.cursor/
+
+# TimeGate-specific
+models/
+.kilo/
+.aider.tags.cache.v4/
+.claude/
+
+# Expo / React Native
+*.jks
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+
+# Native Firebase config (real values must NOT be committed)
+# Keep `.example` templates under version control.
+employee-app/GoogleService-Info.plist
+employee-app/google-services.json
+
+# Generated artifacts
+api/dist/
+dashboard/.next/
+employee-app/.expo/

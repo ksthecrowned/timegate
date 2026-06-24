@@ -8,6 +8,7 @@ import { listLateRecords } from '@/lib/timegate/late-records'
 import { listLeaves } from '@/lib/timegate/leaves'
 import { lastNDaysRange } from '@/lib/timegate/period-range'
 import { listTimesheets } from '@/lib/timegate/timesheets'
+import { getPlanningVsActual, type PlanningVsActual } from '@/lib/timegate/planning-vs-actual'
 import type { AttendanceDay, Leave, TimesheetDay } from '@/lib/timegate/types'
 import { normalizeApiDate } from '@/lib/date-utils'
 
@@ -24,6 +25,7 @@ export type DashboardStats = {
 
 export type DashboardChartData = {
   stats: DashboardStats
+  planningVsActual: PlanningVsActual | null
   attendanceTrend: {
     categories: string[]
     present: number[]
@@ -175,6 +177,13 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
   )
   const weekCategories = sortedWeekKeys(weeklyHoursMap, weeklyLateMap, weeklyAbsentMap)
 
+  let planningVsActual: PlanningVsActual | null = null
+  try {
+    planningVsActual = await getPlanningVsActual(statsRange)
+  } catch {
+    planningVsActual = null
+  }
+
   return {
     stats: {
       employees: employees.meta.total,
@@ -186,6 +195,7 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
       pendingLeaves,
       timesheetDays: timesheetsMeta.meta.total,
     },
+    planningVsActual,
     attendanceTrend: {
       categories: trendKeys.map(shortDateLabel),
       present: trendKeys.map((k) => present.get(k) ?? 0),

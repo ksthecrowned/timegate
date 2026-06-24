@@ -33,7 +33,7 @@ export class AttendanceController {
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Get('days/export')
   exportDays(@CurrentUser() user: JwtUser, @Query() query: ExportAttendanceDaysQueryDto) {
-    return this.attendanceDays.exportCsv(query, user);
+    return this.attendanceDays.exportDays(query, user);
   }
 
   @Get('days/:id')

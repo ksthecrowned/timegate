@@ -12,6 +12,8 @@ export type EmployeeSummary = {
 export type TimeGateUser = {
   id: string
   email: string
+  firstName?: string | null
+  lastName?: string | null
   role: TimeGateRole
   companyId: string | null
   employeeId?: string | null

@@ -11,6 +11,8 @@ import { dateTableColumn } from '@/components/timegate/date-table-column'
 import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import {
   exportAttendanceDays,
+  exportAttendanceDaysPdf,
+  downloadBase64File,
   recalculateAttendanceDays,
   listAttendanceDays,
 } from '@/lib/timegate/attendance'
@@ -18,6 +20,8 @@ import { lastNDaysRange } from '@/lib/timegate/period-range'
 import type { AttendanceDay } from '@/lib/timegate/types'
 import { parseApiDate } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
+import { findOption } from '@/lib/select-options'
+import { STATUS_OPTIONS } from '@/constants'
 
 const defaultRange = lastNDaysRange(30)
 
@@ -31,7 +35,7 @@ const columns: Column<AttendanceDay>[] = [
     label: 'Statut',
     filterable: true,
     filterPlaceholder: 'statut',
-    render: (v) => <StatusBadge status={String(v).toLowerCase()} />,
+    render: (v) => <StatusBadge status={findOption(STATUS_OPTIONS, v as string)?.label || ""} />,
   },
   {
     key: 'shift',
@@ -52,6 +56,7 @@ export default function AttendanceDaysPage() {
   const [loading, setLoading] = useState(true)
   const [recalculating, setRecalculating] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -106,6 +111,19 @@ export default function AttendanceDaysPage() {
     }
   }
 
+  async function handleExportPdf() {
+    setExportingPdf(true)
+    setError('')
+    try {
+      const res = await exportAttendanceDaysPdf({ from, to, page: 1, limit: 100 })
+      downloadBase64File(res.contentBase64, res.filename, res.mimeType)
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Export PDF impossible')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader breadcrumbs={[{ label: 'Présence' }, { label: 'Jours' }]} />
@@ -129,7 +147,7 @@ export default function AttendanceDaysPage() {
           >
             {recalculating ? 'Recalcul…' : 'Recalculer les jours'}
           </button>
-          <button
+          {/*<button
             type="button"
             disabled={exporting}
             onClick={() => void handleExport()}
@@ -137,6 +155,14 @@ export default function AttendanceDaysPage() {
           >
             {exporting ? 'Export…' : 'Exporter CSV'}
           </button>
+          <button
+            type="button"
+            disabled={exportingPdf}
+            onClick={() => void handleExportPdf()}
+            className={secondaryBtnClass}
+          >
+            {exportingPdf ? 'Export PDF…' : 'Exporter PDF'}
+          </button>*/}
         </div>
         <ApiErrorBanner message={error} />
         {success && <p className="mt-3 text-sm text-primary dark:text-teal-300">{success}</p>}
@@ -148,6 +174,8 @@ export default function AttendanceDaysPage() {
         columns={columns}
         entityLabel="jours"
         tableId="hs-attendance-days-table"
+        apiBaseUrl="/attendance/days"
+        periodeRange={{ from, to }}
         emptyMessage="Aucun jour de présence."
         actions={(row) => <ActionButtons viewHref={`/attendance/days/${row.id}`} />}
       />

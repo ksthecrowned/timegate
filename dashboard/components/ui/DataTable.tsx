@@ -1,19 +1,12 @@
 'use client'
 import { useState, useMemo } from 'react'
 import { SkeletonBlock, SkeletonDataTableBody } from '@/components/ui/Skeleton'
-
-// export interface Column<T> {
-//   key: keyof T | string
-//   label: string
-//   sortable?: boolean
-//   filterable?: boolean
-//   filterPlaceholder?: string
-//   render?: (value: unknown, row: T) => React.ReactNode
-//   className?: string
-// }
+import { http, HttpError } from '@/lib/http'
+import { ApiErrorBanner } from '../timegate/ui'
+import { downloadBase64File } from '@/lib/timegate/attendance'
 
 export interface Column<T> {
-  id?: string               // ✅ AJOUT
+  id?: string
   key: keyof T | string
   label: string
   sortable?: boolean
@@ -32,6 +25,8 @@ interface DataTableProps<T> {
   actions?: (row: T) => React.ReactNode
   entityLabel?: string
   tableId?: string
+  apiBaseUrl?: string
+  periodeRange?: { from: string, to: string }
   loading?: boolean
   onRowClick?: (row: T) => void
   selectedRowId?: string
@@ -39,7 +34,7 @@ interface DataTableProps<T> {
 }
 
 const toolbarBtnClass =
-  'py-2 px-3 inline-flex items-center gap-x-2 text-sm rounded-lg border border-slate-200/80 bg-surface-card text-slate-700 shadow-xs hover:bg-slate-50 focus:outline-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'
+  'py-2 px-3 inline-flex items-center gap-x-2 text-sm rounded-lg border border-slate-200/80 bg-surface-card text-slate-700 shadow-xs hover:bg-slate-50 focus:outline-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark whitespace-nowrap'
 
 const toolbarInputClass =
   'py-2 px-3 block w-full border border-slate-200/80 shadow-xs rounded-lg text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:opacity-50 dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500'
@@ -66,13 +61,10 @@ const FilterSVG = () => (
   </svg>
 )
 
-// Export CSV réel
-
-
 export default function DataTable<T extends Record<string, unknown>>({
-  data, columns, searchPlaceholder = 'Recherche...', pageSize: defaultPageSize = 50,
+  data, columns, searchPlaceholder = 'Recherche...', pageSize: defaultPageSize = 20,
   emptyMessage = 'Aucune donnée disponible.', actions, entityLabel = 'entrées', tableId = 'table',
-  loading = false, onRowClick, selectedRowId, rowIdKey = 'id' as keyof T,
+  apiBaseUrl, periodeRange, loading = false, onRowClick, selectedRowId, rowIdKey = 'id' as keyof T,
 }: DataTableProps<T>) {
   const safeData = data ?? []
   const [search, setSearch] = useState('')
@@ -82,7 +74,10 @@ export default function DataTable<T extends Record<string, unknown>>({
   const [sortDir, setSortDir] = useState<'asc'|'desc'>('asc')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(defaultPageSize)
-  const [showExport, setShowExport] = useState(false)
+
+  const [exportingCSV, setExportingCSV] = useState(false)
+  const [exportingPDF, setExportingPDF] = useState(false)
+  const [error, setError] = useState('')
 
   const filtered = useMemo(() => {
     let rows = safeData
@@ -116,20 +111,51 @@ export default function DataTable<T extends Record<string, unknown>>({
   else { for(let i=page-3;i<=page+3;i++) pageNums.push(i) }
 
 
-  const exportCSV = () => {
-    const headers = columns.map(c => c.label).join(',')
-    const rows = sorted.map(row => columns.map(c => String(row[c.key as keyof typeof row] ?? '')).join(',')).join('\n')
-    const blob = new Blob([headers + '\n' + rows], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = 'export.csv'; a.click()
+  const exportCSV = async () => {
+    setExportingCSV(true)
+    setError('')
+    try {
+      const params = { ...periodeRange, page: 1, limit: 100 }
+      const res = await http.get<{ filename: string; csv: string }>(apiBaseUrl + '/export', {
+        params: { ...params, format: 'csv' },
+      })
+      const blob = new Blob([res.csv], { type: 'text/csv;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = res.filename
+      anchor.click()
+      URL.revokeObjectURL(url)
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Export impossible')
+    } finally {
+      setExportingCSV(false)
+    }
+  }
+
+  const exportPDF = async () => {
+    setExportingPDF(true)
+    setError('')
+    try {
+      const params = { ...periodeRange, page: 1, limit: 100 }
+      const res = await http.get<{ filename: string; contentBase64: string; mimeType: string }>
+        (apiBaseUrl + '/export', {
+          params: { ...params, format: 'pdf' },
+        })
+      downloadBase64File(res.contentBase64, res.filename, res.mimeType)
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Export PDF impossible')
+    } finally {
+      setExportingPDF(false)
+    }
   }
   return (
-    <div className={`flex flex-col w-full mx-auto tg-card border-t-4 border-t-primary shadow-xs ${loading ? 'opacity-90' : ''}`} aria-busy={loading}>
+    <div className={`flex flex-col w-full mx-auto tg-card border-t-4 border-t-primary mb-4 shadow-xs ${loading ? 'opacity-90' : ''}`} aria-busy={loading}>
       <div className="py-4 md:py-5 px-3 rounded-xl">
 
         {/* Toolbar */}
         <div className="flex items-center space-x-2 mb-4">
-          <div className="flex-0">
+          <div className="flex-1">
             <div className="relative max-w-xs">
               <label className="sr-only">Search</label>
               <input type="text" value={search} onChange={e=>{setSearch(e.target.value);setPage(1)}}
@@ -142,7 +168,7 @@ export default function DataTable<T extends Record<string, unknown>>({
               </div>
             </div>
           </div>
-          <div className="flex-1 flex items-center justify-end space-x-2">
+          <div className="flex items-center justify-end space-x-2">
             {/* Refresh */}
             <button type="button" onClick={()=>{setSearch('');setColFilters({});setPage(1)}}
               className={toolbarBtnClass}>
@@ -155,36 +181,30 @@ export default function DataTable<T extends Record<string, unknown>>({
               className={`pe-8 ${toolbarInputClass}`}>
               {[10,15,20,25,50].map(n=><option key={n} value={n}>{n}</option>)}
             </select>
-            {/* Export dropdown */}
-            <div className="relative">
-              <button type="button" onClick={()=>setShowExport(o=>!o)}
-                className={toolbarBtnClass}>
-                <svg className="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
-                </svg>
-                <svg className="size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path d="m6 9 6 6 6-6"/></svg>
-              </button>
-              {showExport && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={()=>setShowExport(false)}/>
-                  <div className="absolute right-0 top-full mt-2 z-50 w-32 tg-card shadow-lg">
-                    <div className="p-1 space-y-0.5">
-                      {[{label:'Copier',icon:'📋'},{label:'Imprimer',icon:'🖨️'}].map(i=>(
-                        <button key={i.label} onClick={()=>setShowExport(false)} className="flex w-full items-center gap-x-2 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 dark:text-slate-300 dark:hover:bg-primary/15">{i.icon} {i.label}</button>
-                      ))}
-                    </div>
-                    <div className="p-1 space-y-0.5 border-t border-slate-200/80 dark:border-border-dark">
-                      {[{label:'Excel',icon:'📗'},{label:'CSV',icon:'📄'},{label:'PDF',icon:'📕'}].map(i=>(
-                        <button key={i.label} onClick={() => {
-                          exportCSV()
-                          setShowExport(false)
-                        }} className="flex w-full items-center gap-x-2 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 dark:text-slate-300 dark:hover:bg-primary/15">{i.icon} {i.label}</button>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* Export CSV */}
+            <button
+              type="button"
+              onClick={() => exportCSV()}
+              className={toolbarBtnClass}
+              disabled={exportingCSV}
+            >
+              <svg className="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              {exportingCSV ? "Export..." : "Exporter CSV"}
+            </button>
+            {/* Export PDF */}
+            <button
+              type="button"
+              onClick={() => exportPDF()}
+              className={toolbarBtnClass}
+              disabled={exportingPDF}
+            >
+              <svg className="shrink-0 size-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>
+              </svg>
+              {exportingPDF ? "Export..." : "Exporter PDF"}
+            </button>
           </div>
         </div>
 
@@ -295,6 +315,8 @@ export default function DataTable<T extends Record<string, unknown>>({
             )}
           </div>
         </div>
+
+        <ApiErrorBanner message={error} />
       </div>
     </div>
   )

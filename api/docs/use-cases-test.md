@@ -26,7 +26,16 @@ bun run prisma:migrate && bun run prisma:seed && bun run start:dev   # terminal 
 bun run test:use-cases                                               # terminal 2
 ```
 
-Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-12 côté API. Les parcours **dashboard** et **employee-web** restent manuels en v1.
+Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-13 côté API. Les parcours **dashboard** et **employee-web** sont complétés par les tests Playwright (voir ci-dessous).
+
+### Tests e2e Playwright (CI)
+
+```bash
+# Terminaux requis : API (4001), dashboard (3000), employee-web (3001)
+cd e2e && npm install && npx playwright test
+```
+
+Couverture minimale : profil dashboard, export présences CSV/PDF, KPI accueil, profil employee-web, manifest PWA.
 
 Requêtes HTTP d’exemple : [`../EXAMPLES.http`](../EXAMPLES.http).
 
@@ -385,7 +394,7 @@ Parcours complet (~30 min), rôle ADMIN :
 
 ## Checklist régressions UI (changements récents)
 
-**Automatisé CI :** non — vérification manuelle dashboard / employee-web
+**Automatisé CI :** tests API (`test:use-cases`) + Playwright e2e (`e2e/`) — vérifications manuelles complémentaires si besoin
 
 - [ ] `/dashboard/subscriptions` et `/dashboard/system-config` : cartes, pas DataTable 480px
 - [ ] Onglet Contrats employé : cartes + skeleton au chargement
@@ -402,8 +411,8 @@ Parcours complet (~30 min), rôle ADMIN :
 
 | Élément | Note |
 |---------|------|
-| Profil utilisateur | Mot de passe : formulaire UI, API change-password à venir |
-| Portail employé web | `employee-web` sur port **3001** ; API `/employee/*` |
+| Profil utilisateur | Change-password via `PATCH /auth/me/password` (dashboard + employee-web) |
+| Portail employé web | PWA installable sur port **3001** |
 | App mobile kiosk | Expo — verify facial, **PIN fallback** (`/pin`), sync offline |
 | Échange shifts | Approbation = échange des affectations requester ↔ cible sur la date |
 | Journaux d’audit | Colonne `entityId` retirée de l’UI ; corrélation via export/API si besoin support |

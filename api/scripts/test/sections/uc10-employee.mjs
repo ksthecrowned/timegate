@@ -1,4 +1,4 @@
-import { YEAR, authHeader, detail, employeeLogin, fail, pass, request } from '../helpers.mjs'
+import { YEAR, PASS, authHeader, detail, employeeLogin, fail, login, pass, request } from '../helpers.mjs'
 
 export async function runUc10(ctx) {
   ctx.tokens.employee = await employeeLogin('patrick.mukendi@sotrafer.cg')
@@ -44,4 +44,25 @@ export async function runUc10(ctx) {
   } else {
     fail(ctx, 'UC-10 Demande congé', detail(reqLeave.json))
   }
+
+  const NEW_EMP_PASS = `EmpPass${ctx.unique}!`
+  const change = await request('/auth/me/password', {
+    method: 'PATCH',
+    headers: empAuth,
+    body: JSON.stringify({ currentPassword: PASS, newPassword: NEW_EMP_PASS }),
+  })
+  if (change.res.status === 200 && change.json?.ok) pass(ctx, 'UC-10 Change password employé')
+  else fail(ctx, 'UC-10 Change password employé', detail(change.json))
+
+  const relogin = await employeeLogin('patrick.mukendi@sotrafer.cg', NEW_EMP_PASS)
+  if (relogin) {
+    pass(ctx, 'UC-10 Re-login employé nouveau MDP')
+    ctx.tokens.employee = relogin
+  } else fail(ctx, 'UC-10 Re-login employé')
+
+  await request('/auth/me/password', {
+    method: 'PATCH',
+    headers: authHeader(ctx.tokens.employee),
+    body: JSON.stringify({ currentPassword: NEW_EMP_PASS, newPassword: PASS }),
+  })
 }

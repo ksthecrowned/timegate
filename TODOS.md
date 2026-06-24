@@ -1,0 +1,16 @@
+- Bugs avec le composant SelectSearch
+- Impossible de récupérer la clé API d'un kiosque
+- C'est quoi "Emplacement horaire" sur l'entité kiosque
+- Erreur 500 lors de la suppression des horaires du type "E2E Horaire 1781868047613"
+- Explication sur les plannings
+- Fix bug visuel confirm modal
+- Erreur 400 sur l'approbation des /shift-swaps
+- Erreur 500 DETELE /api/v1/employees/EMP-b43aa2db8f6c88ae
+- Ajouter un composant sélecteur de pays pour phone number
+- Améliorer sélection nationnalité d'employé
+- Sélecteur de date doit permettre le switch entre des annnées
+- URL du justificatif: upload file
+- Notifications push
+- Compte user associé à chaque employé
+- Employé vois ses contrats
+- Justificatif file upload

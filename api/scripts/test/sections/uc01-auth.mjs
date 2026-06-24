@@ -1,4 +1,4 @@
-import { authHeader, fail, login, pass, request } from '../helpers.mjs'
+import { authHeader, detail, fail, login, pass, request, PASS as DEFAULT_PASSWORD } from '../helpers.mjs'
 
 export async function runUc01(ctx) {
   ctx.tokens.admin = await login('admin@monorganisation.com', { sku: 'SOTR' })
@@ -103,5 +103,56 @@ export async function runUc01(ctx) {
     } else {
       fail(ctx, 'UC-01 Pays création', JSON.stringify(created.json))
     }
+  }
+
+  if (ctx.tokens.admin) {
+    const me = await request('/auth/me', { headers: authHeader(ctx.tokens.admin) })
+    if (me.res.status === 200 && me.json?.email) pass(ctx, 'UC-01 GET /auth/me enrichi')
+    else fail(ctx, 'UC-01 GET /auth/me', detail(me.json))
+
+    const patch = await request('/auth/me', {
+      method: 'PATCH',
+      headers: authHeader(ctx.tokens.admin),
+      body: JSON.stringify({ firstName: 'Admin', lastName: 'Test' }),
+    })
+    if (patch.res.status === 200 && patch.json?.firstName === 'Admin') pass(ctx, 'UC-01 PATCH /auth/me')
+    else fail(ctx, 'UC-01 PATCH /auth/me', detail(patch.json))
+
+    const NEW_ADMIN_PASS = `NewPass${ctx.unique}!`
+    const change = await request('/auth/me/password', {
+      method: 'PATCH',
+      headers: authHeader(ctx.tokens.admin),
+      body: JSON.stringify({ currentPassword: DEFAULT_PASSWORD, newPassword: NEW_ADMIN_PASS }),
+    })
+    if (change.res.status === 200 && change.json?.ok) pass(ctx, 'UC-01 Change password admin')
+    else fail(ctx, 'UC-01 Change password admin', detail(change.json))
+
+    const relogin = await login('admin@monorganisation.com', { sku: 'SOTR', password: NEW_ADMIN_PASS })
+    if (relogin) {
+      pass(ctx, 'UC-01 Re-login admin nouveau MDP')
+      ctx.tokens.admin = relogin
+    } else fail(ctx, 'UC-01 Re-login admin')
+
+    await request('/auth/me/password', {
+      method: 'PATCH',
+      headers: authHeader(ctx.tokens.admin),
+      body: JSON.stringify({ currentPassword: NEW_ADMIN_PASS, newPassword: DEFAULT_PASSWORD }),
+    })
+
+    const badCurrent = await request('/auth/me/password', {
+      method: 'PATCH',
+      headers: authHeader(ctx.tokens.admin),
+      body: JSON.stringify({ currentPassword: 'wrong', newPassword: 'AnotherPass1!' }),
+    })
+    if (badCurrent.res.status === 401) pass(ctx, 'UC-01 Change password mauvais actuel')
+    else fail(ctx, 'UC-01 Change password mauvais actuel', String(badCurrent.res.status))
+
+    const short = await request('/auth/me/password', {
+      method: 'PATCH',
+      headers: authHeader(ctx.tokens.admin),
+      body: JSON.stringify({ currentPassword: DEFAULT_PASSWORD, newPassword: 'short' }),
+    })
+    if (short.res.status === 400) pass(ctx, 'UC-01 Change password trop court')
+    else fail(ctx, 'UC-01 Change password trop court', String(short.res.status))
   }
 }

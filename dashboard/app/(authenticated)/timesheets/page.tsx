@@ -1,80 +1,90 @@
-'use client'
+"use client";
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import StatusBadge from '@/components/ui/StatusBadge'
-import ActionButtons from '@/components/ui/ActionButtons'
-import PeriodRecalculateButton from '@/components/timegate/PeriodRecalculateButton'
-import { employeeTableColumn } from '@/components/timegate/employee-table-column'
-import { dateTableColumn } from '@/components/timegate/date-table-column'
-import { formatMinutes, listTimesheets, recalculateTimesheets } from '@/lib/timegate/timesheets'
-import type { TimesheetDay } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from "react";
+import PageHeader from "@/components/ui/PageHeader";
+import DataTable, { Column } from "@/components/ui/DataTable";
+import StatusBadge from "@/components/ui/StatusBadge";
+import ActionButtons from "@/components/ui/ActionButtons";
+import PeriodRecalculateButton from "@/components/timegate/PeriodRecalculateButton";
+import { employeeTableColumn } from "@/components/timegate/employee-table-column";
+import { dateTableColumn } from "@/components/timegate/date-table-column";
+import {
+  formatMinutes,
+  listTimesheets,
+  recalculateTimesheets,
+} from "@/lib/timegate/timesheets";
+import type { TimesheetDay } from "@/lib/timegate/types";
+import { HttpError } from "@/lib/http";
+import { findOption } from "@/lib/select-options";
+import { STATUS_OPTIONS } from "@/constants";
 
 const columns: Column<TimesheetDay>[] = [
   employeeTableColumn<TimesheetDay>({ sortable: true }),
-  dateTableColumn<TimesheetDay>('date', 'Date', { sortable: true }),
+  dateTableColumn<TimesheetDay>("date", "Date", { sortable: true }),
   {
-    key: 'workedMinutes',
-    label: 'Travaillé',
+    key: "workedMinutes",
+    label: "Travaillé",
     render: (_, row) => formatMinutes(row.workedMinutes),
   },
   {
-    key: 'breakMinutes',
-    label: 'Pause',
+    key: "breakMinutes",
+    label: "Pause",
     render: (_, row) => formatMinutes(row.breakMinutes),
   },
   {
-    key: 'lateMinutes',
-    label: 'Retard',
+    key: "lateMinutes",
+    label: "Retard",
     render: (_, row) => formatMinutes(row.lateMinutes),
   },
   {
-    key: 'overtimeMinutes',
-    label: 'Heures sup.',
+    key: "overtimeMinutes",
+    label: "Heures sup.",
     render: (_, row) => formatMinutes(row.overtimeMinutes),
   },
   {
-    key: 'status',
-    label: 'Statut',
-    render: (_, row) => <StatusBadge status={row.status.toLowerCase()} />,
+    key: "status",
+    label: "Statut",
+    render: (_, row) => (
+      <StatusBadge
+        status={findOption(STATUS_OPTIONS, row.status)?.label ?? ""}
+      />
+    ),
   },
-]
+];
 
 export default function TimesheetsPage() {
-  const [data, setData] = useState<TimesheetDay[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [data, setData] = useState<TimesheetDay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true)
-    setError('')
+    setLoading(true);
+    setError("");
     try {
-      setData((await listTimesheets({ page: 1, limit: 100 })).data)
+      setData((await listTimesheets({ page: 1, limit: 100 })).data);
     } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Erreur de chargement')
+      setError(err instanceof HttpError ? err.message : "Erreur de chargement");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void load();
+  }, [load]);
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: 'Feuilles de temps' }]} />
+      <PageHeader breadcrumbs={[{ label: "Feuilles de temps" }]} />
 
       <PeriodRecalculateButton
         label="Recalculer les feuilles de temps"
         onRecalculate={async (range) => {
-          const res = await recalculateTimesheets(range)
-          await load()
+          const res = await recalculateTimesheets(range);
+          await load();
           return {
             message: `Recalcul terminé : ${res.created} créé(s), ${res.updated} mis à jour (${res.days} jours).`,
-          }
+          };
         }}
       />
 
@@ -84,16 +94,14 @@ export default function TimesheetsPage() {
         </div>
       )}
       <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="feuilles de temps"
-          tableId="hs-timesheets-table"
-          emptyMessage="Aucune feuille de temps trouvée."
-          actions={(row) => (
-            <ActionButtons viewHref={`/timesheets/${row.id}`} />
-          )}
-        />
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="feuilles de temps"
+        tableId="hs-timesheets-table"
+        emptyMessage="Aucune feuille de temps trouvée."
+        actions={(row) => <ActionButtons viewHref={`/timesheets/${row.id}`} />}
+      />
     </div>
-  )
+  );
 }

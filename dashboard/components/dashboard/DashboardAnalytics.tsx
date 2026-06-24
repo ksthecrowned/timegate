@@ -45,6 +45,10 @@ export default function DashboardAnalytics({ data }: DashboardAnalyticsProps) {
     data.weeklyIncidents.late.some((v) => v > 0) ||
     data.weeklyIncidents.absent.some((v) => v > 0)
 
+  const hasPlanning =
+    (data.planningVsActual?.byWeek.some((w) => w.plannedMinutes > 0 || w.workedMinutes > 0) ??
+      false)
+
   return (
     <div className="grid lg:grid-cols-2 gap-4 sm:gap-6">
       <ChartCard title="Présence quotidienne" subtitle="14 derniers jours">
@@ -95,6 +99,30 @@ export default function DashboardAnalytics({ data }: DashboardAnalyticsProps) {
           />
         ) : (
           <EmptyChart message="Aucun retard ni absence sur la période." />
+        )}
+      </ChartCard>
+
+      <ChartCard title="Prévu vs réalisé" subtitle="Minutes planifiées vs travaillées (30 jours)">
+        {hasPlanning && data.planningVsActual ? (
+          <BarChart
+            categories={data.planningVsActual.byWeek.map((w) => w.label)}
+            series={[
+              {
+                name: 'Prévu (h)',
+                data: data.planningVsActual.byWeek.map((w) =>
+                  Math.round((w.plannedMinutes / 60) * 10) / 10,
+                ),
+              },
+              {
+                name: 'Réalisé (h)',
+                data: data.planningVsActual.byWeek.map((w) =>
+                  Math.round((w.workedMinutes / 60) * 10) / 10,
+                ),
+              },
+            ]}
+          />
+        ) : (
+          <EmptyChart message="Aucune donnée planning sur la période." />
         )}
       </ChartCard>
     </div>

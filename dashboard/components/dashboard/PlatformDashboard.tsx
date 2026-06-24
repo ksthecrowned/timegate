@@ -91,8 +91,8 @@ export default function PlatformDashboard() {
             />
           </div>
 
-          <div className="bg-white border border-gray-200 shadow-2xs rounded-xl dark:bg-neutral-800 dark:border-neutral-700 overflow-hidden">
-            <div className="border-b border-gray-200 px-5 py-4 dark:border-neutral-700">
+          <div className="tg-card border border-slate-200/80 shadow-2xs rounded-xl dark:border-border-dark overflow-hidden">
+            <div className="border-b border-slate-200/80 px-5 py-4 dark:border-border-dark">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Organisations (statistiques)
               </h2>
@@ -152,7 +152,7 @@ export default function PlatformDashboard() {
             </div>
           </div>
 
-          <div className="bg-white border border-gray-200 shadow-2xs rounded-xl dark:bg-neutral-800 dark:border-neutral-700 p-5">
+          <div className="tg-card border border-slate-200/80 shadow-2xs rounded-xl dark:border-border-dark p-5">
             <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-4">Accès rapide</h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[

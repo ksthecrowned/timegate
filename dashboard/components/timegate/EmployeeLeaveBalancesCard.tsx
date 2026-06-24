@@ -21,14 +21,14 @@ export default function EmployeeLeaveBalancesCard({ employeeId }: { employeeId: 
 
   return (
     <DetailCard title={`Soldes congés ${data?.year ?? new Date().getFullYear()}`}>
-      {loading && <p className="text-sm text-slate-500">Chargement…</p>}
+      {loading && <p className="text-sm text-slate-500 px-5 py-3">Chargement…</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {!loading && !error && data && (
         <dl className="space-y-3">
           {data.balances.map((balance) => (
             <div
               key={balance.leaveTypeId}
-              className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 dark:border-border-dark pb-3 last:border-0 last:pb-0"
+              className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between border-b border-slate-200/80 dark:border-border-dark px-5 py-3 last:border-0"
             >
               <dt className="text-sm font-medium text-slate-800 dark:text-slate-200">
                 {balance.leaveTypeName}

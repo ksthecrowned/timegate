@@ -2,12 +2,13 @@ import { Module } from '@nestjs/common';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { LeavesModule } from '../leaves/leaves.module';
 import { LeaveTypesModule } from '../leave-types/leave-types.module';
+import { ShiftSwapsModule } from '../shift-swaps/shift-swaps.module';
 import { EmployeePortalController } from './employee-portal.controller';
 import { EmployeePortalService } from './employee-portal.service';
 import { EmployeePortalGuard } from './guards/employee-portal.guard';
 
 @Module({
-  imports: [AttendanceModule, LeavesModule, LeaveTypesModule],
+  imports: [AttendanceModule, LeavesModule, LeaveTypesModule, ShiftSwapsModule],
   controllers: [EmployeePortalController],
   providers: [EmployeePortalService, EmployeePortalGuard],
 })

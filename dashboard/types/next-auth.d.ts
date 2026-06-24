@@ -5,6 +5,8 @@ import type { TimeGateRole } from '@/lib/timegate/types'
 export type TimeGateSessionUser = {
   id: string
   email: string
+  firstName?: string | null
+  lastName?: string | null
   role: TimeGateRole
   companyId: string | null
   subscriptionActive: boolean

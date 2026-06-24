@@ -7,6 +7,7 @@ import {
   Logger,
   Param,
   ParseFilePipeBuilder,
+  Patch,
   Post,
   UploadedFile,
   UseInterceptors,
@@ -27,6 +28,11 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -44,6 +50,24 @@ export class AuthController {
   @Post('employee/login')
   employeeLogin(@Body() dto: LoginDto) {
     return this.auth.employeeLogin(dto);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.requestPasswordReset(dto);
+  }
+
+  @Public()
+  @Post('verify-reset-code')
+  verifyResetCode(@Body() dto: VerifyResetCodeDto) {
+    return this.auth.verifyResetCode(dto);
+  }
+
+  @Public()
+  @Post('reset-password')
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto);
   }
 
   @Public()
@@ -93,6 +117,18 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: JwtUser) {
     return this.auth.getMe(user);
+  }
+
+  @AllowInactiveSubscription()
+  @Patch('me')
+  updateMe(@CurrentUser() user: JwtUser, @Body() dto: UpdateMeDto) {
+    return this.auth.updateMe(user, dto);
+  }
+
+  @AllowInactiveSubscription()
+  @Patch('me/password')
+  changePassword(@CurrentUser() user: JwtUser, @Body() dto: ChangePasswordDto) {
+    return this.auth.changePassword(user, dto);
   }
 
   @Roles(TimeGateUserRole.SUPER_ADMIN)

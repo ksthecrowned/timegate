@@ -74,6 +74,45 @@ type DemoEmployee = {
   faceSeed: number;
 };
 
+/**
+ * Idempotently create (or return) a self-service `User` account for an
+ * employee demo. Each demo employee gets a User with `timeGateRole: EMPLOYEE`
+ * and a known password so they can log into the employee portal.
+ *
+ * Note: `User` has a composite unique on `[email, companyId]`, not on `email`
+ * alone, so we look up by both and fall back to create.
+ */
+async function ensureEmployeeUser(
+  prisma: PrismaClient,
+  companyId: string,
+  email: string,
+  passwordHash: string,
+) {
+  const normalized = email.trim().toLowerCase();
+  const existing = await prisma.user.findFirst({
+    where: { email: normalized, companyId },
+  });
+  if (existing) {
+    return prisma.user.update({
+      where: { id: existing.id },
+      data: {
+        timeGateRole: TimeGateUserRole.EMPLOYEE,
+        companyId,
+        passwordHash,
+      },
+    });
+  }
+  return prisma.user.create({
+    data: {
+      id: generateDocId('USR'),
+      email: normalized,
+      passwordHash,
+      timeGateRole: TimeGateUserRole.EMPLOYEE,
+      companyId,
+    },
+  });
+}
+
 async function seedRichDemoData(params: {
   companyId: string;
   employees: DemoEmployee[];
@@ -827,6 +866,13 @@ async function main() {
     },
   });
 
+  const alanUser = await ensureEmployeeUser(
+    prisma,
+    company.id,
+    'alan.turing@example.com',
+    passwordHash,
+  );
+
   const alanEmployee = await prisma.employee.create({
     data: {
       id: generateDocId('EMP'),
@@ -834,6 +880,7 @@ async function main() {
       firstName: 'Alan',
       lastName: 'Turing',
       personalEmail: 'alan.turing@example.com',
+      userId: alanUser.id,
       companyId: company.id,
       branchId: west.id,
       defaultShiftId: westSchedule.id,
@@ -920,6 +967,12 @@ async function main() {
   const extraEmployees: DemoEmployee[] = [];
   for (const emp of extraEmployeeDefs) {
     const created: DemoEmployee = { ...emp, id: generateDocId('EMP') };
+    const employeeUser = await ensureEmployeeUser(
+      prisma,
+      company.id,
+      emp.email,
+      passwordHash,
+    );
     await prisma.employee.create({
       data: {
         id: created.id,
@@ -927,6 +980,7 @@ async function main() {
         firstName: emp.firstName,
         lastName: emp.lastName,
         personalEmail: emp.email,
+        userId: employeeUser.id,
         companyId: company.id,
         branchId: emp.branchId,
         defaultShiftId: emp.defaultShiftId,

@@ -53,10 +53,10 @@ export async function login(email, options = {}) {
   return result.json?.access_token ?? null
 }
 
-export async function employeeLogin(email) {
+export async function employeeLogin(email, password) {
   const result = await request('/auth/employee/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password: PASS }),
+    body: JSON.stringify({ email, password: password ?? PASS }),
   })
   return result.json?.access_token ?? null
 }

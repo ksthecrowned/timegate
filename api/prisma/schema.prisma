@@ -866,6 +866,7 @@ model User {
   company      Company? @relation(fields: [companyId], references: [id])
 
   employee     Employee?
+  passwordResetTokens PasswordResetToken[]
   roles        UserRole[]
   permissions  UserPermission[]
   notifications NotificationLog[]
@@ -1233,4 +1234,21 @@ model TimeGateAuditLog {
   @@index([companyId, createdAt])
   @@index([entity, entityId])
   @@map("timegate_audit_log")
+}
+
+model PasswordResetToken {
+  id              String    @id @db.VarChar(140)
+  userId          String    @map("user") @db.VarChar(140)
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash        String    @map("code_hash") @db.VarChar(255)
+  resetTokenHash  String    @unique @map("reset_token_hash") @db.VarChar(255)
+  codeExpiresAt   DateTime  @map("code_expires_at")
+  tokenExpiresAt  DateTime  @map("token_expires_at")
+  attempts        Int       @default(0)
+  usedAt          DateTime? @map("used_at")
+  createdAt       DateTime  @default(now()) @map("creation")
+  updatedAt       DateTime  @updatedAt @map("modified")
+
+  @@index([userId, codeExpiresAt])
+  @@map("tabPasswordResetToken")
 }

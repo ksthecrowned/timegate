@@ -46,10 +46,11 @@ API principale de TimeGate:
 - pointage et logs de reconnaissance
 - upload d'images (ex: Cloudflare R2)
 
-La reconnaissance faciale peut fonctionner en:
+La reconnaissance faciale fonctionne via le moteur Python interne (`api/python/face_engine.py`).
 
-- **interne** (`FACE_RECO_MODE=internal`) via `api/python/face_engine.py`
-- **externe** (`FACE_RECO_MODE=external`) via un service facial dedie
+Variables : `FACE_ENGINE_PYTHON_BIN`, `FACE_ENGINE_SCRIPT_PATH`, `FACE_ENGINE_TIMEOUT_MS`, `FACE_VERIFY_THRESHOLD`.
+
+Un mode service facial externe est planifié (hors scope actuel).
 
 ### `dashboard`
 
@@ -110,10 +111,9 @@ Variables importantes dans `api/.env` :
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `FACE_ENGINE_PYTHON_BIN`
+- `FACE_ENGINE_SCRIPT_PATH` (optionnel, défaut `api/python/face_engine.py`)
 - `FACE_ENGINE_TIMEOUT_MS`
 - `FACE_VERIFY_THRESHOLD`
-- `FACE_RECO_MODE` (`internal` ou `external`)
-- (si externe) `FACE_SERVICE_URL`, `FACE_SERVICE_API_KEY`
 
 ## 2) Dashboard
 

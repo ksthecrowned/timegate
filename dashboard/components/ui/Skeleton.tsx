@@ -134,7 +134,7 @@ export function SkeletonPage() {
         <SkeletonBlock className="size-4 rounded-full shrink-0" />
         <SkeletonBlock className="w-32 h-4 rounded-full" />
       </div>
-      <div className="flex flex-col w-full mx-auto tg-card border-t-4 border-t-primary shadow-xs">
+      <div className="flex flex-col w-full mx-auto tg-card border-t-4 border-t-primary mb-4 shadow-xs">
         <div className="py-4 md:py-5 px-3">
           <div className="flex items-center space-x-2 mb-4">
             <SkeletonBlock className="w-48 h-8" />

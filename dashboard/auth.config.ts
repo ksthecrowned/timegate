@@ -125,7 +125,11 @@ export const authConfig = {
           ...session.user,
           id: token.user.id,
           email: token.user.email,
-          name: token.user.email,
+          firstName: token.user.firstName,
+          lastName: token.user.lastName,
+          name:
+            [token.user.firstName, token.user.lastName].filter(Boolean).join(' ') ||
+            token.user.email,
           role: token.user.role,
           companyId: token.user.companyId,
           subscriptionActive: token.user.subscriptionActive,

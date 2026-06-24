@@ -12,6 +12,7 @@ import { runUc09 } from './test/sections/uc09-superadmin.mjs'
 import { runUc10 } from './test/sections/uc10-employee.mjs'
 import { runUc11 } from './test/sections/uc11-sequential.mjs'
 import { runUc12 } from './test/sections/uc12-e2e.mjs'
+import { runUc13 } from './test/sections/uc13-planning-kpi.mjs'
 
 const sections = [
   { name: 'UC-01 Auth & rôles', run: runUc01 },
@@ -27,6 +28,7 @@ const sections = [
   { name: 'UC-10 Portail employé', run: runUc10 },
   { name: 'UC-11 Séquentiel', run: runUc11 },
   { name: 'UC-12 Bout-en-bout', run: runUc12 },
+  { name: 'UC-13 Planning vs actual', run: runUc13 },
 ]
 
 async function main() {

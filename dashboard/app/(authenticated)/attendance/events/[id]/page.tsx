@@ -22,6 +22,8 @@ import {
 } from '@/lib/timegate/attendance'
 import type { AttendanceEvent } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { findOption } from '@/lib/select-options'
+import { STATUS_OPTIONS } from '@/constants'
 
 export default function AttendanceEventDetailPage() {
   const params = useParams<{ id: string }>()
@@ -107,7 +109,7 @@ export default function AttendanceEventDetailPage() {
             <DetailRow label="Type" value={event.type} />
             <DetailRow
               label="Statut"
-              value={<StatusBadge status={String(event.status).toLowerCase()} />}
+              value={<StatusBadge status={findOption(STATUS_OPTIONS, event.status)?.label || ""} />}
             />
             <DetailRow label="Source" value={event.source} />
             <DetailRow label="Kiosk" value={event.kiosk?.name ?? '—'} />

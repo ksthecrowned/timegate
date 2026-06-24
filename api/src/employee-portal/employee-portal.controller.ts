@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -6,6 +6,8 @@ import { LeaveBalanceQueryDto } from '../leaves/dto/leave-balance-query.dto';
 import { EmployeePortalGuard } from './guards/employee-portal.guard';
 import { EmployeePortalService } from './employee-portal.service';
 import { CreateSelfLeaveDto } from './dto/create-self-leave.dto';
+import { CreateSelfShiftSwapDto } from './dto/create-self-shift-swap.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 
 @Controller('employee')
 @UseGuards(JwtAuthGuard, EmployeePortalGuard)
@@ -15,6 +17,11 @@ export class EmployeePortalController {
   @Get('me')
   getMe(@CurrentUser() user: JwtUser) {
     return this.portal.getProfile(user);
+  }
+
+  @Patch('me')
+  updateMe(@CurrentUser() user: JwtUser, @Body() dto: UpdateMyProfileDto) {
+    return this.portal.updateMyProfile(user, dto);
   }
 
   @Get('checkins')
@@ -40,5 +47,10 @@ export class EmployeePortalController {
   @Get('leave-types')
   getLeaveTypes(@CurrentUser() user: JwtUser) {
     return this.portal.getLeaveTypes(user);
+  }
+
+  @Post('shift-swaps')
+  requestShiftSwap(@CurrentUser() user: JwtUser, @Body() dto: CreateSelfShiftSwapDto) {
+    return this.portal.createShiftSwap(user, dto);
   }
 }

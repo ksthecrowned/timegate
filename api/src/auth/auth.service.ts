@@ -19,7 +19,7 @@ import {
 } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { FaceEmbeddingService } from '../face/face-embedding.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
@@ -33,6 +33,12 @@ import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateMeDto } from './dto/update-me.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { MailService } from './mail.service';
 import { AttendanceEventStatusService } from '../attendance/attendance-event-status.service';
 import { resolveKioskEligibleEmployeeIds } from '../common/utils/kiosk-shift-rules.util';
 
@@ -79,6 +85,7 @@ export class AuthService {
     private face: FaceEmbeddingService,
     private readonly storage: CloudflareR2Service,
     private readonly eventStatus: AttendanceEventStatusService,
+    private readonly mail: MailService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -440,14 +447,266 @@ export class AuthService {
     };
   }
 
-  getMe(user: JwtUser) {
+  async getMe(user: JwtUser) {
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        timeGateRole: true,
+        companyId: true,
+        employee: { select: { id: true } },
+      },
+    });
+    if (!dbUser) {
+      throw new UnauthorizedException();
+    }
     return {
-      id: user.sub,
-      email: user.email,
-      role: user.role,
-      companyId: user.companyId,
-      employeeId: user.employeeId ?? null,
+      id: dbUser.id,
+      email: dbUser.email,
+      firstName: dbUser.firstName,
+      lastName: dbUser.lastName,
+      role: dbUser.timeGateRole,
+      companyId: dbUser.companyId,
+      employeeId: dbUser.employee?.id ?? null,
     };
+  }
+
+  async updateMe(user: JwtUser, dto: UpdateMeDto) {
+    if (user.role === TimeGateUserRole.EMPLOYEE) {
+      throw new ForbiddenException('Profil employé en lecture seule');
+    }
+    const data: { firstName?: string | null; lastName?: string | null } = {};
+    if (dto.firstName !== undefined) {
+      data.firstName = dto.firstName.trim() || null;
+    }
+    if (dto.lastName !== undefined) {
+      data.lastName = dto.lastName.trim() || null;
+    }
+    const updated = await this.prisma.user.update({
+      where: { id: user.sub },
+      data,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        timeGateRole: true,
+        companyId: true,
+        employee: { select: { id: true } },
+      },
+    });
+    return {
+      id: updated.id,
+      email: updated.email,
+      firstName: updated.firstName,
+      lastName: updated.lastName,
+      role: updated.timeGateRole,
+      companyId: updated.companyId,
+      employeeId: updated.employee?.id ?? null,
+    };
+  }
+
+  // --- Password reset flow (forgot / verify / reset) ---
+
+  private hashOtp(code: string): string {
+    return createHash('sha256').update(code).digest('hex');
+  }
+
+  private safeEqualHex(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    try {
+      return timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+    } catch {
+      return false;
+    }
+  }
+
+  /** Step 1: send a 6-digit OTP to the user's email.
+   *  Returns the same shape regardless of email existence to prevent enumeration. */
+  async requestPasswordReset(dto: ForgotPasswordDto): Promise<{ ok: true }> {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({ where: { email } });
+    if (!user) {
+      // Silently succeed to avoid user enumeration.
+      return { ok: true as const };
+    }
+
+    // Throttle: don't send a new code if one was issued < 60s ago.
+    const recent = await this.prisma.passwordResetToken.findFirst({
+      where: { userId: user.id, usedAt: null },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent && Date.now() - recent.createdAt.getTime() < 60_000) {
+      return { ok: true as const };
+    }
+
+    const code = String(randomInt(100000, 1_000_000));
+    const codeHash = this.hashOtp(code);
+    const codeExpiresAt = new Date(Date.now() + 10 * 60 * 1000);
+    const tokenExpiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    await this.prisma.passwordResetToken.create({
+      data: {
+        id: generateDocId('PRT'),
+        userId: user.id,
+        codeHash,
+        // resetTokenHash is filled when the user verifies the code.
+        resetTokenHash: this.hashOtp(`pending-${randomBytes(8).toString('hex')}`),
+        codeExpiresAt,
+        tokenExpiresAt,
+      },
+    });
+
+    try {
+      await this.mail.sendOtpEmail({ to: email, code, expiresInMinutes: 10 });
+    } catch (err) {
+      this.logger.error(`Failed to send OTP email to ${email}: ${(err as Error).message}`);
+    }
+    return { ok: true as const };
+  }
+
+  /** Step 2: verify the 6-digit code and return a one-time reset token. */
+  async verifyResetCode(
+    dto: VerifyResetCodeDto,
+  ): Promise<{ ok: true; resetToken: string; expiresIn: number }> {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({ where: { email } });
+    if (!user) {
+      throw new BadRequestException('Code invalide ou expiré');
+    }
+
+    const row = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        userId: user.id,
+        usedAt: null,
+        codeExpiresAt: { gt: new Date() },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (!row || row.attempts >= 5) {
+      throw new BadRequestException('Code invalide ou expiré');
+    }
+
+    const candidate = this.hashOtp(dto.code);
+    const matches = this.safeEqualHex(candidate, row.codeHash);
+
+    if (!matches) {
+      await this.prisma.passwordResetToken.update({
+        where: { id: row.id },
+        data: { attempts: { increment: 1 } },
+      });
+      throw new BadRequestException('Code invalide ou expiré');
+    }
+
+    // Issue a long-lived opaque reset token (30 min).
+    const resetToken = randomBytes(32).toString('base64url');
+    await this.prisma.passwordResetToken.update({
+      where: { id: row.id },
+      data: {
+        resetTokenHash: this.hashOtp(resetToken),
+        tokenExpiresAt: new Date(Date.now() + 30 * 60 * 1000),
+        attempts: 0,
+      },
+    });
+
+    return { ok: true as const, resetToken, expiresIn: 1800 };
+  }
+
+  /** Step 3: exchange the reset token for a new password. */
+  async resetPassword(dto: ResetPasswordDto): Promise<{ ok: true }> {
+    const tokenHash = this.hashOtp(dto.resetToken);
+    const row = await this.prisma.passwordResetToken.findFirst({
+      where: {
+        resetTokenHash: tokenHash,
+        usedAt: null,
+        tokenExpiresAt: { gt: new Date() },
+      },
+    });
+    if (!row) {
+      throw new BadRequestException('Lien de réinitialisation invalide ou expiré');
+    }
+
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    const user = await this.prisma.user.findUnique({
+      where: { id: row.userId },
+      select: { id: true, email: true, companyId: true },
+    });
+    if (!user) {
+      throw new BadRequestException('Lien de réinitialisation invalide ou expiré');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { passwordHash },
+      }),
+      this.prisma.passwordResetToken.update({
+        where: { id: row.id },
+        data: { usedAt: new Date() },
+      }),
+      ...(user.companyId
+        ? [
+            this.prisma.timeGateAuditLog.create({
+              data: {
+                id: generateDocId('AUD'),
+                userId: user.id,
+                companyId: user.companyId,
+                action: 'PASSWORD_RESET',
+                entity: 'User',
+                entityId: user.id,
+              },
+            }),
+          ]
+        : []),
+    ]);
+
+    try {
+      await this.mail.sendPasswordChangedEmail({ to: user.email });
+    } catch (err) {
+      this.logger.error(
+        `Failed to send password-changed email to ${user.email}: ${(err as Error).message}`,
+      );
+    }
+    return { ok: true as const };
+  }
+
+  async changePassword(user: JwtUser, dto: ChangePasswordDto) {
+    if (dto.currentPassword === dto.newPassword) {
+      throw new BadRequestException('Le nouveau mot de passe doit être différent');
+    }
+    const dbUser = await this.prisma.user.findUnique({
+      where: { id: user.sub },
+      select: { id: true, passwordHash: true, companyId: true },
+    });
+    if (!dbUser) {
+      throw new UnauthorizedException();
+    }
+    const ok = await bcrypt.compare(dto.currentPassword, dbUser.passwordHash);
+    if (!ok) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
+    }
+    const passwordHash = await bcrypt.hash(dto.newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: dbUser.id },
+      data: { passwordHash },
+    });
+    const auditCompanyId = dbUser.companyId;
+    if (auditCompanyId) {
+      await this.prisma.timeGateAuditLog.create({
+        data: {
+          id: generateDocId('AUD'),
+          userId: dbUser.id,
+          companyId: auditCompanyId,
+          action: 'PASSWORD_CHANGED',
+          entity: 'User',
+          entityId: dbUser.id,
+        },
+      });
+    }
+    return { ok: true as const };
   }
 
   async getSubscriptionStatus(user: JwtUser) {

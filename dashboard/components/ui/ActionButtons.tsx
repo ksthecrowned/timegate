@@ -2,6 +2,7 @@
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import ConfirmModal from './ConfirmModal'
+import { REVIEW_STATUS } from '@/constants'
 
 interface Extra {
   label: string
@@ -14,6 +15,12 @@ interface ActionButtonsProps {
   viewHref?: string
   editHref?: string
   onDelete?: () => void
+  handleReview?: (status: REVIEW_STATUS) => void
+  reviewActions?: {
+    cls: string,
+    actionStatus: REVIEW_STATUS,
+    label: string
+  }[]
   onToggleStatus?: () => void
   isActive?: boolean
   mailTo?: string
@@ -24,10 +31,11 @@ interface ActionButtonsProps {
 
 const btnClass = "py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-gray-200 text-black hover:bg-gray-400 focus:outline-none focus:bg-gray-400 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-600 dark:focus:bg-neutral-900"
 
-export default function ActionButtons({ viewHref, editHref, onDelete, onToggleStatus, isActive, mailTo, extra, deleteMessage, toggleMessage }: ActionButtonsProps) {
+export default function ActionButtons({ viewHref, editHref, onDelete, handleReview, reviewActions, onToggleStatus, isActive, mailTo, extra, deleteMessage, toggleMessage }: ActionButtonsProps) {
   const [open, setOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [confirmType, setConfirmType] = useState<'delete'|'toggle'>('delete')
+  const [confirmType, setConfirmType] = useState<'delete'|'toggle'|'review'>('delete')
+  const [activeReviewStatus, setActiveReviewStatus] = useState<REVIEW_STATUS>('REJECTED')
   const menuRef = useRef<HTMLDivElement>(null)
   const hasDropdown = editHref || onDelete || onToggleStatus !== undefined || mailTo || (extra && extra.length > 0)
 
@@ -53,12 +61,25 @@ export default function ActionButtons({ viewHref, editHref, onDelete, onToggleSt
         title="Etes-vous sûr?"
         message={confirmType === 'delete'
           ? (deleteMessage ?? "En supprimant cet élément, il sera définitivement retiré de votre liste.")
+          : confirmType === 'review'
+          ? activeReviewStatus === 'APPROVED'
+          ? "Souaitez-vous vraiment approuver cette demande ?"
+          : activeReviewStatus === 'REJECTED'
+          ? "Souhaitez-vous vraiment rejéter cette demande ?" : ""
           : (toggleMessage ?? (isActive
               ? "En désactivant ce compte, l'utilisateur ne pourra plus accéder à l'application."
               : "En activant ce compte, l'utilisateur aura de nouveau accès à l'application."))}
-        onConfirm={() => { setOpen(false); closeMenu(); if (confirmType === 'delete') onDelete?.(); else onToggleStatus?.() }}
+        onConfirm={() => {
+          setOpen(false);
+          closeMenu();
+          if (confirmType === 'delete')
+            onDelete?.();
+          else if (confirmType === 'review')
+            handleReview?.(activeReviewStatus)
+          else
+            onToggleStatus?.() }}
         onCancel={() => setOpen(false)}
-        danger={confirmType === 'delete'}
+        danger={confirmType === 'delete' || (confirmType === 'review' && activeReviewStatus === "REJECTED")}
       />
 
       <div className="inline-flex gap-x-2">
@@ -67,6 +88,20 @@ export default function ActionButtons({ viewHref, editHref, onDelete, onToggleSt
             <i className="fa-regular fa-eye" />
           </Link>
         )}
+        {reviewActions?.map((item, i) => (
+          <div key={i} className="p-1">
+            <button
+              onClick={() => {
+                setConfirmType('review');
+                setActiveReviewStatus(item.actionStatus);
+                setOpen(true); closeMenu()
+              }}
+              className={"flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm " + item.cls}
+            >
+              {item.label}
+            </button>
+          </div>
+        ))}
 
         {hasDropdown && (
           <div ref={menuRef} className="relative inline-flex">
@@ -84,7 +119,7 @@ export default function ActionButtons({ viewHref, editHref, onDelete, onToggleSt
 
             {menuOpen && (
               <div
-                className="absolute right-0 top-full z-50 mt-2 min-w-[10rem] divide-y divide-gray-200 rounded-lg bg-white shadow-md dark:divide-neutral-700 dark:border dark:border-neutral-700 dark:bg-neutral-800"
+                className="absolute right-0 top-full z-50 mt-2 min-w-10 divide-y divide-gray-200 rounded-lg bg-white shadow-md dark:divide-neutral-700 dark:border dark:border-neutral-700 dark:bg-neutral-800"
                 role="menu"
               >
                 <div className="p-1 space-y-0.5">

@@ -8,6 +8,7 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { SubscriptionActiveGuard } from '../common/guards/subscription-active.guard';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { MailService } from './mail.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { FaceModule } from '../face/face.module';
 import { AttendanceModule } from '../attendance/attendance.module';
@@ -30,12 +31,13 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
   controllers: [AuthController],
   providers: [
     AuthService,
+    MailService,
     CloudflareR2Service,
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: SubscriptionActiveGuard },
   ],
-  exports: [AuthService],
+  exports: [AuthService, MailService],
 })
 export class AuthModule {}

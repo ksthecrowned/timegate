@@ -97,7 +97,7 @@ export default function PlanningPage() {
         <div className="min-w-[220px]">
           <FormField label="Branche">
           <select
-            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm dark:bg-neutral-900 dark:border-neutral-700"
+            className="w-full rounded-lg border border-gray-200 p-3 text-sm dark:bg-neutral-900 dark:border-neutral-700"
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
           >
@@ -110,18 +110,18 @@ export default function PlanningPage() {
           </select>
           </FormField>
         </div>
-        <div className="flex gap-2 pb-1">
+        <div className="flex gap-2">
           <button
             type="button"
             onClick={() => setView('planning')}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${view === 'planning' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-neutral-800'}`}
+            className={`rounded-lg p-3 text-sm font-medium ${view === 'planning' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-neutral-800'}`}
           >
             Planning
           </button>
           <button
             type="button"
             onClick={() => setView('leaves')}
-            className={`rounded-lg px-3 py-2 text-sm font-medium ${view === 'leaves' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-neutral-800'}`}
+            className={`rounded-lg p-3 text-sm font-medium ${view === 'leaves' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-neutral-800'}`}
           >
             Congés équipe
           </button>

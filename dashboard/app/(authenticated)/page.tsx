@@ -174,6 +174,15 @@ export default function DashboardPage() {
               icon="fa-solid fa-file-lines"
               accent="text-teal-500"
             />
+            {chartData?.planningVsActual?.coveragePercent != null ? (
+              <StatCard
+                label="Couverture planning (%)"
+                value={Math.round(chartData.planningVsActual.coveragePercent)}
+                href="/planning"
+                icon="fa-solid fa-chart-column"
+                accent="text-violet-500"
+              />
+            ) : null}
           </div>
 
           {loading && chartData ? (

@@ -2,9 +2,10 @@
 
 import { useOrganization } from '@/components/providers/OrganizationProvider'
 import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
-import { FormField, Input } from '@/components/ui/FormField'
+import { FormField, Input, SelectSearch } from '@/components/ui/FormField'
 import PageHeader from '@/components/ui/PageHeader'
 import { HttpError } from '@/lib/http'
+import { findOption } from '@/lib/select-options'
 import {
   updateMyCompany,
   uploadCompanyLogo,
@@ -77,7 +78,7 @@ export default function OrganizationSettingsPage() {
 
       {error && <ApiErrorBanner message={error} />}
       {success && (
-        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+        <div className="my-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           {success}
         </div>
       )}
@@ -130,17 +131,12 @@ export default function OrganizationSettingsPage() {
                 <Input value={company?.sku ?? ''} readOnly />
               </FormField>
               <FormField label="Fuseau horaire">
-                <select
-                  className="input"
-                  value={form.timeZone ?? 'Africa/Brazzaville'}
-                  onChange={(e) => setForm((f) => ({ ...f, timeZone: e.target.value }))}
-                >
-                  {tzOptions.map((tz) => (
-                    <option key={tz.value} value={tz.value}>
-                      {tz.label}
-                    </option>
-                  ))}
-                </select>
+                <SelectSearch
+                  instanceId="branch-timezone"
+                  options={tzOptions}
+                  value={findOption(tzOptions, form.timeZone ?? 'Africa/Brazzaville')}
+                  onChange={(opt) => setForm((f) => ({ ...f, timezone: opt?.value ?? 'Africa/Brazzaville' }))}
+                />
               </FormField>
               <FormField label="Téléphone">
                 <Input

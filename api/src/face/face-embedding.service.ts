@@ -76,8 +76,80 @@ export class FaceEmbeddingService {
     return run;
   }
 
+  /**
+   * Resolve a Python interpreter that has `face_recognition` importable.
+   *
+   * Strategy:
+   *  1. Try the configured bin (FACE_ENGINE_PYTHON_BIN).
+   *  2. If it lacks face_recognition, probe common venv locations relative
+   *     to process.cwd() — .venv/Scripts/python.exe on Windows,
+   *     .venv/bin/python elsewhere.
+   *  3. Fall back to the configured bin anyway; the spawn will then surface
+   *     the underlying error (which the controller already maps to a 500).
+   */
+  private async resolvePythonBin(configured: string): Promise<string> {
+    const hasFaceRec = (bin: string) =>
+      new Promise<boolean>((resolveProbe) => {
+        const child = spawn(bin, ['-c', 'import face_recognition'], {
+          stdio: ['ignore', 'ignore', 'pipe'],
+        });
+        let stderr = '';
+        child.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString('utf8');
+        });
+        child.on('error', () => resolveProbe(false));
+        child.on('close', (code) => resolveProbe(code === 0));
+        // hard cap so we don't hang on a bad interpreter
+        setTimeout(() => {
+          try {
+            child.kill('SIGKILL');
+          } catch {
+            /* already exited */
+          }
+          resolveProbe(false);
+        }, 5000);
+      });
+
+    if (await hasFaceRec(configured)) {
+      return configured;
+    }
+
+    const isWin = process.platform === 'win32';
+    const candidates = isWin
+      ? [
+          resolve(process.cwd(), '.venv', 'Scripts', 'python.exe'),
+          resolve(process.cwd(), 'venv', 'Scripts', 'python.exe'),
+          resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe'),
+        ]
+      : [
+          resolve(process.cwd(), '.venv', 'bin', 'python'),
+          resolve(process.cwd(), 'venv', 'bin', 'python'),
+          resolve(process.cwd(), '..', '.venv', 'bin', 'python'),
+        ];
+
+    for (const candidate of candidates) {
+      try {
+        // Cheap existence probe — fs.accessSync avoids spawning on a dead path.
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const fs = require('fs') as typeof import('fs');
+        fs.accessSync(candidate, fs.constants.X_OK);
+      } catch {
+        continue;
+      }
+      if (await hasFaceRec(candidate)) {
+        this.logger.log(
+          `[face-embed] FACE_ENGINE_PYTHON_BIN=${configured} lacks face_recognition; falling back to ${candidate}`,
+        );
+        return candidate;
+      }
+    }
+
+    return configured;
+  }
+
   private async embedWithPython(buffer: Buffer): Promise<number[]> {
-    const pythonBin = this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? 'python';
+    const configured = this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? 'python';
+    const pythonBin = await this.resolvePythonBin(configured);
     const scriptPath =
       this.config.get<string>('FACE_ENGINE_SCRIPT_PATH') ?? resolve(process.cwd(), 'python', 'face_engine.py');
     const timeoutMs = Number(this.config.get<string>('FACE_ENGINE_TIMEOUT_MS') ?? 30000);

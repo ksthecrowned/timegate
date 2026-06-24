@@ -27,6 +27,18 @@ export async function runUc05(ctx) {
     fail(ctx, 'UC-05 Export CSV', detail(exportRes.json))
   }
 
+  const pdfExport = await request('/attendance/days/export?from=2026-01-01&to=2026-01-31&format=pdf', {
+    headers: auth,
+  })
+  if (
+    pdfExport.json?.mimeType === 'application/pdf' &&
+    pdfExport.json?.contentBase64?.length > 100
+  ) {
+    pass(ctx, 'UC-05 Export PDF présences')
+  } else {
+    fail(ctx, 'UC-05 Export PDF', detail(pdfExport.json))
+  }
+
   const events = await request('/attendance/events?page=1&limit=10', { headers: auth })
   if (events.res.status === 200) pass(ctx, 'UC-05 Événements pointage')
   else fail(ctx, 'UC-05 Événements', String(events.res.status))

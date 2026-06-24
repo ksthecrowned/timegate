@@ -1,0 +1,942 @@
+import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import {
+  bootstrapOperator,
+  clearProvisioning,
+  fetchKiosksForBranch,
+  getKioskFeatures,
+  getProvisionState,
+  getTimeGateApiBase,
+  getVerificationUserMessage,
+  provisionKiosk,
+  type TimeGateKiosk,
+  type TimeGateBranch,
+  type KioskFeatures,
+} from "../lib/timegate";
+import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
+import { Brand } from "../components/shared/Brand";
+import { MessageBox } from "../components/shared/MessageBox";
+import { PrimaryButton } from "../components/shared/PrimaryButton";
+import { colors, Radius, Spacing } from "../theme/colors";
+
+type SetupStep = "login" | "site" | "device";
+type Feedback =
+  | { kind: "error"; message: string }
+  | { kind: "success"; message: string }
+  | { kind: "info"; message: string }
+  | null;
+
+export default function HomeScreen() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [configured, setConfigured] = useState(false);
+  const [deviceName, setDeviceName] = useState<string | null>(null);
+  const [step, setStep] = useState<SetupStep>("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [sku, setSku] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [operatorToken, setOperatorToken] = useState<string | null>(null);
+  const [branches, setBranches] = useState<TimeGateBranch[]>([]);
+  const [selectedBranch, setSelectedBranch] = useState<TimeGateBranch | null>(null);
+  const [kiosks, setKiosks] = useState<TimeGateKiosk[]>([]);
+  const [selectedKioskId, setSelectedKioskId] = useState<string>("");
+  const [creatingNewKiosk, setCreatingNewKiosk] = useState(false);
+  const [inputKioskName, setInputKioskName] = useState("Borne principale");
+  const [location, setLocation] = useState("Accueil");
+  const [feedback, setFeedback] = useState<Feedback>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
+  const [syncingOffline, setSyncingOffline] = useState(false);
+  const [features, setFeatures] = useState<KioskFeatures | null>(null);
+
+  function deviceStatusLabel(status?: string) {
+    if (!status) return "Inconnu";
+    if (status === "ONLINE") return "En ligne";
+    if (status === "OFFLINE") return "Hors ligne";
+    return status;
+  }
+
+  useEffect(() => {
+    void (async () => {
+      const state = await getProvisionState();
+      const fetchedFeatures = await getKioskFeatures();
+      setConfigured(state.hasToken);
+      setDeviceName(state.deviceName);
+      setFeatures(fetchedFeatures);
+      if (state.hasToken) {
+        setPendingOfflineCount(await getPendingVerifyCount());
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!configured) return;
+      void getPendingVerifyCount().then(setPendingOfflineCount);
+      void getKioskFeatures().then(setFeatures);
+    }, [configured]),
+  );
+
+  async function handleOfflineSync() {
+    setSyncingOffline(true);
+    try {
+      const result = await syncOfflineVerifications(60_000);
+      setPendingOfflineCount(result.pending);
+      if (result.synced > 0) {
+        setFeedback({
+          kind: "success",
+          message: `${result.synced} vérification(s) hors ligne synchronisée(s) avec succès.`,
+        });
+      }
+    } catch {
+      setFeedback({
+        kind: "error",
+        message:
+          "Impossible de synchroniser les pointages hors ligne. Vérifiez le réseau.",
+      });
+    } finally {
+      setSyncingOffline(false);
+    }
+  }
+
+  async function handleLoginStep() {
+    setFeedback(null);
+    setSubmitting(true);
+    try {
+      const data = await bootstrapOperator(email.trim(), password, sku.trim());
+      setOperatorToken(data.operatorToken);
+      setBranches(data.branches);
+      setStep("site");
+      if (data.branches.length === 1) {
+        await handleChooseBranch(data.branches[0], data.operatorToken);
+      }
+    } catch (e) {
+      setFeedback({
+        kind: "error",
+        message:
+          e instanceof Error
+            ? `${e.message}. Vérifiez l'email, le mot de passe et le SKU.`
+            : "Connexion impossible. Vérifiez votre saisie.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleChooseBranch(site: TimeGateBranch, tokenFromArg?: string) {
+    const token = tokenFromArg ?? operatorToken;
+    if (!token) return;
+    setFeedback(null);
+    setSubmitting(true);
+    try {
+      const fetchedKiosks = await fetchKiosksForBranch(token, site.id);
+      setSelectedBranch(site);
+      setKiosks(fetchedKiosks);
+      setSelectedKioskId("");
+      setCreatingNewKiosk(false);
+      setStep("device");
+    } catch (e) {
+      setFeedback({
+        kind: "error",
+        message:
+          e instanceof Error
+            ? `Impossible de charger les appareils: ${e.message}`
+            : "Impossible de charger les appareils pour ce site.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleProvision() {
+    if (!operatorToken || !selectedBranch) return;
+    setFeedback(null);
+    setSubmitting(true);
+    try {
+      const state = await provisionKiosk({
+        operatorToken,
+        branchId: selectedBranch.id,
+        kioskId: creatingNewKiosk ? undefined : selectedKioskId || undefined,
+        deviceName: creatingNewKiosk ? inputKioskName : undefined,
+        location: location || undefined,
+      });
+      setConfigured(state.hasToken);
+      setDeviceName(state.deviceName);
+      setFeedback({
+        kind: "success",
+        message: "Appareil configuré avec succès. Vous pouvez lancer le scan.",
+      });
+    } catch (e) {
+      setFeedback({
+        kind: "error",
+        message:
+          e instanceof Error
+            ? `Provision impossible: ${e.message}`
+            : "Impossible de configurer cet appareil. Réessayez.",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <LinearGradient
+      colors={[colors.bgTop, colors.bgBottom]}
+      style={styles.root}
+    >
+      <SafeAreaView
+        style={[
+          styles.safe,
+          !configured && { paddingHorizontal: Spacing[5], paddingBottom: Spacing[4] },
+        ]}
+      >
+        {!configured && (
+          <View style={styles.header}>
+            <Brand subtitle="Kiosque de vérification faciale" size="md" />
+          </View>
+        )}
+
+        {loading ? (
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color={colors.text} />
+          </View>
+        ) : configured && features !== null ? (
+          <ReadyScreen
+            deviceName={deviceName}
+            pendingOfflineCount={pendingOfflineCount}
+            syncingOffline={syncingOffline}
+            nfcEnabled={features.nfcEnabled}
+            onStartFace={() => router.push("/scan")}
+            onStartNfc={() => router.push("/nfc")}
+            onUsePin={() => router.push("/pin")}
+            onSyncOffline={() => void handleOfflineSync()}
+            onReconfigure={() => {
+              void clearProvisioning();
+              setConfigured(false);
+              setDeviceName(null);
+              setPendingOfflineCount(0);
+            }}
+          />
+        ) : (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.formWrap}
+          >
+            <ScrollView
+              contentContainerStyle={styles.formContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.panel}>
+                <Text style={styles.panelTitle}>Configuration initiale</Text>
+                <Text style={styles.panelText}>
+                  Connectez-vous avec un compte ADMIN ou MANAGER, puis associez
+                  ce terminal à un site et à un appareil.
+                </Text>
+                {__DEV__ && step === "login" && (
+                  <Text style={styles.devApi}>API: {getTimeGateApiBase()}</Text>
+                )}
+                {feedback ? (
+                  <MessageBox
+                    variant={feedback.kind}
+                    message={feedback.message}
+                    style={{ marginTop: Spacing[2] }}
+                  />
+                ) : null}
+
+                {step === "login" && (
+                  <View style={styles.block}>
+                    <Text style={styles.groupLabel}>
+                      Étape 1 — Connexion opérateur
+                    </Text>
+
+                    <Text style={styles.inputLabel}>Email</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="admin@monorganisation.com"
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      keyboardType="email-address"
+                      value={email}
+                      onChangeText={setEmail}
+                    />
+
+                    <Text style={styles.inputLabel}>Mot de passe</Text>
+                    <View style={styles.passwordRow}>
+                      <TextInput
+                        style={[styles.input, { flex: 1, paddingRight: 40 }]}
+                        placeholder="Votre mot de passe"
+                        placeholderTextColor={colors.textMuted}
+                        secureTextEntry={!showPassword}
+                        value={password}
+                        onChangeText={setPassword}
+                      />
+                      <Pressable
+                        onPress={() => setShowPassword((v) => !v)}
+                        style={styles.eyeBtn}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name={showPassword ? "eye-off-outline" : "eye-outline"}
+                          size={20}
+                          color={colors.textSecondary}
+                        />
+                      </Pressable>
+                    </View>
+
+                    <Text style={styles.inputLabel}>SKU organisation</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="SOTR"
+                      placeholderTextColor={colors.textMuted}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      value={sku}
+                      onChangeText={setSku}
+                    />
+
+                    <PrimaryButton
+                      label={submitting ? "Connexion..." : "Valider la connexion"}
+                      onPress={() => void handleLoginStep()}
+                      disabled={submitting}
+                      loading={submitting}
+                      variant="primary"
+                    />
+                  </View>
+                )}
+
+                {step === "site" && (
+                  <View style={styles.block}>
+                    <Text style={styles.groupLabel}>
+                      Étape 2 — Choix du site
+                    </Text>
+                    <Text style={styles.helperText}>
+                      Sélectionnez le site sur lequel installer ce kiosque.
+                    </Text>
+                    {branches.map((site) => (
+                      <Pressable
+                        key={site.id}
+                        style={({ pressed }) => [
+                          styles.choiceCard,
+                          pressed && styles.choicePressed,
+                        ]}
+                        onPress={() => void handleChooseBranch(site)}
+                      >
+                        <View style={styles.choiceRow}>
+                          <Ionicons
+                            name="business-outline"
+                            size={20}
+                            color={colors.tealLight}
+                          />
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.choiceTitle}>{site.name}</Text>
+                            <Text style={styles.choiceMeta}>
+                              {site.address ?? "Adresse non renseignée"}
+                            </Text>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={18}
+                            color={colors.textSecondary}
+                          />
+                        </View>
+                      </Pressable>
+                    ))}
+                    {branches.length === 0 && (
+                      <MessageBox
+                        variant="info"
+                        message="Aucun site disponible pour ce compte. Contactez votre administrateur."
+                      />
+                    )}
+                  </View>
+                )}
+
+                {step === "device" && selectedBranch && (
+                  <View style={styles.block}>
+                    <Text style={styles.groupLabel}>
+                      Étape 3 — Appareil
+                    </Text>
+                    <MessageBox
+                      variant="info"
+                      message={`Site sélectionné: ${selectedBranch.name}`}
+                    />
+
+                    {kiosks.length > 0 && (
+                      <>
+                        <Text style={styles.inputLabel}>
+                          Appareils existants
+                        </Text>
+                        {kiosks.map((device) => {
+                          const selected = selectedKioskId === device.id;
+                          return (
+                            <Pressable
+                              key={device.id}
+                              style={({ pressed }) => [
+                                styles.choiceCard,
+                                selected && styles.choiceSelected,
+                                pressed && styles.choicePressed,
+                              ]}
+                              onPress={() => {
+                                setSelectedKioskId(device.id);
+                                setCreatingNewKiosk(false);
+                              }}
+                            >
+                              <View style={styles.choiceRow}>
+                                <Ionicons
+                                  name="desktop-outline"
+                                  size={20}
+                                  color={
+                                    selected
+                                      ? colors.tealLight
+                                      : colors.textSecondary
+                                  }
+                                />
+                                <View style={{ flex: 1 }}>
+                                  <Text style={styles.choiceTitle}>
+                                    {device.name}
+                                  </Text>
+                                  <Text style={styles.choiceMeta}>
+                                    {device.location ?? "Sans localisation"} •{" "}
+                                    {deviceStatusLabel(device.status)}
+                                  </Text>
+                                </View>
+                                {selected ? (
+                                  <Ionicons
+                                    name="checkmark-circle"
+                                    size={20}
+                                    color={colors.tealLight}
+                                  />
+                                ) : (
+                                  <Ionicons
+                                    name="chevron-forward"
+                                    size={18}
+                                    color={colors.textSecondary}
+                                  />
+                                )}
+                              </View>
+                            </Pressable>
+                          );
+                        })}
+                      </>
+                    )}
+
+                    <Pressable
+                      style={({ pressed }) => [
+                        styles.secondaryButton,
+                        pressed && styles.choicePressed,
+                      ]}
+                      onPress={() => {
+                        setCreatingNewKiosk(true);
+                        setSelectedKioskId("");
+                      }}
+                    >
+                      <View style={styles.choiceRow}>
+                        <Ionicons
+                          name="add-circle-outline"
+                          size={20}
+                          color={colors.text}
+                        />
+                        <Text style={styles.secondaryButtonText}>
+                          Ajouter un nouvel appareil
+                        </Text>
+                      </View>
+                    </Pressable>
+
+                    {creatingNewKiosk && (
+                      <>
+                        <Text style={styles.inputLabel}>
+                          Nom du nouvel appareil
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Borne principale"
+                          placeholderTextColor={colors.textMuted}
+                          value={inputKioskName}
+                          onChangeText={setInputKioskName}
+                        />
+                      </>
+                    )}
+
+                    <Text style={styles.inputLabel}>Localisation</Text>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Accueil"
+                      placeholderTextColor={colors.textMuted}
+                      value={location}
+                      onChangeText={setLocation}
+                    />
+
+                    <PrimaryButton
+                      label={
+                        submitting
+                          ? "Configuration en cours..."
+                          : "Configurer l'appareil"
+                      }
+                      onPress={() => void handleProvision()}
+                      disabled={
+                        submitting || (!creatingNewKiosk && !selectedKioskId)
+                      }
+                      loading={submitting}
+                      trailingIcon="arrow-forward"
+                    />
+                  </View>
+                )}
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        )}
+      </SafeAreaView>
+    </LinearGradient>
+  );
+}
+
+function ReadyScreen({
+  deviceName,
+  pendingOfflineCount,
+  syncingOffline,
+  nfcEnabled,
+  onStartFace,
+  onStartNfc,
+  onUsePin,
+  onSyncOffline,
+  onReconfigure,
+}: {
+  deviceName: string | null;
+  pendingOfflineCount: number;
+  syncingOffline: boolean;
+  nfcEnabled: boolean;
+  onStartFace: () => void;
+  onStartNfc: () => void;
+  onUsePin: () => void;
+  onSyncOffline: () => void;
+  onReconfigure: () => void;
+}) {
+  // If NFC is disabled, show the original facial recognition screen
+  if (!nfcEnabled) {
+    return (
+      <View style={styles.readyScreen}>
+        <LinearGradient
+          pointerEvents="none"
+          colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.4)", "rgba(0,0,0,0)"]}
+          locations={[0, 0.5, 1]}
+          start={{ x: 0.5, y: 0 }}
+          end={{ x: 0.5, y: 1 }}
+          style={styles.readyCenterGradient}
+        />
+        <View style={styles.readyContent}>
+          <Text style={styles.readyTitle}>Vérification faciale</Text>
+          <Text style={styles.readySub}>
+            Assurez-vous d'être bien en face de la caméra, dans un endroit
+            bien éclairé.
+          </Text>
+
+          <View style={styles.readyFaceArea}>
+            <View style={[styles.readyCorner, styles.readyTopLeft]} />
+            <View style={[styles.readyCorner, styles.readyTopRight]} />
+            <View style={[styles.readyCorner, styles.readyBottomLeft]} />
+            <View style={[styles.readyCorner, styles.readyBottomRight]} />
+            <View style={styles.readyGifWrap}>
+              <Image
+                source={require("../1_4Tr0FOsdUgkF32T3mdu6pg_transparent.gif")}
+                style={styles.readyGif}
+                resizeMode="cover"
+              />
+            </View>
+          </View>
+
+          <Text style={styles.readyDeviceName}>
+            {deviceName ?? "Appareil prêt"}
+          </Text>
+
+          {pendingOfflineCount > 0 ? (
+            <View style={styles.offlinePendingWrap}>
+              <MessageBox
+                variant="warn"
+                message={`${pendingOfflineCount} vérification(s) en attente de synchronisation.`}
+              />
+              <PrimaryButton
+                label={syncingOffline ? "Synchronisation..." : "Synchroniser maintenant"}
+                onPress={onSyncOffline}
+                disabled={syncingOffline}
+                loading={syncingOffline}
+                variant="secondary"
+              />
+            </View>
+          ) : null}
+
+          <PrimaryButton
+            label="Commencer le scan"
+            onPress={onStartFace}
+            trailingIcon="scan-outline"
+          />
+
+          <Pressable onPress={onUsePin} style={styles.linkBtn} hitSlop={6}>
+            <Ionicons
+              name="settings-outline"
+              size={16}
+              color={colors.tealLight}
+              style={{ marginRight: Spacing[1] }}
+            />
+            <Text style={styles.linkText}>Reconfigurer cet appareil</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
+  // If NFC is enabled, show the new two-card layout
+  return (
+    <View style={styles.readyScreen}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.4)", "rgba(0,0,0,0)"]}
+        locations={[0, 0.5, 1]}
+        start={{ x: 0.5, y: 0 }}
+        end={{ x: 0.5, y: 1 }}
+        style={styles.readyCenterGradient}
+      />
+      <View style={styles.readyContent}>
+        <Text style={styles.readyTitle}>Choisissez votre mode de pointage</Text>
+        <Text style={styles.readySub}>
+          Sélectionnez une option pour pointer votre présence.
+        </Text>
+
+        <View style={[styles.readyHero, { flexDirection: "column" }]}>
+          <ModeCard
+            icon="scan-outline"
+            title="Reconnaissance faciale"
+            sub="Caméra frontale"
+            onPress={onStartFace}
+          />
+          <ModeCard
+            icon="card-outline"
+            title="Badge NFC"
+            sub="Sans contact"
+            onPress={onStartNfc}
+          />
+        </View>
+
+        <Pressable
+          style={({ pressed }) => [
+            styles.pinFallbackBtn,
+            pressed && { opacity: 0.7 },
+          ]}
+          onPress={onUsePin}
+          hitSlop={6}
+        >
+          <Ionicons
+            name="keypad-outline"
+            size={16}
+            color={colors.tealLight}
+            style={{ marginRight: Spacing[1] }}
+          />
+          <Text style={styles.pinFallbackText}>Saisie PIN manuelle</Text>
+        </Pressable>
+
+        <Text style={styles.readyDeviceName}>
+          {deviceName ?? "Appareil prêt"}
+        </Text>
+
+        {pendingOfflineCount > 0 ? (
+          <View style={styles.offlinePendingWrap}>
+            <MessageBox
+              variant="warn"
+              message={`${pendingOfflineCount} vérification(s) en attente de synchronisation.`}
+            />
+            <PrimaryButton
+              label={syncingOffline ? "Synchronisation..." : "Synchroniser maintenant"}
+              onPress={onSyncOffline}
+              disabled={syncingOffline}
+              loading={syncingOffline}
+              variant="secondary"
+            />
+          </View>
+        ) : null}
+
+        <Pressable onPress={onReconfigure} style={styles.linkBtn} hitSlop={6}>
+          <Ionicons
+            name="settings-outline"
+            size={16}
+            color={colors.tealLight}
+            style={{ marginRight: Spacing[1] }}
+          />
+          <Text style={styles.linkText}>Reconfigurer cet appareil</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function ModeCard({
+  icon,
+  title,
+  sub,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  sub: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.modeCard,
+        pressed && styles.modeCardPressed,
+      ]}
+      onPress={onPress}
+    >
+      <View style={styles.modeIconWrap}>
+        <Ionicons name={icon} size={56} color={colors.tealLight} />
+      </View>
+      <Text style={styles.modeTitle}>{title}</Text>
+      <Text style={styles.modeSub}>{sub}</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  safe: { flex: 1 },
+  header: { marginTop: Spacing[2], marginBottom: Spacing[4] },
+  loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  formWrap: { flex: 1 },
+  formContent: { paddingBottom: Spacing[2] },
+  panel: {
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    padding: Spacing[5],
+    gap: Spacing[2],
+  },
+  panelTitle: { color: colors.text, fontWeight: "700", fontSize: 18 },
+  panelText: { color: colors.textSecondary, lineHeight: 21, fontSize: 14 },
+  readyScreen: { position: "relative", flex: 1 },
+  readyContent: {
+    position: "relative",
+    flex: 1,
+    borderRadius: Radius.xl,
+    backgroundColor: colors.scrimSoft,
+    paddingHorizontal: Spacing[5],
+    paddingTop: Spacing[7],
+    paddingBottom: Spacing[4],
+  },
+  readyCenterGradient: { position: "absolute", width: "100%", height: "100%" },
+  readyTitle: {
+    color: colors.text,
+    fontSize: 30,
+    fontWeight: "700",
+    letterSpacing: -0.4,
+  },
+  readySub: {
+    color: colors.textSecondary,
+    fontSize: 16,
+    marginTop: Spacing[2],
+    lineHeight: 22,
+  },
+  readyFaceArea: {
+    flex: 1,
+    marginTop: Spacing[6],
+    marginBottom: Spacing[4],
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  readyGifWrap: {
+    width: "85%",
+    height: "70%",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+  readyGif: { width: "100%", height: "100%" },
+  readyCorner: {
+    position: "absolute",
+    width: 46,
+    height: 46,
+    borderColor: colors.tealLight,
+  },
+  readyTopLeft: {
+    top: "13%",
+    left: "4%",
+    borderTopWidth: 4,
+    borderLeftWidth: 4,
+    borderTopLeftRadius: 14,
+  },
+  readyTopRight: {
+    top: "13%",
+    right: "4%",
+    borderTopWidth: 4,
+    borderRightWidth: 4,
+    borderTopRightRadius: 14,
+  },
+  readyBottomLeft: {
+    bottom: "13%",
+    left: "4%",
+    borderBottomWidth: 4,
+    borderLeftWidth: 4,
+    borderBottomLeftRadius: 14,
+  },
+  readyBottomRight: {
+    bottom: "13%",
+    right: "4%",
+    borderBottomWidth: 4,
+    borderRightWidth: 4,
+    borderBottomRightRadius: 14,
+  },
+  readyHero: {
+    flexDirection: "column",
+    gap: Spacing[3],
+    marginTop: Spacing[5],
+    marginBottom: Spacing[4],
+  },
+  modeCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    borderColor: "rgba(13, 148, 136, 0.45)",
+    backgroundColor: "rgba(15, 23, 42, 0.7)",
+    paddingVertical: Spacing[5],
+    paddingHorizontal: Spacing[3],
+  },
+  modeCardPressed: { opacity: 0.85 },
+  modeIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: colors.teal,
+    backgroundColor: "rgba(13, 148, 136, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: Spacing[3],
+  },
+  modeTitle: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modeSub: {
+    color: colors.textSecondary,
+    fontSize: 12,
+  },
+  pinFallbackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing[2],
+  },
+  pinFallbackText: {
+    color: colors.tealLight,
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  readyDeviceName: {
+    color: colors.textMuted,
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: Spacing[2],
+  },
+  offlinePendingWrap: { marginBottom: Spacing[3], gap: Spacing[2] },
+  block: { gap: Spacing[2] },
+  groupLabel: {
+    color: colors.textSecondary,
+    marginTop: Spacing[1],
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  inputLabel: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: Spacing[2],
+  },
+  input: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    color: colors.text,
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[3],
+    fontSize: 15,
+  },
+  passwordRow: { position: "relative", justifyContent: "center" },
+  eyeBtn: {
+    position: "absolute",
+    right: Spacing[3],
+    width: 32,
+    height: 32,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  choiceCard: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bg,
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[3],
+  },
+  choiceSelected: {
+    borderColor: colors.teal,
+    backgroundColor: "rgba(13, 148, 136, 0.12)",
+  },
+  choicePressed: { opacity: 0.85 },
+  choiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Spacing[3],
+  },
+  choiceTitle: { color: colors.text, fontWeight: "600", fontSize: 15 },
+  choiceMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
+  secondaryButton: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "transparent",
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[3],
+  },
+  secondaryButtonText: { color: colors.text, fontWeight: "600" },
+  helperText: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  devApi: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+  },
+  linkBtn: {
+    marginTop: Spacing[3],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing[2],
+  },
+  linkText: { color: colors.tealLight, fontWeight: "600" },
+});
