@@ -6,10 +6,9 @@ export class CreateSelfShiftSwapDto {
   @MaxLength(140)
   shiftAssignmentId?: string;
 
-  @IsOptional()
   @IsString()
   @MaxLength(140)
-  targetEmployeeId?: string;
+  targetEmployeeId!: string;
 
   @IsDateString()
   swapDate!: string;

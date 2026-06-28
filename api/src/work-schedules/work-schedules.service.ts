@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -6,6 +6,7 @@ import { generateDocId } from '../common/utils/doc-id.util';
 import { formatTimeAsIso, toTimeOnlyDate } from '../common/utils/time.util';
 import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';
+import { formatPunchWindows, mapPunchWindowFields } from './punch-window.mapper';
 
 @Injectable()
 export class WorkSchedulesService {
@@ -25,6 +26,7 @@ export class WorkSchedulesService {
         startTime: toTimeOnlyDate(dto.startTime),
         endTime: toTimeOnlyDate(dto.endTime),
         lateGraceMinutes: dto.lateGraceMinutes ?? 5,
+        ...mapPunchWindowFields(dto),
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });
@@ -101,6 +103,7 @@ export class WorkSchedulesService {
         ...(dto.startTime !== undefined ? { startTime: toTimeOnlyDate(dto.startTime) } : {}),
         ...(dto.endTime !== undefined ? { endTime: toTimeOnlyDate(dto.endTime) } : {}),
         ...(dto.lateGraceMinutes !== undefined ? { lateGraceMinutes: dto.lateGraceMinutes } : {}),
+        ...mapPunchWindowFields(dto),
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });
@@ -110,7 +113,34 @@ export class WorkSchedulesService {
 
   async remove(id: string) {
     await this.findOne(id);
-    await this.prisma.shiftType.delete({ where: { id } });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.employee.updateMany({
+          where: { defaultShiftId: id },
+          data: { defaultShiftId: null },
+        });
+        await tx.employeeCheckin.updateMany({
+          where: { shiftId: id },
+          data: { shiftId: null },
+        });
+        await tx.attendance.updateMany({
+          where: { shiftId: id },
+          data: { shiftId: null },
+        });
+        await tx.shiftAssignment.deleteMany({ where: { shiftTypeId: id } });
+        await tx.shiftType.delete({ where: { id } });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'Impossible de supprimer cet horaire : des enregistrements y sont encore liés.',
+        );
+      }
+      throw error;
+    }
     return { id, deleted: true };
   }
 
@@ -122,6 +152,13 @@ export class WorkSchedulesService {
     startTime: Date | null;
     endTime: Date | null;
     lateGraceMinutes: number;
+    checkInWindowStart?: Date | null;
+    checkInWindowEnd?: Date | null;
+    checkOutWindowStart?: Date | null;
+    checkOutWindowEnd?: Date | null;
+    breakWindowStart?: Date | null;
+    breakWindowEnd?: Date | null;
+    breakDurationMinutes?: number | null;
     createdAt: Date;
     branch?: { id: string; branchName: string } | null;
     weekDays?: Array<{ id: string; day: string; startTime: string; endTime: string }>;
@@ -134,6 +171,7 @@ export class WorkSchedulesService {
       startTime: formatTimeAsIso(row.startTime),
       endTime: formatTimeAsIso(row.endTime),
       lateGraceMinutes: row.lateGraceMinutes,
+      ...formatPunchWindows(row),
       createdAt: row.createdAt.toISOString(),
       branch: row.branch ? { id: row.branch.id, name: row.branch.branchName } : undefined,
       weekDays: row.weekDays,

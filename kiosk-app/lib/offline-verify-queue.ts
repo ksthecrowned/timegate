@@ -2,15 +2,17 @@ import * as FileSystem from "expo-file-system/legacy";
 import {
   verifyFacePhoto,
   verifyNfcBadge,
+  verifyQrCode,
   isRetryableVerificationError,
 } from "./timegate";
 
 /**
  * Offline verify queue.
  *
- * Two kinds of items are supported:
+ * Three kinds of items are supported:
  *  - "face"  → a captured photo on disk, retried via verifyFacePhoto
  *  - "nfc"   → a badge UID string, retried via verifyNfcBadge
+ *  - "qr"    → a QR payload string, retried via verifyQrCode
  *
  * Items are persisted in a single JSON file so the queue survives app
  * restarts. Old items persisted before the `kind` field was added are
@@ -18,9 +20,10 @@ import {
  */
 type PendingVerifyItem = {
   id: string;
-  kind: "face" | "nfc";
+  kind: "face" | "nfc" | "qr";
   photoPath?: string;
   badgeUid?: string;
+  qrPayload?: string;
   capturedAt: string;
   attempts: number;
   lastError?: string;
@@ -111,6 +114,21 @@ export async function enqueueOfflineNfcVerification(
   return queue.length;
 }
 
+export async function enqueueOfflineQrVerification(
+  qrPayload: string,
+): Promise<number> {
+  const queue = await readQueue();
+  queue.push({
+    id: makeId(),
+    kind: "qr",
+    qrPayload: qrPayload.trim(),
+    capturedAt: new Date().toISOString(),
+    attempts: 0,
+  });
+  await writeQueue(queue);
+  return queue.length;
+}
+
 /**
  * Backwards-compat alias. The screen kept calling
  * `enqueueOfflineVerification` before the queue learned about NFC.
@@ -132,6 +150,17 @@ async function syncOne(
       }
       await verifyNfcBadge(item.badgeUid, {
         idempotencyKey: item.id,
+        offlineSync: true,
+        capturedAt: item.capturedAt,
+      });
+    } else if (item.kind === "qr") {
+      if (!item.qrPayload) {
+        return "drop";
+      }
+      await verifyQrCode(item.qrPayload, {
+        idempotencyKey: item.id,
+        offlineSync: true,
+        capturedAt: item.capturedAt,
       });
     } else {
       if (!item.photoPath) {

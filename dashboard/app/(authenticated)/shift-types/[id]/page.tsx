@@ -1,16 +1,17 @@
 'use client'
 
-import Link from 'next/link'
-import { useParams, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
+import ActionButtons from '@/components/ui/ActionButtons'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
-import ActionButtons from '@/components/ui/ActionButtons'
-import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
+import { HttpError } from '@/lib/http'
 import { deleteShiftType, getShiftType } from '@/lib/timegate/shift-types'
 import type { ShiftType, WorkDay } from '@/lib/timegate/types'
 import { WEEK_DAY_LABELS } from '@/lib/timegate/work-days'
-import { HttpError } from '@/lib/http'
+import { Calendar } from 'lucide-react'
+import Link from 'next/link'
+import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 
 function formatTime(value: string): string {
   if (value.includes('T')) return value.slice(11, 16)
@@ -75,45 +76,51 @@ export default function ShiftTypeDetailPage() {
           />
           <DetailRow label="Tolérance retard (min)" value={row.lateGraceMinutes ?? '—'} />
           <DetailRow
+            label="Fenêtre arrivée"
+            value={
+              row.checkInWindowStart && row.checkInWindowEnd
+                ? `${formatTime(row.checkInWindowStart)} — ${formatTime(row.checkInWindowEnd)}`
+                : 'Défaut (dérivé du service)'
+            }
+          />
+          <DetailRow
+            label="Fenêtre départ"
+            value={
+              row.checkOutWindowStart && row.checkOutWindowEnd
+                ? `${formatTime(row.checkOutWindowStart)} — ${formatTime(row.checkOutWindowEnd)}`
+                : 'Défaut (fin de service → minuit)'
+            }
+          />
+          <DetailRow
+            label="Plage pause"
+            value={
+              row.breakWindowStart && row.breakWindowEnd
+                ? `${formatTime(row.breakWindowStart)} — ${formatTime(row.breakWindowEnd)} (${row.breakDurationMinutes ?? 60} min)`
+                : 'Défaut'
+            }
+          />
+          <DetailRow
             label="Créé le"
             value={new Date(row.createdAt).toLocaleString('fr-FR')}
           />
         </DetailCard>
       ) : null}
       {row?.weekDays && row.weekDays.length > 0 && (
-        <div className="mt-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-neutral-200">
-              Jours de la semaine
-            </h3>
+        <DetailCard
+          title="Jours de la semaine"
+          actions={
             <Link
-              href={`/work-days?scheduleId=${row.id}`}
-              className="text-sm text-primary hover:underline"
+              className="flex items-center gap-2 text-sm text-primary hover:underline"
+              href={`/work-days?scheduleId=${row?.id}`}
             >
-              Gérer les jours
+             <Calendar className="size-6" /> Gérer les jours
             </Link>
-          </div>
-          <div className="bg-white border border-gray-200 rounded-xl dark:bg-neutral-800 dark:border-neutral-700 overflow-hidden">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-neutral-700 text-sm">
-              <thead className="bg-gray-50 dark:bg-neutral-900">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500 dark:text-neutral-400">Jour</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-500 dark:text-neutral-400">Horaires</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-neutral-700">
-                {row.weekDays.map((wd: WorkDay) => (
-                  <tr key={wd.id}>
-                    <td className="px-4 py-2">{WEEK_DAY_LABELS[wd.day] ?? wd.day}</td>
-                    <td className="px-4 py-2">
-                      {formatTime(wd.startTime)} — {formatTime(wd.endTime)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+          }
+        >
+          {row.weekDays.map((wd: WorkDay) => (
+            <DetailRow key={wd.id} label={WEEK_DAY_LABELS[wd.day] ?? wd.day} value={`${formatTime(wd.startTime)} — ${formatTime(wd.endTime)}`} />
+          ))}
+        </DetailCard>
       )}
     </div>
   )

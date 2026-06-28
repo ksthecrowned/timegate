@@ -384,6 +384,7 @@
 
 import OrgLogo from '@/components/brand/OrgLogo'
 import GlobalSearchBox from '@/components/layout/GlobalSearchBox'
+import NotificationBell from '@/components/layout/NotificationBell'
 import { getRoleLabel } from '@/lib/timegate/roles'
 import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -445,6 +446,8 @@ export default function Navbar() {
 
             {/* Actions */}
             <div className="flex flex-row items-center justify-end gap-1 gap-x-2">
+
+              <NotificationBell />
 
               {/* Dark mode — mode sombre */}
               <button
@@ -574,7 +577,7 @@ export default function Navbar() {
 
       {/* ========== BREADCRUMB MOBILE ========== */}
       <div className="-mt-px">
-        <div className="fixed top-[61px] md:top-[65px] inset-x-0 z-20 bg-white border-y px-4 sm:px-6 lg:px-8 lg:hidden dark:bg-neutral-800 dark:border-neutral-700">
+        <div className="fixed top-[61px] md:top-[65px] inset-x-0 z-20 bg-surface border-y px-4 sm:px-6 lg:px-8 lg:hidden dark:bg-surface-card-dark  dark:border-border-dark  border-slate-200/80">
           <div className="flex items-center py-2">
 
             {/* Navigation Toggle */}

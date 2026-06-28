@@ -8,7 +8,7 @@ import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ActionButtons from '@/components/ui/ActionButtons'
 import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
-import { deleteKiosk, getKiosk } from '@/lib/timegate/kiosks'
+import { deleteKiosk, getKiosk, regenerateKioskApiKey } from '@/lib/timegate/kiosks'
 import type { Kiosk } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
 
@@ -19,6 +19,8 @@ export default function KioskDetailPage() {
   const [kiosk, setKiosk] = useState<Kiosk | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [apiKeyVisible, setApiKeyVisible] = useState(false)
+  const [regeneratingKey, setRegeneratingKey] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -76,6 +78,16 @@ export default function KioskDetailPage() {
           />
           <DetailRow label="Actif" value={kiosk.isActive ? 'Oui' : 'Non'} />
           <DetailRow
+            label="Méthodes"
+            value={[
+              kiosk.faceEnabled !== false ? 'Visage' : null,
+              kiosk.nfcEnabled ? 'NFC' : null,
+              kiosk.qrEnabled ? 'QR' : null,
+            ]
+              .filter(Boolean)
+              .join(' · ') || '—'}
+          />
+          <DetailRow
             label="Dernière activité"
             value={
               kiosk.lastSeenAt
@@ -83,7 +95,60 @@ export default function KioskDetailPage() {
                 : null
             }
           />
-          <DetailRow label="Clé API" value={kiosk.apiKey ? '••••••••' : '—'} />
+          <DetailRow
+            label="Clé API"
+            value={
+              kiosk.apiKey ? (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <code className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-900">
+                    {apiKeyVisible ? kiosk.apiKey : '••••••••••••••••'}
+                  </code>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setApiKeyVisible((v) => !v)}
+                      className="text-sm font-medium text-primary hover:underline"
+                    >
+                      {apiKeyVisible ? 'Masquer' : 'Afficher'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={regeneratingKey}
+                      onClick={async () => {
+                        if (
+                          !window.confirm(
+                            'Régénérer la clé API ? Les intégrations utilisant l’ancienne clé cesseront de fonctionner.',
+                          )
+                        ) {
+                          return
+                        }
+                        setRegeneratingKey(true)
+                        setError('')
+                        try {
+                          const updated = await regenerateKioskApiKey(id)
+                          setKiosk(updated)
+                          setApiKeyVisible(true)
+                        } catch (err) {
+                          setError(
+                            err instanceof HttpError
+                              ? err.message
+                              : 'Impossible de régénérer la clé API.',
+                          )
+                        } finally {
+                          setRegeneratingKey(false)
+                        }
+                      }}
+                      className="text-sm font-medium text-amber-700 hover:underline disabled:opacity-50 dark:text-amber-400"
+                    >
+                      {regeneratingKey ? 'Régénération…' : 'Régénérer'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                '—'
+              )
+            }
+          />
         </DetailCard>
       ) : null}
     </div>

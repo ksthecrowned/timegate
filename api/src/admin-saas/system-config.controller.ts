@@ -14,6 +14,18 @@ import { UpdateSystemConfigDto } from './dto/update-system-config.dto';
 export class SystemConfigController {
   constructor(private readonly service: AdminSaasService) {}
 
+  @Roles(TimeGateUserRole.ADMIN)
+  @Get('tenant')
+  getTenantConfig(@CurrentUser() user: JwtUser) {
+    return this.service.getTenantConfig(user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
+  @Patch('tenant')
+  updateTenantConfig(@Body() dto: UpdateSystemConfigDto, @CurrentUser() user: JwtUser) {
+    return this.service.updateTenantConfig(user, dto);
+  }
+
   @Roles(TimeGateUserRole.SUPER_ADMIN, TimeGateUserRole.ADMIN)
   @Get()
   findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {

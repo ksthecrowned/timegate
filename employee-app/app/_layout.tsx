@@ -16,6 +16,7 @@ import { TOKEN_KEY } from '@/lib/api';
 import { onLogout } from '@/lib/authEvents';
 import { getMeCached, invalidateMeCache } from '@/lib/meCache';
 import { DrawerMenu } from '@/components/DrawerMenu';
+import { PushNotificationSetup } from '@/components/PushNotificationSetup';
 import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
@@ -65,6 +66,7 @@ export default function RootLayout() {
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
+      <PushNotificationSetup />
       <Drawer
         screenOptions={{
           headerShown: false,

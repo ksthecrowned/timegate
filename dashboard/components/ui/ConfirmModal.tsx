@@ -22,7 +22,7 @@ export default function ConfirmModal({ open, title, message, confirmLabel = 'Oui
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-80 flex items-center justify-center h-screen">
+    <div className="fixed inset-0 z-[80] flex items-center justify-center h-screen">
       {/* Backdrop */}
       <div className="fixed inset-0 bg-gray-900/50 dark:bg-neutral-900/80" onClick={onCancel} />
 

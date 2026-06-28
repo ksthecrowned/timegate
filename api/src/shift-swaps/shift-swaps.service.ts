@@ -134,7 +134,9 @@ export class ShiftSwapsService {
     },
   ) {
     if (!row.targetEmployeeId) {
-      throw new BadRequestException('Target employee is required to approve a shift swap');
+      throw new BadRequestException(
+        'Un collègue cible est requis pour approuver cet échange de shift.',
+      );
     }
 
     let requesterAssignment = row.shiftAssignmentId

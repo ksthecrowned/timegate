@@ -52,6 +52,9 @@ export default function EditKioskPage() {
             branchId: kiosk.branchId,
             shiftLocationId: kiosk.shiftLocationId ?? '',
             isActive: kiosk.isActive,
+            faceEnabled: kiosk.faceEnabled ?? true,
+            nfcEnabled: kiosk.nfcEnabled ?? false,
+            qrEnabled: kiosk.qrEnabled ?? false,
           }}
           onSubmit={async (values) => {
             await updateKiosk(id, values)

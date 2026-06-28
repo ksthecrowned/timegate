@@ -11,6 +11,7 @@ import { AuthService } from './auth.service';
 import { MailService } from './mail.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { FaceModule } from '../face/face.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
@@ -19,6 +20,7 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     FaceModule,
     AttendanceModule,
+    NotificationsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

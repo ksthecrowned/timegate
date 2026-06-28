@@ -1,6 +1,7 @@
 import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { PunchWindowFieldsDto } from './punch-window-fields.dto';
 
-export class CreateWorkScheduleDto {
+export class CreateWorkScheduleDto extends PunchWindowFieldsDto {
   @IsString()
   @MaxLength(140)
   branchId!: string;

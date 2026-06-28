@@ -1,3 +1,5 @@
+import { HintTooltip } from '@/components/ui/HintTooltip'
+
 export function ApiErrorBanner({ message }: { message: string }) {
   if (!message) return null
   return (
@@ -38,17 +40,22 @@ export function DetailRow({ label, value }: { label: string; value: React.ReactN
 
 export function FormCard({
   title,
+  hint,
   children,
   footer,
 }: {
   title: string
+  hint?: string
   children: React.ReactNode
   footer?: React.ReactNode
 }) {
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+          {title}
+          {hint ? <HintTooltip text={hint} /> : null}
+        </h2>
       </div>
       <div className="p-4 md:p-5">{children}</div>
       {footer && (

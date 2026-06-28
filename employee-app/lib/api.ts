@@ -273,4 +273,37 @@ export const employeeApi = {
   // ----- Employees / colleagues -----
   getColleagues: (query: Record<string, unknown> = {}) =>
     fetchApi<PaginatedResponse<Colleague>>(`/employees${qs(query)}`),
+
+  // ----- Push devices (FCM / Expo) -----
+  registerDevice: (data: { token: string; platform: "IOS" | "ANDROID" | "WEB" }) =>
+    fetchApi<{ id: string; platform: string; isActive: boolean }>(
+      "/devices/register",
+      { method: "POST", body: JSON.stringify(data) },
+    ),
+
+  removeDevice: (data: { token: string }) =>
+    fetchApi<{ ok: boolean }>("/devices/remove", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // ----- In-app notifications -----
+  getNotifications: (query: Record<string, unknown> = {}) =>
+    fetchApi<{
+      data: Array<{
+        id: string;
+        type: string;
+        title: string;
+        body: string;
+        readAt: string | null;
+        createdAt: string;
+      }>;
+      meta: { unreadCount: number };
+    }>(`/notifications${qs(query)}`),
+
+  markNotificationRead: (id: string) =>
+    fetchApi(`/notifications/${id}/read`, { method: "PATCH" }),
+
+  markAllNotificationsRead: () =>
+    fetchApi("/notifications/read-all", { method: "PATCH" }),
 };

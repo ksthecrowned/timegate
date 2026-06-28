@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Prisma, TimeGateUserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { generateDocId } from '../common/utils/doc-id.util';
 import { UpdateSystemConfigDto } from './dto/update-system-config.dto';
 
 @Injectable()
@@ -23,50 +24,55 @@ export class AdminSaasService {
         where,
         skip: (page - 1) * limit,
         take: limit,
-        include: { company: { select: { id: true, name: true, sku: true } } },
+        include: {
+          company: { select: { id: true, name: true, sku: true } },
+          defaultShiftType: { select: { id: true, shiftName: true } },
+        },
       }),
       this.prisma.timeGateSystemSettings.count({ where }),
     ]);
 
     return {
-      data: items.map((row) => ({
-        id: row.id,
-        companyId: row.companyId,
-        minConfidence: row.minConfidence,
-        lateThreshold: row.lateThreshold,
-        veryLateThreshold: row.veryLateThreshold,
-        company: row.company
-          ? { id: row.company.id, name: row.company.name ?? row.company.id, sku: row.company.sku ?? '' }
-          : undefined,
-      })),
+      data: items.map((row) => this.toSystemConfigShape(row)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
+  }
+
+  async getTenantConfig(user: JwtUser) {
+    const companyId = this.requireCompanyId(user);
+    const row = await this.ensureTenantConfig(companyId);
+    return this.toSystemConfigShape(row);
+  }
+
+  async updateTenantConfig(user: JwtUser, dto: UpdateSystemConfigDto) {
+    const companyId = this.requireCompanyId(user);
+    const row = await this.ensureTenantConfig(companyId);
+    await this.validateDefaultShiftType(companyId, dto.defaultShiftTypeId);
+    const updated = await this.prisma.timeGateSystemSettings.update({
+      where: { id: row.id },
+      data: this.buildSystemConfigUpdate(dto),
+      include: {
+        company: { select: { id: true, name: true, sku: true } },
+        defaultShiftType: { select: { id: true, shiftName: true } },
+      },
+    });
+    return this.toSystemConfigShape(updated);
   }
 
   async updateSystemConfig(id: string, dto: UpdateSystemConfigDto, user: JwtUser) {
     const row = await this.prisma.timeGateSystemSettings.findUnique({ where: { id } });
     if (!row) throw new NotFoundException('System config not found');
     this.assertCompanyAccess(user, row.companyId);
-    return this.prisma.timeGateSystemSettings.update({
+    await this.validateDefaultShiftType(row.companyId, dto.defaultShiftTypeId);
+    const updated = await this.prisma.timeGateSystemSettings.update({
       where: { id },
-      data: {
-        ...(dto.minConfidence !== undefined ? { minConfidence: dto.minConfidence } : {}),
-        ...(dto.lateThreshold !== undefined ? { lateThreshold: dto.lateThreshold } : {}),
-        ...(dto.veryLateThreshold !== undefined
-          ? { veryLateThreshold: dto.veryLateThreshold }
-          : {}),
+      data: this.buildSystemConfigUpdate(dto),
+      include: {
+        company: { select: { id: true, name: true, sku: true } },
+        defaultShiftType: { select: { id: true, shiftName: true } },
       },
-      include: { company: { select: { id: true, name: true, sku: true } } },
-    }).then((updated) => ({
-      id: updated.id,
-      companyId: updated.companyId,
-      minConfidence: updated.minConfidence,
-      lateThreshold: updated.lateThreshold,
-      veryLateThreshold: updated.veryLateThreshold,
-      company: updated.company
-        ? { id: updated.company.id, name: updated.company.name ?? updated.company.id, sku: updated.company.sku ?? '' }
-        : undefined,
-    }));
+    });
+    return this.toSystemConfigShape(updated);
   }
 
   async findSubscriptions(query: PaginationQueryDto, user: JwtUser) {
@@ -217,6 +223,103 @@ export class AdminSaasService {
           : undefined,
       })),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  private requireCompanyId(user: JwtUser): string {
+    if (!user.companyId) {
+      throw new ForbiddenException('Company context is required');
+    }
+    return user.companyId;
+  }
+
+  private async ensureTenantConfig(companyId: string) {
+    const existing = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId },
+      include: {
+        company: { select: { id: true, name: true, sku: true } },
+        defaultShiftType: { select: { id: true, shiftName: true } },
+      },
+    });
+    if (existing) return existing;
+
+    return this.prisma.timeGateSystemSettings.create({
+      data: {
+        id: generateDocId('CFG'),
+        companyId,
+      },
+      include: {
+        company: { select: { id: true, name: true, sku: true } },
+        defaultShiftType: { select: { id: true, shiftName: true } },
+      },
+    });
+  }
+
+  private async validateDefaultShiftType(
+    companyId: string,
+    defaultShiftTypeId?: string | null,
+  ) {
+    if (defaultShiftTypeId === undefined) return;
+    if (!defaultShiftTypeId) return;
+    const shift = await this.prisma.shiftType.findUnique({
+      where: { id: defaultShiftTypeId },
+      select: { companyId: true },
+    });
+    if (!shift || shift.companyId !== companyId) {
+      throw new BadRequestException('Invalid default shift type for this organization');
+    }
+  }
+
+  private buildSystemConfigUpdate(dto: UpdateSystemConfigDto): Prisma.TimeGateSystemSettingsUpdateInput {
+    return {
+      ...(dto.minConfidence !== undefined ? { minConfidence: dto.minConfidence } : {}),
+      ...(dto.lateThreshold !== undefined ? { lateThreshold: dto.lateThreshold } : {}),
+      ...(dto.veryLateThreshold !== undefined
+        ? { veryLateThreshold: dto.veryLateThreshold }
+        : {}),
+      ...(dto.defaultShiftTypeId !== undefined
+        ? { defaultShiftTypeId: dto.defaultShiftTypeId || null }
+        : {}),
+      ...(dto.pinFailureThreshold !== undefined
+        ? { pinFailureThreshold: dto.pinFailureThreshold }
+        : {}),
+      ...(dto.pinFailureCooldownSeconds !== undefined
+        ? { pinFailureCooldownSeconds: dto.pinFailureCooldownSeconds }
+        : {}),
+    };
+  }
+
+  private toSystemConfigShape(row: {
+    id: string;
+    companyId: string;
+    minConfidence: number;
+    lateThreshold: number;
+    veryLateThreshold: number;
+    pinFailureThreshold: number;
+    pinFailureCooldownSeconds: number;
+    defaultShiftTypeId: string | null;
+    company?: { id: string; name: string | null; sku: string | null } | null;
+    defaultShiftType?: { id: string; shiftName: string } | null;
+  }) {
+    return {
+      id: row.id,
+      companyId: row.companyId,
+      minConfidence: row.minConfidence,
+      lateThreshold: row.lateThreshold,
+      veryLateThreshold: row.veryLateThreshold,
+      pinFailureThreshold: row.pinFailureThreshold,
+      pinFailureCooldownSeconds: row.pinFailureCooldownSeconds,
+      defaultShiftTypeId: row.defaultShiftTypeId,
+      defaultShiftType: row.defaultShiftType
+        ? { id: row.defaultShiftType.id, name: row.defaultShiftType.shiftName }
+        : null,
+      company: row.company
+        ? {
+            id: row.company.id,
+            name: row.company.name ?? row.company.id,
+            sku: row.company.sku ?? '',
+          }
+        : undefined,
     };
   }
 

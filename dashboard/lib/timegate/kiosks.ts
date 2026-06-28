@@ -12,6 +12,9 @@ export type KioskPayload = {
   name: string
   branchId: string
   shiftLocationId?: string
+  faceEnabled?: boolean
+  nfcEnabled?: boolean
+  qrEnabled?: boolean
 }
 
 export type KioskUpdatePayload = Partial<KioskPayload & { isActive?: boolean }>
@@ -30,6 +33,10 @@ export function createKiosk(body: KioskPayload): Promise<Kiosk> {
 
 export function updateKiosk(id: string, body: KioskUpdatePayload): Promise<Kiosk> {
   return http.patch<Kiosk>(`/kiosks/${id}`, body)
+}
+
+export function regenerateKioskApiKey(id: string): Promise<Kiosk> {
+  return http.post<Kiosk>(`/kiosks/${id}/regenerate-api-key`)
 }
 
 export function deleteKiosk(id: string): Promise<{ id: string; deleted: boolean }> {

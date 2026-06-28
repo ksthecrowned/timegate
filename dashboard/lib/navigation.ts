@@ -30,6 +30,12 @@ export const timegateNavSections: NavSection[] = [
         roles: ['ADMIN'],
       },
       {
+        label: 'Paramètres pointage',
+        href: '/organization/attendance-settings',
+        faIcon: 'fa-solid fa-sliders',
+        roles: ['ADMIN'],
+      },
+      {
         label: 'Structure',
         faIcon: 'fa-solid fa-building',
         children: [

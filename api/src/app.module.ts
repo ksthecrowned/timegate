@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './auth/auth.module';
 import { EmployeesModule } from './employees/employees.module';
 import { PrismaModule } from './prisma/prisma.module';
@@ -31,10 +32,13 @@ import { PlanningModule } from './planning/planning.module';
 import { SearchModule } from './search/search.module';
 import { ShiftSwapsModule } from './shift-swaps/shift-swaps.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { DevicesModule } from './devices/devices.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
     BranchesModule,
@@ -66,6 +70,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
     SearchModule,
     ShiftSwapsModule,
     DashboardModule,
+    NotificationsModule,
+    DevicesModule,
   ],
 })
 export class AppModule {}

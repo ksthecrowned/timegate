@@ -1,10 +1,10 @@
 'use client'
 
-import Link from 'next/link'
-import { useCallback, useEffect, useState } from 'react'
 import { SkeletonDashboard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
 import { getPlatformStats, type PlatformStats } from '@/lib/timegate/platform-stats'
+import Link from 'next/link'
+import { useCallback, useEffect, useState } from 'react'
 
 function PlatformStatCard({
   label,
@@ -21,7 +21,7 @@ function PlatformStatCard({
     <div className="flex flex-col tg-card shadow-2xs">
       <div className="p-4 md:px-5 md:py-6">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase text-gray-500 dark:text-neutral-500">{label}</p>
+          <p className="text-xs uppercase text-slate-500 dark:text-slate-500">{label}</p>
           <i className={`${icon} ${accent ?? 'text-primary'}`} />
         </div>
         <h3 className="mt-2 text-2xl font-semibold text-gray-800 dark:text-neutral-200">
@@ -164,7 +164,7 @@ export default function PlatformDashboard() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 hover:border-primary hover:text-primary dark:border-neutral-700 text-sm gap-2"
+                  className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200/80 hover:border-primary hover:text-primary dark:border-border-dark text-sm gap-2"
                 >
                   <i className={`fa-solid ${item.icon} text-lg`} />
                   {item.label}

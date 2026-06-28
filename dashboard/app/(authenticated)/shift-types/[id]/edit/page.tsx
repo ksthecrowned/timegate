@@ -46,6 +46,13 @@ export default function EditShiftTypePage() {
             startTime: row.startTime,
             endTime: row.endTime,
             lateGraceMinutes: row.lateGraceMinutes ?? undefined,
+            checkInWindowStart: row.checkInWindowStart ?? undefined,
+            checkInWindowEnd: row.checkInWindowEnd ?? undefined,
+            checkOutWindowStart: row.checkOutWindowStart ?? undefined,
+            checkOutWindowEnd: row.checkOutWindowEnd ?? undefined,
+            breakWindowStart: row.breakWindowStart ?? undefined,
+            breakWindowEnd: row.breakWindowEnd ?? undefined,
+            breakDurationMinutes: row.breakDurationMinutes ?? undefined,
           }}
           onCancel={() => router.push(`/shift-types/${id}`)}
           onSubmit={async (values) => {

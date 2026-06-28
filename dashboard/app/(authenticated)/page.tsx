@@ -29,7 +29,7 @@ function StatCard({
     >
       <div className="p-4 md:px-5 md:py-6">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase text-gray-500 dark:text-neutral-500">{label}</p>
+          <p className="text-xs uppercase text-slate-500 dark:text-slate-500">{label}</p>
           <i className={`${icon} ${accent ?? 'text-primary'}`} />
         </div>
         <h3 className="mt-2 text-2xl font-semibold text-gray-800 dark:text-neutral-200">
@@ -92,7 +92,7 @@ export default function DashboardPage() {
             type="button"
             onClick={() => void load()}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:border-primary/40 disabled:opacity-50 dark:border-neutral-700 dark:bg-neutral-800 dark:text-neutral-200"
+            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-black/10 dark:bg-white/10 px-3 py-2 text-sm text-gray-700 hover:border-primary/40 disabled:opacity-50 dark:border-border-dark dark:text-neutral-200"
           >
             <i className={`fa-solid fa-rotate-right ${loading ? 'animate-spin' : ''}`} />
             Actualiser
@@ -214,7 +214,7 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="flex flex-col items-center justify-center p-4 rounded-xl border border-gray-200 hover:border-primary hover:text-primary dark:border-neutral-700 text-sm gap-2"
+              className="flex flex-col items-center justify-center p-4 rounded-xl border border-slate-200/80 hover:border-primary hover:text-primary dark:border-border-dark text-sm gap-2"
             >
               <i className={`fa-solid ${item.icon} text-lg`} />
               {item.label}

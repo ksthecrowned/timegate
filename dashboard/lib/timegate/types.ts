@@ -115,6 +115,9 @@ export type Kiosk = {
   isActive: boolean
   lastSeenAt?: string | null
   apiKey?: string | null
+  faceEnabled?: boolean
+  nfcEnabled?: boolean
+  qrEnabled?: boolean
   branch?: { id: string; name: string } | null
   createdAt: string
   updatedAt: string
@@ -233,6 +236,13 @@ export type ShiftType = {
   startTime: string
   endTime: string
   lateGraceMinutes?: number | null
+  checkInWindowStart?: string | null
+  checkInWindowEnd?: string | null
+  checkOutWindowStart?: string | null
+  checkOutWindowEnd?: string | null
+  breakWindowStart?: string | null
+  breakWindowEnd?: string | null
+  breakDurationMinutes?: number | null
   createdAt: string
   branch?: { id: string; name: string } | null
   weekDays?: WorkDay[]
@@ -466,5 +476,20 @@ export type SystemConfig = {
   minConfidence: number
   lateThreshold: number
   veryLateThreshold: number
+  pinFailureThreshold?: number
+  pinFailureCooldownSeconds?: number
+  defaultShiftTypeId?: string | null
+  defaultShiftType?: { id: string; name: string } | null
   company?: { id: string; name: string; sku?: string } | null
 }
+
+/** Paramètres pointage tenant (kiosk / fallback horaire). */
+export type TenantAttendanceSettings = Pick<
+  SystemConfig,
+  | 'id'
+  | 'companyId'
+  | 'pinFailureThreshold'
+  | 'pinFailureCooldownSeconds'
+  | 'defaultShiftTypeId'
+  | 'defaultShiftType'
+>

@@ -21,7 +21,17 @@ export function listSystemConfigs(params?: { page?: number; limit?: number }) {
 
 export function updateSystemConfig(
   id: string,
-  payload: Partial<Pick<SystemConfig, 'minConfidence' | 'lateThreshold' | 'veryLateThreshold'>>,
+  payload: Partial<
+    Pick<
+      SystemConfig,
+      | 'minConfidence'
+      | 'lateThreshold'
+      | 'veryLateThreshold'
+      | 'defaultShiftTypeId'
+      | 'pinFailureThreshold'
+      | 'pinFailureCooldownSeconds'
+    >
+  >,
 ) {
   return http.patch<SystemConfig>(`/system-config/${id}`, payload)
 }

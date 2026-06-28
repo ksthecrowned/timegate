@@ -13,47 +13,32 @@ import { Colors, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { employeeApi } from '@/lib/api';
-import type {
-  LeaveApplication,
-  ShiftSwapRequest,
-} from '@/lib/types';
-
-type ActivityType = 'leave' | 'swap';
-
-type ActivityItem = {
-  id: string;
-  type: ActivityType;
-  title: string;
-  message: string;
-  date: string;
-  read: boolean;
-  status?: string;
-};
-
-const typeColors: Record<ActivityType, { bg: string; text: string }> = {
-  leave: { bg: '#0d948820', text: '#0d9488' },
-  swap: { bg: '#9B59B620', text: '#9B59B6' },
-};
-
-const typeIcons: Record<ActivityType, keyof typeof Ionicons.glyphMap> = {
-  leave: 'calendar-outline',
-  swap: 'swap-horizontal-outline',
-};
 
 type FilterType = 'all' | 'unread';
 
-const statusLabel = (s?: string) => {
-  switch (s) {
-    case 'approved':
-      return STRINGS.leave.approved;
-    case 'rejected':
-      return STRINGS.leave.rejected;
-    case 'pending':
-      return STRINGS.leave.pending;
-    default:
-      return s || '';
-  }
+type NotificationRow = {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  readAt: string | null;
+  createdAt: string;
 };
+
+const typeIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
+  PUNCH_CHECK_IN: 'log-in-outline',
+  PUNCH_CHECK_OUT: 'log-out-outline',
+  PUNCH_BREAK: 'cafe-outline',
+  PUNCH_REVIEW_REQUIRED: 'alert-circle-outline',
+  PUNCH_LATE: 'time-outline',
+  ABSENCE_AUTO: 'calendar-outline',
+  UNCLOSED_CHECK_IN: 'exit-outline',
+  UNCLOSED_CHECK_IN_REMINDER: 'notifications-outline',
+};
+
+function iconForType(type: string): keyof typeof Ionicons.glyphMap {
+  return typeIcons[type] ?? 'notifications-outline';
+}
 
 const formatDay = (d: Date) =>
   d.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' });
@@ -76,98 +61,78 @@ export default function NotificationsScreen() {
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
-  const [items, setItems] = useState<ActivityItem[]>([]);
+  const [items, setItems] = useState<NotificationRow[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterType>('all');
 
-  const buildActivity = async (): Promise<ActivityItem[]> => {
-    const results: ActivityItem[] = [];
-
-    try {
-      const leaves = await employeeApi.getLeaves({ limit: 20 });
-      (leaves.data ?? []).forEach((leave: LeaveApplication) => {
-        const status = leave.status ?? 'pending';
-        results.push({
-          id: `leave-${leave.id}`,
-          type: 'leave',
-          title: `Demande de congé ${statusLabel(status).toLowerCase()}`,
-          message: `${leave.leaveType?.name ?? 'Congé'} du ${formatDay(new Date(leave.startDate))} au ${formatDay(new Date(leave.endDate))}`,
-          date: leave.startDate,
-          read: status !== 'pending',
-          status,
-        });
-      });
-    } catch {
-      // ignore
-    }
-
-    try {
-      const swaps = await employeeApi.getShiftSwaps({ limit: 20 });
-      (swaps.data ?? []).forEach((swap: ShiftSwapRequest) => {
-        const status = swap.status ?? 'pending';
-        const targetName = swap.target
-          ? `${swap.target.firstName ?? ''} ${swap.target.lastName ?? ''}`.trim()
-          : 'un collègue';
-        results.push({
-          id: `swap-${swap.id}`,
-          type: 'swap',
-          title: `Échange de shift ${statusLabel(status).toLowerCase()}`,
-          message: `Avec ${targetName} le ${formatDay(new Date(swap.swapDate))}`,
-          date: swap.swapDate,
-          read: status !== 'pending',
-          status,
-        });
-      });
-    } catch {
-      // ignore
-    }
-
-    return results.sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-  };
-
-  const load = async (isRefresh = false) => {
+  const load = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
-      const data = await buildActivity();
-      setItems(data);
+      const res = await employeeApi.getNotifications({
+        page: 1,
+        limit: 30,
+        ...(filter === 'unread' ? { unreadOnly: true } : {}),
+      });
+      setItems(res.data ?? []);
       setError(null);
-    } catch (err: any) {
-      setError(err?.message ?? 'Erreur de chargement');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Erreur de chargement';
+      setError(message);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  const onRefresh = useCallback(() => {
-    load(true);
-  }, []);
+  }, [filter]);
 
   useEffect(() => {
-    load();
-  }, []);
+    void load();
+  }, [load]);
 
-  const markAllAsRead = () => {
-    setItems((prev) => prev.map((i) => ({ ...i, read: true })));
+  const onRefresh = useCallback(() => {
+    void load(true);
+  }, [load]);
+
+  const unreadCount = items.filter((i) => !i.readAt).length;
+
+  const markAllAsRead = async () => {
+    try {
+      await employeeApi.markAllNotificationsRead();
+      setItems((prev) =>
+        prev.map((i) => ({ ...i, readAt: i.readAt ?? new Date().toISOString() })),
+      );
+    } catch {
+      // ignore
+    }
   };
 
-  const filtered = filter === 'unread' ? items.filter((i) => !i.read) : items;
-  const unreadCount = items.filter((i) => !i.read).length;
+  const markRead = async (item: NotificationRow) => {
+    if (item.readAt) return;
+    try {
+      await employeeApi.markNotificationRead(item.id);
+      setItems((prev) =>
+        prev.map((i) =>
+          i.id === item.id ? { ...i, readAt: new Date().toISOString() } : i,
+        ),
+      );
+    } catch {
+      // ignore
+    }
+  };
 
   return (
     <ScreenLayout
-      title={STRINGS.tabs.activity}
+      title={STRINGS.notifications.title}
+      subtitle={STRINGS.notifications.activitySubtitle}
+      showNotifications={false}
       refreshing={refreshing}
       onRefresh={onRefresh}
       rightAction={
         unreadCount > 0 ? (
           <Pressable
-            onPress={markAllAsRead}
+            onPress={() => void markAllAsRead()}
             style={{
               paddingHorizontal: Spacing[3],
               paddingVertical: 6,
@@ -188,7 +153,6 @@ export default function NotificationsScreen() {
         ) : null
       }
     >
-      {/* Filter chips */}
       <View
         style={{
           flexDirection: 'row',
@@ -245,7 +209,7 @@ export default function NotificationsScreen() {
         >
           <Text style={{ color: '#E74C3C', fontSize: 14 }}>{error}</Text>
         </View>
-      ) : filtered.length === 0 ? (
+      ) : items.length === 0 ? (
         <View
           style={{
             margin: Spacing[4],
@@ -282,22 +246,23 @@ export default function NotificationsScreen() {
           contentContainerStyle={{ paddingBottom: Spacing[6] }}
         >
           <View style={{ paddingHorizontal: Spacing[4] }}>
-            {filtered.map((item) => {
-              const tc = typeColors[item.type];
+            {items.map((item) => {
+              const isUnread = !item.readAt;
               return (
-                <View
+                <Pressable
                   key={item.id}
+                  onPress={() => void markRead(item)}
                   style={{
                     flexDirection: 'row',
                     padding: Spacing[4],
-                    backgroundColor: item.read
-                      ? colors.surfaceCard
-                      : colors.primary + '08',
+                    backgroundColor: isUnread
+                      ? colors.primary + '08'
+                      : colors.surfaceCard,
                     borderRadius: 12,
                     borderWidth: 1,
-                    borderColor: item.read
-                      ? colors.border
-                      : colors.primary + '30',
+                    borderColor: isUnread
+                      ? colors.primary + '30'
+                      : colors.border,
                     marginBottom: Spacing[3],
                   }}
                 >
@@ -306,16 +271,16 @@ export default function NotificationsScreen() {
                       width: 40,
                       height: 40,
                       borderRadius: 20,
-                      backgroundColor: tc.bg,
+                      backgroundColor: colors.primary + '15',
                       alignItems: 'center',
                       justifyContent: 'center',
                       marginRight: Spacing[3],
                     }}
                   >
                     <Ionicons
-                      name={typeIcons[item.type]}
+                      name={iconForType(item.type)}
                       size={20}
-                      color={tc.text}
+                      color={colors.primary}
                     />
                   </View>
                   <View style={{ flex: 1 }}>
@@ -329,7 +294,7 @@ export default function NotificationsScreen() {
                       <Text
                         style={{
                           fontSize: 14,
-                          fontWeight: item.read ? '500' : '700',
+                          fontWeight: isUnread ? '700' : '500',
                           color: colors.text,
                           flex: 1,
                           marginRight: 8,
@@ -337,7 +302,7 @@ export default function NotificationsScreen() {
                       >
                         {item.title}
                       </Text>
-                      {!item.read && (
+                      {isUnread ? (
                         <View
                           style={{
                             width: 8,
@@ -347,7 +312,7 @@ export default function NotificationsScreen() {
                             marginTop: 6,
                           }}
                         />
-                      )}
+                      ) : null}
                     </View>
                     <Text
                       style={{
@@ -356,9 +321,8 @@ export default function NotificationsScreen() {
                         marginTop: 2,
                         lineHeight: 17,
                       }}
-                      numberOfLines={2}
                     >
-                      {item.message}
+                      {item.body}
                     </Text>
                     <Text
                       style={{
@@ -368,10 +332,10 @@ export default function NotificationsScreen() {
                         fontWeight: '500',
                       }}
                     >
-                      {relativeTime(item.date)}
+                      {relativeTime(item.createdAt)}
                     </Text>
                   </View>
-                </View>
+                </Pressable>
               );
             })}
           </View>

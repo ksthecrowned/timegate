@@ -8,6 +8,13 @@ export type ShiftTypePayload = {
   startTime: string
   endTime: string
   lateGraceMinutes?: number
+  checkInWindowStart?: string
+  checkInWindowEnd?: string
+  checkOutWindowStart?: string
+  checkOutWindowEnd?: string
+  breakWindowStart?: string
+  breakWindowEnd?: string
+  breakDurationMinutes?: number
 }
 
 export function listShiftTypes(params?: { page?: number; limit?: number; branchId?: string }) {

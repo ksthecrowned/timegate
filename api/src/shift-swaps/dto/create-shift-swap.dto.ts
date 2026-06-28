@@ -5,10 +5,9 @@ export class CreateShiftSwapDto {
   @MaxLength(140)
   requesterEmployeeId!: string;
 
-  @IsOptional()
   @IsString()
   @MaxLength(140)
-  targetEmployeeId?: string;
+  targetEmployeeId!: string;
 
   @IsOptional()
   @IsString()

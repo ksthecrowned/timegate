@@ -1,8 +1,8 @@
 'use client'
+import { REVIEW_STATUS } from '@/constants'
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
 import ConfirmModal from './ConfirmModal'
-import { REVIEW_STATUS } from '@/constants'
 
 interface Extra {
   label: string
@@ -29,7 +29,7 @@ interface ActionButtonsProps {
   toggleMessage?: string
 }
 
-const btnClass = "py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-gray-200 text-black hover:bg-gray-400 focus:outline-none focus:bg-gray-400 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-700 dark:text-white dark:hover:bg-neutral-600 dark:focus:bg-neutral-900"
+const btnClass = "py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-black/10 dark:bg-white/10 text-black hover:bg-gray-400 focus:outline-none focus:bg-gray-400 disabled:opacity-50 disabled:pointer-events-none dark:text-white dark:hover:bg-neutral-600 dark:focus:bg-neutral-900"
 
 export default function ActionButtons({ viewHref, editHref, onDelete, handleReview, reviewActions, onToggleStatus, isActive, mailTo, extra, deleteMessage, toggleMessage }: ActionButtonsProps) {
   const [open, setOpen] = useState(false)

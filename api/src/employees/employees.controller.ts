@@ -27,6 +27,7 @@ import { CreateEmployeeContractDto } from './dto/create-employee-contract.dto';
 import { UpdateEmployeeContractDto } from './dto/update-employee-contract.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { SetKioskPinDto } from './dto/set-kiosk-pin.dto';
+import { SetNfcBadgeDto } from './dto/set-nfc-badge.dto';
 import { EmployeesService } from './employees.service';
 import { LeaveBalancesService } from '../leaves/leave-balances.service';
 import {
@@ -129,6 +130,28 @@ export class EmployeesController {
     @CurrentUser() user: JwtUser,
   ) {
     return this.employees.setKioskPin(id, dto, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Patch(':id/nfc-badge')
+  setNfcBadge(
+    @Param('id', DocIdPipe) id: string,
+    @Body() dto: SetNfcBadgeDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.setNfcBadge(id, dto, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Post(':id/qr-punch-token/regenerate')
+  regenerateQrPunchToken(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.employees.regenerateQrPunchToken(id, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Delete(':id/qr-punch-token')
+  clearQrPunchToken(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.employees.clearQrPunchToken(id, user);
   }
 
   @Get(':id')

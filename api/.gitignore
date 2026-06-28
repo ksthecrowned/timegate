@@ -10,3 +10,5 @@ dist
 # Python caches
 __pycache__/
 *.py[cod]
+
+timegate-f19a8-firebase-adminsdk-fbsvc-b9579654c3.json

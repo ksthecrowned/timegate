@@ -77,7 +77,7 @@ export default function ShiftSwapsPage() {
     try {
       await createShiftSwap({
         requesterEmployeeId,
-        targetEmployeeId: targetEmployeeId || undefined,
+        targetEmployeeId,
         shiftAssignmentId: shiftAssignmentId || undefined,
         swapDate,
         reason: reason || undefined,
@@ -92,8 +92,13 @@ export default function ShiftSwapsPage() {
   }
 
   async function handleReview(id: string, status: 'APPROVED' | 'REJECTED') {
-    await reviewShiftSwap(id, { status })
-    await load()
+    setError('')
+    try {
+      await reviewShiftSwap(id, { status })
+      await load()
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Action impossible')
+    }
   }
 
   return (
@@ -116,7 +121,7 @@ export default function ShiftSwapsPage() {
             onChange={(opt) => setRequesterEmployeeId(opt?.value ?? '')}
           />
         </FormField>
-        <FormField label="Collègue cible (optionnel)">
+        <FormField label="Collègue cible">
           <SelectSearch
             options={employees}
             value={findOption(employees, targetEmployeeId)}
@@ -127,8 +132,7 @@ export default function ShiftSwapsPage() {
         <FormField label="Affectation (optionnel)">
           <SelectSearch
             options={assignments}
-            value={findOption(employees, shiftAssignmentId)}
-            required
+            value={findOption(assignments, shiftAssignmentId)}
             onChange={(opt) => setShiftAssignmentId(opt?.value ?? '')}
           />
         </FormField>
@@ -178,18 +182,24 @@ export default function ShiftSwapsPage() {
               void handleReview(row.id, status).then(load)
             }}
             reviewActions={
-              row.status === 'PENDING' ? [
-                {
-                  label: "Approuver",
-                  actionStatus: "APPROVED",
-                  cls: "focus:outline-none text-green-200 bg-green-700"
-                },
-                {
-                  label: "Refuser",
-                  actionStatus: "REJECTED",
-                  cls: "focus:outline-none text-red-200 bg-red-700"
-                }
-              ] : []
+              row.status === 'PENDING'
+                ? [
+                    ...(row.target
+                      ? [
+                          {
+                            label: 'Approuver',
+                            actionStatus: 'APPROVED' as const,
+                            cls: 'focus:outline-none text-green-200 bg-green-700',
+                          },
+                        ]
+                      : []),
+                    {
+                      label: 'Refuser',
+                      actionStatus: 'REJECTED' as const,
+                      cls: 'focus:outline-none text-red-200 bg-red-700',
+                    },
+                  ]
+                : []
             }
             deleteMessage="Cette branche sera définitivement supprimée."
           />

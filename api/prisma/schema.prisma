@@ -98,6 +98,13 @@ enum TimeGateAttendanceEventStatus {
   REVIEW_REQUIRED
 }
 
+enum TimeGateAttendanceAuthMethod {
+  FACE
+  PIN
+  NFC
+  QR
+}
+
 enum TimeGateTimesheetDayStatus {
   OPEN
   CLOSED
@@ -120,6 +127,23 @@ enum TimeGateShiftSwapStatus {
   APPROVED
   REJECTED
   CANCELLED
+}
+
+enum TimeGateNotificationType {
+  PUNCH_CHECK_IN
+  PUNCH_CHECK_OUT
+  PUNCH_BREAK
+  PUNCH_REVIEW_REQUIRED
+  PUNCH_LATE
+  ABSENCE_AUTO
+  UNCLOSED_CHECK_IN
+  UNCLOSED_CHECK_IN_REMINDER
+}
+
+enum TimeGateDevicePlatform {
+  IOS
+  ANDROID
+  WEB
 }
 
 enum WeekDay {
@@ -184,6 +208,7 @@ model Company {
   timeGateEmployeeContracts TimeGateEmployeeContract[]
   designations              Designation[]
   shiftSwapRequests         TimeGateShiftSwapRequest[]
+  timeGateNotifications     TimeGateNotification[]
 
   @@map("tabCompany")
 }
@@ -368,6 +393,9 @@ model Employee {
   faceEnrolledAt      DateTime? @map("face_enrolled_at")
   faceEmbedding       Json?     @map("face_embedding")
   kioskPinHash        String?   @map("kiosk_pin_hash") @db.VarChar(255)
+  nfcBadgeUid         String?   @map("nfc_badge_uid") @db.VarChar(64)
+  qrPunchTokenHash    String?   @map("qr_punch_token_hash") @db.VarChar(64)
+  qrPunchTokenIssuedAt DateTime? @map("qr_punch_token_issued_at")
 
   checkins                 EmployeeCheckin[]
   attendances              Attendance[]
@@ -388,6 +416,7 @@ model Employee {
   shiftSwapRequestsRequested TimeGateShiftSwapRequest[] @relation("ShiftSwapRequester")
   shiftSwapRequestsTarget    TimeGateShiftSwapRequest[] @relation("ShiftSwapTarget")
 
+  @@unique([companyId, nfcBadgeUid])
   @@map("tabEmployee")
 }
 
@@ -413,6 +442,9 @@ model TimeGateKiosk {
   lastSeenAt      DateTime?   @map("last_seen_at")
   deviceApiKey    String?     @unique @map("device_api_key") @db.VarChar(140)
   deviceToken     String?     @map("device_token") @db.Text
+  faceEnabled     Boolean     @default(true) @map("face_enabled")
+  nfcEnabled      Boolean     @default(false) @map("nfc_enabled")
+  qrEnabled       Boolean     @default(false) @map("qr_enabled")
 
   faceLogs                 FaceRecognitionLog[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
@@ -513,12 +545,20 @@ model ShiftType {
   startTime        DateTime? @map("start_time") @db.Time
   endTime          DateTime? @map("end_time") @db.Time
   lateGraceMinutes Int     @default(5) @map("late_grace_minutes")
+  checkInWindowStart  DateTime? @map("check_in_window_start") @db.Time
+  checkInWindowEnd    DateTime? @map("check_in_window_end") @db.Time
+  checkOutWindowStart DateTime? @map("check_out_window_start") @db.Time
+  checkOutWindowEnd   DateTime? @map("check_out_window_end") @db.Time
+  breakWindowStart    DateTime? @map("break_window_start") @db.Time
+  breakWindowEnd      DateTime? @map("break_window_end") @db.Time
+  breakDurationMinutes Int?    @default(60) @map("break_duration_minutes")
 
   weekDays    ShiftTypeWeekDay[]
   employees   Employee[]
   assignments ShiftAssignment[]
   checkins    EmployeeCheckin[]
   attendances Attendance[]
+  companyDefaultShifts TimeGateSystemSettings[]
 
   @@index([companyId])
   @@index([branchId])
@@ -870,6 +910,8 @@ model User {
   roles        UserRole[]
   permissions  UserPermission[]
   notifications NotificationLog[]
+  timeGateNotifications TimeGateNotification[]
+  timeGateDevices       TimeGateDevice[]
   branches     TimeGateUserBranch[]
   auditLogs    TimeGateAuditLog[]
   timesheetOverrides TimeGateTimesheetOverride[]
@@ -971,6 +1013,10 @@ model TimeGateSystemSettings {
   minConfidence   Float   @default(0.75)
   lateThreshold   Int     @default(10)
   veryLateThreshold Int   @default(30) @map("very_late_threshold")
+  pinFailureThreshold Int @default(3) @map("pin_failure_threshold")
+  pinFailureCooldownSeconds Int @default(30) @map("pin_failure_cooldown_seconds")
+  defaultShiftTypeId String? @map("default_shift_type") @db.VarChar(140)
+  defaultShiftType   ShiftType? @relation(fields: [defaultShiftTypeId], references: [id], onDelete: SetNull)
 
   @@map("timegate_system_settings")
 }
@@ -984,6 +1030,39 @@ model TimeGateUserBranch {
 
   @@unique([userId, branchId])
   @@map("timegate_user_branch")
+}
+
+model TimeGateNotification {
+  id        String                   @id @db.VarChar(140)
+  createdAt DateTime                 @default(now()) @map("created_at")
+  companyId String                   @map("company") @db.VarChar(140)
+  company   Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  userId    String                   @map("user") @db.VarChar(140)
+  user      User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      TimeGateNotificationType
+  title     String                   @db.VarChar(255)
+  body      String                   @db.Text
+  readAt    DateTime?                @map("read_at")
+  meta      Json?
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([companyId, type])
+  @@map("timegate_notification")
+}
+
+model TimeGateDevice {
+  id         String                  @id @db.VarChar(140)
+  createdAt  DateTime                @default(now()) @map("created_at")
+  userId     String                  @map("user") @db.VarChar(140)
+  user       User                    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String                  @unique @db.VarChar(512)
+  platform   TimeGateDevicePlatform
+  isActive   Boolean                 @default(true) @map("is_active")
+  lastSeenAt DateTime                @default(now()) @map("last_seen_at")
+
+  @@index([userId, isActive])
+  @@map("timegate_device")
 }
 
 model TimeGateAttendanceEvent {
@@ -1010,6 +1089,7 @@ model TimeGateAttendanceEvent {
   verificationRef String?                      @map("verification_ref") @db.VarChar(140)
   idempotencyKey String?                       @map("idempotency_key") @db.VarChar(140)
   rejectReason   String?                       @map("reject_reason") @db.Text
+  authMethod     TimeGateAttendanceAuthMethod? @map("auth_method")
   meta           Json?
 
   @@unique([companyId, idempotencyKey])

@@ -1,6 +1,7 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EmployeeStatus, Prisma, TimeGateUserRole } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
+import { createHash, randomBytes } from 'crypto';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
@@ -12,6 +13,7 @@ import { EmployeeContractQueryDto } from './dto/employee-contract-query.dto';
 import { CreateEmployeeContractDto } from './dto/create-employee-contract.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { SetKioskPinDto } from './dto/set-kiosk-pin.dto';
+import { SetNfcBadgeDto } from './dto/set-nfc-badge.dto';
 import { UpdateEmployeeContractDto } from './dto/update-employee-contract.dto';
 
 @Injectable()
@@ -212,7 +214,62 @@ export class EmployeesService {
       ...this.toLegacyEmployeeShape(employee),
       hasFaceEmbedding: Array.isArray(employee.faceEmbedding),
       hasKioskPin: Boolean(employee.kioskPinHash),
+      hasNfcBadge: Boolean(employee.nfcBadgeUid),
+      hasQrPunchToken: Boolean(employee.qrPunchTokenHash),
+      nfcBadgeUid: employee.nfcBadgeUid,
+      qrPunchTokenIssuedAt: employee.qrPunchTokenIssuedAt,
     };
+  }
+
+  async setNfcBadge(id: string, dto: SetNfcBadgeDto, user: JwtUser) {
+    const current = await this.findOne(id, user);
+    const raw = dto.badgeUid?.trim();
+    const normalized = raw ? raw.replace(/[\s:-]/g, '').toUpperCase() : null;
+    if (normalized && normalized.length < 4) {
+      throw new BadRequestException('Badge UID must be at least 4 characters');
+    }
+    if (normalized) {
+      const conflict = await this.prisma.employee.findFirst({
+        where: {
+          companyId: current.companyId,
+          nfcBadgeUid: normalized,
+          NOT: { id },
+        },
+      });
+      if (conflict) {
+        throw new ConflictException('This NFC badge is already assigned to another employee');
+      }
+    }
+    await this.prisma.employee.update({
+      where: { id },
+      data: { nfcBadgeUid: normalized },
+    });
+    return { id, hasNfcBadge: Boolean(normalized), nfcBadgeUid: normalized };
+  }
+
+  async regenerateQrPunchToken(id: string, user: JwtUser) {
+    await this.findOne(id, user);
+    const token = randomBytes(24).toString('base64url');
+    const hash = createHash('sha256').update(token).digest('hex');
+    const issuedAt = new Date();
+    await this.prisma.employee.update({
+      where: { id },
+      data: { qrPunchTokenHash: hash, qrPunchTokenIssuedAt: issuedAt },
+    });
+    return {
+      id,
+      qrToken: `TGQR:v1:${token}`,
+      issuedAt,
+    };
+  }
+
+  async clearQrPunchToken(id: string, user: JwtUser) {
+    await this.findOne(id, user);
+    await this.prisma.employee.update({
+      where: { id },
+      data: { qrPunchTokenHash: null, qrPunchTokenIssuedAt: null },
+    });
+    return { id, hasQrPunchToken: false };
   }
 
   async setKioskPin(id: string, dto: SetKioskPinDto, user: JwtUser) {
@@ -319,7 +376,35 @@ export class EmployeesService {
 
   async remove(id: string, user: JwtUser) {
     await this.findOne(id, user);
-    await this.prisma.employee.delete({ where: { id } });
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await tx.timeGateShiftSwapRequest.deleteMany({
+          where: { OR: [{ requesterEmployeeId: id }, { targetEmployeeId: id }] },
+        });
+        await tx.salaryStructureAssignment.deleteMany({ where: { employeeId: id } });
+        await tx.timeGateEmployeeContract.deleteMany({ where: { employeeId: id } });
+        await tx.faceRecognitionLog.deleteMany({ where: { employeeId: id } });
+        await tx.employeeCheckin.deleteMany({ where: { employeeId: id } });
+        await tx.attendance.deleteMany({ where: { employeeId: id } });
+        await tx.leaveApplication.deleteMany({ where: { employeeId: id } });
+        await tx.leaveAllocation.deleteMany({ where: { employeeId: id } });
+        await tx.shiftAssignment.deleteMany({ where: { employeeId: id } });
+        await tx.timesheet.deleteMany({ where: { employeeId: id } });
+        await tx.salarySlip.deleteMany({ where: { employeeId: id } });
+        await tx.employee.update({ where: { id }, data: { userId: null } });
+        await tx.employee.delete({ where: { id } });
+      });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2003'
+      ) {
+        throw new ConflictException(
+          'Impossible de supprimer cet employé : des enregistrements liés existent encore.',
+        );
+      }
+      throw error;
+    }
     return { id, deleted: true };
   }
 

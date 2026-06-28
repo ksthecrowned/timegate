@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { KioskStatus, TimeGateUserRole } from '@prisma/client';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
@@ -14,6 +14,7 @@ export class KiosksService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateKioskDto) {
+    this.assertAtLeastOneMethod(dto);
     const branchId = dto.branchId;
     if (!branchId) {
       throw new NotFoundException('branchId is required');
@@ -35,6 +36,9 @@ export class KiosksService {
         shiftLocationId: dto.shiftLocationId,
         status: KioskStatus.OFFLINE,
         deviceApiKey: randomBytes(24).toString('hex'),
+        faceEnabled: dto.faceEnabled ?? true,
+        nfcEnabled: dto.nfcEnabled ?? false,
+        qrEnabled: dto.qrEnabled ?? false,
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });
@@ -92,6 +96,20 @@ export class KiosksService {
 
   async update(id: string, dto: UpdateKioskDto, user: JwtUser) {
     await this.findOne(id, user);
+    if (
+      dto.faceEnabled !== undefined ||
+      dto.nfcEnabled !== undefined ||
+      dto.qrEnabled !== undefined
+    ) {
+      const current = await this.prisma.timeGateKiosk.findUnique({ where: { id } });
+      if (current) {
+        this.assertAtLeastOneMethod({
+          faceEnabled: dto.faceEnabled ?? current.faceEnabled,
+          nfcEnabled: dto.nfcEnabled ?? current.nfcEnabled,
+          qrEnabled: dto.qrEnabled ?? current.qrEnabled,
+        });
+      }
+    }
     if (dto.branchId) {
       await this.ensureBranch(dto.branchId);
     }
@@ -102,6 +120,9 @@ export class KiosksService {
         ...(dto.branchId !== undefined ? { branchId: dto.branchId } : {}),
         ...(dto.shiftLocationId !== undefined ? { shiftLocationId: dto.shiftLocationId } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        ...(dto.faceEnabled !== undefined ? { faceEnabled: dto.faceEnabled } : {}),
+        ...(dto.nfcEnabled !== undefined ? { nfcEnabled: dto.nfcEnabled } : {}),
+        ...(dto.qrEnabled !== undefined ? { qrEnabled: dto.qrEnabled } : {}),
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });
@@ -125,6 +146,33 @@ export class KiosksService {
     await this.findOne(id, user);
     await this.prisma.timeGateKiosk.delete({ where: { id } });
     return { id, deleted: true };
+  }
+
+  async regenerateApiKey(id: string, user: JwtUser) {
+    await this.findOne(id, user);
+    const updated = await this.prisma.timeGateKiosk.update({
+      where: { id },
+      data: { deviceApiKey: randomBytes(24).toString('hex') },
+      include: {
+        branch: { select: { id: true, branchName: true } },
+        shiftLocation: { select: { id: true, locationName: true } },
+      },
+    });
+    return this.toApiShape(updated);
+  }
+
+  private assertAtLeastOneMethod(flags: {
+    faceEnabled?: boolean;
+    nfcEnabled?: boolean;
+    qrEnabled?: boolean;
+  }) {
+    const enabled =
+      Boolean(flags.faceEnabled) || Boolean(flags.nfcEnabled) || Boolean(flags.qrEnabled);
+    if (!enabled) {
+      throw new BadRequestException(
+        'At least one verification method must be enabled (face, NFC or QR).',
+      );
+    }
   }
 
   private resolveCompanyFilter(user?: JwtUser): string | undefined {
@@ -158,6 +206,9 @@ export class KiosksService {
     isActive: boolean;
     lastSeenAt: Date | null;
     deviceApiKey: string | null;
+    faceEnabled: boolean;
+    nfcEnabled: boolean;
+    qrEnabled: boolean;
     createdAt: Date;
     updatedAt: Date;
     branch?: { id: string; branchName: string } | null;
@@ -174,6 +225,9 @@ export class KiosksService {
       lastSeenAt: kiosk.lastSeenAt,
       location: kiosk.shiftLocation?.locationName ?? null,
       apiKey: kiosk.deviceApiKey,
+      faceEnabled: kiosk.faceEnabled,
+      nfcEnabled: kiosk.nfcEnabled,
+      qrEnabled: kiosk.qrEnabled,
       createdAt: kiosk.createdAt,
       updatedAt: kiosk.updatedAt,
       branch: kiosk.branch

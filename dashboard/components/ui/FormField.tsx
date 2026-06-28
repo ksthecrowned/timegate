@@ -4,6 +4,8 @@ import ReactSelect, { type Props as ReactSelectProps, type StylesConfig } from '
 
 import { SelectSearch, type SelectSearchProps } from '@/components/ui/SelectSearch'
 
+import { HintTooltip } from '@/components/ui/HintTooltip'
+
 import type { SelectOption } from '@/components/ui/select-search-types'
 
 
@@ -228,19 +230,23 @@ export function FormField({ label, required, error, hint, children }: FormFieldP
 
     <div>
 
-      <label className="block text-sm font-medium mb-2 dark:text-white">
+      <label className="mb-2 block text-sm font-medium dark:text-white">
 
-        {label}
+        <span className="inline-flex items-center gap-1.5">
 
-        {required && <span className="text-rose-500 ms-1">*</span>}
+          {label}
+
+          {required && <span className="text-rose-500">*</span>}
+
+          {hint && !error ? <HintTooltip text={hint} /> : null}
+
+        </span>
 
       </label>
 
       {children}
 
-      {hint && !error && <p className="text-xs text-gray-500 mt-1 dark:text-neutral-500">{hint}</p>}
-
-      {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
+      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
 
     </div>
 
@@ -252,7 +258,7 @@ export function FormField({ label, required, error, hint, children }: FormFieldP
 
 const inputClass =
 
-  'py-3 px-4 block w-full border border-gray-200 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-neutral-600'
+  'py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600'
 
 
 
@@ -348,5 +354,3 @@ export type {
 export { default as FileUpload } from '@/components/ui/FileUpload'
 
 export type { FileUploadProps, FileUploadItem, UploadHandler } from '@/components/ui/FileUpload'
-
-

@@ -20,4 +20,16 @@ export class UpdateKioskDto {
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  faceEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  nfcEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  qrEnabled?: boolean;
 }

@@ -1,37 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter, useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
-  Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { KioskSetupShell } from "../components/setup/KioskSetupShell";
+import { OperatorLoginFields } from "../components/setup/OperatorLoginFields";
+import { ReconfigureAuthModal } from "../components/setup/ReconfigureAuthModal";
+import { MessageBox } from "../components/shared/MessageBox";
+import { PrimaryButton } from "../components/shared/PrimaryButton";
+import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
 import {
   bootstrapOperator,
   clearProvisioning,
   fetchKiosksForBranch,
+  fetchMobileConfig,
   getKioskFeatures,
   getProvisionState,
   getTimeGateApiBase,
-  getVerificationUserMessage,
   provisionKiosk,
-  type TimeGateKiosk,
-  type TimeGateBranch,
   type KioskFeatures,
+  type TimeGateBranch,
+  type TimeGateKiosk
 } from "../lib/timegate";
-import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
-import { Brand } from "../components/shared/Brand";
-import { MessageBox } from "../components/shared/MessageBox";
-import { PrimaryButton } from "../components/shared/PrimaryButton";
 import { colors, Radius, Spacing } from "../theme/colors";
 
 type SetupStep = "login" | "site" | "device";
@@ -64,6 +63,8 @@ export default function HomeScreen() {
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
   const [features, setFeatures] = useState<KioskFeatures | null>(null);
+  const [showReconfigureAuth, setShowReconfigureAuth] = useState(false);
+  const [reconfigureError, setReconfigureError] = useState<string | null>(null);
 
   function deviceStatusLabel(status?: string) {
     if (!status) return "Inconnu";
@@ -74,15 +75,34 @@ export default function HomeScreen() {
 
   useEffect(() => {
     void (async () => {
-      const state = await getProvisionState();
-      const fetchedFeatures = await getKioskFeatures();
-      setConfigured(state.hasToken);
-      setDeviceName(state.deviceName);
-      setFeatures(fetchedFeatures);
-      if (state.hasToken) {
-        setPendingOfflineCount(await getPendingVerifyCount());
+      try {
+        const state = await getProvisionState();
+        let fetchedFeatures = await getKioskFeatures();
+        if (state.hasToken) {
+          fetchedFeatures = (await fetchMobileConfig()) ?? fetchedFeatures;
+        }
+        setConfigured(state.hasToken);
+        setDeviceName(state.deviceName);
+        setFeatures(fetchedFeatures);
+        if (state.hasToken) {
+          setPendingOfflineCount(await getPendingVerifyCount());
+        }
+        console.log("[TimeGateMobile] home ready", {
+          configured: state.hasToken,
+          apiBase: getTimeGateApiBase(),
+        });
+      } catch (error) {
+        console.error("[TimeGateMobile] bootstrap failed", error);
+        setFeedback({
+          kind: "error",
+          message:
+            error instanceof Error
+              ? `Initialisation impossible: ${error.message}`
+              : "Initialisation impossible. Redémarrez l'application.",
+        });
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     })();
   }, []);
 
@@ -90,7 +110,12 @@ export default function HomeScreen() {
     useCallback(() => {
       if (!configured) return;
       void getPendingVerifyCount().then(setPendingOfflineCount);
-      void getKioskFeatures().then(setFeatures);
+      void fetchMobileConfig()
+        .then((next) => {
+          if (next) setFeatures(next);
+          else void getKioskFeatures().then(setFeatures);
+        })
+        .catch(() => void getKioskFeatures().then(setFeatures));
     }, [configured]),
   );
 
@@ -196,146 +221,142 @@ export default function HomeScreen() {
     }
   }
 
-  return (
-    <LinearGradient
-      colors={[colors.bgTop, colors.bgBottom]}
-      style={styles.root}
-    >
-      <SafeAreaView
-        style={[
-          styles.safe,
-          !configured && { paddingHorizontal: Spacing[5], paddingBottom: Spacing[4] },
-        ]}
-      >
-        {!configured && (
-          <View style={styles.header}>
-            <Brand subtitle="Kiosque de vérification faciale" size="md" />
-          </View>
-        )}
+  async function handleReconfigureAuth() {
+    setReconfigureError(null);
+    setSubmitting(true);
+    try {
+      const data = await bootstrapOperator(email.trim(), password, sku.trim());
+      await clearProvisioning();
+      setOperatorToken(data.operatorToken);
+      setBranches(data.branches);
+      setConfigured(false);
+      setDeviceName(null);
+      setPendingOfflineCount(0);
+      setFeatures(await getKioskFeatures());
+      setShowReconfigureAuth(false);
+      setPassword("");
+      setStep("site");
+      setFeedback({
+        kind: "info",
+        message:
+          "Authentification confirmée. Sélectionnez le site et l'appareil pour ce kiosque.",
+      });
+      if (data.branches.length === 1) {
+        await handleChooseBranch(data.branches[0], data.operatorToken);
+      }
+    } catch (e) {
+      setReconfigureError(
+        e instanceof Error
+          ? `${e.message}. Vérifiez l'email, le mot de passe et le SKU.`
+          : "Identifiants invalides. Réessayez.",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
-        {loading ? (
-          <View style={styles.loaderWrap}>
-            <ActivityIndicator color={colors.text} />
-          </View>
-        ) : configured && features !== null ? (
-          <ReadyScreen
-            deviceName={deviceName}
-            pendingOfflineCount={pendingOfflineCount}
-            syncingOffline={syncingOffline}
-            nfcEnabled={features.nfcEnabled}
-            onStartFace={() => router.push("/scan")}
-            onStartNfc={() => router.push("/nfc")}
-            onUsePin={() => router.push("/pin")}
-            onSyncOffline={() => void handleOfflineSync()}
-            onReconfigure={() => {
-              void clearProvisioning();
-              setConfigured(false);
-              setDeviceName(null);
-              setPendingOfflineCount(0);
-            }}
-          />
-        ) : (
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.formWrap}
-          >
-            <ScrollView
-              contentContainerStyle={styles.formContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>Configuration initiale</Text>
-                <Text style={styles.panelText}>
+  function openReconfigure() {
+    setPassword("");
+    setReconfigureError(null);
+    setShowReconfigureAuth(true);
+  }
+
+  const setupSubtitle =
+    step === "login"
+      ? "Configuration du kiosque"
+      : step === "site"
+        ? "Choix du site"
+        : "Association de l'appareil";
+
+  return (
+    <>
+      {configured ? (
+        <LinearGradient
+          colors={[colors.bgTop, colors.bgBottom]}
+          style={styles.root}
+        >
+          <SafeAreaView style={styles.safe}>
+            {loading ? (
+              <View style={styles.loaderWrap}>
+                <ActivityIndicator color={colors.text} />
+              </View>
+            ) : features !== null ? (
+              <ReadyScreen
+                deviceName={deviceName}
+                pendingOfflineCount={pendingOfflineCount}
+                syncingOffline={syncingOffline}
+                nfcEnabled={features.nfcEnabled}
+                faceEnabled={features.faceEnabled}
+                qrEnabled={features.qrEnabled}
+                onStartFace={() => router.push("/scan")}
+                onStartNfc={() => router.push("/nfc")}
+                onStartQr={() => router.push("/qr")}
+                onSyncOffline={() => void handleOfflineSync()}
+                onReconfigure={openReconfigure}
+              />
+            ) : null}
+          </SafeAreaView>
+        </LinearGradient>
+      ) : (
+        <KioskSetupShell subtitle={setupSubtitle}>
+          {loading ? (
+            <View style={styles.setupLoader}>
+              <ActivityIndicator color={colors.teal} />
+            </View>
+          ) : (
+            <View style={styles.setupForm}>
+              {step === "login" ? (
+                <Text style={styles.setupIntro}>
                   Connectez-vous avec un compte ADMIN ou MANAGER, puis associez
                   ce terminal à un site et à un appareil.
                 </Text>
-                {__DEV__ && step === "login" && (
-                  <Text style={styles.devApi}>API: {getTimeGateApiBase()}</Text>
-                )}
-                {feedback ? (
-                  <MessageBox
-                    variant={feedback.kind}
-                    message={feedback.message}
-                    style={{ marginTop: Spacing[2] }}
+              ) : null}
+
+              {feedback ? (
+                <MessageBox
+                  variant={feedback.kind}
+                  message={feedback.message}
+                />
+              ) : null}
+
+              {step === "login" ? (
+                <View style={styles.block}>
+                  <OperatorLoginFields
+                    email={email}
+                    password={password}
+                    sku={sku}
+                    showPassword={showPassword}
+                    onEmailChange={setEmail}
+                    onPasswordChange={setPassword}
+                    onSkuChange={setSku}
+                    onTogglePassword={() => setShowPassword((v) => !v)}
                   />
-                ) : null}
 
-                {step === "login" && (
+                  <PrimaryButton
+                    label={submitting ? "Connexion..." : "Se connecter"}
+                    onPress={() => void handleLoginStep()}
+                    disabled={
+                      submitting || !email.trim() || !password || !sku.trim()
+                    }
+                    loading={submitting}
+                    variant="primary"
+                  />
+                </View>
+              ) : null}
+
+              {step === "site" ? (
                   <View style={styles.block}>
-                    <Text style={styles.groupLabel}>
-                      Étape 1 — Connexion opérateur
-                    </Text>
-
-                    <Text style={styles.inputLabel}>Email</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="admin@monorganisation.com"
-                      placeholderTextColor={colors.textMuted}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      value={email}
-                      onChangeText={setEmail}
-                    />
-
-                    <Text style={styles.inputLabel}>Mot de passe</Text>
-                    <View style={styles.passwordRow}>
-                      <TextInput
-                        style={[styles.input, { flex: 1, paddingRight: 40 }]}
-                        placeholder="Votre mot de passe"
-                        placeholderTextColor={colors.textMuted}
-                        secureTextEntry={!showPassword}
-                        value={password}
-                        onChangeText={setPassword}
-                      />
-                      <Pressable
-                        onPress={() => setShowPassword((v) => !v)}
-                        style={styles.eyeBtn}
-                        hitSlop={8}
-                      >
-                        <Ionicons
-                          name={showPassword ? "eye-off-outline" : "eye-outline"}
-                          size={20}
-                          color={colors.textSecondary}
-                        />
-                      </Pressable>
-                    </View>
-
-                    <Text style={styles.inputLabel}>SKU organisation</Text>
-                    <TextInput
-                      style={styles.input}
-                      placeholder="SOTR"
-                      placeholderTextColor={colors.textMuted}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      value={sku}
-                      onChangeText={setSku}
-                    />
-
-                    <PrimaryButton
-                      label={submitting ? "Connexion..." : "Valider la connexion"}
-                      onPress={() => void handleLoginStep()}
-                      disabled={submitting}
-                      loading={submitting}
-                      variant="primary"
-                    />
-                  </View>
-                )}
-
-                {step === "site" && (
-                  <View style={styles.block}>
-                    <Text style={styles.groupLabel}>
+                    <Text style={styles.setupGroupLabel}>
                       Étape 2 — Choix du site
                     </Text>
-                    <Text style={styles.helperText}>
+                    <Text style={styles.setupHelperText}>
                       Sélectionnez le site sur lequel installer ce kiosque.
                     </Text>
                     {branches.map((site) => (
                       <Pressable
                         key={site.id}
                         style={({ pressed }) => [
-                          styles.choiceCard,
+                          styles.setupChoiceCard,
                           pressed && styles.choicePressed,
                         ]}
                         onPress={() => void handleChooseBranch(site)}
@@ -344,34 +365,36 @@ export default function HomeScreen() {
                           <Ionicons
                             name="business-outline"
                             size={20}
-                            color={colors.tealLight}
+                            color={colors.teal}
                           />
                           <View style={{ flex: 1 }}>
-                            <Text style={styles.choiceTitle}>{site.name}</Text>
-                            <Text style={styles.choiceMeta}>
+                            <Text style={styles.setupChoiceTitle}>
+                              {site.name}
+                            </Text>
+                            <Text style={styles.setupChoiceMeta}>
                               {site.address ?? "Adresse non renseignée"}
                             </Text>
                           </View>
                           <Ionicons
                             name="chevron-forward"
                             size={18}
-                            color={colors.textSecondary}
+                            color="#94a3b8"
                           />
                         </View>
                       </Pressable>
                     ))}
-                    {branches.length === 0 && (
+                    {branches.length === 0 ? (
                       <MessageBox
                         variant="info"
                         message="Aucun site disponible pour ce compte. Contactez votre administrateur."
                       />
-                    )}
+                    ) : null}
                   </View>
-                )}
+                ) : null}
 
-                {step === "device" && selectedBranch && (
+                {step === "device" && selectedBranch ? (
                   <View style={styles.block}>
-                    <Text style={styles.groupLabel}>
+                    <Text style={styles.setupGroupLabel}>
                       Étape 3 — Appareil
                     </Text>
                     <MessageBox
@@ -379,9 +402,9 @@ export default function HomeScreen() {
                       message={`Site sélectionné: ${selectedBranch.name}`}
                     />
 
-                    {kiosks.length > 0 && (
+                    {kiosks.length > 0 ? (
                       <>
-                        <Text style={styles.inputLabel}>
+                        <Text style={styles.setupInputLabel}>
                           Appareils existants
                         </Text>
                         {kiosks.map((device) => {
@@ -390,8 +413,8 @@ export default function HomeScreen() {
                             <Pressable
                               key={device.id}
                               style={({ pressed }) => [
-                                styles.choiceCard,
-                                selected && styles.choiceSelected,
+                                styles.setupChoiceCard,
+                                selected && styles.setupChoiceSelected,
                                 pressed && styles.choicePressed,
                               ]}
                               onPress={() => {
@@ -403,17 +426,13 @@ export default function HomeScreen() {
                                 <Ionicons
                                   name="desktop-outline"
                                   size={20}
-                                  color={
-                                    selected
-                                      ? colors.tealLight
-                                      : colors.textSecondary
-                                  }
+                                  color={selected ? colors.teal : "#94a3b8"}
                                 />
                                 <View style={{ flex: 1 }}>
-                                  <Text style={styles.choiceTitle}>
+                                  <Text style={styles.setupChoiceTitle}>
                                     {device.name}
                                   </Text>
-                                  <Text style={styles.choiceMeta}>
+                                  <Text style={styles.setupChoiceMeta}>
                                     {device.location ?? "Sans localisation"} •{" "}
                                     {deviceStatusLabel(device.status)}
                                   </Text>
@@ -422,13 +441,13 @@ export default function HomeScreen() {
                                   <Ionicons
                                     name="checkmark-circle"
                                     size={20}
-                                    color={colors.tealLight}
+                                    color={colors.teal}
                                   />
                                 ) : (
                                   <Ionicons
                                     name="chevron-forward"
                                     size={18}
-                                    color={colors.textSecondary}
+                                    color="#94a3b8"
                                   />
                                 )}
                               </View>
@@ -436,11 +455,11 @@ export default function HomeScreen() {
                           );
                         })}
                       </>
-                    )}
+                    ) : null}
 
                     <Pressable
                       style={({ pressed }) => [
-                        styles.secondaryButton,
+                        styles.setupSecondaryButton,
                         pressed && styles.choicePressed,
                       ]}
                       onPress={() => {
@@ -452,34 +471,34 @@ export default function HomeScreen() {
                         <Ionicons
                           name="add-circle-outline"
                           size={20}
-                          color={colors.text}
+                          color={colors.teal}
                         />
-                        <Text style={styles.secondaryButtonText}>
+                        <Text style={styles.setupSecondaryButtonText}>
                           Ajouter un nouvel appareil
                         </Text>
                       </View>
                     </Pressable>
 
-                    {creatingNewKiosk && (
+                    {creatingNewKiosk ? (
                       <>
-                        <Text style={styles.inputLabel}>
+                        <Text style={styles.setupInputLabel}>
                           Nom du nouvel appareil
                         </Text>
                         <TextInput
-                          style={styles.input}
+                          style={styles.setupInput}
                           placeholder="Borne principale"
-                          placeholderTextColor={colors.textMuted}
+                          placeholderTextColor="#94a3b8"
                           value={inputKioskName}
                           onChangeText={setInputKioskName}
                         />
                       </>
-                    )}
+                    ) : null}
 
-                    <Text style={styles.inputLabel}>Localisation</Text>
+                    <Text style={styles.setupInputLabel}>Localisation</Text>
                     <TextInput
-                      style={styles.input}
+                      style={styles.setupInput}
                       placeholder="Accueil"
-                      placeholderTextColor={colors.textMuted}
+                      placeholderTextColor="#94a3b8"
                       value={location}
                       onChangeText={setLocation}
                     />
@@ -498,13 +517,32 @@ export default function HomeScreen() {
                       trailingIcon="arrow-forward"
                     />
                   </View>
-                )}
-              </View>
-            </ScrollView>
-          </KeyboardAvoidingView>
-        )}
-      </SafeAreaView>
-    </LinearGradient>
+                ) : null}
+            </View>
+          )}
+        </KioskSetupShell>
+      )}
+
+      <ReconfigureAuthModal
+        visible={showReconfigureAuth}
+        email={email}
+        password={password}
+        sku={sku}
+        showPassword={showPassword}
+        submitting={submitting}
+        errorMessage={reconfigureError}
+        onEmailChange={setEmail}
+        onPasswordChange={setPassword}
+        onSkuChange={setSku}
+        onTogglePassword={() => setShowPassword((v) => !v)}
+        onCancel={() => {
+          setShowReconfigureAuth(false);
+          setReconfigureError(null);
+          setPassword("");
+        }}
+        onConfirm={() => void handleReconfigureAuth()}
+      />
+    </>
   );
 }
 
@@ -512,25 +550,30 @@ function ReadyScreen({
   deviceName,
   pendingOfflineCount,
   syncingOffline,
+  faceEnabled,
   nfcEnabled,
+  qrEnabled,
   onStartFace,
   onStartNfc,
-  onUsePin,
+  onStartQr,
   onSyncOffline,
   onReconfigure,
 }: {
   deviceName: string | null;
   pendingOfflineCount: number;
   syncingOffline: boolean;
+  faceEnabled: boolean;
   nfcEnabled: boolean;
+  qrEnabled: boolean;
   onStartFace: () => void;
   onStartNfc: () => void;
-  onUsePin: () => void;
+  onStartQr: () => void;
   onSyncOffline: () => void;
   onReconfigure: () => void;
 }) {
-  // If NFC is disabled, show the original facial recognition screen
-  if (!nfcEnabled) {
+  const multiMode = faceEnabled && (nfcEnabled || qrEnabled);
+
+  if (!multiMode) {
     return (
       <View style={styles.readyScreen}>
         <LinearGradient
@@ -583,12 +626,12 @@ function ReadyScreen({
           ) : null}
 
           <PrimaryButton
-            label="Commencer le scan"
-            onPress={onStartFace}
-            trailingIcon="scan-outline"
+            label={faceEnabled ? "Commencer le scan" : nfcEnabled ? "Badge NFC" : "Commencer"}
+            onPress={faceEnabled ? onStartFace : nfcEnabled ? onStartNfc : onStartFace}
+            trailingIcon={faceEnabled ? "scan-outline" : "card-outline"}
           />
 
-          <Pressable onPress={onUsePin} style={styles.linkBtn} hitSlop={6}>
+          <Pressable onPress={onReconfigure} style={styles.linkBtn} hitSlop={6}>
             <Ionicons
               name="settings-outline"
               size={16}
@@ -620,36 +663,34 @@ function ReadyScreen({
         </Text>
 
         <View style={[styles.readyHero, { flexDirection: "column" }]}>
-          <ModeCard
-            icon="scan-outline"
-            title="Reconnaissance faciale"
-            sub="Caméra frontale"
-            onPress={onStartFace}
-          />
-          <ModeCard
-            icon="card-outline"
-            title="Badge NFC"
-            sub="Sans contact"
-            onPress={onStartNfc}
-          />
+          {faceEnabled ? (
+            <ModeCard
+              icon="scan-outline"
+              title="Reconnaissance faciale"
+              sub="Assurez-vous d'être bien en face de la caméra, dans un endroit bien éclairé."
+              iconSize={40}
+              onPress={onStartFace}
+            />
+          ) : null}
+          {nfcEnabled ? (
+            <ModeCard
+              icon="card-outline"
+              title="Badge NFC"
+              sub="Approchez votre badge NFC pour pointer votre présence"
+              iconSize={40}
+              onPress={onStartNfc}
+            />
+          ) : null}
+          {qrEnabled ? (
+            <ModeCard
+              icon="qr-code-outline"
+              title="QR-code"
+              sub="Scannez le QR-code pour pointer votre présence"
+              iconSize={36}
+              onPress={onStartQr}
+            />
+          ) : null}
         </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.pinFallbackBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={onUsePin}
-          hitSlop={6}
-        >
-          <Ionicons
-            name="keypad-outline"
-            size={16}
-            color={colors.tealLight}
-            style={{ marginRight: Spacing[1] }}
-          />
-          <Text style={styles.pinFallbackText}>Saisie PIN manuelle</Text>
-        </Pressable>
 
         <Text style={styles.readyDeviceName}>
           {deviceName ?? "Appareil prêt"}
@@ -687,13 +728,15 @@ function ReadyScreen({
 
 function ModeCard({
   icon,
+  iconSize,
   title,
   sub,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
+  iconSize: number;
   title: string;
-  sub: string;
+  sub?: string;
   onPress: () => void;
 }) {
   return (
@@ -705,10 +748,12 @@ function ModeCard({
       onPress={onPress}
     >
       <View style={styles.modeIconWrap}>
-        <Ionicons name={icon} size={56} color={colors.tealLight} />
+        <Ionicons name={icon} size={iconSize} color={colors.tealLight} />
       </View>
-      <Text style={styles.modeTitle}>{title}</Text>
-      <Text style={styles.modeSub}>{sub}</Text>
+      <View style={{ width: '70%' }}>
+        <Text style={styles.modeTitle}>{title}</Text>
+        {sub ? <Text style={styles.modeSub}>{sub}</Text> : null}
+      </View>
     </Pressable>
   );
 }
@@ -718,6 +763,72 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   header: { marginTop: Spacing[2], marginBottom: Spacing[4] },
   loaderWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  setupLoader: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: Spacing[8],
+  },
+  setupForm: { gap: 0 },
+  setupIntro: {
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: "center",
+  },
+  setupGroupLabel: {
+    color: "#64748b",
+    marginTop: Spacing[1],
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  setupHelperText: {
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  setupInputLabel: {
+    color: "#0f172a",
+    fontSize: 13,
+    fontWeight: "600",
+    marginTop: Spacing[2],
+  },
+  setupInput: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
+    color: "#0f172a",
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[3],
+    fontSize: 15,
+  },
+  setupChoiceCard: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#ffffff",
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[3],
+  },
+  setupChoiceSelected: {
+    borderColor: colors.teal,
+    backgroundColor: "rgba(13, 148, 136, 0.08)",
+  },
+  setupSecondaryButton: {
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderStyle: "dashed",
+    backgroundColor: "#ffffff",
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[3],
+  },
+  setupSecondaryButtonText: {
+    color: "#0f172a",
+    fontWeight: "600",
+  },
   formWrap: { flex: 1 },
   formContent: { paddingBottom: Spacing[2] },
   panel: {
@@ -773,7 +884,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     width: 46,
     height: 46,
-    borderColor: colors.tealLight,
+    borderColor: colors.info,
   },
   readyTopLeft: {
     top: "13%",
@@ -910,6 +1021,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: Spacing[3],
   },
+  setupChoiceTitle: { color: "#0f172a", fontWeight: "600", fontSize: 15 },
+  setupChoiceMeta: { color: "#94a3b8", fontSize: 12, marginTop: 2 },
   choiceTitle: { color: colors.text, fontWeight: "600", fontSize: 15 },
   choiceMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   secondaryButton: {
@@ -925,11 +1038,6 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontSize: 13,
     lineHeight: 19,
-  },
-  devApi: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
   },
   linkBtn: {
     marginTop: Spacing[3],

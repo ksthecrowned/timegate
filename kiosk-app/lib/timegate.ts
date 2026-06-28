@@ -1,8 +1,16 @@
 import * as SecureStore from "expo-secure-store";
 
-const API_BASE = "http://192.168.148.97:4001/api/v1";
-// process.env.EXPO_PUBLIC_TIMEGATE_API_URL?.replace(/\/$/, "") ??
-// "http://localhost:4001/api/v1";
+function resolveApiBase(): string {
+  const raw =
+    process.env.EXPO_PUBLIC_TIMEGATE_API_URL?.trim() ||
+    "http://localhost:4001/api/v1";
+  const withoutTrailingSlash = raw.replace(/\/$/, "");
+  return withoutTrailingSlash.endsWith("/v1")
+    ? withoutTrailingSlash
+    : `${withoutTrailingSlash}/v1`;
+}
+
+const API_BASE = resolveApiBase();
 const LIFETIME_TOKEN_KEY = "timegate_mobile_lifetime_token";
 const DEVICE_ID_KEY = "timegate_mobile_device_id";
 const DEVICE_NAME_KEY = "timegate_mobile_device_name";
@@ -13,10 +21,20 @@ const KIOSK_FEATURES_KEY = "timegate_mobile_kiosk_features";
 // In production, this should come from the backend (e.g., /kiosks/:id/features).
 // TODO backend: Replace this with actual feature flags from POST /auth/mobile/provision
 // or a dedicated endpoint like GET /kiosks/:id/features.
-const DEFAULT_FEATURES = { nfcEnabled: false };
+const DEFAULT_FEATURES: KioskFeatures = {
+  faceEnabled: true,
+  nfcEnabled: false,
+  qrEnabled: false,
+  pinFailureThreshold: 3,
+  pinFailureCooldownSeconds: 30,
+};
 
 export type KioskFeatures = {
+  faceEnabled: boolean;
   nfcEnabled: boolean;
+  qrEnabled: boolean;
+  pinFailureThreshold: number;
+  pinFailureCooldownSeconds: number;
 };
 
 export function getKioskFeatures(): Promise<KioskFeatures> {
@@ -24,10 +42,10 @@ export function getKioskFeatures(): Promise<KioskFeatures> {
     if (value) {
       try {
         const parsed = JSON.parse(value);
-        // Merge with defaults to ensure all keys exist
-        return { ...DEFAULT_FEATURES, ...parsed };
+        const merged = { ...DEFAULT_FEATURES, ...parsed };
+        applyFeatureRuntime(merged);
+        return merged;
       } catch {
-        // If parsing fails, return defaults
         return DEFAULT_FEATURES;
       }
     }
@@ -36,7 +54,26 @@ export function getKioskFeatures(): Promise<KioskFeatures> {
 }
 
 export function setKioskFeatures(features: KioskFeatures): Promise<void> {
+  applyFeatureRuntime(features);
   return SecureStore.setItemAsync(KIOSK_FEATURES_KEY, JSON.stringify(features));
+}
+
+export async function fetchMobileConfig(): Promise<KioskFeatures | null> {
+  const token = await getLifetimeToken();
+  if (!token) return null;
+  const res = await fetch(`${API_BASE}/auth/mobile/config`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (res.status === 401) {
+    await clearProvisioning();
+    return null;
+  }
+  if (!res.ok) return null;
+  const json = (await res.json()) as { features?: KioskFeatures };
+  if (!json.features) return null;
+  const merged = { ...DEFAULT_FEATURES, ...json.features };
+  await setKioskFeatures(merged);
+  return merged;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,10 +84,26 @@ export function setKioskFeatures(features: KioskFeatures): Promise<void> {
 // mode change resets the counter.
 // ---------------------------------------------------------------------------
 
-export type AttemptKey = "face" | "nfc" | "pin";
+export type AttemptKey = "face" | "nfc" | "qr" | "pin";
 
 export const VERIFY_FAILURE_LIMIT = 3;
 export const VERIFY_COOLDOWN_MS = 30_000;
+
+let configuredFailureLimit = VERIFY_FAILURE_LIMIT;
+let configuredCooldownMs = VERIFY_COOLDOWN_MS;
+
+export function getVerifyFailureLimit(): number {
+  return configuredFailureLimit;
+}
+
+export function getVerifyCooldownMs(): number {
+  return configuredCooldownMs;
+}
+
+function applyFeatureRuntime(features: KioskFeatures) {
+  configuredFailureLimit = features.pinFailureThreshold;
+  configuredCooldownMs = features.pinFailureCooldownSeconds * 1000;
+}
 
 let failureCount = 0;
 let cooldownUntil = 0;
@@ -64,9 +117,9 @@ export function recordFailure(
     lastMode = mode;
   }
   failureCount += 1;
-  if (failureCount >= VERIFY_FAILURE_LIMIT) {
-    cooldownUntil = Date.now() + VERIFY_COOLDOWN_MS;
-    return { locked: true, cooldownMsLeft: VERIFY_COOLDOWN_MS };
+  if (failureCount >= getVerifyFailureLimit()) {
+    cooldownUntil = Date.now() + getVerifyCooldownMs();
+    return { locked: true, cooldownMsLeft: getVerifyCooldownMs() };
   }
   return { locked: false, cooldownMsLeft: 0 };
 }
@@ -272,6 +325,7 @@ export async function provisionKiosk(
   const json = (await res.json()) as {
     lifetime_token: string;
     kiosk?: { id?: string; name?: string };
+    features?: KioskFeatures;
   };
   if (!json.lifetime_token) {
     throw new Error("Token lifetime manquant dans la reponse de provision.");
@@ -281,6 +335,9 @@ export async function provisionKiosk(
   await SecureStore.setItemAsync(LIFETIME_TOKEN_KEY, json.lifetime_token);
   if (deviceId) await SecureStore.setItemAsync(DEVICE_ID_KEY, deviceId);
   if (deviceName) await SecureStore.setItemAsync(DEVICE_NAME_KEY, deviceName);
+  if (json.features) {
+    await setKioskFeatures({ ...DEFAULT_FEATURES, ...json.features });
+  }
   return { hasToken: true, deviceName };
 }
 
@@ -631,17 +688,10 @@ export type NfcVerifyResult = {
 
 type NfcVerifyOptions = {
   idempotencyKey?: string;
+  offlineSync?: boolean;
+  capturedAt?: string;
 };
 
-/**
- * Stub backend call. Resolves with a successful verify result for any UID
- * of length >= 4. The real endpoint will be POST /kiosk/verify-nfc.
- *
- * Throws on:
- *  - missing lifetime token (kiosk not provisioned)
- *  - HTTP / network errors wrapped in MobileApiError (re-using the existing
- *    classifier + user-message helpers)
- */
 export async function verifyNfcBadge(
   badgeUid: string,
   options?: NfcVerifyOptions,
@@ -652,22 +702,48 @@ export async function verifyNfcBadge(
       "Appareil non provisionné. Configurez l'app au premier lancement.",
     );
   }
-  // TODO backend: branch on POST /kiosk/verify-nfc as soon as the endpoint
-  // exists. Stub below — simulate a 800ms network call and accept any UID
-  // whose length is at least 4 characters.
-  mobileLog("log", "verifyNfcBadge started (stub)", { badgeUid });
-  await new Promise((r) => setTimeout(r, 800));
-  if (badgeUid.trim().length < 4) {
+  const res = await fetch(`${API_BASE}/auth/mobile/verify-nfc`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options?.idempotencyKey
+        ? { "X-Idempotency-Key": options.idempotencyKey }
+        : {}),
+    },
+    body: JSON.stringify({
+      badgeUid: badgeUid.trim(),
+      ...(options?.offlineSync ? { offlineSync: "1" } : {}),
+      ...(options?.capturedAt ? { capturedAt: options.capturedAt } : {}),
+    }),
+  });
+  if (res.status === 401) await clearProvisioning();
+  if (!res.ok) {
+    const message = await parseErrorBody(res);
     throw new MobileApiError(
-      "Identifiant de badge trop court. Réessayez.",
-      400,
+      getVerificationUserMessage(new MobileApiError(message, res.status)),
+      res.status,
     );
   }
+  const json = (await res.json()) as {
+    success: boolean;
+    message?: string;
+    employee?: { firstName?: string; lastName?: string };
+  };
+  const employeeName =
+    `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
+    null;
   return {
-    success: true,
+    success: Boolean(json.success),
     badgeUid: badgeUid.trim(),
-    message: "Pointage enregistré",
-    employeeName: null,
+    message:
+      json.message ??
+      (json.success
+        ? employeeName
+          ? `Bienvenue ${employeeName}`
+          : "Pointage enregistré"
+        : "Badge non reconnu. Réessayez."),
+    employeeName,
   };
 }
 
@@ -691,4 +767,76 @@ export async function readNfcBadge(timeoutMs = 10_000): Promise<string> {
   const uid = `STUB-${Math.random().toString(16).slice(2, 10).toUpperCase()}`;
   mobileLog("log", "readNfcBadge read", { uid });
   return uid;
+}
+
+// ---------------------------------------------------------------------------
+// QR code verification
+// ---------------------------------------------------------------------------
+
+export type QrVerifyResult = {
+  success: boolean;
+  qrPayload: string;
+  message: string;
+  employeeName: string | null;
+};
+
+type QrVerifyOptions = {
+  idempotencyKey?: string;
+  offlineSync?: boolean;
+  capturedAt?: string;
+};
+
+export async function verifyQrCode(
+  qrPayload: string,
+  options?: QrVerifyOptions,
+): Promise<QrVerifyResult> {
+  const token = await getLifetimeToken();
+  if (!token) {
+    throw new Error(
+      "Appareil non provisionné. Configurez l'app au premier lancement.",
+    );
+  }
+  const res = await fetch(`${API_BASE}/auth/mobile/verify-qr`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      ...(options?.idempotencyKey
+        ? { "X-Idempotency-Key": options.idempotencyKey }
+        : {}),
+    },
+    body: JSON.stringify({
+      qrPayload: qrPayload.trim(),
+      ...(options?.offlineSync ? { offlineSync: "1" } : {}),
+      ...(options?.capturedAt ? { capturedAt: options.capturedAt } : {}),
+    }),
+  });
+  if (res.status === 401) await clearProvisioning();
+  if (!res.ok) {
+    const message = await parseErrorBody(res);
+    throw new MobileApiError(
+      getVerificationUserMessage(new MobileApiError(message, res.status)),
+      res.status,
+    );
+  }
+  const json = (await res.json()) as {
+    success: boolean;
+    message?: string;
+    employee?: { firstName?: string; lastName?: string };
+  };
+  const employeeName =
+    `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
+    null;
+  return {
+    success: Boolean(json.success),
+    qrPayload: qrPayload.trim(),
+    message:
+      json.message ??
+      (json.success
+        ? employeeName
+          ? `Bienvenue ${employeeName}`
+          : "Pointage enregistré"
+        : "QR code non reconnu. Réessayez."),
+    employeeName,
+  };
 }

@@ -2,7 +2,11 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AppErrorBoundary } from '../components/shared/AppErrorBoundary';
+import { installGlobalErrorLogging } from '../lib/bootstrap-errors';
 import { getProvisionState, sendKioskHeartbeat } from '../lib/timegate';
+
+installGlobalErrorLogging();
 
 const KIOSK_HEARTBEAT_MS = 90_000;
 
@@ -35,9 +39,11 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false }} />
-    </SafeAreaProvider>
+    <AppErrorBoundary>
+      <SafeAreaProvider>
+        <StatusBar style="light" />
+        <Stack screenOptions={{ headerShown: false }} />
+      </SafeAreaProvider>
+    </AppErrorBoundary>
   );
 }

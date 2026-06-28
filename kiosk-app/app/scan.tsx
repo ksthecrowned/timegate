@@ -14,12 +14,29 @@ import {
 } from "react-native";
 import {
   CameraView,
-  type FaceDetectionResult,
   FaceDetectorClassifications,
+  FaceDetectorLandmarks,
   FaceDetectorMode,
   useCameraPermissions,
+  type FaceDetectionResult,
 } from "react-native-face-detector-camera";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { OvalScrimOverlay } from "../components/scan/OvalScrimOverlay";
+import { MessageBox } from "../components/shared/MessageBox";
+import {
+  FacePresenceSmoother,
+  faceQualityMessage,
+  FaceStabilityTracker,
+  faceToDebugSnapshot,
+  getFaceQualityIssue,
+  hasFaceLandmarks,
+  logFaceCaptureDebug,
+} from "../lib/face-capture-gate";
+import {
+  enqueueOfflineVerification,
+  getPendingVerifyCount,
+  syncOfflineVerifications,
+} from "../lib/offline-verify-queue";
 import {
   classifyError,
   createMobileIdempotencyKey,
@@ -27,14 +44,8 @@ import {
   getVerificationUserMessage,
   isLikelyNetworkError,
   verifyFacePhoto,
-  type ErrorCategory,
+  type ErrorCategory
 } from "../lib/timegate";
-import {
-  enqueueOfflineVerification,
-  getPendingVerifyCount,
-  syncOfflineVerifications,
-} from "../lib/offline-verify-queue";
-import { MessageBox } from "../components/shared/MessageBox";
 import { colors, Radius, Spacing } from "../theme/colors";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
@@ -43,6 +54,7 @@ const AUTO_RESET_SECONDS = 10;
 const SUCCESS_REDIRECT_SECONDS = 2;
 const LOCAL_DETECTION_COOLDOWN_MS = 10000;
 const OFFLINE_SYNC_INTERVAL_MS = 15000;
+const SCAN_GIF = require("../1_4Tr0FOsdUgkF32T3mdu6pg_transparent.gif");
 
 // Vertical bands reserved for the fixed overlays — the CaptureStage is
 // placed in the remaining space so the dark scrim never overlaps the
@@ -103,10 +115,16 @@ export default function ScanScreen() {
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
+  const [stabilityProgress, setStabilityProgress] = useState(0);
   const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  const stabilityTrackerRef = useRef(new FaceStabilityTracker());
+  const facePresenceRef = useRef(new FacePresenceSmoother());
 
   const resetToIdle = useCallback(() => {
     captureInFlight.current = false;
+    stabilityTrackerRef.current.reset();
+    facePresenceRef.current.reset();
+    setStabilityProgress(0);
     setVerifyState("idle");
     setConfidence(null);
     setVerifyElapsedSeconds(0);
@@ -281,13 +299,28 @@ export default function ScanScreen() {
       if (verifyState !== "idle" || captureInFlight.current || !cameraRef.current) return;
       const detectedFaces = Array.isArray(faces) ? faces.length : 0;
       if (detectedFaces < 1) {
+        logFaceCaptureDebug({
+          phase: "no_face",
+          graceActive: facePresenceRef.current.isLikelyPresent(),
+        });
+        if (facePresenceRef.current.isLikelyPresent()) {
+          return;
+        }
+        stabilityTrackerRef.current.reset();
+        facePresenceRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("info");
         setStatusMessage(
           "Aucun visage détecté. Placez votre visage dans le cadre ovale.",
         );
         return;
       }
+
+      facePresenceRef.current.markPresent();
       if (detectedFaces > 1) {
+        logFaceCaptureDebug({ phase: "multiple_faces", count: detectedFaces });
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("warn");
         setStatusMessage(
           "Plusieurs visages détectés. Une seule personne doit se présenter à la fois.",
@@ -295,11 +328,8 @@ export default function ScanScreen() {
         return;
       }
 
-      // Position check: the face must be roughly centered in the oval.
       const oval = ovalBoundsRef.current;
       const face = faces[0];
-      // react-native-face-detector-camera exposes bounds as { origin: {x,y}, size: {width,height} }
-      // in viewport (preview) coordinates.
       const fb = face?.bounds as
         | {
             origin: { x: number; y: number };
@@ -307,7 +337,8 @@ export default function ScanScreen() {
           }
         | undefined;
       if (!oval || !fb) {
-        // Layout not measured yet; show a hint and wait.
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("info");
         setStatusMessage("Centrez votre visage dans le cadre ovale.");
         return;
@@ -315,9 +346,6 @@ export default function ScanScreen() {
       const faceCenterX = fb.origin.x + fb.size.width / 2;
       const faceCenterY = fb.origin.y + fb.size.height / 2;
 
-      // 12% inset from the oval edges: we want the face's CENTER to live
-      // strictly inside this smaller rectangle, so the face isn't cut off
-      // by the dark overlay at the edges.
       const marginX = oval.width * 0.12;
       const marginY = oval.height * 0.12;
       const innerLeft = oval.x + marginX;
@@ -329,8 +357,20 @@ export default function ScanScreen() {
         faceCenterX >= innerLeft && faceCenterX <= innerRight;
       const verticallyCentered =
         faceCenterY >= innerTop && faceCenterY <= innerBottom;
+      const faceRatio = fb.size.height / oval.height;
 
       if (!horizontallyCentered || !verticallyCentered) {
+        logFaceCaptureDebug({
+          phase: "off_center",
+          face: faceToDebugSnapshot(face),
+          faceCenterX,
+          faceCenterY,
+          horizontallyCentered,
+          verticallyCentered,
+          faceRatio,
+        });
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("info");
         setStatusMessage(
           !horizontallyCentered
@@ -340,28 +380,97 @@ export default function ScanScreen() {
         return;
       }
 
-      // Size check: the face should fill roughly 35%-80% of the oval height
-      // (otherwise it's too small / too close to the camera).
-      const faceRatio = fb.size.height / oval.height;
       if (faceRatio < 0.32) {
+        logFaceCaptureDebug({
+          phase: "too_far",
+          faceRatio,
+          face: faceToDebugSnapshot(face),
+        });
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("info");
         setStatusMessage("Rapprochez-vous de la caméra.");
         return;
       }
       if (faceRatio > 0.85) {
+        logFaceCaptureDebug({
+          phase: "too_close",
+          faceRatio,
+          face: faceToDebugSnapshot(face),
+        });
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
         setStatusVariant("info");
         setStatusMessage("Éloignez-vous un peu de la caméra.");
         return;
       }
 
-      // Face is centered and properly sized → arm the verification.
+      const qualityIssue = getFaceQualityIssue(face);
+      if (qualityIssue) {
+        logFaceCaptureDebug({
+          phase: "quality_blocked",
+          issue: qualityIssue,
+          face: faceToDebugSnapshot(face),
+          thresholds: {
+            minEyeOpen: 0.35,
+            maxYaw: 25,
+            maxRoll: 25,
+          },
+        });
+        stabilityTrackerRef.current.reset();
+        setStabilityProgress(0);
+        setStatusVariant("info");
+        setStatusMessage(faceQualityMessage(qualityIssue));
+        return;
+      }
+
+      stabilityTrackerRef.current.push(faceCenterX, faceCenterY, fb.size.height);
+      const progress = stabilityTrackerRef.current.progress;
+      setStabilityProgress(progress);
+      const landmarksOk = hasFaceLandmarks(face);
+      const stable = stabilityTrackerRef.current.isStable();
+
+      logFaceCaptureDebug({
+        phase: stable ? "ready_capture" : "stabilizing",
+        face: faceToDebugSnapshot(face),
+        faceRatio,
+        landmarksOk,
+        stabilityProgress: progress,
+        stable,
+        sampleCount: stabilityTrackerRef.current.sampleCount,
+        qualityIssue: null,
+      });
+
+      if (!stable) {
+        setStatusVariant("info");
+        setStatusMessage(
+          !landmarksOk && progress < 50
+            ? "Visage détecté. Regardez la caméra..."
+            : progress < 70
+              ? "Restez immobile un instant..."
+              : "Presque prêt — ne bougez plus.",
+        );
+        return;
+      }
+
       setStatusVariant("info");
-      setStatusMessage(
-        "Visage détecté et centré. Vérification en cours de préparation...",
+      setStatusMessage("Visage stable. Capture en cours...");
+      logFaceCaptureDebug(
+        {
+          phase: "capture_triggered",
+          face: faceToDebugSnapshot(face),
+          faceRatio,
+          stabilityProgress: progress,
+          stable: true,
+          sampleCount: stabilityTrackerRef.current.sampleCount,
+        },
+        { force: true },
       );
       const now = Date.now();
       if (now - lastDetectionAttemptAtRef.current < LOCAL_DETECTION_COOLDOWN_MS) return;
       lastDetectionAttemptAtRef.current = now;
+      stabilityTrackerRef.current.reset();
+      setStabilityProgress(0);
       void runVerification();
     },
     [runVerification, verifyState],
@@ -484,8 +593,10 @@ export default function ScanScreen() {
           facing="front"
           faceDetectorSettings={{
             mode: FaceDetectorMode.fast,
+            detectLandmarks: FaceDetectorLandmarks.all,
             runClassifications: FaceDetectorClassifications.all,
-            minDetectionInterval: 250,
+            minDetectionInterval: 180,
+            tracking: true,
           }}
           onFacesDetected={processFacesDetected}
         />
@@ -513,6 +624,15 @@ export default function ScanScreen() {
               verifyState === "error" && styles.ovalBorderError,
             ]}
           />
+          {verifyState === "verifying" ? (
+            <View style={styles.scanGifWrap}>
+              <Image
+                source={SCAN_GIF}
+                style={styles.scanGif}
+                resizeMode="contain"
+              />
+            </View>
+          ) : null}
         </View>
       </CaptureStage>
 
@@ -532,22 +652,6 @@ export default function ScanScreen() {
           hitSlop={8}
         >
           <Ionicons name="chevron-back" size={22} color="#FFF" />
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [
-            styles.pinLink,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={() => router.push("/pin")}
-          hitSlop={8}
-        >
-          <Ionicons
-            name="keypad-outline"
-            size={14}
-            color="#FFF"
-            style={{ marginRight: Spacing[1] }}
-          />
-          <Text style={styles.pinLinkText}>PIN</Text>
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>
@@ -636,9 +740,13 @@ export default function ScanScreen() {
                       : "Pointage enregistré"
                     : verifyState === "error"
                       ? "Échec de la vérification"
-                      : "En attente d'un visage centré"}
+                      : stabilityProgress > 0
+                        ? "Stabilisation du visage..."
+                        : "En attente d'un visage centré"}
               </Text>
-              {verifyState === "verifying" || confidence != null ? (
+              {verifyState === "idle" && stabilityProgress > 0 ? (
+                <Text style={styles.progressValue}>{`${stabilityProgress}%`}</Text>
+              ) : verifyState === "verifying" || confidence != null ? (
                 <Text style={styles.progressValue}>
                   {`${progressPercent}%`}
                 </Text>
@@ -719,62 +827,16 @@ function CaptureStage({
         setStageSize({ width, height });
       }}
     >
-      {/* Dark scrim outside the oval cutout (4 rectangles). */}
       {stageSize ? (
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          {/* Top band */}
-          <View
-            style={[
-              styles.scrim,
-              {
-                top: 0,
-                left: 0,
-                right: 0,
-                height: ovalTop,
-                backgroundColor: overlayColor,
-              },
-            ]}
-          />
-          {/* Bottom band */}
-          <View
-            style={[
-              styles.scrim,
-              {
-                top: ovalTop + finalOvalHeight,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: overlayColor,
-              },
-            ]}
-          />
-          {/* Left band */}
-          <View
-            style={[
-              styles.scrim,
-              {
-                top: ovalTop,
-                left: 0,
-                width: ovalLeft,
-                height: finalOvalHeight,
-                backgroundColor: overlayColor,
-              },
-            ]}
-          />
-          {/* Right band */}
-          <View
-            style={[
-              styles.scrim,
-              {
-                top: ovalTop,
-                right: 0,
-                width: ovalLeft,
-                height: finalOvalHeight,
-                backgroundColor: overlayColor,
-              },
-            ]}
-          />
-        </View>
+        <OvalScrimOverlay
+          width={stageSize.width}
+          height={stageSize.height}
+          ovalX={ovalLeft}
+          ovalY={ovalTop}
+          ovalWidth={finalOvalWidth}
+          ovalHeight={finalOvalHeight}
+          color={overlayColor}
+        />
       ) : null}
 
       {stageSize ? (
@@ -872,9 +934,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontSize: 14,
   },
-  /** Capture stage sits between header and footer. It draws the dark scrim
-   * around the oval cutout. The oval's coordinates are reported upward via
-   * onLayout so face detection can validate centering. */
+  /** Capture stage sits between header and footer. SVG scrim with oval cutout. */
   captureStage: {
     position: "absolute",
     top: 0,
@@ -884,20 +944,30 @@ const styles = StyleSheet.create({
     paddingTop: HEADER_HEIGHT,
     paddingBottom: FOOTER_HEIGHT + SPACER,
   },
-  scrim: {
-    position: "absolute",
-  },
   /** Border of the oval (transparent inside). */
   ovalBorder: {
     flex: 1,
     borderRadius: 9999,
-    borderWidth: 4,
-    borderColor: colors.tealLight,
+    borderWidth: 16,
+    borderColor: colors.info,
     backgroundColor: "transparent",
   },
-  ovalBorderVerifying: { borderColor: colors.teal },
+  ovalBorderVerifying: { borderColor: colors.info },
   ovalBorderSuccess: { borderColor: colors.success },
   ovalBorderError: { borderColor: colors.error },
+  scanGifWrap: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: Spacing[1],
+    backgroundColor: "rgba(2, 6, 23, 0.25)",
+  },
+  scanGif: {
+    width: "100%",
+    height: "100%",
+    marginLeft: 12,
+    transform: [{ scale: 2 }],
+  },
   toastWrap: {
     position: "absolute",
     left: Spacing[4],

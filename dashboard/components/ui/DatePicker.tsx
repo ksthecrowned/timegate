@@ -1,16 +1,16 @@
 'use client'
 
+import { formatDisplayDate } from '@/lib/date-utils'
 import { useEffect, useRef, useState } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { fr } from 'react-day-picker/locale'
-import { formatDisplayDate } from '@/lib/date-utils'
 
 function stripTime(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
 const fieldClass =
-  'py-3 px-4 block w-full border border-gray-200 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400 dark:placeholder-neutral-500 dark:focus:ring-neutral-600 cursor-pointer'
+  'py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600 cursor-pointer'
 
 export interface DatePickerProps {
   value?: Date | null
@@ -101,7 +101,7 @@ export function DatePicker({
 
       {open && (
         <div
-          className="absolute z-[60] mt-1 p-3 bg-white border border-gray-200 rounded-xl shadow-lg dark:bg-neutral-900 dark:border-neutral-700"
+          className="absolute z-60 mt-1 p-3 bg-white border border-gray-200 rounded-xl shadow-lg dark:bg-neutral-900 dark:border-neutral-700"
           role="dialog"
         >
           <DayPicker

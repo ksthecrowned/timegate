@@ -1,10 +1,12 @@
 'use client'
 
+import { HintTooltip } from '@/components/ui/HintTooltip'
 import type { ReactNode } from 'react'
 
 export type FormTabItem = {
   id: string
   label: string
+  hint?: string
   content: ReactNode | (() => ReactNode)
 }
 
@@ -35,7 +37,7 @@ export default function FormTabs({ tabs, activeTab, onTabChange, flush = true }:
       <div
         className={
           flush
-            ? 'border-b border-gray-200 -mx-4 md:-mx-5 px-4 md:px-5 dark:border-neutral-700'
+            ? 'border-b border-slate-200/80 -mx-4 md:-mx-5 px-4 md:px-5 dark:border-border-dark'
             : 'border-b border-gray-200 dark:border-neutral-700'
         }
       >
@@ -49,7 +51,10 @@ export default function FormTabs({ tabs, activeTab, onTabChange, flush = true }:
               onClick={() => onTabChange(tab.id)}
               className={tabButtonClass(activeTab === tab.id)}
             >
-              {tab.label}
+              <span className="inline-flex items-center gap-1.5">
+                {tab.label}
+                {tab.hint ? <HintTooltip text={tab.hint} /> : null}
+              </span>
             </button>
           ))}
         </nav>

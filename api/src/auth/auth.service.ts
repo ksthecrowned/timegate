@@ -12,9 +12,11 @@ import {
   CheckinLogType,
   EmployeeStatus,
   KioskStatus,
+  Prisma,
   TimeGateAttendanceEventSource,
   TimeGateAttendanceEventStatus,
   TimeGateAttendanceEventType,
+  TimeGateAttendanceAuthMethod,
   TimeGateUserRole,
 } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
@@ -29,6 +31,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
+import { MobileVerifyNfcDto } from './dto/mobile-verify-nfc.dto';
+import { MobileVerifyQrDto } from './dto/mobile-verify-qr.dto';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
@@ -39,8 +43,14 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from './mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AttendanceEventStatusService } from '../attendance/attendance-event-status.service';
-import { resolveKioskEligibleEmployeeIds } from '../common/utils/kiosk-shift-rules.util';
+import { resolveAttendancePunch } from '../attendance/attendance-punch-resolver';
+import {
+  buildDayPunchStateFromEvents,
+  PunchWindowService,
+} from '../attendance/punch-window.service';
+import { dateToMinutes } from '../common/utils/punch-time.util';
 
 type MobileTokenPayload = {
   typ: 'mobile_device';
@@ -85,7 +95,9 @@ export class AuthService {
     private face: FaceEmbeddingService,
     private readonly storage: CloudflareR2Service,
     private readonly eventStatus: AttendanceEventStatusService,
+    private readonly punchWindows: PunchWindowService,
     private readonly mail: MailService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async login(dto: LoginDto) {
@@ -816,13 +828,76 @@ export class AuthService {
       { expiresIn: this.config.get<string>('MOBILE_LIFETIME_TOKEN_EXPIRES_IN') ?? '100y' },
     );
 
+    const deviceTokenHash = createHash('sha256').update(lifetime_token).digest('hex');
+    const updatedKiosk = await this.prisma.timeGateKiosk.update({
+      where: { id: kiosk.id },
+      data: { deviceToken: deviceTokenHash, status: KioskStatus.ONLINE, lastSeenAt: new Date() },
+      select: {
+        id: true,
+        kioskName: true,
+        branchId: true,
+        faceEnabled: true,
+        nfcEnabled: true,
+        qrEnabled: true,
+        companyId: true,
+      },
+    });
+
+    const pinSettings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId: updatedKiosk.companyId },
+      select: { pinFailureThreshold: true, pinFailureCooldownSeconds: true },
+    });
+
     return {
       lifetime_token,
       kiosk: {
-        id: kiosk.id,
-        name: kiosk.kioskName,
-        branchId: kiosk.branchId,
+        id: updatedKiosk.id,
+        name: updatedKiosk.kioskName,
+        branchId: updatedKiosk.branchId,
       },
+      features: this.buildKioskFeatures(updatedKiosk, pinSettings),
+    };
+  }
+
+  async getMobileConfig(token: string) {
+    const payload = await this.verifyMobileToken(token);
+    const kiosk = await this.prisma.timeGateKiosk.findUnique({
+      where: { id: payload.kioskId },
+      select: {
+        id: true,
+        faceEnabled: true,
+        nfcEnabled: true,
+        qrEnabled: true,
+        companyId: true,
+        status: true,
+        lastSeenAt: true,
+      },
+    });
+    if (!kiosk) throw new NotFoundException('Kiosk not found');
+
+    const pinSettings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId: kiosk.companyId },
+      select: { pinFailureThreshold: true, pinFailureCooldownSeconds: true },
+    });
+
+    return {
+      kioskId: kiosk.id,
+      status: kiosk.status,
+      lastSeenAt: kiosk.lastSeenAt,
+      features: this.buildKioskFeatures(kiosk, pinSettings),
+    };
+  }
+
+  private buildKioskFeatures(
+    kiosk: { faceEnabled: boolean; nfcEnabled: boolean; qrEnabled: boolean },
+    pinSettings: { pinFailureThreshold: number; pinFailureCooldownSeconds: number } | null,
+  ) {
+    return {
+      faceEnabled: kiosk.faceEnabled,
+      nfcEnabled: kiosk.nfcEnabled,
+      qrEnabled: kiosk.qrEnabled,
+      pinFailureThreshold: pinSettings?.pinFailureThreshold ?? 3,
+      pinFailureCooldownSeconds: pinSettings?.pinFailureCooldownSeconds ?? 30,
     };
   }
 
@@ -873,15 +948,12 @@ export class AuthService {
       const t = Number.isFinite(threshold) && threshold > 0 && threshold <= 1 ? threshold : 0.82;
       const probe = await this.face.embedFromBuffer(file.buffer);
 
-      const locationEmployeeIds = await resolveKioskEligibleEmployeeIds(this.prisma, kiosk);
+      // Pool tenant entier : reconnaissance cross-site → REVIEW_REQUIRED dans applyAttendanceFromVerification.
       const employees = await this.prisma.employee.findMany({
         where: {
           status: EmployeeStatus.ACTIVE,
           companyId: kiosk.companyId,
-          ...(kiosk.branchId ? { branchId: kiosk.branchId } : {}),
-          ...(locationEmployeeIds
-            ? { id: { in: locationEmployeeIds.length ? locationEmployeeIds : ['__none__'] } }
-            : {}),
+          faceEmbedding: { not: Prisma.DbNull },
         },
         select: {
           id: true,
@@ -893,7 +965,7 @@ export class AuthService {
         take: 500,
       });
       if (!employees.length) {
-        throw new BadRequestException('No enrolled employees available for this kiosk/branch');
+        throw new BadRequestException('No enrolled employees available for this organization');
       }
 
       let matched: MatchCandidate | null = null;
@@ -977,6 +1049,8 @@ export class AuthService {
           source: options?.offlineSync
             ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
             : TimeGateAttendanceEventSource.KIOSK_ONLINE,
+          occurredAt: options?.capturedAt ?? new Date(),
+          authMethod: TimeGateAttendanceAuthMethod.FACE,
         });
         birthdayMessage = await this.buildBirthdayMessage(matched.employeeId);
       }
@@ -1030,6 +1104,9 @@ export class AuthService {
     dto: MobileVerifyPinDto,
     options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
   ) {
+    if (options?.offlineSync) {
+      throw new BadRequestException('Le pointage PIN necessite une connexion en ligne');
+    }
     const payload = await this.verifyMobileToken(token);
     this.compactVerifyIdempotencyCache();
     const idempotencyKey = options?.idempotencyKey?.trim();
@@ -1052,17 +1129,11 @@ export class AuthService {
       data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
     });
 
-    const locationEmployeeIds = await resolveKioskEligibleEmployeeIds(this.prisma, kiosk);
-    if (locationEmployeeIds && !locationEmployeeIds.includes(dto.employeeId)) {
-      throw new BadRequestException('Employee not eligible for this kiosk');
-    }
-
     const employee = await this.prisma.employee.findFirst({
       where: {
         id: dto.employeeId,
         status: EmployeeStatus.ACTIVE,
         companyId: kiosk.companyId,
-        ...(kiosk.branchId ? { branchId: kiosk.branchId } : {}),
       },
       select: {
         id: true,
@@ -1110,6 +1181,8 @@ export class AuthService {
       source: options?.offlineSync
         ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
         : TimeGateAttendanceEventSource.KIOSK_ONLINE,
+      occurredAt: options?.capturedAt ?? new Date(),
+      authMethod: TimeGateAttendanceAuthMethod.PIN,
     });
     const birthdayMessage = await this.buildBirthdayMessage(employee.id);
     const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
@@ -1141,6 +1214,224 @@ export class AuthService {
     return response;
   }
 
+  async verifyMobileNfc(
+    token: string,
+    dto: MobileVerifyNfcDto,
+    options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
+  ) {
+    const badgeUid = this.normalizeNfcBadgeUid(dto.badgeUid);
+    if (badgeUid.length < 4) {
+      throw new BadRequestException('Identifiant de badge invalide');
+    }
+
+    const payload = await this.verifyMobileToken(token);
+    this.compactVerifyIdempotencyCache();
+    const idempotencyKey = options?.idempotencyKey?.trim();
+    const idempotencyCacheKey = idempotencyKey ? `${payload.kioskId}:nfc:${idempotencyKey}` : null;
+    if (idempotencyCacheKey) {
+      const cached = this.verifyIdempotencyCache.get(idempotencyCacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.response;
+      }
+    }
+
+    const kiosk = await this.prisma.timeGateKiosk.findUnique({
+      where: { id: payload.kioskId },
+      select: { id: true, companyId: true, branchId: true, nfcEnabled: true },
+    });
+    if (!kiosk) throw new NotFoundException('Kiosk not found');
+    if (!kiosk.nfcEnabled) {
+      throw new ForbiddenException('Pointage NFC desactive sur cette borne');
+    }
+
+    await this.prisma.timeGateKiosk.update({
+      where: { id: kiosk.id },
+      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+    });
+
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        status: EmployeeStatus.ACTIVE,
+        companyId: kiosk.companyId,
+        nfcBadgeUid: badgeUid,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeName: true,
+      },
+    });
+    if (!employee) {
+      throw new UnauthorizedException('Badge NFC non reconnu');
+    }
+
+    return this.finalizeCredentialVerification({
+      kiosk,
+      employee,
+      authMethod: TimeGateAttendanceAuthMethod.NFC,
+      logMessage: `NFC:${badgeUid}`,
+      idempotencyKey,
+      idempotencyCacheKey,
+      offlineSync: options?.offlineSync,
+      capturedAt: options?.capturedAt,
+    });
+  }
+
+  async verifyMobileQr(
+    token: string,
+    dto: MobileVerifyQrDto,
+    options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
+  ) {
+    const qrToken = this.parseQrPunchToken(dto.qrPayload);
+    if (!qrToken) {
+      throw new BadRequestException('QR code invalide');
+    }
+    const tokenHash = this.hashQrPunchToken(qrToken);
+
+    const payload = await this.verifyMobileToken(token);
+    this.compactVerifyIdempotencyCache();
+    const idempotencyKey = options?.idempotencyKey?.trim();
+    const idempotencyCacheKey = idempotencyKey ? `${payload.kioskId}:qr:${idempotencyKey}` : null;
+    if (idempotencyCacheKey) {
+      const cached = this.verifyIdempotencyCache.get(idempotencyCacheKey);
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.response;
+      }
+    }
+
+    const kiosk = await this.prisma.timeGateKiosk.findUnique({
+      where: { id: payload.kioskId },
+      select: { id: true, companyId: true, branchId: true, qrEnabled: true },
+    });
+    if (!kiosk) throw new NotFoundException('Kiosk not found');
+    if (!kiosk.qrEnabled) {
+      throw new ForbiddenException('Pointage QR desactive sur cette borne');
+    }
+
+    await this.prisma.timeGateKiosk.update({
+      where: { id: kiosk.id },
+      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+    });
+
+    const employee = await this.prisma.employee.findFirst({
+      where: {
+        status: EmployeeStatus.ACTIVE,
+        companyId: kiosk.companyId,
+        qrPunchTokenHash: tokenHash,
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        employeeName: true,
+      },
+    });
+    if (!employee) {
+      throw new UnauthorizedException('QR code non reconnu');
+    }
+
+    return this.finalizeCredentialVerification({
+      kiosk,
+      employee,
+      authMethod: TimeGateAttendanceAuthMethod.QR,
+      logMessage: 'QR punch',
+      idempotencyKey,
+      idempotencyCacheKey,
+      offlineSync: options?.offlineSync,
+      capturedAt: options?.capturedAt,
+    });
+  }
+
+  private normalizeNfcBadgeUid(raw: string): string {
+    return raw.replace(/[\s:-]/g, '').toUpperCase();
+  }
+
+  private parseQrPunchToken(raw: string): string | null {
+    const trimmed = raw.trim();
+    const prefixed = /^TGQR:v1:(.+)$/i.exec(trimmed);
+    if (prefixed) return prefixed[1].trim();
+    if (/^[A-Za-z0-9_-]{16,128}$/.test(trimmed)) return trimmed;
+    return null;
+  }
+
+  private hashQrPunchToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async finalizeCredentialVerification(params: {
+    kiosk: { id: string; companyId: string; branchId: string };
+    employee: { id: string; firstName: string | null; lastName: string | null; employeeName: string };
+    authMethod: TimeGateAttendanceAuthMethod;
+    logMessage: string;
+    idempotencyKey?: string;
+    idempotencyCacheKey: string | null;
+    offlineSync?: boolean;
+    capturedAt?: Date;
+  }): Promise<VerifyMobileResult> {
+    const firstName = params.employee.firstName ?? params.employee.employeeName;
+    const lastName = params.employee.lastName ?? '';
+    const log = await this.prisma.faceRecognitionLog.create({
+      data: {
+        id: generateDocId('FRL'),
+        kioskId: params.kiosk.id,
+        branchId: params.kiosk.branchId,
+        companyId: params.kiosk.companyId,
+        employeeId: params.employee.id,
+        employeeName: `${firstName} ${lastName}`.trim(),
+        success: true,
+        confidence: 1,
+        message: params.logMessage,
+        isOfflineSync: Boolean(params.offlineSync),
+        capturedAt: params.capturedAt,
+        idempotencyKey: params.idempotencyKey ?? undefined,
+      },
+      select: { id: true, success: true, confidence: true, photo: true, createdAt: true },
+    });
+
+    const attendanceMessage = await this.applyAttendanceFromVerification({
+      employeeId: params.employee.id,
+      kioskId: params.kiosk.id,
+      branchId: params.kiosk.branchId,
+      companyId: params.kiosk.companyId,
+      confidence: 1,
+      verificationRef: log.id,
+      source: params.offlineSync
+        ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
+        : TimeGateAttendanceEventSource.KIOSK_ONLINE,
+      occurredAt: params.capturedAt ?? new Date(),
+      authMethod: params.authMethod,
+    });
+    const birthdayMessage = await this.buildBirthdayMessage(params.employee.id);
+    const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
+      .filter(Boolean)
+      .join(' | ');
+
+    const response: VerifyMobileResult = {
+      success: true,
+      confidence: 1,
+      message,
+      offlineSync: Boolean(params.offlineSync),
+      capturedAt: params.capturedAt?.toISOString() ?? null,
+      employee: { id: params.employee.id, firstName, lastName },
+      log: {
+        id: log.id,
+        success: log.success,
+        confidence: log.confidence ? Number(log.confidence) : 1,
+        imageUrl: log.photo,
+        createdAt: log.createdAt,
+      },
+    };
+
+    if (params.idempotencyCacheKey) {
+      this.verifyIdempotencyCache.set(params.idempotencyCacheKey, {
+        response,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+    }
+    return response;
+  }
+
   private compactVerifyIdempotencyCache() {
     const now = Date.now();
     for (const [key, value] of this.verifyIdempotencyCache.entries()) {
@@ -1158,6 +1449,8 @@ export class AuthService {
     confidence: number;
     verificationRef?: string;
     source?: TimeGateAttendanceEventSource;
+    occurredAt?: Date;
+    authMethod?: TimeGateAttendanceAuthMethod;
   }): Promise<string> {
     const employee = await this.prisma.employee.findUnique({
       where: { id: params.employeeId },
@@ -1170,10 +1463,207 @@ export class AuthService {
       return "Employe sans site d'affectation. Pointage non enregistre.";
     }
 
-    const now = new Date();
-    const dayStart = new Date(now);
+    const occurredAt = params.occurredAt ?? new Date();
+    const windows = await this.punchWindows.resolveForEmployee(params.employeeId, occurredAt);
+    if (!windows) {
+      return this.applyLegacyAttendanceFromVerification(params, occurredAt, employee.branchId);
+    }
+
+    const dayStart = new Date(occurredAt);
     dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(now);
+    const dayEnd = new Date(occurredAt);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
+      where: {
+        employeeId: params.employeeId,
+        status: TimeGateAttendanceEventStatus.ACCEPTED,
+        occurredAt: { gte: dayStart, lte: dayEnd },
+      },
+      orderBy: { occurredAt: 'asc' },
+      select: { type: true, occurredAt: true },
+    });
+
+    const state = buildDayPunchStateFromEvents(todaysEvents);
+    const resolution = resolveAttendancePunch(
+      dateToMinutes(occurredAt),
+      windows,
+      state,
+    );
+
+    if (resolution.action === 'REJECTED' || resolution.action === 'NONE') {
+      return resolution.message;
+    }
+
+    const wrongSite = employee.branchId !== params.branchId;
+    const messages: string[] = [];
+
+    if (
+      resolution.action === 'CHECK_OUT' &&
+      resolution.inferBreakEnd &&
+      windows.breakEndMin != null
+    ) {
+      const breakEndAt = new Date(occurredAt);
+      breakEndAt.setHours(Math.floor(windows.breakEndMin / 60), windows.breakEndMin % 60, 0, 0);
+      const breakMsg = await this.recordPunchEvent({
+        ...params,
+        occurredAt: breakEndAt,
+        eventType: TimeGateAttendanceEventType.BREAK_END,
+        employeeBranchId: employee.branchId,
+        wrongSite,
+        idempotencySuffix: 'break_end_inferred',
+      });
+      messages.push(breakMsg);
+    }
+
+    const mainMsg = await this.recordPunchEvent({
+      ...params,
+      occurredAt,
+      eventType:
+        resolution.action === 'CHECK_IN'
+          ? TimeGateAttendanceEventType.CHECK_IN
+          : resolution.action === 'BREAK_END'
+            ? TimeGateAttendanceEventType.BREAK_END
+            : TimeGateAttendanceEventType.CHECK_OUT,
+      employeeBranchId: employee.branchId,
+      wrongSite,
+      lateAbsent: resolution.action === 'CHECK_IN' ? resolution.lateAbsent : undefined,
+      idempotencySuffix: resolution.action.toLowerCase(),
+    });
+    messages.push(mainMsg);
+
+    return messages.filter(Boolean).join(' ');
+  }
+
+  private async recordPunchEvent(params: {
+    employeeId: string;
+    kioskId: string;
+    branchId: string;
+    companyId: string;
+    confidence: number;
+    verificationRef?: string;
+    source?: TimeGateAttendanceEventSource;
+    occurredAt: Date;
+    eventType: TimeGateAttendanceEventType;
+    employeeBranchId: string;
+    wrongSite: boolean;
+    lateAbsent?: boolean;
+    idempotencySuffix: string;
+    authMethod?: TimeGateAttendanceAuthMethod;
+  }): Promise<string> {
+    let { status, autoReviewReason } = await this.eventStatus.resolveForCompany(
+      params.companyId,
+      params.confidence,
+    );
+
+    if (params.wrongSite) {
+      status = TimeGateAttendanceEventStatus.REVIEW_REQUIRED;
+      autoReviewReason = 'KIOSK_OTHER_SITE';
+    } else if (params.lateAbsent) {
+      status = TimeGateAttendanceEventStatus.REVIEW_REQUIRED;
+      autoReviewReason = 'LATE_CHECKIN';
+    }
+
+    const pendingMeta = this.eventStatus.buildPendingMeta({ status, autoReviewReason });
+    const meta =
+      pendingMeta ??
+      (params.lateAbsent
+        ? ({ lateAbsent: true } as object)
+        : undefined);
+
+    const event = await this.prisma.timeGateAttendanceEvent.create({
+      data: {
+        id: generateDocId('AEV'),
+        companyId: params.companyId,
+        branchId: params.branchId,
+        kioskId: params.kioskId,
+        employeeId: params.employeeId,
+        source: params.source ?? TimeGateAttendanceEventSource.KIOSK_ONLINE,
+        type: params.eventType,
+        status,
+        occurredAt: params.occurredAt,
+        confidence: params.confidence,
+        verificationRef: params.verificationRef,
+        idempotencyKey: params.verificationRef
+          ? `verify:${params.verificationRef}:attendance:${params.idempotencySuffix}`
+          : undefined,
+        authMethod: params.authMethod,
+        meta,
+      },
+    });
+
+    try {
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: params.employeeId },
+        select: { firstName: true, lastName: true, employeeName: true },
+      });
+      const employeeName =
+        `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() ||
+        employee?.employeeName ||
+        'Employé';
+      await this.notifications.notifyPunchEvent({
+        companyId: params.companyId,
+        branchId: params.branchId,
+        employeeId: params.employeeId,
+        employeeName,
+        eventType: params.eventType,
+        occurredAt: params.occurredAt,
+        reviewRequired: status === TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
+        lateAbsent: params.lateAbsent,
+        reviewReason: this.describeReviewReason(autoReviewReason, params.wrongSite),
+      });
+    } catch (err) {
+      this.logger.warn(`Punch notification failed: ${err instanceof Error ? err.message : err}`);
+    }
+
+    const defaultMessage =
+      params.eventType === TimeGateAttendanceEventType.CHECK_IN
+        ? "Pointage d'arrivee enregistre."
+        : params.eventType === TimeGateAttendanceEventType.BREAK_END
+          ? 'Reprise de pause enregistree.'
+          : 'Pointage de fin enregistre.';
+
+    if (status === TimeGateAttendanceEventStatus.ACCEPTED) {
+      await this.eventStatus.materializeAcceptedEvent(event);
+      return defaultMessage;
+    }
+
+    return `${defaultMessage} En attente de validation manager.`;
+  }
+
+  private describeReviewReason(
+    autoReviewReason: string | undefined,
+    wrongSite: boolean,
+  ): string {
+    if (wrongSite || autoReviewReason === 'KIOSK_OTHER_SITE') {
+      return 'Pointage sur un autre site';
+    }
+    if (autoReviewReason === 'LATE_CHECKIN') {
+      return 'Arrivée en retard';
+    }
+    if (autoReviewReason === 'LOW_CONFIDENCE') {
+      return 'Confiance faciale insuffisante';
+    }
+    return 'Validation requise';
+  }
+
+  private async applyLegacyAttendanceFromVerification(
+    params: {
+      employeeId: string;
+      kioskId: string;
+      branchId: string;
+      companyId: string;
+      confidence: number;
+      verificationRef?: string;
+      source?: TimeGateAttendanceEventSource;
+      authMethod?: TimeGateAttendanceAuthMethod;
+    },
+    occurredAt: Date,
+    employeeBranchId: string,
+  ): Promise<string> {
+    const dayStart = new Date(occurredAt);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(occurredAt);
     dayEnd.setHours(23, 59, 59, 999);
 
     const todaysCheckins = await this.prisma.employeeCheckin.findMany({
@@ -1194,38 +1684,14 @@ export class AuthService {
         ? TimeGateAttendanceEventType.CHECK_IN
         : TimeGateAttendanceEventType.CHECK_OUT;
 
-    const { status, autoReviewReason } = await this.eventStatus.resolveForCompany(
-      params.companyId,
-      params.confidence,
-    );
-    const pendingMeta = this.eventStatus.buildPendingMeta({ status, autoReviewReason });
-
-    const event = await this.prisma.timeGateAttendanceEvent.create({
-      data: {
-        id: generateDocId('AEV'),
-        companyId: params.companyId,
-        branchId: params.branchId,
-        kioskId: params.kioskId,
-        employeeId: params.employeeId,
-        source: params.source ?? TimeGateAttendanceEventSource.KIOSK_ONLINE,
-        type: eventType,
-        status,
-        occurredAt: now,
-        confidence: params.confidence,
-        verificationRef: params.verificationRef,
-        idempotencyKey: params.verificationRef
-          ? `verify:${params.verificationRef}:attendance:${decision.kind}`
-          : undefined,
-        meta: pendingMeta,
-      },
+    return this.recordPunchEvent({
+      ...params,
+      occurredAt,
+      eventType,
+      employeeBranchId,
+      wrongSite: employeeBranchId !== params.branchId,
+      idempotencySuffix: decision.kind.toLowerCase(),
     });
-
-    if (status === TimeGateAttendanceEventStatus.ACCEPTED) {
-      await this.eventStatus.materializeAcceptedEvent(event);
-      return decision.message;
-    }
-
-    return `${decision.message} En attente de validation manager (confiance ${params.confidence.toFixed(2)}).`;
   }
 
   private decideAttendance(params: { hasCheckIn: boolean; hasCheckOut: boolean }): AttendanceDecision {
@@ -1283,8 +1749,26 @@ export class AuthService {
       if (payload?.typ !== 'mobile_device' || !payload.kioskId) {
         throw new UnauthorizedException('Invalid mobile token');
       }
+
+      const kiosk = await this.prisma.timeGateKiosk.findUnique({
+        where: { id: payload.kioskId },
+        select: { deviceToken: true, isActive: true },
+      });
+      if (!kiosk?.isActive) {
+        throw new UnauthorizedException('Kiosk inactive or not found');
+      }
+      if (kiosk.deviceToken) {
+        const hash = createHash('sha256').update(token).digest('hex');
+        if (kiosk.deviceToken !== hash) {
+          throw new UnauthorizedException(
+            'This kiosk is bound to another device. Reconfigure from the admin app.',
+          );
+        }
+      }
+
       return payload;
-    } catch {
+    } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Invalid mobile token');
     }
   }

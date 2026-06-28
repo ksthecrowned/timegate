@@ -96,7 +96,7 @@ export function PrimaryButton({
 
 const styles = StyleSheet.create({
   wrap: {
-    borderRadius: Radius.pill,
+    borderRadius: Radius.lg,
     overflow: "hidden",
   },
   gradient: {

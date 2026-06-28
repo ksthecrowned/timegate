@@ -30,6 +30,9 @@ export default function KioskForm({
     name: initial?.name ?? '',
     branchId: initial?.branchId ?? '',
     isActive: initial?.isActive ?? true,
+    faceEnabled: initial?.faceEnabled ?? true,
+    nfcEnabled: initial?.nfcEnabled ?? false,
+    qrEnabled: initial?.qrEnabled ?? false,
   })
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
   const [loading, setLoading] = useState(false)
@@ -49,6 +52,9 @@ export default function KioskForm({
       const payload: KioskUpdatePayload = {
         name: form.name.trim(),
         branchId: form.branchId,
+        faceEnabled: form.faceEnabled,
+        nfcEnabled: form.nfcEnabled,
+        qrEnabled: form.qrEnabled,
         ...(showActiveToggle ? { isActive: form.isActive } : {}),
       }
       await onSubmit(payload)
@@ -103,6 +109,25 @@ export default function KioskForm({
               />
             </FormField>
           )}
+          <FormField label="Méthodes de pointage">
+            <div className="flex flex-col gap-2 pt-1">
+              <SwitcherField
+                label="Reconnaissance faciale"
+                checked={form.faceEnabled ?? true}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, faceEnabled: checked }))}
+              />
+              <SwitcherField
+                label="Badge NFC"
+                checked={form.nfcEnabled ?? false}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, nfcEnabled: checked }))}
+              />
+              <SwitcherField
+                label="QR-code"
+                checked={form.qrEnabled ?? false}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, qrEnabled: checked }))}
+              />
+            </div>
+          </FormField>
         </div>
       </FormCard>
     </form>

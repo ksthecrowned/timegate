@@ -4,6 +4,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { OrganizationProvider } from '@/components/providers/OrganizationProvider'
 import { ToastProvider } from '@/components/ui/Toast'
+import WebPushSetup from '@/components/layout/WebPushSetup'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 
@@ -19,6 +20,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <AuthProvider>
       <OrganizationProvider>
       <ToastProvider>
+        <WebPushSetup />
         <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
           <Sidebar />
           <Navbar />

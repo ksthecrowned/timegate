@@ -1,0 +1,735 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TimeGate — Présentation JIBC 2026</title>
+    <link rel="stylesheet" href="presentation.css" />
+  </head>
+  <body>
+    <p class="export-hint">
+      <strong>Export PDF :</strong> Ouvrir ce fichier dans Chrome ou Edge →
+      <kbd>Ctrl</kbd>+<kbd>P</kbd> → Destination « Enregistrer au format PDF » →
+      Format <strong>Paysage</strong> → Marges <strong>Aucune</strong> → cocher
+      <strong>Graphiques d'arrière-plan</strong>
+    </p>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 1 — COUVERTURE
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page page--cover" aria-label="Couverture">
+      <div class="cover__glow cover__glow--1"></div>
+      <div class="cover__glow cover__glow--2"></div>
+      <div class="cover__grid" aria-hidden="true"></div>
+      <div class="page__inner">
+        <img
+          class="cover__logo"
+          src="../../dashboard/public/images/logos/timegate-logo-full-white.png"
+          alt="TimeGate"
+          width="220"
+          height="auto"
+        />
+        <p class="cover__badge">JIBC 2026 · Innovation · Bassin du Congo</p>
+        <h1 class="cover__title">TimeGate</h1>
+        <p class="cover__tagline">
+          Le pointage intelligent au service du travail digne, pensé pour le
+          terrain local.
+        </p>
+        <p class="cover__subtitle">
+          Plateforme de pointage &amp; gestion RH pour PME et organisations
+          multi-sites
+        </p>
+        <div class="cover__features">
+          <!-- <span>Pointage intelligent multi-méthodes</span> -->
+          <span>Biométrie assistée</span>
+          <span>QR code</span>
+          <span>NFC</span>
+          <span>Tableau de bord temps réel</span>
+        </div>
+        <div class="cover__event">
+          <p class="cover__event-title">JIBC 2026</p>
+          <p class="cover__event-sub">
+            Journée de l'Innovation du Bassin du Congo
+          </p>
+          <p class="cover__contact">
+            <strong>Styve Maba</strong> · Freelance<br />
+            kaiserstyve2@gmail.com · +242 06 515 23 74
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 2 — LE PROBLÈME
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page" aria-label="Le problème">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <img
+              class="page-header__icon"
+              src="../../dashboard/public/images/logos/timegate-icon-color.png"
+              alt=""
+            />
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">JIBC 2026</span>
+        </header>
+
+        <h2 class="page-title page-title--accent">
+          Le défi : une gestion de présence peu fiable et coûteuse
+        </h2>
+
+        <div class="page-main page-main--problem">
+          <div class="split split--60-40 split--stretch">
+            <div class="split__col">
+              <p class="lead">
+                Sur le marché local, des milliers d'organisations — PME,
+                industries, ONG, administrations — peinent encore à suivre la
+                présence de leurs équipes de manière <strong>fiable</strong>,
+                <strong>traçable</strong> et <strong>économique</strong>.
+              </p>
+
+              <table class="problem-table">
+                <thead>
+                  <tr>
+                    <th>Problème terrain</th>
+                    <th>Conséquence pour l'organisation</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Registres papier &amp; badges partagés</td>
+                    <td>Fraude au pointage, litiges salariaux</td>
+                  </tr>
+                  <tr>
+                    <td>Systèmes importés coûteux</td>
+                    <td>Peu adaptés au terrain, déploiement lent</td>
+                  </tr>
+                  <tr>
+                    <td>Saisie manuelle RH</td>
+                    <td>Erreurs de paie, retards de traitement</td>
+                  </tr>
+                  <tr>
+                    <td>Sites dispersés</td>
+                    <td>Aucune vision consolidée pour la direction</td>
+                  </tr>
+                  <tr>
+                    <td>Connectivité irrégulière</td>
+                    <td>Solutions 100 % cloud inutilisables</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              <div class="callout">
+                <strong>Résultat :</strong> perte de productivité, tensions
+                sociales, données RH peu exploitables pour le développement
+                économique local.
+              </div>
+            </div>
+
+            <aside class="visual-panel" aria-label="Constats terrain">
+              <p class="visual-panel__title">
+                Ce que nous observons sur le terrain
+              </p>
+              <div class="pain-card">
+                <div class="pain-card__icon">📋</div>
+                <div>
+                  <strong>Pointage manuel</strong>
+                  <span>Registres falsifiables, aucune trace numérique</span>
+                </div>
+              </div>
+              <div class="pain-card">
+                <div class="pain-card__icon pain-card__icon--amber">💸</div>
+                <div>
+                  <strong>Coût &amp; complexité</strong>
+                  <span>Équipements importés inadaptés aux PME locales</span>
+                </div>
+              </div>
+              <div class="pain-card">
+                <div class="pain-card__icon pain-card__icon--blue">📡</div>
+                <div>
+                  <strong>Réseau instable</strong>
+                  <span
+                    >Les solutions 100 % en ligne échouent sur le terrain</span
+                  >
+                </div>
+              </div>
+              <div class="pain-card">
+                <div class="pain-card__icon">🏢</div>
+                <div>
+                  <strong>Multi-sites</strong>
+                  <span>Direction sans visibilité unifiée sur les équipes</span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <p class="problem-audience">
+            <strong>Organisations concernées :</strong>
+            PME · Industries · Organisations multi-sites · Mines &amp;
+            logistique · Agro-industrie · ONG
+          </p>
+        </div>
+
+        <footer class="page-footer">
+          <span>TimeGate · Présentation JIBC 2026</span>
+          <span class="page-footer__num">2 / 6</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 3 — LA SOLUTION
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page" aria-label="La solution">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <img
+              class="page-header__icon"
+              src="../../dashboard/public/images/logos/timegate-icon-color.png"
+              alt=""
+            />
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">JIBC 2026</span>
+        </header>
+
+        <h2 class="page-title page-title--accent">
+          TimeGate : du kiosk mobile au tableau de bord RH
+        </h2>
+        <p class="page-subtitle">
+          Plateforme modulaire — déploiement rapide · smartphone, tablette ou
+          TPE
+        </p>
+
+        <div class="page-main page-main--solution">
+          <div
+            class="arch"
+            role="img"
+            aria-label="Schéma architecture TimeGate"
+          >
+            <div class="arch__node arch__node--primary">
+              <div class="arch__node-title">KIOSK APP</div>
+              <div class="arch__node-sub">
+                Tablette / smartphone<br />Visage · QR · NFC
+              </div>
+            </div>
+            <div class="arch__arrow" aria-hidden="true"></div>
+            <div class="arch__branch">
+              <div class="arch__node arch__node--primary">
+                <div class="arch__node-title">API TimeGate</div>
+                <div class="arch__node-sub">
+                  NestJS · PostgreSQL<br />Vérification &amp; RH
+                </div>
+              </div>
+              <div class="arch__stem arch__stem--down" aria-hidden="true"></div>
+              <div class="arch__node">
+                <div class="arch__node-title">APP EMPLOYÉ</div>
+                <div class="arch__node-sub">
+                  Congés · Pointages<br />Notifications
+                </div>
+              </div>
+            </div>
+            <div class="arch__arrow" aria-hidden="true"></div>
+            <div class="arch__node arch__node--dashboard">
+              <div class="arch__node-title">DASHBOARD RH</div>
+              <div class="arch__node-sub">
+                Présences · Retards<br />Paie · Congés
+              </div>
+            </div>
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <div class="step__num">1</div>
+              Présentation au kiosk
+            </div>
+            <div class="step">
+              <div class="step__num">2</div>
+              Identification (visage, QR, NFC)
+            </div>
+            <div class="step">
+              <div class="step__num">3</div>
+              Enregistrement serveur
+            </div>
+            <div class="step">
+              <div class="step__num">4</div>
+              Suivi manager temps réel
+            </div>
+            <div class="step">
+              <div class="step__num">5</div>
+              Timesheets &amp; paie
+            </div>
+          </div>
+
+          <div class="strengths">
+            <div class="strength">
+              <strong>Sans matériel lourd</strong>
+              Un téléphone suffit ; TPE sur commande
+            </div>
+            <div class="strength">
+              <strong>Multi-méthodes</strong>
+              Visage, QR ou NFC selon le terrain
+            </div>
+            <div class="strength">
+              <strong>Multi-sites</strong>
+              Une vue RH pour toutes les branches
+            </div>
+            <div class="strength">
+              <strong>Conçu pour l'Afrique</strong>
+              Offline-first · SaaS accessible
+            </div>
+          </div>
+        </div>
+
+        <footer class="page-footer">
+          <span>TimeGate · Présentation JIBC 2026</span>
+          <span class="page-footer__num">3 / 6</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 4 — APERÇU PLATEFORME
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page" aria-label="Aperçu plateforme">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <img
+              class="page-header__icon"
+              src="../../dashboard/public/images/logos/timegate-icon-color.png"
+              alt=""
+            />
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">JIBC 2026</span>
+        </header>
+
+        <h2 class="page-title page-title--accent">Aperçu de la plateforme</h2>
+
+        <div class="page-main">
+          <div class="shots">
+            <figure class="shot">
+              <div class="shot__frame">
+                <!-- Remplacer le placeholder par : <img src="assets/screenshot-kiosk.png" alt="Kiosk"> -->
+                <!-- <div class="shot__placeholder">
+                  <span class="shot__placeholder-icon">📱</span>
+                  <span>assets/screenshot-kiosk.png</span>
+                </div> -->
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-kiosk.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-kiosk.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-kiosk.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-kiosk.png"
+                  alt="Écran kiosk"
+                />
+              </div>
+              <!-- <figcaption class="shot__caption">
+                Kiosk mobile
+                <span>Pointage en un geste</span>
+              </figcaption> -->
+            </figure>
+
+            <figure class="shot">
+              <div class="shot__frame">
+                <!-- <div class="shot__placeholder">
+                  <span class="shot__placeholder-icon">📊</span>
+                  <span>assets/screenshot-dashboard.png</span>
+                </div> -->
+                <img src="assets/screenshot-dashboard.png" alt="Dashboard RH" />
+              </div>
+              <!-- <figcaption class="shot__caption">
+                Dashboard RH
+                <span>Suivi temps réel</span>
+              </figcaption> -->
+            </figure>
+
+            <figure class="shot">
+              <div class="shot__frame">
+                <!-- <div class="shot__placeholder">
+                  <span class="shot__placeholder-icon">👤</span>
+                  <span>assets/screenshot-employee-app.png</span>
+                </div> -->
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-employee-app-2.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-employee-app.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-employee-app-2.png"
+                  alt="Écran kiosk"
+                />
+                <img
+                  style="width: auto; height: 100%; display: inline-block"
+                  src="assets/screenshot-employee-app.png"
+                  alt="Écran kiosk"
+                />
+              </div>
+              <!-- <figcaption class="shot__caption">
+                Espace employé
+                <span>Transparence &amp; congés</span>
+              </figcaption> -->
+            </figure>
+
+            <figure class="shot">
+              <div class="shot__frame">
+                <!-- <div class="shot__placeholder">
+                  <span class="shot__placeholder-icon">👥</span>
+                  <span>assets/screenshot-rh.png</span>
+                </div> -->
+                <img src="assets/screenshot-rh.png" alt="Jours de présence" />
+              </div>
+              <!-- <figcaption class="shot__caption">
+                Gestion des équipes
+                <span>Multi-sites &amp; plannings</span>
+              </figcaption> -->
+            </figure>
+          </div>
+
+          <div class="tech-bar">
+            <span
+              ><strong>Stack</strong> NestJS · PostgreSQL · Next.js · Expo ·
+              Moteur facial Python</span
+            >
+            <span
+              ><strong>Sécurité</strong> Auth multi-rôles · Logs d'audit ·
+              Hébergement sécurisé</span
+            >
+          </div>
+        </div>
+
+        <footer class="page-footer">
+          <span>TimeGate · Présentation JIBC 2026</span>
+          <span class="page-footer__num">4 / 6</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 5 — IMPACT & MARCHÉ
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page" aria-label="Impact et marché">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <img
+              class="page-header__icon"
+              src="../../dashboard/public/images/logos/timegate-icon-color.png"
+              alt=""
+            />
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">JIBC 2026</span>
+        </header>
+
+        <h2 class="page-title page-title--accent">
+          Impact attendu &amp; opportunités sur le marché local
+        </h2>
+
+        <div class="stage-banner">
+          <!-- <span class="stage-badge">Pré-commercialisation</span> -->
+          <span class="stage-banner__text"
+            >TimeGate contribue à la souveraineté numérique du Bassin du Congo
+            en proposant une solution développée localement, adaptée aux
+            réalités opérationnelles des entreprises et administrations de la
+            région.</span
+          >
+        </div>
+
+        <div class="page-main page-main--impact">
+          <div class="split split--60-40 split--stretch">
+            <div class="split__col">
+              <div class="impact-grid">
+                <div class="impact-card">
+                  <strong>Économique</strong>
+                  Moins de fraude &amp; erreurs de paie ; gain de temps RH
+                </div>
+                <div class="impact-card">
+                  <strong>Social</strong>
+                  Transparence employeur-employé ; formalisation
+                </div>
+                <div class="impact-card">
+                  <strong>Technologique</strong>
+                  Innovation locale ; souveraineté numérique
+                </div>
+                <div class="impact-card">
+                  <strong>Environnemental</strong>
+                  Fin des registres papier à grande échelle
+                </div>
+                <div class="impact-card">
+                  <strong>Institutionnel</strong>
+                  Données fiables pour politiques emploi
+                </div>
+                <div class="impact-card">
+                  <strong>Opérationnel</strong>
+                  Visibilité temps réel multi-sites ; pilotage RH simplifié
+                </div>
+              </div>
+
+              <p class="section-label">Cibles prioritaires</p>
+              <div class="targets">
+                <span class="target-pill"
+                  >PME et entreprises en croissance</span
+                >
+                <span class="target-pill">Industries, mines et logistique</span>
+                <span class="target-pill"
+                  >Agro-industrie et coopératives agricoles</span
+                >
+                <span class="target-pill"
+                  >ONG et organisations multi-bureaux</span
+                >
+                <span class="target-pill"
+                  >Administrations publiques et établissements publics</span
+                >
+              </div>
+
+              <!-- <div class="biz-model">
+                <div class="biz-card">
+                  <strong>SaaS accessible</strong>
+                  Essai gratuit · clés d'activations 3 / 12 mois
+                </div>
+                <div class="biz-card">
+                  <strong>Déploiement rapide</strong>
+                  1 smartphone = 1 kiosk
+                </div>
+                <div class="biz-card">
+                  <strong>Écosystème local</strong>
+                  Intégrateurs RH &amp; appui PME
+                </div>
+              </div> -->
+            </div>
+
+            <aside class="market-visual">
+              <h3>Pourquoi maintenant ?</h3>
+              <ul>
+                <li>Digitalisation accélérée des PME locales</li>
+                <li>Exigence de traçabilité sur sites éloignés</li>
+                <li>Formalisation de l'emploi &amp; conformité sociale</li>
+                <li>Écosystème innovation (JIBC, incubateurs, appui public)</li>
+                <li>Modèle SaaS prêt pour extension régionale</li>
+              </ul>
+              <div class="market-visual__cta">
+                <strong>Objectif 2026</strong>
+                2–3 pilotes terrain pour valider adoption et modèle économique
+              </div>
+            </aside>
+          </div>
+        </div>
+
+        <footer class="page-footer">
+          <span>TimeGate · Présentation JIBC 2026</span>
+          <span class="page-footer__num">5 / 6</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         PAGE 6 — ROADMAP & CONTACT
+         ═══════════════════════════════════════════════════════════ -->
+    <section class="page" aria-label="Roadmap et contact">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <img
+              class="page-header__icon"
+              src="../../dashboard/public/images/logos/timegate-icon-color.png"
+              alt=""
+            />
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">JIBC 2026</span>
+        </header>
+
+        <h2 class="page-title page-title--accent">
+          Où en sommes-nous ? &amp; prochaines étapes
+        </h2>
+
+        <div class="page-main page-main--roadmap">
+          <div class="timeline" aria-label="Stade de développement">
+            <div class="timeline__item timeline__item--done">
+              <div class="timeline__dot"></div>
+              <span class="timeline__label">Idée</span>
+            </div>
+            <div class="timeline__item timeline__item--done">
+              <div class="timeline__dot"></div>
+              <span class="timeline__label">Prototype</span>
+              API · kiosk · dashboard
+            </div>
+            <div class="timeline__item timeline__item--active">
+              <div class="timeline__dot"></div>
+              <span class="timeline__label">Pré-commercialisation</span>
+              <span class="timeline__here">Stade actuel</span>
+            </div>
+            <div class="timeline__item">
+              <div class="timeline__dot"></div>
+              <span class="timeline__label">Pilotes terrain</span>
+              2–3 organisations
+            </div>
+            <div class="timeline__item">
+              <div class="timeline__dot"></div>
+              <span class="timeline__label">Croissance</span>
+              Local &amp; régional
+            </div>
+          </div>
+
+          <div class="split split--roadmap">
+            <div class="split__col">
+              <p class="lead">
+                <strong>Aujourd'hui — Pré-commercialisation.</strong>
+                Produit fonctionnel en validation ; prochaine étape : pilotes
+                payants sur le terrain.
+              </p>
+              <ul class="checklist">
+                <li class="done">
+                  Application kiosk (biométrie assistée, sync offline)
+                </li>
+                <li class="done">Dashboard admin &amp; espace employé</li>
+                <li class="done">
+                  Plannings &amp; horaires (shifts, affectations, jours fériés)
+                </li>
+                <li class="done">
+                  Timesheets journaliers &amp; suivi retards / absences
+                </li>
+                <li class="done">
+                  Multi-sites — branches, départements, rôles RH
+                </li>
+                <li class="done">
+                  Traçabilité — événements pointage &amp; logs biométriques
+                </li>
+                <li class="wip">QR code, NFC, notifications push — en cours</li>
+                <li class="wip">Modèle SaaS multi-organisations — en cours</li>
+              </ul>
+
+              <!-- <table class="roadmap-table">
+                <thead>
+                  <tr>
+                    <th>Trim.</th>
+                    <th>Livrable</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>T1</td>
+                    <td>Multi-méthodes pointage (QR, NFC) · notifications</td>
+                  </tr>
+                  <tr>
+                    <td>T2</td>
+                    <td>Essai SaaS self-service · pilotes locaux</td>
+                  </tr>
+                  <tr>
+                    <td>T3</td>
+                    <td>Partenariats intégrateurs · exports conformité</td>
+                  </tr>
+                  <tr>
+                    <td>T4</td>
+                    <td>Extension multi-pays régionale</td>
+                  </tr>
+                </tbody>
+              </table> -->
+            </div>
+
+            <div class="split__col split__col--asks">
+              <p class="lead">
+                <strong>Ce que nous recherchons à la JIBC 2026</strong>
+              </p>
+              <div class="asks">
+                <div class="ask">
+                  <span class="ask__icon" aria-hidden="true">🤝</span>
+                  <div>
+                    <strong>Partenaires</strong>
+                    <span class="ask__desc"
+                      >DRH, intégrateurs, incubateurs — co-déployer et packager
+                      l'offre.</span
+                    >
+                  </div>
+                </div>
+                <div class="ask">
+                  <span class="ask__icon" aria-hidden="true">🏭</span>
+                  <div>
+                    <strong>Clients pilotes</strong>
+                    <span class="ask__desc"
+                      >2–3 organisations pour un test 1–3 mois sur site
+                      réel.</span
+                    >
+                  </div>
+                </div>
+                <div class="ask">
+                  <span class="ask__icon" aria-hidden="true">💡</span>
+                  <div>
+                    <strong>Investisseurs</strong>
+                    <span class="ask__desc"
+                      >Accélération commerciale &amp; cloud régional.</span
+                    >
+                  </div>
+                </div>
+                <div class="ask">
+                  <span class="ask__icon" aria-hidden="true">📣</span>
+                  <div>
+                    <strong>Visibilité</strong>
+                    <span class="ask__desc"
+                      >Concours, médias, réseau innovation local.</span
+                    >
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="page-bottom">
+          <div class="contact-band contact-band--compact">
+            <div class="contact-band__row">
+              <div class="contact-band__left">
+                <img
+                  class="contact-band__icon"
+                  src="../../dashboard/public/images/logos/timegate-icon-color.png"
+                  alt=""
+                />
+                <div>
+                  <div class="contact-band__title">TimeGate</div>
+                  <div class="contact-band__org">Styve Maba</div>
+                </div>
+              </div>
+              <div class="contact-band__details">
+                kaiserstyve2@gmail.com · +242 06 515 23 74 · www.time-gate.io
+              </div>
+            </div>
+            <p class="contact-band__bio">
+              Projet porté par Styve Maba, développeur full-stack spécialisé
+              dans les solutions web, mobiles et cloud, avec plusieurs années
+              d'expérience sur des projets numériques déployés en Afrique et à
+              l'international.
+            </p>
+          </div>
+
+          <footer class="page-footer page-footer--tight">
+            <span>TimeGate · Présentation JIBC 2026</span>
+            <span class="page-footer__num">6 / 6</span>
+          </footer>
+        </div>
+      </div>
+    </section>
+  </body>
+</html>
