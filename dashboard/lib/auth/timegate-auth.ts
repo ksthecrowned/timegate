@@ -2,14 +2,29 @@ import { TIMEGATE_AUTH_ROUTES } from '@/lib/auth/constants'
 import { http } from '@/lib/http'
 import type {
   LoginResponse,
+  SignupResponse,
   SubscriptionStatus,
   TimeGateUser,
 } from '@/lib/timegate/types'
+
+export type SignupPayload = {
+  organizationName: string
+  sku?: string
+  adminEmail: string
+  adminPassword: string
+  adminFirstName?: string
+  adminLastName?: string
+}
 
 export type LoginPayload = {
   email: string
   password: string
   sku?: string
+}
+
+/** POST /auth/signup */
+export function signupTimeGate(payload: SignupPayload): Promise<SignupResponse> {
+  return http.post<SignupResponse>(TIMEGATE_AUTH_ROUTES.signup, payload, { skipAuth: true })
 }
 
 /** POST /auth/login */

@@ -12,10 +12,19 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { dateToMinutes } from '../common/utils/punch-time.util';
-import { PunchWindowService } from './punch-window.service';
+import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const KIOSK_OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
+/** Délai minimum avant la première relance manager (Lot D #13). */
+const REVIEW_REMINDER_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+
+type ReviewReminderGroup = {
+  companyId: string;
+  branchId?: string;
+  pendingEventCount: number;
+  pendingDayCount: number;
+};
 
 @Injectable()
 export class PunchCronService {
@@ -311,6 +320,142 @@ export class PunchCronService {
     }
   }
 
+  /** Rappel employé : après fin plage pause sans BREAK_END (Lot F #8). */
+  @Cron('*/15 * * * *')
+  async sendBreakResumeReminders() {
+    const now = new Date();
+    const atMin = dateToMinutes(now);
+    const dayStart = this.startOfDay(now);
+    const dayEnd = this.endOfDay(now);
+
+    const employees = await this.prisma.employee.findMany({
+      where: { status: EmployeeStatus.ACTIVE },
+      select: { id: true, companyId: true },
+    });
+
+    let sent = 0;
+    for (const employee of employees) {
+      const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
+      if (!windows?.breakEndMin || windows.breakStartMin == null) continue;
+
+      const shiftEndMin = windows.checkOutStartMin ?? windows.shiftEndMin;
+      if (atMin <= windows.breakEndMin || atMin >= shiftEndMin) continue;
+
+      const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
+        where: {
+          employeeId: employee.id,
+          status: {
+            in: [
+              TimeGateAttendanceEventStatus.ACCEPTED,
+              TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
+            ],
+          },
+          occurredAt: { gte: dayStart, lte: dayEnd },
+        },
+        orderBy: { occurredAt: 'asc' },
+        select: { type: true, occurredAt: true },
+      });
+
+      const state = buildDayPunchStateFromEvents(todaysEvents);
+      if (!state.hasCheckIn || state.hasBreakEnd || state.hasCheckOut) continue;
+      if (
+        state.checkInAtMin != null &&
+        windows.breakEndMin != null &&
+        state.checkInAtMin > windows.breakEndMin
+      ) {
+        continue;
+      }
+
+      try {
+        await this.notifications.notifyBreakResumeReminder({
+          companyId: employee.companyId,
+          employeeId: employee.id,
+          workDate: dayStart,
+        });
+        sent += 1;
+      } catch (err) {
+        this.logger.warn(
+          `Break resume reminder failed for ${employee.id}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    if (sent > 0) {
+      this.logger.log(`Sent ${sent} break resume reminder(s) for ${dayStart.toISOString().slice(0, 10)}`);
+    }
+  }
+
+  /** 9h : relance managers pour REVIEW_REQUIRED en attente > 24 h (Lot D #13). */
+  @Cron('0 9 * * *')
+  async sendReviewRequiredManagerReminders() {
+    const now = new Date();
+    const reminderCutoff = new Date(now.getTime() - REVIEW_REMINDER_MIN_AGE_MS);
+    const reminderDate = now.toISOString().slice(0, 10);
+    const groups = new Map<string, ReviewReminderGroup>();
+
+    const pendingEvents = await this.prisma.timeGateAttendanceEvent.findMany({
+      where: {
+        status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
+        occurredAt: { lte: reminderCutoff },
+      },
+      select: { id: true, companyId: true, branchId: true },
+    });
+
+    for (const event of pendingEvents) {
+      this.addReviewReminderGroup(groups, {
+        companyId: event.companyId,
+        branchId: event.branchId,
+        pendingEventCount: 1,
+        pendingDayCount: 0,
+      });
+    }
+
+    const pendingDays = await this.prisma.timeGateTimesheetDay.findMany({
+      where: {
+        status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
+        updatedAt: { lte: reminderCutoff },
+      },
+      select: {
+        id: true,
+        companyId: true,
+        employee: { select: { branchId: true } },
+      },
+    });
+
+    for (const day of pendingDays) {
+      this.addReviewReminderGroup(groups, {
+        companyId: day.companyId,
+        branchId: day.employee.branchId ?? undefined,
+        pendingEventCount: 0,
+        pendingDayCount: 1,
+      });
+    }
+
+    let sent = 0;
+    for (const group of groups.values()) {
+      const total = group.pendingEventCount + group.pendingDayCount;
+      if (total <= 0) continue;
+      try {
+        await this.notifications.notifyReviewRequiredManagerReminder({
+          companyId: group.companyId,
+          branchId: group.branchId,
+          pendingEventCount: group.pendingEventCount,
+          pendingDayCount: group.pendingDayCount,
+          reminderDate,
+        });
+        sent += 1;
+      } catch (err) {
+        this.logger.warn(
+          `Review reminder failed for ${group.companyId}: ${err instanceof Error ? err.message : err}`,
+        );
+      }
+    }
+
+    if (sent > 0) {
+      this.logger.log(`Sent ${sent} REVIEW_REQUIRED manager reminder(s) for ${reminderDate}`);
+    }
+  }
+
   /** Kiosks sans heartbeat → OFFLINE (Lot A). */
   @Cron(CronExpression.EVERY_5_MINUTES)
   async markStaleKiosksOffline() {
@@ -325,6 +470,26 @@ export class PunchCronService {
     if (result.count > 0) {
       this.logger.log(`Marked ${result.count} kiosk(s) OFFLINE (stale heartbeat)`);
     }
+  }
+
+  private addReviewReminderGroup(
+    groups: Map<string, ReviewReminderGroup>,
+    increment: ReviewReminderGroup,
+  ) {
+    const branchKey = increment.branchId ?? 'tenant';
+    const key = `${increment.companyId}:${branchKey}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.pendingEventCount += increment.pendingEventCount;
+      existing.pendingDayCount += increment.pendingDayCount;
+      return;
+    }
+    groups.set(key, {
+      companyId: increment.companyId,
+      branchId: increment.branchId,
+      pendingEventCount: increment.pendingEventCount,
+      pendingDayCount: increment.pendingDayCount,
+    });
   }
 
   private startOfDay(value: Date): Date {

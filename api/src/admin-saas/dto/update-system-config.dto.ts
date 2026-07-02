@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class UpdateSystemConfigDto {
   @IsOptional()
@@ -33,4 +33,21 @@ export class UpdateSystemConfigDto {
   @Min(0)
   @Max(600)
   pinFailureCooldownSeconds?: number;
+
+  /** 0 = désactivé, 5 ou 15 minutes */
+  @IsOptional()
+  @IsIn([0, 5, 15])
+  timesheetRoundingMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24 * 60)
+  overtimeAlertThresholdMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24 * 60)
+  minMinutesBetweenShifts?: number;
 }

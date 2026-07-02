@@ -9,9 +9,14 @@ import { KioskQueryDto } from './dto/kiosk-query.dto';
 import { KioskHeartbeatDto } from './dto/kiosk-heartbeat.dto';
 import { UpdateKioskDto } from './dto/update-kiosk.dto';
 
+import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
+
 @Injectable()
 export class KiosksService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly subscriptionQuota: SubscriptionQuotaService,
+  ) {}
 
   async create(dto: CreateKioskDto) {
     this.assertAtLeastOneMethod(dto);
@@ -20,6 +25,7 @@ export class KiosksService {
       throw new NotFoundException('branchId is required');
     }
     const branch = await this.ensureBranch(branchId);
+    await this.subscriptionQuota.assertCanAddKiosk(branch.companyId);
     const existing = await this.prisma.timeGateKiosk.findUnique({
       where: { branchId },
     });

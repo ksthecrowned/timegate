@@ -1,0 +1,163 @@
+'use client'
+
+import BrandLogo from '@/components/brand/BrandLogo'
+import { SwitcherField } from '@/components/ui/FormField'
+import { signIn } from 'next-auth/react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
+
+function LoginForm() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [sessionExpired, setSessionExpired] = useState(false)
+  const [forbidden, setForbidden] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [rememberMe, setRememberMe] = useState(false)
+
+  useEffect(() => {
+    setSessionExpired(searchParams.get('error') === 'SessionExpired')
+    setForbidden(searchParams.get('error') === 'Forbidden')
+  }, [searchParams])
+
+  async function handleLogin(e: React.FormEvent) {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    try {
+      const result = await signIn('credentials', {
+        email: email.trim(),
+        password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError('Identifiants invalides ou accès réservé à la console plateforme.')
+        return
+      }
+
+      router.replace('/')
+    } catch {
+      setError('Impossible de contacter TimeGate API. Vérifiez NEXT_PUBLIC_TIMEGATE_API_URL.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="w-full h-screen overflow-hidden bg-surface flex items-center justify-center dark:bg-surface-dark">
+      <div className="container w-full mx-auto px-4">
+        <div className="grid md:grid-cols-2 w-full md:w-3/4 lg:w-[60%] mx-auto my-16 shadow-2xl rounded-xl overflow-hidden">
+          <div className="hidden md:flex w-full min-h-[520px] flex-col items-center justify-center bg-gradient-to-br from-primary to-secondary px-8">
+            <BrandLogo variant="full" tone="on-dark" className="max-w-[280px]" priority />
+            <p className="mt-8 text-center text-sm font-medium tracking-[0.2em] text-white/80 uppercase">
+              Console plateforme SaaS
+            </p>
+          </div>
+
+          <div className="px-5 bg-surface-card dark:bg-surface-card-dark">
+            <div className="flex flex-col justify-center min-h-full px-6 py-12">
+              <div className="sm:mx-auto sm:w-full sm:max-w-sm">
+                <div className="mx-auto flex justify-center">
+                  <BrandLogo variant="icon" tone="on-light" className="h-14 w-14" priority />
+                </div>
+                <h2 className="mt-4 font-semibold tracking-tight text-center text-gray-900 dark:text-white text-2xl">
+                  Console Plateforme
+                </h2>
+                <p className="mt-1 text-center text-sm text-gray-500 dark:text-neutral-400">
+                  Connexion sans SKU organisation
+                </p>
+              </div>
+
+              <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-sm">
+                {sessionExpired && !error && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
+                    Votre session a expiré. Veuillez vous reconnecter.
+                  </div>
+                )}
+                {forbidden && !error && (
+                  <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
+                    Ce compte n&apos;a pas le rôle SUPER_ADMIN.
+                  </div>
+                )}
+                {error && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
+                    {error}
+                  </div>
+                )}
+
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium mb-2 dark:text-white">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      className="input"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="password" className="block text-sm font-medium mb-2 dark:text-white">
+                      Mot de passe
+                    </label>
+                    <div className="relative">
+                      <input
+                        id="password"
+                        type={showPassword ? 'text' : 'password'}
+                        className="input pr-10"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600 dark:hover:text-neutral-300"
+                      >
+                        <i className={`fa-solid ${showPassword ? 'fa-eye-slash' : 'fa-eye'} text-sm`} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <SwitcherField
+                    label="Se souvenir de moi"
+                    checked={rememberMe}
+                    onCheckedChange={setRememberMe}
+                    className="py-1"
+                  />
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="flex items-center justify-center w-full px-4 py-3 font-semibold text-white rounded-md shadow-xs gap-x-2 bg-gradient-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70"
+                  >
+                    {loading && <i className="fa-solid fa-spinner fa-spin" />}
+                    Se connecter
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  )
+}

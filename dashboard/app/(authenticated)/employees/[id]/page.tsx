@@ -6,7 +6,9 @@ import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import ActionButtons from '@/components/ui/ActionButtons'
-import EmployeeKioskPinCard from '@/components/timegate/EmployeeKioskPinCard'
+import EmployeeIdentityHub from '@/components/timegate/EmployeeIdentityHub'
+import EmployeeTrustedDevicesCard from '@/components/timegate/EmployeeTrustedDevicesCard'
+import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccessCard'
 import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
@@ -130,11 +132,11 @@ export default function EmployeeDetailPage() {
 
           <EmployeeLeaveBalancesCard employeeId={employee.id} />
 
-          <EmployeeKioskPinCard
-            employeeId={employee.id}
-            hasKioskPin={employee.hasKioskPin}
-            onUpdated={() => void load()}
-          />
+          <EmployeeIdentityHub employee={employee} onUpdated={() => void load()} />
+
+          <EmployeePortalAccessCard employee={employee} onUpdated={() => void load()} />
+
+          <EmployeeTrustedDevicesCard employeeId={employee.id} />
 
           <EmployeeContractsCard employeeId={employee.id} />
         </div>

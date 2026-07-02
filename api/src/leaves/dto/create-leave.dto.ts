@@ -31,4 +31,9 @@ export class CreateLeaveDto {
   @IsString()
   @MaxLength(140)
   leaveTypeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  supportDocumentUrl?: string;
 }

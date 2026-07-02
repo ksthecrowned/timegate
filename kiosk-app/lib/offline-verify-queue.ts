@@ -2,28 +2,23 @@ import * as FileSystem from "expo-file-system/legacy";
 import {
   verifyFacePhoto,
   verifyNfcBadge,
-  verifyQrCode,
   isRetryableVerificationError,
 } from "./timegate";
 
 /**
  * Offline verify queue.
  *
- * Three kinds of items are supported:
+ * Two kinds of items are supported:
  *  - "face"  → a captured photo on disk, retried via verifyFacePhoto
  *  - "nfc"   → a badge UID string, retried via verifyNfcBadge
- *  - "qr"    → a QR payload string, retried via verifyQrCode
  *
- * Items are persisted in a single JSON file so the queue survives app
- * restarts. Old items persisted before the `kind` field was added are
- * treated as "face" by default.
+ * QR pointage is online-only (rotating 1 min codes).
  */
 type PendingVerifyItem = {
   id: string;
-  kind: "face" | "nfc" | "qr";
+  kind: "face" | "nfc";
   photoPath?: string;
   badgeUid?: string;
-  qrPayload?: string;
   capturedAt: string;
   attempts: number;
   lastError?: string;
@@ -46,13 +41,16 @@ async function readQueue(): Promise<PendingVerifyItem[]> {
   if (!info.exists) return [];
   try {
     const raw = await FileSystem.readAsStringAsync(QUEUE_FILE);
-    const parsed = JSON.parse(raw) as PendingVerifyItem[];
+    const parsed = JSON.parse(raw) as Array<
+      PendingVerifyItem & { kind?: string; qrPayload?: string }
+    >;
     if (!Array.isArray(parsed)) return [];
-    // Backwards-compat: items without `kind` are treated as face.
-    return parsed.map((item) => ({
-      ...item,
-      kind: (item.kind ?? "face") as PendingVerifyItem["kind"],
-    }));
+    return parsed
+      .filter((item) => item.kind !== "qr")
+      .map((item) => ({
+        ...item,
+        kind: (item.kind === "nfc" ? "nfc" : "face") as PendingVerifyItem["kind"],
+      }));
   } catch {
     return [];
   }
@@ -71,10 +69,6 @@ export async function getPendingVerifyCount(): Promise<number> {
   return queue.length;
 }
 
-/**
- * Enqueue a face verification. Copies the photo into the persistent photos
- * directory so it survives app restarts.
- */
 export async function enqueueOfflineFaceVerification(
   photoUri: string,
 ): Promise<number> {
@@ -95,10 +89,6 @@ export async function enqueueOfflineFaceVerification(
   return queue.length;
 }
 
-/**
- * Enqueue an NFC badge verification. No file is copied — the UID is the
- * only payload.
- */
 export async function enqueueOfflineNfcVerification(
   badgeUid: string,
 ): Promise<number> {
@@ -114,25 +104,6 @@ export async function enqueueOfflineNfcVerification(
   return queue.length;
 }
 
-export async function enqueueOfflineQrVerification(
-  qrPayload: string,
-): Promise<number> {
-  const queue = await readQueue();
-  queue.push({
-    id: makeId(),
-    kind: "qr",
-    qrPayload: qrPayload.trim(),
-    capturedAt: new Date().toISOString(),
-    attempts: 0,
-  });
-  await writeQueue(queue);
-  return queue.length;
-}
-
-/**
- * Backwards-compat alias. The screen kept calling
- * `enqueueOfflineVerification` before the queue learned about NFC.
- */
 export async function enqueueOfflineVerification(
   photoUri: string,
 ): Promise<number> {
@@ -149,15 +120,6 @@ async function syncOne(
         return "drop";
       }
       await verifyNfcBadge(item.badgeUid, {
-        idempotencyKey: item.id,
-        offlineSync: true,
-        capturedAt: item.capturedAt,
-      });
-    } else if (item.kind === "qr") {
-      if (!item.qrPayload) {
-        return "drop";
-      }
-      await verifyQrCode(item.qrPayload, {
         idempotencyKey: item.id,
         offlineSync: true,
         capturedAt: item.capturedAt,
@@ -211,8 +173,6 @@ async function syncOfflineVerificationsOnce(
         ...item,
         attempts: item.attempts + 1,
       });
-      // Push the rest of the queue unchanged but bump their retry count
-      // (mirrors the previous behaviour: server is busy, come back later).
       for (let j = i + 1; j < queue.length; j++) {
         remaining.push({
           ...queue[j],
@@ -222,7 +182,6 @@ async function syncOfflineVerificationsOnce(
       }
       break;
     } else {
-      // Non-retryable: drop. The captured photo / UID is discarded.
       await cleanupItem(item);
     }
   }

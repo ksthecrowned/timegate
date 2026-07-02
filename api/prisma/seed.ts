@@ -86,7 +86,7 @@ async function ensureEmployeeUser(
   prisma: PrismaClient,
   companyId: string,
   email: string,
-  passwordHash: string,
+  passwordHash: string | null,
 ) {
   const normalized = email.trim().toLowerCase();
   const existing = await prisma.user.findFirst({
@@ -480,8 +480,11 @@ async function main() {
       id: generateDocId('SUB'),
       companyId: company.id,
       plan: 'PRO',
+      planId: 'PLN-PRO',
       maxEmployees: 200,
       maxKiosks: 20,
+      status: 'ACTIVE',
+      source: 'MANUAL',
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
     },
   });
@@ -967,11 +970,12 @@ async function main() {
   const extraEmployees: DemoEmployee[] = [];
   for (const emp of extraEmployeeDefs) {
     const created: DemoEmployee = { ...emp, id: generateDocId('EMP') };
+    // Grace Hopper: portal user without password — demo OTP onboarding flow.
     const employeeUser = await ensureEmployeeUser(
       prisma,
       company.id,
       emp.email,
-      passwordHash,
+      emp.email === 'grace.hopper@example.com' ? null : passwordHash,
     );
     await prisma.employee.create({
       data: {

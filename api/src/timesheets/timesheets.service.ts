@@ -21,8 +21,17 @@ import { OverrideTimesheetDto } from './dto/override-timesheet.dto';
 import { RecalculateTimesheetsDto } from './dto/recalculate-timesheets.dto';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
+import { computeBreakDeduction } from '../common/utils/break-calculation.util';
+import { PunchWindowService } from '../attendance/punch-window.service';
+import { ResolvedPunchWindows } from '../attendance/punch-window.types';
+import {
+  roundMinutesToStep,
+  TimesheetPolicy,
+  DEFAULT_TIMESHEET_POLICY,
+} from '../common/utils/timesheet-policy.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
-const RULE_VERSION = 'v1';
+const RULE_VERSION = 'v3';
 
 type DayEvent = {
   type: TimeGateAttendanceEventType;
@@ -42,6 +51,8 @@ export class TimesheetsService {
   constructor(
     private prisma: PrismaService,
     private holidayCalendar: HolidayCalendarService,
+    private punchWindows: PunchWindowService,
+    private notifications: NotificationsService,
   ) {}
 
   async findAll(query: FindTimesheetsQueryDto, user?: JwtUser) {
@@ -128,6 +139,10 @@ export class TimesheetsService {
         companyId: true,
         defaultShiftId: true,
         holidayListId: true,
+        firstName: true,
+        lastName: true,
+        employeeName: true,
+        branchId: true,
       },
     });
 
@@ -161,7 +176,15 @@ export class TimesheetsService {
     const settings = await this.prisma.timeGateSystemSettings.findUnique({
       where: { companyId },
     });
-    const defaultGrace = settings?.lateThreshold ?? 10;
+    const defaultGrace = settings?.lateThreshold ?? DEFAULT_TIMESHEET_POLICY.lateGraceMinutes;
+    const policy: TimesheetPolicy = {
+      lateGraceMinutes: defaultGrace,
+      roundingMinutes: settings?.timesheetRoundingMinutes ?? 0,
+      minRestMinutes: settings?.minMinutesBetweenShifts ?? DEFAULT_TIMESHEET_POLICY.minRestMinutes,
+      overtimeAlertThresholdMinutes:
+        settings?.overtimeAlertThresholdMinutes ??
+        DEFAULT_TIMESHEET_POLICY.overtimeAlertThresholdMinutes,
+    };
 
     const events = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
@@ -206,13 +229,24 @@ export class TimesheetsService {
       for (const day of days) {
         const dayKey = `${employee.id}:${day.toISOString()}`;
         const dayEvents = eventsByEmployeeDay.get(dayKey) ?? [];
+        const prevDay = new Date(day);
+        prevDay.setUTCDate(prevDay.getUTCDate() - 1);
+        const prevDayKey = `${employee.id}:${prevDay.toISOString()}`;
+        const previousDayEvents = eventsByEmployeeDay.get(prevDayKey) ?? [];
+        const windowAt = new Date(day);
+        windowAt.setUTCHours(12, 0, 0, 0);
+        const punchWindows = await this.punchWindows.resolveForEmployee(employee.id, windowAt);
+        const shiftGrace = shiftWindow?.lateGraceMinutes ?? policy.lateGraceMinutes;
         const metrics = this.computeDayMetrics(
           day,
           dayEvents,
           shiftWindow,
-          defaultGrace,
+          shiftGrace,
           todayStart,
           isEmployeeHoliday(holidayIndex, employee.id, day),
+          punchWindows,
+          policy,
+          previousDayEvents,
         );
 
         const existing = await this.prisma.timeGateTimesheetDay.findUnique({
@@ -253,6 +287,28 @@ export class TimesheetsService {
             },
           });
           created += 1;
+        }
+
+        const isPastDay = day < todayStart;
+        if (
+          isPastDay &&
+          metrics.overtimeMinutes >= policy.overtimeAlertThresholdMinutes &&
+          policy.overtimeAlertThresholdMinutes > 0
+        ) {
+          const employeeName =
+            `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() ||
+            employee.employeeName;
+          void this.notifications
+            .notifyOvertimeThreshold({
+              companyId: employee.companyId!,
+              employeeId: employee.id,
+              employeeName,
+              branchId: employee.branchId ?? undefined,
+              workDate: day,
+              overtimeMinutes: metrics.overtimeMinutes,
+              thresholdMinutes: policy.overtimeAlertThresholdMinutes,
+            })
+            .catch(() => undefined);
         }
       }
     }
@@ -373,6 +429,9 @@ export class TimesheetsService {
     defaultGrace: number,
     todayStart: Date,
     isHoliday: boolean,
+    punchWindows: ResolvedPunchWindows | null,
+    policy: TimesheetPolicy,
+    previousDayEvents: DayEvent[] = [],
   ) {
     const hasReview = events.some(
       (e) => e.status === TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
@@ -381,18 +440,35 @@ export class TimesheetsService {
       (e) => e.status === TimeGateAttendanceEventStatus.ACCEPTED,
     );
 
-    const workedMinutes = this.sumPairedMinutes(
+    const grossWorkedMinutes = this.sumPairedMinutes(
       accepted,
       TimeGateAttendanceEventType.CHECK_IN,
       TimeGateAttendanceEventType.CHECK_OUT,
     );
-    const breakMinutes = this.sumPairedMinutes(
-      accepted,
-      TimeGateAttendanceEventType.BREAK_START,
-      TimeGateAttendanceEventType.BREAK_END,
-    );
+    const breakResult = computeBreakDeduction(events, punchWindows);
+    const breakMinutes = breakResult.breakMinutes;
+    let workedMinutes = Math.max(0, grossWorkedMinutes - breakMinutes);
+    workedMinutes = roundMinutesToStep(workedMinutes, policy.roundingMinutes);
 
     const anomalies: string[] = [];
+    if (breakResult.breakSurplusMinutes > 0) {
+      anomalies.push('BREAK_OVERRUN');
+    }
+    if (policy.minRestMinutes > 0) {
+      const prevAccepted = previousDayEvents.filter(
+        (e) => e.status === TimeGateAttendanceEventStatus.ACCEPTED,
+      );
+      const prevCheckOut = [...prevAccepted]
+        .reverse()
+        .find((e) => e.type === TimeGateAttendanceEventType.CHECK_OUT);
+      const todayCheckIn = accepted.find((e) => e.type === TimeGateAttendanceEventType.CHECK_IN);
+      if (prevCheckOut && todayCheckIn) {
+        const restMinutes = this.diffMinutes(prevCheckOut.occurredAt, todayCheckIn.occurredAt);
+        if (restMinutes < policy.minRestMinutes) {
+          anomalies.push('INSUFFICIENT_REST');
+        }
+      }
+    }
     if (this.hasUnclosedPair(accepted, TimeGateAttendanceEventType.CHECK_IN, TimeGateAttendanceEventType.CHECK_OUT)) {
       anomalies.push('UNCLOSED_CHECKIN');
     }
@@ -407,11 +483,21 @@ export class TimesheetsService {
       const scheduledStart = this.combineDayAndTime(day, shift.startTime);
       const graceMs = (shift.lateGraceMinutes ?? defaultGrace) * 60_000;
       const lateMs = firstCheckIn.occurredAt.getTime() - scheduledStart.getTime() - graceMs;
-      if (lateMs > 0) lateMinutes = Math.round(lateMs / 60_000);
+      if (lateMs > 0) {
+        lateMinutes = roundMinutesToStep(Math.round(lateMs / 60_000), policy.roundingMinutes);
+      }
     }
 
     if (shift && workedMinutes > 0) {
-      overtimeMinutes = Math.max(0, workedMinutes - shift.scheduledMinutes);
+      const authorizedBreak = punchWindows?.breakDurationMinutes ?? 0;
+      const expectedNet = Math.max(0, shift.scheduledMinutes - authorizedBreak);
+      overtimeMinutes = roundMinutesToStep(
+        Math.max(0, workedMinutes - expectedNet),
+        policy.roundingMinutes,
+      );
+      if (overtimeMinutes >= policy.overtimeAlertThresholdMinutes && policy.overtimeAlertThresholdMinutes > 0) {
+        anomalies.push('OVERTIME_THRESHOLD');
+      }
     }
 
     const isPastDay = day < todayStart;

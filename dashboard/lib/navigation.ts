@@ -20,6 +20,15 @@ export const timegateNavSections: NavSection[] = [
     items: [{ label: 'Tableau de bord', href: '/', faIcon: 'fa-solid fa-gauge' }],
   },
   {
+    title: 'Manager',
+    roles: ['ADMIN', 'MANAGER'],
+    items: [
+      { label: 'Équipe du jour', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
+      { label: 'Boîte de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
+      { label: 'Calendrier congés', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
+    ],
+  },
+  {
     title: 'Organisation',
     roles: ['ADMIN', 'MANAGER'],
     items: [
@@ -33,6 +42,12 @@ export const timegateNavSections: NavSection[] = [
         label: 'Paramètres pointage',
         href: '/organization/attendance-settings',
         faIcon: 'fa-solid fa-sliders',
+        roles: ['ADMIN'],
+      },
+      {
+        label: 'Reconnaissance & retards',
+        href: '/system-config',
+        faIcon: 'fa-solid fa-face-smile',
         roles: ['ADMIN'],
       },
       {
@@ -157,69 +172,22 @@ export const timegateNavSections: NavSection[] = [
         roles: ['ADMIN'],
       },
       {
-        label: 'SaaS',
-        faIcon: 'fa-solid fa-gear',
-        children: [
-          {
-            label: 'Journaux audit',
-            href: '/audit-logs',
-            faIcon: 'fa-solid fa-clipboard-list',
-          },
-          {
-            label: 'Abonnements',
-            href: '/subscriptions',
-            faIcon: 'fa-solid fa-credit-card',
-            roles: ['ADMIN'],
-          },
-          {
-            label: 'Config système',
-            href: '/system-config',
-            faIcon: 'fa-solid fa-sliders',
-            roles: ['ADMIN'],
-          },
-        ],
+        label: 'Mon abonnement',
+        href: '/subscriptions',
+        faIcon: 'fa-solid fa-credit-card',
+        roles: ['ADMIN'],
       },
-    ],
-  },
-  {
-    title: 'Plateforme SaaS',
-    roles: ['SUPER_ADMIN'],
-    items: [
       {
-        label: 'Super admin',
-        faIcon: 'fa-solid fa-shield-halved',
-        children: [
-          {
-            label: 'Organisations',
-            href: '/super-admin/organizations',
-            faIcon: 'fa-solid fa-building',
-          },
-          {
-            label: 'Pays',
-            href: '/countries',
-            faIcon: 'fa-solid fa-earth-africa',
-          },
-          {
-            label: 'Villes',
-            href: '/cities',
-            faIcon: 'fa-solid fa-city',
-          },
-          {
-            label: 'Journaux audit',
-            href: '/audit-logs',
-            faIcon: 'fa-solid fa-clipboard-list',
-          },
-          {
-            label: 'Abonnements',
-            href: '/subscriptions',
-            faIcon: 'fa-solid fa-credit-card',
-          },
-          {
-            label: 'Config système',
-            href: '/system-config',
-            faIcon: 'fa-solid fa-sliders',
-          },
-        ],
+        label: 'Appareils en attente',
+        href: '/trusted-devices',
+        faIcon: 'fa-solid fa-mobile-screen',
+        roles: ['ADMIN', 'MANAGER'],
+      },
+      {
+        label: 'Journaux d\'audit',
+        href: '/audit-logs',
+        faIcon: 'fa-solid fa-clipboard-list',
+        roles: ['ADMIN'],
       },
     ],
   },
@@ -227,6 +195,7 @@ export const timegateNavSections: NavSection[] = [
 
 /** Paths reserved for tenant operations — super admin is redirected away. */
 export const operationalPathPrefixes = [
+  '/manager',
   '/employees',
   '/branches',
   '/kiosks',

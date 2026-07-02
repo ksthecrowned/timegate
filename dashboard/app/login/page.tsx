@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import BrandLogo from '@/components/brand/BrandLogo'
 import { SwitcherField } from '@/components/ui/FormField'
 import { signIn } from 'next-auth/react'
@@ -158,6 +159,13 @@ export default function LoginPage() {
                     Se connecter
                   </button>
                 </form>
+
+                <p className="mt-6 text-center text-sm text-gray-500 dark:text-neutral-400">
+                  Pas encore de compte ?{' '}
+                  <Link href="/signup" className="font-semibold text-primary hover:underline">
+                    Créer une organisation
+                  </Link>
+                </p>
               </div>
             </div>
           </div>

@@ -5,21 +5,19 @@ import type { TimeGateRole } from '@/lib/timegate/types'
 import { operationalPathPrefixes } from '@/lib/navigation'
 
 const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
-  { prefix: '/super-admin', roles: ['SUPER_ADMIN'] },
+  { prefix: '/super-admin', roles: [] },
   { prefix: '/payroll-runs', roles: ['ADMIN'] },
   { prefix: '/salaries', roles: ['ADMIN'] },
-  { prefix: '/system-config', roles: ['SUPER_ADMIN', 'ADMIN'] },
-  { prefix: '/subscriptions', roles: ['SUPER_ADMIN', 'ADMIN'] },
+  { prefix: '/system-config', roles: ['ADMIN'] },
+  { prefix: '/subscriptions', roles: ['ADMIN'] },
   { prefix: '/holidays', roles: ['ADMIN'] },
   { prefix: '/departments', roles: ['ADMIN'] },
   { prefix: '/designations', roles: ['ADMIN'] },
-  { prefix: '/countries', roles: ['SUPER_ADMIN'] },
-  { prefix: '/cities', roles: ['SUPER_ADMIN'] },
   { prefix: '/admins', roles: ['ADMIN'] },
   { prefix: '/organization', roles: ['ADMIN'] },
 ]
 
-const publicPaths = new Set(['/login', '/activate'])
+const publicPaths = new Set(['/login', '/signup', '/activate'])
 
 function isProtectedAppPath(pathname: string): boolean {
   if (publicPaths.has(pathname)) return false
@@ -31,9 +29,6 @@ function isProtectedAppPath(pathname: string): boolean {
       '/audit-logs',
       '/subscriptions',
       '/system-config',
-      '/super-admin',
-      '/countries',
-      '/cities',
       '/admins',
       '/organization',
     ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
@@ -72,6 +67,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user
       const pathname = nextUrl.pathname
       const isLoginPage = pathname === '/login'
+      const isSignupPage = pathname === '/signup'
       const isActivatePage = pathname === '/activate'
       const isOldDashboardRedirect = pathname.startsWith('/dashboard')
       const isDeprecatedShiftLocations = pathname.startsWith('/shift-locations')
@@ -85,11 +81,15 @@ export const authConfig = {
         return Response.redirect(new URL('/branches', nextUrl))
       }
 
-      if (isLoginPage) {
+      if (isLoginPage || isSignupPage) {
         if (isLoggedIn) {
           return Response.redirect(new URL('/', nextUrl))
         }
         return true
+      }
+
+      if (pathname.startsWith('/super-admin') || pathname.startsWith('/countries') || pathname.startsWith('/cities')) {
+        return Response.redirect(new URL('/', nextUrl))
       }
 
       if (isActivatePage) {
@@ -102,8 +102,12 @@ export const authConfig = {
 
       if (!isLoggedIn) return false
 
-      const subscriptionActive = auth?.user?.subscriptionActive
       const role = auth?.user?.role
+      const subscriptionActive = auth?.user?.subscriptionActive
+
+      if (role === 'SUPER_ADMIN' && pathname !== '/') {
+        return Response.redirect(new URL('/', nextUrl))
+      }
 
       if (role === 'SUPER_ADMIN' && isOperationalPath(pathname)) {
         return Response.redirect(new URL('/', nextUrl))
@@ -133,6 +137,9 @@ export const authConfig = {
           role: token.user.role,
           companyId: token.user.companyId,
           subscriptionActive: token.user.subscriptionActive,
+          subscriptionReadOnly: token.user.subscriptionReadOnly,
+          subscriptionBlocked: token.user.subscriptionBlocked,
+          subscriptionStatus: token.user.subscriptionStatus,
         }
       }
       if (token.accessToken) {

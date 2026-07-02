@@ -82,6 +82,8 @@ jobs:
         include:
           - app: dashboard
             installer: bun
+          - app: console
+            installer: bun
           - app: employee-web
             installer: npm
           - app: mobile-app

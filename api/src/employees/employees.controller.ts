@@ -149,6 +149,12 @@ export class EmployeesController {
   }
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Get(':id/qr-punch/current')
+  getCurrentQrPunch(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.employees.getCurrentQrPunchPayload(id, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Delete(':id/qr-punch-token')
   clearQrPunchToken(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.employees.clearQrPunchToken(id, user);

@@ -12,14 +12,12 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageBox } from "../components/shared/MessageBox";
-import { enqueueOfflineQrVerification } from "../lib/offline-verify-queue";
 import {
   classifyError,
   createMobileIdempotencyKey,
   getCooldownState,
   getProvisionState,
   getVerificationUserMessage,
-  isLikelyNetworkError,
   recordFailure,
   recordSuccess,
   verifyQrCode,
@@ -155,40 +153,26 @@ export default function QrScreen() {
           }
         }
       } catch (error) {
-        if (isLikelyNetworkError(error)) {
-          const pending = await enqueueOfflineQrVerification(qrPayload);
-          setQrState("success");
-          setStatusVariant("info");
+        const verdict = recordFailure("qr");
+        const newCount = verdict.locked ? VERIFY_FAILURE_LIMIT : attempts + 1;
+        setAttempts(newCount);
+        if (verdict.locked) {
+          setQrState("error");
+          setStatusVariant("error");
           setStatusMessage(
-            `Mode hors ligne: QR enregistré. Synchronisation dès que le réseau revient (${pending} en attente).`,
+            `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
           );
           redirectTimer.current = setTimeout(() => {
-            router.replace("/");
-          }, SUCCESS_REDIRECT_SECONDS * 1000);
+            router.replace({ pathname: "/pin", params: { cooldown: "1" } });
+          }, 1500);
         } else {
-          const verdict = recordFailure("qr");
-          const newCount = verdict.locked
-            ? VERIFY_FAILURE_LIMIT
-            : attempts + 1;
-          setAttempts(newCount);
-          if (verdict.locked) {
-            setQrState("error");
-            setStatusVariant("error");
-            setStatusMessage(
-              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
-            );
-            redirectTimer.current = setTimeout(() => {
-              router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-            }, 1500);
-          } else {
-            setQrState("error");
-            setStatusVariant(classifyError(error));
-            setStatusMessage(getVerificationUserMessage(error));
-            retryTimer.current = setTimeout(() => {
-              setQrState("idle");
-              setScanEnabled(true);
-            }, RETRY_DELAY_MS);
-          }
+          setQrState("error");
+          setStatusVariant(classifyError(error));
+          setStatusMessage(getVerificationUserMessage(error));
+          retryTimer.current = setTimeout(() => {
+            setQrState("idle");
+            setScanEnabled(true);
+          }, RETRY_DELAY_MS);
         }
       } finally {
         verifyInFlight.current = false;

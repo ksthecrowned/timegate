@@ -3,17 +3,24 @@ import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
 
 import { dispatchLogout } from "./authEvents";
+import { getDeviceInstallId, setDeviceTrust } from "./deviceInstallId";
+import { getPushPlatform } from "./push";
 import type {
+  AttendanceEventRow,
+  BreakResumeStatus,
   CheckinRow,
   Colleague,
+  EmployeeContractRow,
   LeaveApplication,
   LeaveBalance,
   LeaveBalancesResponse,
   LeaveType,
   PaginatedResponse,
+  PunchClaimRow,
   Profile,
   ShiftAssignment,
   ShiftSwapRequest,
+  BreakResumeStatus,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -137,23 +144,38 @@ function qs(query: Record<string, unknown> = {}): string {
 
 export const employeeApi = {
   // ----- Auth -----
+  identify: (email: string) =>
+    fetchApi<{ nextStep: "PASSWORD" | "OTP_SETUP" | "CHECK_EMAIL" }>(
+      "/auth/employee/identify",
+      { method: "POST", body: JSON.stringify({ email: email.trim().toLowerCase() }) },
+    ),
+
   login: async (credentials: { email: string; password: string }) => {
+    const deviceInstallId = await getDeviceInstallId();
     const data = await fetchApi<{
       access_token?: string;
       token?: string;
+      deviceTrust?: "TRUSTED" | "PENDING";
       employee?: Profile;
       user?: Profile;
     }>("/auth/employee/login", {
       method: "POST",
-      body: JSON.stringify(credentials),
+      body: JSON.stringify({
+        email: credentials.email.trim().toLowerCase(),
+        password: credentials.password,
+        deviceInstallId,
+        platform: getPushPlatform(),
+      }),
     });
     const token = data.access_token ?? data.token;
     if (token) await storeToken(token);
-    return { token, user: data.employee ?? data.user };
+    if (data.deviceTrust) await setDeviceTrust(data.deviceTrust);
+    return { token, user: data.employee ?? data.user, deviceTrust: data.deviceTrust };
   },
 
   logout: async () => {
     await removeToken().catch(() => undefined);
+    await setDeviceTrust(null);
   },
 
   forgotPassword: (email: string) =>
@@ -198,9 +220,29 @@ export const employeeApi = {
       body: JSON.stringify(payload),
     }),
 
-  // ----- Checkins -----
+  // ----- Checkins / attendance events -----
   getCheckins: (query: Record<string, unknown> = {}) =>
     fetchApi<PaginatedResponse<CheckinRow>>(`/employee/checkins${qs(query)}`),
+
+  getAttendanceEvents: (query: Record<string, unknown> = {}) =>
+    fetchApi<PaginatedResponse<AttendanceEventRow>>(
+      `/employee/attendance-events${qs(query)}`,
+    ),
+
+  createPunchClaim: (data: {
+    workDate: string;
+    type: string;
+    reason: string;
+  }) =>
+    fetchApi<PunchClaimRow>("/employee/punch-claims", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getContracts: (query: Record<string, unknown> = {}) =>
+    fetchApi<PaginatedResponse<EmployeeContractRow>>(
+      `/employee/contracts${qs(query)}`,
+    ),
 
   // ----- Leaves -----
   getLeaves: (query: Record<string, unknown> = {}) =>
@@ -218,6 +260,49 @@ export const employeeApi = {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  createLeaveWithDocument: async (data: {
+    startDate: string;
+    endDate: string;
+    leaveTypeId?: string;
+    reason?: string;
+    file?: { uri: string; name: string; mimeType?: string };
+  }) => {
+    const token = await getToken();
+    const form = new FormData();
+    form.append("startDate", data.startDate);
+    form.append("endDate", data.endDate);
+    if (data.leaveTypeId) form.append("leaveTypeId", data.leaveTypeId);
+    if (data.reason) form.append("reason", data.reason);
+    if (data.file) {
+      form.append("supportDocument", {
+        uri: data.file.uri,
+        name: data.file.name,
+        type: data.file.mimeType ?? "application/octet-stream",
+      } as unknown as Blob);
+    }
+    const response = await fetch(`${API_URL}/employee/leaves`, {
+      method: "POST",
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: form,
+    });
+    if (response.status === 401) {
+      await removeToken().catch(() => undefined);
+      dispatchLogout();
+      throw new ApiError("Session expirée. Veuillez vous reconnecter.", 401);
+    }
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new ApiError(
+        extractMessage(payload, `API error: ${response.status}`),
+        response.status,
+        payload,
+      );
+    }
+    return (await response.json()) as LeaveApplication;
+  },
 
   getLeaveBalances: (query: Record<string, unknown> = {}) =>
     fetchApi<LeaveBalancesResponse>(`/employee/leave-balances${qs(query)}`),
@@ -306,4 +391,22 @@ export const employeeApi = {
 
   markAllNotificationsRead: () =>
     fetchApi("/notifications/read-all", { method: "PATCH" }),
+
+  // ----- QR punch -----
+  getQrPunchCurrent: () =>
+    fetchApi<{
+      id: string;
+      qrPayload: string;
+      slot: number;
+      expiresAt: string;
+    }>("/employee/qr-punch/current"),
+
+  getBreakResumeStatus: () =>
+    fetchApi<BreakResumeStatus>("/employee/break-resume/status"),
+
+  resumeBreak: (data: { latitude: number; longitude: number }) =>
+    fetchApi<{ message: string }>("/employee/break-resume", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 };

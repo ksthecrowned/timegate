@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { EmployeeStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -13,6 +14,11 @@ import { CreateSelfShiftSwapDto } from './dto/create-self-shift-swap.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { ShiftSwapsService } from '../shift-swaps/shift-swaps.service';
 import { generateDocId } from '../common/utils/doc-id.util';
+import { buildQrPunchPayload } from '../common/utils/qr-punch-token.util';
+import { FindAttendanceEventsQueryDto } from '../attendance/dto/find-attendance-events-query.dto';
+import { PunchClaimsService } from '../punch-claims/punch-claims.service';
+import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
+import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 @Injectable()
 export class EmployeePortalService {
@@ -23,6 +29,8 @@ export class EmployeePortalService {
     private leaveBalances: LeaveBalancesService,
     private leaveTypes: LeaveTypesService,
     private shiftSwaps: ShiftSwapsService,
+    private punchClaims: PunchClaimsService,
+    private storage: CloudflareR2Service,
   ) {}
 
   async getProfile(user: JwtUser) {
@@ -70,6 +78,7 @@ export class EmployeePortalService {
       organizationName: employee.company?.name ?? null,
       organizationSku: employee.company?.sku ?? null,
       language: employee.user?.language ?? null,
+      deviceTrust: user.deviceTrust ?? null,
     };
   }
 
@@ -80,6 +89,56 @@ export class EmployeePortalService {
     return this.attendance.findCheckins(scoped, user);
   }
 
+  findMyAttendanceEvents(user: JwtUser, query: PaginationQueryDto) {
+    const scoped = Object.assign(new FindAttendanceEventsQueryDto(), query, {
+      employeeId: user.employeeId!,
+    });
+    return this.attendance.findEvents(scoped, user);
+  }
+
+  findMyPunchClaims(user: JwtUser, query: PaginationQueryDto) {
+    return this.punchClaims.findAll(
+      Object.assign({ page: 1, limit: 20, employeeId: user.employeeId! }, query),
+      user,
+    );
+  }
+
+  createPunchClaim(user: JwtUser, dto: CreatePunchClaimDto) {
+    return this.punchClaims.createForEmployee(user, dto);
+  }
+
+  async findMyContracts(user: JwtUser, query: PaginationQueryDto) {
+    const employeeId = user.employeeId;
+    if (!employeeId) throw new ForbiddenException('No employee profile linked');
+
+    const page = query.page ?? 1;
+    const limit = Math.min(query.limit ?? 20, 50);
+
+    const [items, total] = await Promise.all([
+      this.prisma.timeGateEmployeeContract.findMany({
+        where: { employeeId },
+        orderBy: [{ isCurrent: 'desc' }, { signedAt: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.timeGateEmployeeContract.count({ where: { employeeId } }),
+    ]);
+
+    return {
+      data: items.map((row) => ({
+        id: row.id,
+        signedAt: row.signedAt.toISOString(),
+        expiresAt: row.expiresAt ? row.expiresAt.toISOString().slice(0, 10) : null,
+        renewalsCount: row.renewalsCount,
+        contractFileUrl: row.contractFileUrl,
+        notes: row.notes,
+        isCurrent: row.isCurrent,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
   findMyLeaves(user: JwtUser, query: PaginationQueryDto) {
     const scoped = Object.assign(new PaginationQueryDto(), query, {
       employeeId: user.employeeId!,
@@ -87,14 +146,45 @@ export class EmployeePortalService {
     return this.leaves.findAll(scoped, user.companyId ?? undefined);
   }
 
-  createLeaveRequest(user: JwtUser, dto: CreateSelfLeaveDto) {
+  createLeaveRequest(user: JwtUser, dto: CreateSelfLeaveDto, file?: Express.Multer.File) {
+    return this.createLeaveRequestWithDocument(user, dto, file);
+  }
+
+  async createLeaveRequestWithDocument(
+    user: JwtUser,
+    dto: CreateSelfLeaveDto,
+    file?: Express.Multer.File,
+  ) {
+    const employeeId = user.employeeId!;
+    let supportDocumentUrl: string | undefined;
+
+    if (file) {
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: employeeId },
+        select: { companyId: true },
+      });
+      if (!employee?.companyId) throw new NotFoundException('Employee not found');
+
+      const uploaded = await this.storage.uploadLeaveSupportDocument({
+        organizationId: employee.companyId,
+        employeeId,
+        contentType: file.mimetype,
+        buffer: file.buffer,
+      });
+      if (!uploaded) {
+        throw new BadRequestException('Stockage indisponible — réessayez plus tard');
+      }
+      supportDocumentUrl = uploaded;
+    }
+
     return this.leaves.create({
-      employeeId: user.employeeId!,
+      employeeId,
       startDate: dto.startDate,
       endDate: dto.endDate,
       reason: dto.reason,
       leaveTypeId: dto.leaveTypeId,
       status: LegacyLeaveStatus.PENDING,
+      supportDocumentUrl,
     });
   }
 
@@ -159,5 +249,33 @@ export class EmployeePortalService {
       },
       user,
     );
+  }
+
+  async getCurrentQrPunchPayload(user: JwtUser) {
+    const employeeId = user.employeeId;
+    if (!employeeId) throw new ForbiddenException('No employee profile linked');
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, companyId: true, qrPunchSecret: true, status: true },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+    if (employee.companyId !== user.companyId) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (employee.status !== EmployeeStatus.ACTIVE) {
+      throw new BadRequestException('Compte employe inactif');
+    }
+    if (!employee.qrPunchSecret) {
+      throw new BadRequestException('QR de pointage non active. Contactez votre administrateur.');
+    }
+
+    const current = buildQrPunchPayload(employee.id, employee.qrPunchSecret);
+    return {
+      id: employee.id,
+      qrPayload: current.payload,
+      slot: current.slot,
+      expiresAt: current.expiresAt.toISOString(),
+    };
   }
 }

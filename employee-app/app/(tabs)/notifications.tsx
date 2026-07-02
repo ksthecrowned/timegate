@@ -34,6 +34,17 @@ const typeIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
   ABSENCE_AUTO: 'calendar-outline',
   UNCLOSED_CHECK_IN: 'exit-outline',
   UNCLOSED_CHECK_IN_REMINDER: 'notifications-outline',
+  BREAK_RESUME_REMINDER: 'cafe-outline',
+  OVERTIME_THRESHOLD: 'time-outline',
+  LEAVE_REQUEST_PENDING: 'calendar-outline',
+  LEAVE_APPROVED: 'checkmark-circle-outline',
+  LEAVE_REJECTED: 'close-circle-outline',
+  SUBSCRIPTION_TRIAL_REMINDER: 'card-outline',
+  SUBSCRIPTION_EXPIRING: 'card-outline',
+  SUBSCRIPTION_GRACE: 'warning-outline',
+  SUBSCRIPTION_BLOCKED: 'lock-closed-outline',
+  SUBSCRIPTION_QUOTA_WARNING: 'pie-chart-outline',
+  SUBSCRIPTION_QUOTA_REACHED: 'alert-outline',
 };
 
 function iconForType(type: string): keyof typeof Ionicons.glyphMap {

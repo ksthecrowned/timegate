@@ -5,7 +5,14 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtUser } from '../../common/decorators/current-user.decorator';
 
-type JwtPayload = { sub: string; email: string; role: string; companyId: string | null };
+type JwtPayload = {
+  sub: string;
+  email: string;
+  role: string;
+  companyId: string | null;
+  deviceInstallId?: string;
+  deviceTrust?: 'TRUSTED' | 'PENDING';
+};
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -34,6 +41,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       role: user.timeGateRole,
       companyId: payload.companyId ?? user.companyId,
       employeeId: user.employee?.id ?? null,
+      deviceInstallId: payload.deviceInstallId ?? null,
+      deviceTrust: payload.deviceTrust ?? undefined,
     };
   }
 }

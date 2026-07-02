@@ -24,6 +24,9 @@ export default function TenantAttendanceSettingsPage() {
   const [defaultShiftTypeId, setDefaultShiftTypeId] = useState('')
   const [pinFailureThreshold, setPinFailureThreshold] = useState(3)
   const [pinFailureCooldownSeconds, setPinFailureCooldownSeconds] = useState(30)
+  const [timesheetRoundingMinutes, setTimesheetRoundingMinutes] = useState(0)
+  const [overtimeAlertThresholdMinutes, setOvertimeAlertThresholdMinutes] = useState(120)
+  const [minMinutesBetweenShifts, setMinMinutesBetweenShifts] = useState(660)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -37,6 +40,9 @@ export default function TenantAttendanceSettingsPage() {
       setDefaultShiftTypeId(settings.defaultShiftTypeId ?? '')
       setPinFailureThreshold(settings.pinFailureThreshold ?? 3)
       setPinFailureCooldownSeconds(settings.pinFailureCooldownSeconds ?? 30)
+      setTimesheetRoundingMinutes(settings.timesheetRoundingMinutes ?? 0)
+      setOvertimeAlertThresholdMinutes(settings.overtimeAlertThresholdMinutes ?? 120)
+      setMinMinutesBetweenShifts(settings.minMinutesBetweenShifts ?? 660)
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Erreur de chargement')
     } finally {
@@ -58,6 +64,9 @@ export default function TenantAttendanceSettingsPage() {
         defaultShiftTypeId: defaultShiftTypeId.trim() || null,
         pinFailureThreshold,
         pinFailureCooldownSeconds,
+        timesheetRoundingMinutes,
+        overtimeAlertThresholdMinutes,
+        minMinutesBetweenShifts,
       })
       setSuccess('Paramètres enregistrés.')
       await load()
@@ -139,6 +148,59 @@ export default function TenantAttendanceSettingsPage() {
                         setPinFailureCooldownSeconds(
                           Math.max(0, Number(e.target.value) || 0),
                         )
+                      }
+                    />
+                  </FormField>
+                </div>
+              </div>
+
+              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
+                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
+                  Politique timesheet
+                  <HintTooltip text="Appliquée lors du recalcul des journées. Les retards utilisent aussi le seuil tenant (page Reconnaissance & retards) ou la tolérance de l'horaire type." />
+                </h3>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField label="Arrondi (minutes)" hint="0 = aucun, 5 ou 15 min au plus proche.">
+                    <SelectSearch
+                      instanceId="tenant-rounding"
+                      options={[
+                        { value: '0', label: 'Aucun' },
+                        { value: '5', label: '5 minutes' },
+                        { value: '15', label: '15 minutes' },
+                      ]}
+                      value={
+                        [
+                          { value: '0', label: 'Aucun' },
+                          { value: '5', label: '5 minutes' },
+                          { value: '15', label: '15 minutes' },
+                        ].find((o) => o.value === String(timesheetRoundingMinutes)) ?? null
+                      }
+                      onChange={(opt) =>
+                        setTimesheetRoundingMinutes(Number(opt?.value ?? 0))
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Alerte HS (min)" hint="Notification si HS ≥ seuil sur une journée clôturée.">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={480}
+                      value={overtimeAlertThresholdMinutes}
+                      onChange={(e) =>
+                        setOvertimeAlertThresholdMinutes(
+                          Math.max(0, Number(e.target.value) || 0),
+                        )
+                      }
+                    />
+                  </FormField>
+                  <FormField label="Repos min. entre shifts (min)" hint="Ex. 660 = 11 h entre deux journées.">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={1440}
+                      value={minMinutesBetweenShifts}
+                      onChange={(e) =>
+                        setMinMinutesBetweenShifts(Math.max(0, Number(e.target.value) || 0))
                       }
                     />
                   </FormField>

@@ -46,4 +46,14 @@ export class NotificationRecipientResolver {
 
     return [...ids];
   }
+
+  async resolveManagerEmails(companyId: string, branchId?: string): Promise<string[]> {
+    const userIds = await this.resolveManagers(companyId, branchId);
+    if (userIds.length === 0) return [];
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, enabled: true },
+      select: { email: true },
+    });
+    return [...new Set(users.map((u) => u.email.trim().toLowerCase()).filter(Boolean))];
+  }
 }

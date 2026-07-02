@@ -107,6 +107,17 @@ export default function TimesheetDetailPage() {
         </div>
       ) : row ? (
         <div className="space-y-6">
+          {row.status === 'REVIEW_REQUIRED' &&
+            row.anomalyFlags?.includes('UNCLOSED_CHECKIN') && (
+              <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+                <p className="font-semibold">Check-out oublié</p>
+                <p className="mt-1">
+                  Les heures affichées sont inférées (fin de shift). Validez ou corrigez ci-dessous
+                  puis enregistrez — la journée passera en statut fermé.
+                </p>
+              </div>
+            )}
+
           <DetailCard title={`Feuille de temps — ${formatApiDate(row.date)}`}>
             <DetailRow label="Employé" value={employeeLabel(row.employee)} />
             <DetailRow label="Date" value={formatApiDate(row.date)} />

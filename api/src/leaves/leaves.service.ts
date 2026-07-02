@@ -6,6 +6,7 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
 import { AttendanceDaysService } from '../attendance/attendance-days.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { LeaveBalancesService } from './leave-balances.service';
 import { CreateLeaveDto, LegacyLeaveStatus } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
@@ -25,12 +26,13 @@ export class LeavesService {
     private prisma: PrismaService,
     private attendanceDays: AttendanceDaysService,
     private leaveBalances: LeaveBalancesService,
+    private notifications: NotificationsService,
   ) {}
 
   async create(dto: CreateLeaveDto) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: dto.employeeId },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, branchId: true, firstName: true, lastName: true, employeeName: true },
     });
     if (!employee) throw new NotFoundException('Employee not found');
     if (!employee.companyId) {
@@ -69,6 +71,7 @@ export class LeavesService {
         toDate,
         status,
         reason: dto.reason?.trim() || null,
+        supportDocumentUrl: dto.supportDocumentUrl?.trim() || null,
       },
       include: {
         employee: { select: employeeSummarySelect },
@@ -83,6 +86,19 @@ export class LeavesService {
         toDate,
         employee.companyId,
       );
+    }
+
+    if (status === LeaveApplicationStatus.OPEN) {
+      await this.notifications.notifyLeaveRequestPending({
+        companyId: employee.companyId,
+        branchId: employee.branchId,
+        employeeId: employee.id,
+        employeeName: this.employeeDisplayName(employee),
+        leaveId: created.id,
+        leaveType: leaveType.leaveTypeName,
+        fromDate: fromDate.toISOString().slice(0, 10),
+        toDate: toDate.toISOString().slice(0, 10),
+      });
     }
 
     return this.toApiShape(created);
@@ -227,6 +243,38 @@ export class LeavesService {
       );
     }
 
+    if (
+      current.status === LeaveApplicationStatus.OPEN &&
+      nextStatus === LeaveApplicationStatus.APPROVED &&
+      current.companyId
+    ) {
+      await this.notifications.notifyLeaveDecision({
+        companyId: current.companyId,
+        employeeId: updated.employeeId,
+        leaveId: updated.id,
+        leaveType: updated.leaveType.leaveTypeName,
+        fromDate: (updated.fromDate ?? fromDate)!.toISOString().slice(0, 10),
+        toDate: (updated.toDate ?? toDate)!.toISOString().slice(0, 10),
+        approved: true,
+      });
+    }
+
+    if (
+      current.status === LeaveApplicationStatus.OPEN &&
+      nextStatus === LeaveApplicationStatus.REJECTED &&
+      current.companyId
+    ) {
+      await this.notifications.notifyLeaveDecision({
+        companyId: current.companyId,
+        employeeId: updated.employeeId,
+        leaveId: updated.id,
+        leaveType: updated.leaveType.leaveTypeName,
+        fromDate: (updated.fromDate ?? fromDate)!.toISOString().slice(0, 10),
+        toDate: (updated.toDate ?? toDate)!.toISOString().slice(0, 10),
+        approved: false,
+      });
+    }
+
     return this.toApiShape(updated);
   }
 
@@ -252,6 +300,15 @@ export class LeavesService {
     }
 
     return { id, deleted: true };
+  }
+
+  private employeeDisplayName(employee: {
+    firstName: string | null;
+    lastName: string | null;
+    employeeName: string | null;
+  }): string {
+    const name = `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim();
+    return name || employee.employeeName || 'Employé';
   }
 
   private async ensureDefaultLeaveType(companyId: string) {
@@ -314,6 +371,7 @@ export class LeavesService {
       startDate: row.fromDate?.toISOString() ?? null,
       endDate: row.toDate?.toISOString() ?? null,
       reason: row.reason,
+      supportDocumentUrl: row.supportDocumentUrl,
       status: this.toLegacyStatus(row.status),
       type: row.leaveType.leaveTypeName,
       leaveTypeId: row.leaveTypeId,

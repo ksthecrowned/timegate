@@ -263,6 +263,14 @@ export default function NfcScreen() {
       const verdict = recordFailure("nfc");
       const newCount = verdict.locked ? VERIFY_FAILURE_LIMIT : attempts + 1;
       setAttempts(newCount);
+      const nfcHint =
+        error instanceof Error && error.message === "NFC_DISABLED"
+          ? "Activez le NFC dans les parametres de l'appareil."
+          : error instanceof Error && error.message === "NFC_UNSUPPORTED"
+            ? "Lecteur NFC indisponible sur cet appareil."
+            : error instanceof Error && error.message === "NFC_TIMEOUT"
+              ? "Aucun badge detecte. Presentez votre badge."
+              : null;
       if (verdict.locked) {
         setNfcState("error");
         setStatusVariant("error");
@@ -276,9 +284,10 @@ export default function NfcScreen() {
         setNfcState("error");
         setStatusVariant("warn");
         setStatusMessage(
-          error instanceof Error
-            ? `Aucun badge détecté (${newCount}/${VERIFY_FAILURE_LIMIT}). Réessayez.`
-            : `Aucun badge détecté (${newCount}/${VERIFY_FAILURE_LIMIT}).`,
+          nfcHint ??
+            (error instanceof Error
+              ? `Aucun badge détecté (${newCount}/${VERIFY_FAILURE_LIMIT}). Réessayez.`
+              : `Aucun badge détecté (${newCount}/${VERIFY_FAILURE_LIMIT}).`),
         );
         retryTimer.current = setTimeout(() => {
           setNfcState("idle");

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,6 +7,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { TrustedDeviceBanner } from '@/components/TrustedDeviceBanner';
+import { useDeviceTrustPending } from '@/components/PendingDeviceBlock';
 import { employeeApi } from '@/lib/api';
 import { getMeCached } from '@/lib/meCache';
 import type { Profile } from '@/lib/types';
@@ -39,6 +41,18 @@ const quickActions = [
     href: '/planning',
   },
   {
+    label: STRINGS.home.actionMyQr,
+    icon: 'qr-code-outline' as keyof typeof Ionicons.glyphMap,
+    color: '#6366f1',
+    href: '/qr-punch',
+  },
+  {
+    label: STRINGS.home.actionBreakResume,
+    icon: 'cafe-outline' as keyof typeof Ionicons.glyphMap,
+    color: '#f59e0b',
+    href: '/break-resume',
+  },
+  {
     label: STRINGS.home.actionAttendance,
     icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
     color: '#0d9488',
@@ -46,10 +60,13 @@ const quickActions = [
   },
 ];
 
+const SENSITIVE_ACTION_HREFS = new Set(['/qr-punch', '/break-resume']);
+
 export default function HomeScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const devicePending = useDeviceTrustPending();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [leaveDays, setLeaveDays] = useState<number | null>(null);
@@ -98,6 +115,14 @@ export default function HomeScreen() {
     loadData(true);
   }, [loadData]);
 
+  const handleActionPress = (href: string) => {
+    if (devicePending && SENSITIVE_ACTION_HREFS.has(href)) {
+      Alert.alert(STRINGS.auth.devicePendingTitle, STRINGS.auth.devicePendingBody);
+      return;
+    }
+    router.push(href as any);
+  };
+
   const greeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return STRINGS.home.greetingMorning;
@@ -137,6 +162,7 @@ export default function HomeScreen() {
       refreshing={refreshing}
       onRefresh={onRefresh}
     >
+      <TrustedDeviceBanner />
       {/* Greeting card */}
       <View
         style={{
@@ -283,10 +309,13 @@ export default function HomeScreen() {
             gap: Spacing[3],
           }}
         >
-          {quickActions.map((action) => (
+          {quickActions.map((action) => {
+            const blocked =
+              devicePending === true && SENSITIVE_ACTION_HREFS.has(action.href);
+            return (
             <Pressable
               key={action.label}
-              onPress={() => router.push(action.href as any)}
+              onPress={() => handleActionPress(action.href)}
               style={{
                 width: '48%',
                 padding: Spacing[4],
@@ -295,6 +324,7 @@ export default function HomeScreen() {
                 borderWidth: 1,
                 borderColor: colors.border,
                 alignItems: 'flex-start',
+                opacity: blocked ? 0.45 : 1,
               }}
             >
               <View
@@ -320,7 +350,8 @@ export default function HomeScreen() {
                 {action.label}
               </Text>
             </Pressable>
-          ))}
+            );
+          })}
         </View>
       </View>
 

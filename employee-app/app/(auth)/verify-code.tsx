@@ -24,7 +24,8 @@ const RESEND_COOLDOWN_SECONDS = 30;
 export default function VerifyCodeScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { email } = useLocalSearchParams<{ email: string }>();
+  const { email, setup } = useLocalSearchParams<{ email: string; setup?: string }>();
+  const isSetup = setup === '1';
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -59,7 +60,7 @@ export default function VerifyCodeScreen() {
       const { resetToken } = await employeeApi.verifyResetCode(email, code);
       router.push({
         pathname: "/reset-password",
-        params: { token: resetToken, email },
+        params: { token: resetToken, email, ...(isSetup ? { setup: "1" } : {}) },
       });
     } catch (err: any) {
       setError(err?.message ?? STRINGS.auth.codeInvalid);
@@ -110,10 +111,10 @@ export default function VerifyCodeScreen() {
             <Ionicons name="shield-checkmark-outline" size={32} color="#fff" />
           </View>
           <Text style={[styles.title, { color: theme.text }]}>
-            {STRINGS.auth.verifyCodeTitle}
+            {isSetup ? STRINGS.auth.verifyCodeSetupTitle : STRINGS.auth.verifyCodeTitle}
           </Text>
           <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-            {STRINGS.auth.verifyCodeSubtitle}
+            {isSetup ? STRINGS.auth.verifyCodeSetupSubtitle : STRINGS.auth.verifyCodeSubtitle}
           </Text>
           {email ? (
             <Text style={[styles.email, { color: theme.textSecondary }]}>

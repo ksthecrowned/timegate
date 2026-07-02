@@ -3,6 +3,7 @@ import {
   Prisma,
   TimeGateAttendanceEventType,
   TimeGateNotificationType,
+  TimeGateUserRole,
 } from '@prisma/client';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { generateDocId } from '../common/utils/doc-id.util';
@@ -308,6 +309,252 @@ export class NotificationsService {
       meta: { employeeId: params.employeeId, workDate: dateLabel },
       dedupeKey: `unclosed-reminder:${params.employeeId}:${dateLabel}`,
     });
+  }
+
+  /** Rappel employé : fin de plage pause sans reprise pointée (Lot F #8). */
+  async notifyBreakResumeReminder(params: {
+    companyId: string;
+    employeeId: string;
+    workDate: Date;
+  }) {
+    const employeeUserId = await this.recipients.resolveEmployeeUserId(params.employeeId);
+    if (!employeeUserId) return;
+
+    const dateLabel = params.workDate.toISOString().slice(0, 10);
+    await this.emit({
+      companyId: params.companyId,
+      userIds: [employeeUserId],
+      type: TimeGateNotificationType.BREAK_RESUME_REMINDER,
+      title: 'Reprise de pause',
+      body: 'Votre pause est terminée — pensez à reprendre via l’app employé.',
+      meta: { employeeId: params.employeeId, workDate: dateLabel },
+      dedupeKey: `break-resume-reminder:${params.employeeId}:${dateLabel}`,
+    });
+  }
+
+  /** Seuil heures sup dépassé sur une journée (Lot E #5). */
+  async notifyOvertimeThreshold(params: {
+    companyId: string;
+    employeeId: string;
+    employeeName: string;
+    branchId?: string;
+    workDate: Date;
+    overtimeMinutes: number;
+    thresholdMinutes: number;
+  }) {
+    const dateLabel = params.workDate.toISOString().slice(0, 10);
+    const hours = Math.floor(params.overtimeMinutes / 60);
+    const mins = params.overtimeMinutes % 60;
+    const durationLabel = mins > 0 ? `${hours} h ${mins} min` : `${hours} h`;
+
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    const employeeUserId = await this.recipients.resolveEmployeeUserId(params.employeeId);
+    const dedupeKey = `overtime:${params.employeeId}:${dateLabel}`;
+
+    if (managerIds.length > 0) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: managerIds,
+        type: TimeGateNotificationType.OVERTIME_THRESHOLD,
+        title: 'Heures supplémentaires',
+        body: `${params.employeeName} — ${durationLabel} HS le ${dateLabel} (seuil ${params.thresholdMinutes} min).`,
+        meta: {
+          employeeId: params.employeeId,
+          workDate: dateLabel,
+          overtimeMinutes: params.overtimeMinutes,
+        },
+        dedupeKey,
+      });
+    }
+
+    if (employeeUserId) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: [employeeUserId],
+        type: TimeGateNotificationType.OVERTIME_THRESHOLD,
+        title: 'Heures supplémentaires',
+        body: `${durationLabel} au-delà de votre horaire le ${dateLabel}.`,
+        meta: { employeeId: params.employeeId, workDate: dateLabel },
+        dedupeKey: `${dedupeKey}:emp`,
+      });
+    }
+  }
+
+  /** Relance managers : pointages / journées encore en REVIEW_REQUIRED (Lot D #13). */
+  async notifyReviewRequiredManagerReminder(params: {
+    companyId: string;
+    branchId?: string;
+    pendingEventCount: number;
+    pendingDayCount: number;
+    reminderDate: string;
+  }) {
+    const total = params.pendingEventCount + params.pendingDayCount;
+    if (total <= 0) return;
+
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+
+    const parts: string[] = [];
+    if (params.pendingEventCount > 0) {
+      parts.push(
+        `${params.pendingEventCount} événement${params.pendingEventCount > 1 ? 's' : ''} de pointage`,
+      );
+    }
+    if (params.pendingDayCount > 0) {
+      parts.push(
+        `${params.pendingDayCount} journée${params.pendingDayCount > 1 ? 's' : ''} timesheet`,
+      );
+    }
+
+    const branchKey = params.branchId ?? 'tenant';
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.PUNCH_REVIEW_REQUIRED,
+      title: 'Rappel — validations en attente',
+      body: `${parts.join(' et ')} en attente depuis plus de 24 h. Merci de valider ou rejeter.`,
+      meta: {
+        branchId: params.branchId ?? null,
+        pendingEventCount: params.pendingEventCount,
+        pendingDayCount: params.pendingDayCount,
+        reminder: true,
+      },
+      dedupeKey: `review-reminder-mgr:${params.companyId}:${branchKey}:${params.reminderDate}`,
+    });
+  }
+
+  async notifySubscriptionGrace(params: { companyId: string; graceEndsAt: Date | null }) {
+    const adminIds = await this.resolveAdminUserIds(params.companyId);
+    if (adminIds.length === 0) return;
+
+    const graceLabel = params.graceEndsAt
+      ? params.graceEndsAt.toLocaleDateString('fr-FR')
+      : 'bientôt';
+
+    await this.emit({
+      companyId: params.companyId,
+      userIds: adminIds,
+      type: TimeGateNotificationType.SUBSCRIPTION_GRACE,
+      title: 'Abonnement — période de grâce',
+      body: `Lecture seule activée. Activez une clé avant le ${graceLabel} pour éviter le blocage.`,
+      dedupeKey: `subscription-grace:${params.companyId}:${graceLabel}`,
+    });
+  }
+
+  async notifySubscriptionBlocked(params: { companyId: string }) {
+    const adminIds = await this.resolveAdminUserIds(params.companyId);
+    if (adminIds.length === 0) return;
+
+    await this.emit({
+      companyId: params.companyId,
+      userIds: adminIds,
+      type: TimeGateNotificationType.SUBSCRIPTION_BLOCKED,
+      title: 'Abonnement bloqué',
+      body: 'Votre organisation est en lecture seule bloquée. Activez une clé sur /activate pour reprendre.',
+      dedupeKey: `subscription-blocked:${params.companyId}`,
+    });
+  }
+
+  async notifySubscriptionQuota(params: {
+    companyId: string;
+    resource: 'employees' | 'kiosks';
+    used: number;
+    max: number;
+    level: 'warning' | 'reached';
+    weekKey: string;
+  }) {
+    const adminIds = await this.resolveAdminUserIds(params.companyId);
+    if (adminIds.length === 0) return;
+
+    const label = params.resource === 'employees' ? 'employés' : 'kiosks';
+    const isReached = params.level === 'reached';
+
+    await this.emit({
+      companyId: params.companyId,
+      userIds: adminIds,
+      type: isReached
+        ? TimeGateNotificationType.SUBSCRIPTION_QUOTA_REACHED
+        : TimeGateNotificationType.SUBSCRIPTION_QUOTA_WARNING,
+      title: isReached ? `Quota ${label} atteint` : `Quota ${label} — ${params.used}/${params.max}`,
+      body: isReached
+        ? `Limite ${label} atteinte (${params.used}/${params.max}). Passez à un plan supérieur ou activez une clé.`
+        : `Vous utilisez ${params.used} sur ${params.max} ${label} (≥ 80 %). Anticipez une montée de plan.`,
+      meta: {
+        resource: params.resource,
+        used: params.used,
+        max: params.max,
+        level: params.level,
+      },
+      dedupeKey: `quota-${params.level}:${params.companyId}:${params.resource}:${params.weekKey}`,
+    });
+  }
+
+  async notifyLeaveRequestPending(params: {
+    companyId: string;
+    branchId?: string | null;
+    employeeId: string;
+    employeeName: string;
+    leaveId: string;
+    leaveType: string;
+    fromDate: string;
+    toDate: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(
+      params.companyId,
+      params.branchId ?? undefined,
+    );
+    if (managerIds.length === 0) return;
+
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.LEAVE_REQUEST_PENDING,
+      title: 'Demande de congé',
+      body: `${params.employeeName} — ${params.leaveType}, du ${params.fromDate} au ${params.toDate}.`,
+      meta: { leaveId: params.leaveId, employeeId: params.employeeId },
+      dedupeKey: `leave-pending:${params.leaveId}`,
+    });
+  }
+
+  async notifyLeaveDecision(params: {
+    companyId: string;
+    employeeId: string;
+    leaveId: string;
+    leaveType: string;
+    fromDate: string;
+    toDate: string;
+    approved: boolean;
+  }) {
+    const employeeUserId = await this.recipients.resolveEmployeeUserId(params.employeeId);
+    if (!employeeUserId) return;
+
+    const type = params.approved
+      ? TimeGateNotificationType.LEAVE_APPROVED
+      : TimeGateNotificationType.LEAVE_REJECTED;
+
+    await this.emit({
+      companyId: params.companyId,
+      userIds: [employeeUserId],
+      type,
+      title: params.approved ? 'Congé approuvé' : 'Congé refusé',
+      body: params.approved
+        ? `Votre demande ${params.leaveType} (${params.fromDate} → ${params.toDate}) est approuvée.`
+        : `Votre demande ${params.leaveType} (${params.fromDate} → ${params.toDate}) a été refusée.`,
+      meta: { leaveId: params.leaveId, employeeId: params.employeeId },
+      dedupeKey: `leave-decision:${params.leaveId}:${params.approved ? 'approved' : 'rejected'}`,
+    });
+  }
+
+  private async resolveAdminUserIds(companyId: string): Promise<string[]> {
+    const admins = await this.prisma.user.findMany({
+      where: {
+        companyId,
+        enabled: true,
+        timeGateRole: TimeGateUserRole.ADMIN,
+      },
+      select: { id: true },
+    });
+    return admins.map((u) => u.id);
   }
 
   private punchEventSelfCopy(

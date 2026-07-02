@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
-import AdminUserForm from '@/components/timegate/AdminUserForm'
 import DataTable, { type Column } from '@/components/ui/DataTable'
 import { listAdminUsers, type AdminUser } from '@/lib/timegate/auth-admin'
 import { HttpError } from '@/lib/http'
@@ -54,17 +53,14 @@ export default function AdminsPage() {
         }
       />
       {error && <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>}
-      <div className="mb-6">
-        <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="administrateurs"
-          tableId="hs-admin-users-table"
-          emptyMessage="Aucun compte admin/manager trouvé."
-        />
-      </div>
-      <AdminUserForm />
+      <DataTable
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="administrateurs"
+        tableId="hs-admin-users-table"
+        emptyMessage="Aucun compte admin/manager trouvé."
+      />
     </div>
   )
 }

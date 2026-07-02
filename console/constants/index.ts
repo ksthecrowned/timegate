@@ -1,0 +1,1 @@
+export type REVIEW_STATUS = 'APPROVED' | 'REJECTED'

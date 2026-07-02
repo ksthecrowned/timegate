@@ -1,7 +1,7 @@
 'use client'
 
+import SuperAdminNotice from '@/components/dashboard/SuperAdminNotice'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
-import PlatformDashboard from '@/components/dashboard/PlatformDashboard'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
 import { loadDashboardData, type DashboardStats } from '@/lib/timegate/dashboard-stats'
@@ -101,7 +101,7 @@ export default function DashboardPage() {
       </div>
 
       {isSuperAdmin ? (
-        <PlatformDashboard />
+        <SuperAdminNotice />
       ) : null}
 
       {!isSuperAdmin && error && (
@@ -174,7 +174,7 @@ export default function DashboardPage() {
               icon="fa-solid fa-file-lines"
               accent="text-teal-500"
             />
-            {chartData?.planningVsActual?.coveragePercent != null ? (
+            {/* {chartData?.planningVsActual?.coveragePercent != null ? (
               <StatCard
                 label="Couverture planning (%)"
                 value={Math.round(chartData.planningVsActual.coveragePercent)}
@@ -182,7 +182,7 @@ export default function DashboardPage() {
                 icon="fa-solid fa-chart-column"
                 accent="text-violet-500"
               />
-            ) : null}
+            ) : null} */}
           </div>
 
           {loading && chartData ? (

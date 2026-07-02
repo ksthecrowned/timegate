@@ -8,6 +8,8 @@ export type JwtUser = {
   companyId: string | null;
   /** Set when User is linked to Employee (portal employé). */
   employeeId?: string | null;
+  deviceInstallId?: string | null;
+  deviceTrust?: 'TRUSTED' | 'PENDING';
 };
 
 export const CurrentUser = createParamDecorator(

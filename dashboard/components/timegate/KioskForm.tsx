@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react'
 import { FormField, Input, SelectSearch, SwitcherField } from '@/components/ui/FormField'
+import { HintTooltip } from '@/components/ui/HintTooltip'
 import { findOption, toSelectOptions } from '@/lib/select-options'
 import { listBranches } from '@/lib/timegate/branches'
 import type { KioskPayload, KioskUpdatePayload } from '@/lib/timegate/kiosks'
+import { listShiftLocations } from '@/lib/timegate/shift-locations'
 import { HttpError } from '@/lib/http'
 import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import type { SelectOption } from '@/components/ui/select-search-types'
@@ -29,12 +31,14 @@ export default function KioskForm({
   const [form, setForm] = useState<KioskFormValues>({
     name: initial?.name ?? '',
     branchId: initial?.branchId ?? '',
+    shiftLocationId: initial?.shiftLocationId ?? '',
     isActive: initial?.isActive ?? true,
     faceEnabled: initial?.faceEnabled ?? true,
     nfcEnabled: initial?.nfcEnabled ?? false,
     qrEnabled: initial?.qrEnabled ?? false,
   })
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
+  const [locationOptions, setLocationOptions] = useState<SelectOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -44,6 +48,16 @@ export default function KioskForm({
     })
   }, [])
 
+  useEffect(() => {
+    if (!form.branchId) {
+      setLocationOptions([])
+      return
+    }
+    void listShiftLocations({ branchId: form.branchId, limit: 100 }).then((res) => {
+      setLocationOptions(toSelectOptions(res.data))
+    })
+  }, [form.branchId])
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -52,6 +66,7 @@ export default function KioskForm({
       const payload: KioskUpdatePayload = {
         name: form.name.trim(),
         branchId: form.branchId,
+        shiftLocationId: form.shiftLocationId || undefined,
         faceEnabled: form.faceEnabled,
         nfcEnabled: form.nfcEnabled,
         qrEnabled: form.qrEnabled,
@@ -96,8 +111,32 @@ export default function KioskForm({
               instanceId="kiosk-branch"
               options={branchOptions}
               value={findOption(branchOptions, form.branchId)}
-              onChange={(opt) => setForm((f) => ({ ...f, branchId: opt?.value ?? '' }))}
+              onChange={(opt) =>
+                setForm((f) => ({
+                  ...f,
+                  branchId: opt?.value ?? '',
+                  shiftLocationId: '',
+                }))
+              }
               placeholder="Sélectionner…"
+            />
+          </FormField>
+          <FormField
+            label={
+              <span className="inline-flex items-center gap-1">
+                Emplacement horaire
+                <HintTooltip text="Zone physique optionnelle pour restreindre les employés éligibles au pointage sur ce kiosk (ex. entrée principale, entrepôt). Laissez vide pour tous les employés de la branche." />
+              </span>
+            }
+          >
+            <SelectSearch
+              instanceId="kiosk-shift-location"
+              options={locationOptions}
+              value={findOption(locationOptions, form.shiftLocationId ?? '')}
+              onChange={(opt) => setForm((f) => ({ ...f, shiftLocationId: opt?.value ?? '' }))}
+              placeholder={form.branchId ? 'Toute la branche' : 'Choisir une branche d’abord'}
+              isClearable
+              isDisabled={!form.branchId}
             />
           </FormField>
           {showActiveToggle && (

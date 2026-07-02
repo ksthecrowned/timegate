@@ -17,6 +17,7 @@ import { BottomTabInset, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
+import { invalidateMeCache } from "@/lib/meCache";
 
 const S = Spacing; // numeric-keyed alias
 const MIN_PASSWORD_LENGTH = 8;
@@ -24,10 +25,12 @@ const MIN_PASSWORD_LENGTH = 8;
 export default function ResetPasswordScreen() {
   const theme = useTheme();
   const router = useRouter();
-  const { token, email } = useLocalSearchParams<{
+  const { token, email, setup } = useLocalSearchParams<{
     token: string;
     email: string;
+    setup?: string;
   }>();
+  const isSetup = setup === "1";
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNew, setShowNew] = useState(false);
@@ -53,6 +56,12 @@ export default function ResetPasswordScreen() {
     setLoading(true);
     try {
       await employeeApi.resetPassword(token, newPassword);
+      if (isSetup && email) {
+        invalidateMeCache();
+        await employeeApi.login({ email, password: newPassword });
+        router.replace("/");
+        return;
+      }
       setDone(true);
     } catch (err: any) {
       setError(err?.message ?? STRINGS.errors.networkError);
@@ -95,19 +104,21 @@ export default function ResetPasswordScreen() {
               <Ionicons name="checkmark-circle" size={36} color="#fff" />
             </View>
             <Text style={[styles.title, { color: theme.text }]}>
-              {STRINGS.auth.resetSuccess}
+              {isSetup ? STRINGS.auth.setupSuccess : STRINGS.auth.resetSuccess}
             </Text>
-            <Pressable
-              onPress={handleBackToLogin}
-              style={({ pressed }) => [
-                styles.submitButton,
-                { backgroundColor: theme.tint, opacity: pressed ? 0.7 : 1 },
-              ]}
-            >
-              <Text style={styles.submitButtonText}>
-                {STRINGS.auth.backToLogin}
-              </Text>
-            </Pressable>
+            {!isSetup && (
+              <Pressable
+                onPress={handleBackToLogin}
+                style={({ pressed }) => [
+                  styles.submitButton,
+                  { backgroundColor: theme.tint, opacity: pressed ? 0.7 : 1 },
+                ]}
+              >
+                <Text style={styles.submitButtonText}>
+                  {STRINGS.auth.backToLogin}
+                </Text>
+              </Pressable>
+            )}
           </View>
         ) : (
           <>
@@ -116,7 +127,7 @@ export default function ResetPasswordScreen() {
                 <Ionicons name="lock-closed-outline" size={32} color="#fff" />
               </View>
               <Text style={[styles.title, { color: theme.text }]}>
-                {STRINGS.auth.resetPasswordTitle}
+                {isSetup ? STRINGS.auth.setupPasswordTitle : STRINGS.auth.resetPasswordTitle}
               </Text>
               {email ? (
                 <Text style={[styles.subtitle, { color: theme.textSecondary }]}>

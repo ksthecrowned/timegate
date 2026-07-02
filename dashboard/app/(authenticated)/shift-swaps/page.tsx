@@ -111,10 +111,12 @@ export default function ShiftSwapsPage() {
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
       <form
+        onSubmit={(e) => void handleSubmit(e)}
         className="rounded-xl border p-4 grid md:grid-cols-2 gap-4 dark:border-neutral-700"
       >
         <FormField label="Demandeur">
           <SelectSearch
+            instanceId="shift-swap-requester"
             options={employees}
             value={findOption(employees, requesterEmployeeId)}
             required
@@ -123,6 +125,7 @@ export default function ShiftSwapsPage() {
         </FormField>
         <FormField label="Collègue cible">
           <SelectSearch
+            instanceId="shift-swap-target"
             options={employees}
             value={findOption(employees, targetEmployeeId)}
             required
@@ -131,9 +134,11 @@ export default function ShiftSwapsPage() {
         </FormField>
         <FormField label="Affectation (optionnel)">
           <SelectSearch
+            instanceId="shift-swap-assignment"
             options={assignments}
             value={findOption(assignments, shiftAssignmentId)}
             onChange={(opt) => setShiftAssignmentId(opt?.value ?? '')}
+            isClearable
           />
         </FormField>
         <FormField label="Date">
@@ -144,12 +149,11 @@ export default function ShiftSwapsPage() {
         </FormField>
         <div className="md:col-span-2">
           <button
-            onClick={(e) => handleSubmit(e)}
-            type="button"
+            type="submit"
             disabled={creating}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {creating ? "Création..." : "Créer la demande"}
+            {creating ? 'Création…' : 'Créer la demande'}
           </button>
         </div>
       </form>

@@ -25,15 +25,51 @@ export type LoginResponse = {
 
 export type SubscriptionStatus = {
   active: boolean
+  readOnly: boolean
+  blocked: boolean
+  status:
+    | 'TRIAL'
+    | 'ACTIVE'
+    | 'GRACE_READ_ONLY'
+    | 'BLOCKED'
+    | 'SUSPENDED'
+    | null
   role: TimeGateRole
   subscription: {
     id: string
     plan: string
+    planId?: string | null
     maxEmployees: number
     maxKiosks: number
     maxDevices: number
-    expiresAt: string
+    status?: string
+    storedStatus?: string
+    source?: string
+    trialEndsAt?: string | null
+    graceEndsAt?: string | null
+    expiresAt: string | null
+    daysUntilExpiry?: number | null
+    daysUntilGraceEnd?: number | null
+    usage?: {
+      employees: number
+      kiosks: number
+      maxEmployees: number
+      maxKiosks: number
+    }
   } | null
+}
+
+export type SignupResponse = {
+  access_token: string
+  organization: { id: string; name: string | null; sku: string | null }
+  subscription: {
+    status: string
+    plan: string
+    maxEmployees: number
+    maxKiosks: number
+    trialEndsAt: string | null
+    expiresAt: string | null
+  }
 }
 
 export type Branch = {
@@ -99,6 +135,12 @@ export type Employee = {
   faceEnrolledAt?: string | null
   hasFaceEmbedding?: boolean
   hasKioskPin?: boolean
+  hasNfcBadge?: boolean
+  hasQrPunchToken?: boolean
+  nfcBadgeUid?: string | null
+  qrPunchSecretIssuedAt?: string | null
+  userId?: string | null
+  linkedUser?: { id: string; email: string } | null
   createdAt: string
   updatedAt: string
 }
@@ -478,6 +520,9 @@ export type SystemConfig = {
   veryLateThreshold: number
   pinFailureThreshold?: number
   pinFailureCooldownSeconds?: number
+  timesheetRoundingMinutes?: number
+  overtimeAlertThresholdMinutes?: number
+  minMinutesBetweenShifts?: number
   defaultShiftTypeId?: string | null
   defaultShiftType?: { id: string; name: string } | null
   company?: { id: string; name: string; sku?: string } | null
@@ -490,6 +535,9 @@ export type TenantAttendanceSettings = Pick<
   | 'companyId'
   | 'pinFailureThreshold'
   | 'pinFailureCooldownSeconds'
+  | 'timesheetRoundingMinutes'
+  | 'overtimeAlertThresholdMinutes'
+  | 'minMinutesBetweenShifts'
   | 'defaultShiftTypeId'
   | 'defaultShiftType'
 >

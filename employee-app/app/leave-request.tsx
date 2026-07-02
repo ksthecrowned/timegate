@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as DocumentPicker from 'expo-document-picker';
 
 import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
@@ -41,6 +42,11 @@ export default function LeaveRequestScreen() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [reason, setReason] = useState('');
+  const [attachment, setAttachment] = useState<{
+    uri: string;
+    name: string;
+    mimeType?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -81,12 +87,22 @@ export default function LeaveRequestScreen() {
     setLoading(true);
     setError(null);
     try {
-      await employeeApi.createLeave({
-        startDate,
-        endDate,
-        leaveTypeId: selectedLeaveType!,
-        reason: reason.trim() || undefined,
-      });
+      if (attachment) {
+        await employeeApi.createLeaveWithDocument({
+          startDate,
+          endDate,
+          leaveTypeId: selectedLeaveType!,
+          reason: reason.trim() || undefined,
+          file: attachment,
+        });
+      } else {
+        await employeeApi.createLeave({
+          startDate,
+          endDate,
+          leaveTypeId: selectedLeaveType!,
+          reason: reason.trim() || undefined,
+        });
+      }
       setSuccess(true);
     } catch (err: any) {
       setError(err?.message ?? STRINGS.leave.submitError);
@@ -322,6 +338,41 @@ export default function LeaveRequestScreen() {
             />
           </View>
 
+          <View style={styles.inputGroup}>
+            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+              {STRINGS.leave.attachmentLabel}
+            </Text>
+            <Pressable
+              onPress={async () => {
+                const result = await DocumentPicker.getDocumentAsync({
+                  copyToCacheDirectory: true,
+                  multiple: false,
+                });
+                if (result.canceled || !result.assets?.[0]) return;
+                const asset = result.assets[0];
+                setAttachment({
+                  uri: asset.uri,
+                  name: asset.name,
+                  mimeType: asset.mimeType ?? undefined,
+                });
+              }}
+              style={[
+                styles.attachmentBtn,
+                { borderColor: Colors.light.border, backgroundColor: Colors.light.background },
+              ]}
+            >
+              <Ionicons name="attach-outline" size={18} color={Colors.light.primary} />
+              <Text style={{ color: Colors.light.text, flex: 1 }}>
+                {attachment?.name ?? STRINGS.leave.attachmentHint}
+              </Text>
+              {attachment ? (
+                <Pressable onPress={() => setAttachment(null)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={Colors.light.textSecondary} />
+                </Pressable>
+              ) : null}
+            </Pressable>
+          </View>
+
           <Pressable
             onPress={handleSubmit}
             disabled={loading}
@@ -395,6 +446,14 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   textArea: { minHeight: 100, paddingTop: S[3] },
+  attachmentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: S[2],
+    borderWidth: 1,
+    borderRadius: S[2],
+    padding: S[3],
+  },
   hint: { fontSize: 14 },
   typeGrid: {
     flexDirection: 'row',

@@ -1,12 +1,12 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
 import DataTable, { Column } from '@/components/ui/DataTable'
-import { listAuditLogs } from '@/lib/timegate/admin-saas'
-import type { AuditLog } from '@/lib/timegate/types'
+import PageHeader from '@/components/ui/PageHeader'
 import { formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
+import { listAuditLogs } from '@/lib/timegate/admin-saas'
+import type { AuditLog } from '@/lib/timegate/types'
+import { useCallback, useEffect, useState } from 'react'
 
 const columns: Column<AuditLog>[] = [
   {
@@ -21,11 +21,6 @@ const columns: Column<AuditLog>[] = [
     key: 'user',
     label: 'Utilisateur',
     render: (_, row) => row.user?.email ?? '—',
-  },
-  {
-    key: 'company',
-    label: 'Organisation',
-    render: (_, row) => row.company?.name ?? '—',
   },
 ]
 
@@ -52,20 +47,25 @@ export default function AuditLogsPage() {
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: 'Journaux d\'audit' }]} />
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Administration', href: '/' },
+          { label: 'Journaux d\'audit' },
+        ]}
+      />
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}
         </div>
       )}
       <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="entrées d'audit"
-          tableId="hs-audit-logs-table"
-          emptyMessage="Aucun journal d'audit trouvé."
-        />
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="entrées d'audit"
+        tableId="hs-audit-logs-table"
+        emptyMessage="Aucun journal d'audit pour votre organisation."
+      />
     </div>
   )
 }

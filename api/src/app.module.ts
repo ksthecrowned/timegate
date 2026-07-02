@@ -19,6 +19,7 @@ import { AbsencesModule } from './absences/absences.module';
 import { SalariesModule } from './salaries/salaries.module';
 import { PayrollRunsModule } from './payroll-runs/payroll-runs.module';
 import { AdminSaasModule } from './admin-saas/admin-saas.module';
+import { SaasModule } from './saas/saas.module';
 import { EmployeePortalModule } from './employee-portal/employee-portal.module';
 import { ShiftLocationsModule } from './shift-locations/shift-locations.module';
 import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
@@ -34,6 +35,9 @@ import { ShiftSwapsModule } from './shift-swaps/shift-swaps.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DevicesModule } from './devices/devices.module';
+import { TrustedDevicesModule } from './trusted-devices/trusted-devices.module';
+import { ManagerModule } from './manager/manager.module';
+import { PunchClaimsModule } from './punch-claims/punch-claims.module';
 
 @Module({
   imports: [
@@ -57,6 +61,7 @@ import { DevicesModule } from './devices/devices.module';
     SalariesModule,
     PayrollRunsModule,
     AdminSaasModule,
+    SaasModule,
     EmployeePortalModule,
     ShiftLocationsModule,
     ShiftAssignmentsModule,
@@ -72,6 +77,9 @@ import { DevicesModule } from './devices/devices.module';
     DashboardModule,
     NotificationsModule,
     DevicesModule,
+    TrustedDevicesModule,
+    ManagerModule,
+    PunchClaimsModule,
   ],
 })
 export class AppModule {}

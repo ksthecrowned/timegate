@@ -90,6 +90,7 @@ enum TimeGateAttendanceEventSource {
   KIOSK_ONLINE
   KIOSK_OFFLINE_SYNC
   MANUAL
+  EMPLOYEE_APP
 }
 
 enum TimeGateAttendanceEventStatus {
@@ -103,6 +104,7 @@ enum TimeGateAttendanceAuthMethod {
   PIN
   NFC
   QR
+  MOBILE
 }
 
 enum TimeGateTimesheetDayStatus {
@@ -129,6 +131,19 @@ enum TimeGateShiftSwapStatus {
   CANCELLED
 }
 
+enum TimeGatePunchClaimType {
+  EARLY_DEPARTURE
+  MISSED_CHECKOUT
+  BREAK_NOT_TAKEN
+  OTHER
+}
+
+enum TimeGatePunchClaimStatus {
+  OPEN
+  APPROVED
+  REJECTED
+}
+
 enum TimeGateNotificationType {
   PUNCH_CHECK_IN
   PUNCH_CHECK_OUT
@@ -138,12 +153,43 @@ enum TimeGateNotificationType {
   ABSENCE_AUTO
   UNCLOSED_CHECK_IN
   UNCLOSED_CHECK_IN_REMINDER
+  BREAK_RESUME_REMINDER
+  SUBSCRIPTION_TRIAL_REMINDER
+  SUBSCRIPTION_EXPIRING
+  SUBSCRIPTION_GRACE
+  SUBSCRIPTION_BLOCKED
+  SUBSCRIPTION_QUOTA_WARNING
+  SUBSCRIPTION_QUOTA_REACHED
+  LEAVE_REQUEST_PENDING
+  LEAVE_APPROVED
+  LEAVE_REJECTED
+  OVERTIME_THRESHOLD
+}
+
+enum TimeGateTrustedDeviceStatus {
+  TRUSTED
+  PENDING
+  REVOKED
 }
 
 enum TimeGateDevicePlatform {
   IOS
   ANDROID
   WEB
+}
+
+enum TimeGateSubscriptionStatus {
+  TRIAL
+  ACTIVE
+  GRACE_READ_ONLY
+  BLOCKED
+  SUSPENDED
+}
+
+enum TimeGateSubscriptionSource {
+  SELF_SIGNUP
+  ACTIVATION_KEY
+  MANUAL
 }
 
 enum WeekDay {
@@ -176,6 +222,7 @@ model Company {
   email    String? @db.VarChar(140)
   website  String? @db.VarChar(500)
   address  String? @db.VarChar(500)
+  suspendedAt DateTime? @map("suspended_at")
 
   defaultPayrollPayableAccountId String? @map("default_payroll_payable_account") @db.VarChar(140)
   defaultPayrollPayableAccount   Account? @relation("CompanyPayrollPayableAccount", fields: [defaultPayrollPayableAccountId], references: [id], onDelete: SetNull)
@@ -209,6 +256,8 @@ model Company {
   designations              Designation[]
   shiftSwapRequests         TimeGateShiftSwapRequest[]
   timeGateNotifications     TimeGateNotification[]
+  timeGatePunchAttemptLogs  TimeGatePunchAttemptLog[]
+  timeGatePunchClaims       TimeGatePunchClaim[]
 
   @@map("tabCompany")
 }
@@ -280,6 +329,7 @@ model Branch {
   faceLogs       FaceRecognitionLog[]
   userBranches   TimeGateUserBranch[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
+  punchAttemptLogs         TimeGatePunchAttemptLog[]
 
   @@map("tabBranch")
 }
@@ -394,8 +444,8 @@ model Employee {
   faceEmbedding       Json?     @map("face_embedding")
   kioskPinHash        String?   @map("kiosk_pin_hash") @db.VarChar(255)
   nfcBadgeUid         String?   @map("nfc_badge_uid") @db.VarChar(64)
-  qrPunchTokenHash    String?   @map("qr_punch_token_hash") @db.VarChar(64)
-  qrPunchTokenIssuedAt DateTime? @map("qr_punch_token_issued_at")
+  qrPunchSecret       String?   @map("qr_punch_secret") @db.VarChar(88)
+  qrPunchSecretIssuedAt DateTime? @map("qr_punch_secret_issued_at")
 
   checkins                 EmployeeCheckin[]
   attendances              Attendance[]
@@ -406,6 +456,7 @@ model Employee {
   timesheets               Timesheet[]
   salarySlips              SalarySlip[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
+  punchAttemptLogs         TimeGatePunchAttemptLog[]
   timeGateTimesheetDays    TimeGateTimesheetDay[]
   timeGateLateRecords      TimeGateLateRecord[]
   timeGateAbsenceRecords   TimeGateAbsenceRecord[]
@@ -415,6 +466,7 @@ model Employee {
   salaryStructureAssignments SalaryStructureAssignment[]
   shiftSwapRequestsRequested TimeGateShiftSwapRequest[] @relation("ShiftSwapRequester")
   shiftSwapRequestsTarget    TimeGateShiftSwapRequest[] @relation("ShiftSwapTarget")
+  punchClaims                TimeGatePunchClaim[]
 
   @@unique([companyId, nfcBadgeUid])
   @@map("tabEmployee")
@@ -689,6 +741,7 @@ model LeaveApplication {
   toDate       DateTime?              @map("to_date") @db.Date
   status       LeaveApplicationStatus @default(OPEN)
   reason       String?                @db.VarChar(500)
+  supportDocumentUrl String?          @map("support_document_url") @db.VarChar(500)
 
   @@map("tabLeave Application")
 }
@@ -900,7 +953,7 @@ model User {
   lastName     String? @map("last_name") @db.VarChar(140)
   enabled      Boolean @default(true)
   language     String? @db.VarChar(140)
-  passwordHash String  @map("password_hash") @db.VarChar(255)
+  passwordHash String? @map("password_hash") @db.VarChar(255)
   timeGateRole TimeGateUserRole? @map("timegate_role")
   companyId    String? @map("company") @db.VarChar(140)
   company      Company? @relation(fields: [companyId], references: [id])
@@ -912,10 +965,12 @@ model User {
   notifications NotificationLog[]
   timeGateNotifications TimeGateNotification[]
   timeGateDevices       TimeGateDevice[]
+  trustedDevices        TimeGateTrustedDevice[]
   branches     TimeGateUserBranch[]
   auditLogs    TimeGateAuditLog[]
   timesheetOverrides TimeGateTimesheetOverride[]
   reviewedShiftSwaps TimeGateShiftSwapRequest[]
+  reviewedPunchClaims TimeGatePunchClaim[]
 
   @@unique([email, companyId])
   @@map("tabUser")
@@ -975,32 +1030,71 @@ model NotificationLog {
 // TimeGate SaaS & platform models
 // ---------------------------------------------------------------------------
 
+model TimeGatePlatformSettings {
+  id                String   @id @default("PLATFORM") @db.VarChar(140)
+  trialDays         Int      @default(14) @map("trial_days")
+  trialMaxEmployees Int      @default(10) @map("trial_max_employees")
+  trialMaxKiosks    Int      @default(1) @map("trial_max_kiosks")
+  gracePeriodDays   Int      @default(7) @map("grace_period_days")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("timegate_platform_settings")
+}
+
+model TimeGateSubscriptionPlan {
+  id           String   @id @db.VarChar(140)
+  code         String   @unique @db.VarChar(64)
+  label        String   @db.VarChar(140)
+  maxEmployees Int      @map("max_employees")
+  maxKiosks    Int      @map("max_devices")
+  durationDays Int?     @map("duration_days")
+  features     Json?
+  isActive     Boolean  @default(true) @map("is_active")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  subscriptions  TimeGateSubscription[]
+  activationKeys TimeGateActivationKey[]
+
+  @@map("timegate_subscription_plan")
+}
+
 model TimeGateSubscription {
-  id           String    @id @db.VarChar(140)
-  companyId    String    @map("company") @db.VarChar(140)
-  company      Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  plan         String    @db.VarChar(140)
+  id           String                     @id @db.VarChar(140)
+  companyId    String                     @map("company") @db.VarChar(140)
+  company      Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan         String                     @db.VarChar(140)
+  planId       String?                    @map("plan_id") @db.VarChar(140)
+  planRef      TimeGateSubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
   maxEmployees Int
-  maxKiosks    Int       @map("max_devices")
+  maxKiosks    Int                        @map("max_devices")
+  status       TimeGateSubscriptionStatus @default(ACTIVE)
+  source       TimeGateSubscriptionSource @default(MANUAL)
+  trialEndsAt  DateTime?                  @map("trial_ends_at")
+  graceEndsAt  DateTime?                  @map("grace_ends_at")
   expiresAt    DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime                   @default(now())
 
   @@index([companyId, createdAt])
+  @@index([status, expiresAt])
   @@map("timegate_subscription")
 }
 
 model TimeGateActivationKey {
-  id         String    @id @db.VarChar(140)
-  companyId  String    @map("company") @db.VarChar(140)
-  company    Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  keyHash    String    @unique @db.VarChar(140)
-  plan       String    @db.VarChar(140)
+  id           String                    @id @db.VarChar(140)
+  companyId    String                    @map("company") @db.VarChar(140)
+  company      Company                   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  keyHash      String                    @unique @db.VarChar(140)
+  plan         String                    @db.VarChar(140)
+  planId       String?                   @map("plan_id") @db.VarChar(140)
+  planRef      TimeGateSubscriptionPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
   maxEmployees Int
-  maxKiosks  Int       @map("max_devices")
-  expiresAt  DateTime
-  createdAt  DateTime  @default(now())
-  usedAt     DateTime?
-  revokedAt  DateTime?
+  maxKiosks    Int                       @map("max_devices")
+  expiresAt    DateTime
+  createdAt    DateTime                  @default(now())
+  usedAt       DateTime?
+  revokedAt    DateTime?
 
   @@index([companyId, expiresAt])
   @@map("timegate_activation_key")
@@ -1015,6 +1109,9 @@ model TimeGateSystemSettings {
   veryLateThreshold Int   @default(30) @map("very_late_threshold")
   pinFailureThreshold Int @default(3) @map("pin_failure_threshold")
   pinFailureCooldownSeconds Int @default(30) @map("pin_failure_cooldown_seconds")
+  timesheetRoundingMinutes Int @default(0) @map("timesheet_rounding_minutes")
+  overtimeAlertThresholdMinutes Int @default(120) @map("overtime_alert_threshold_minutes")
+  minMinutesBetweenShifts Int @default(660) @map("min_minutes_between_shifts")
   defaultShiftTypeId String? @map("default_shift_type") @db.VarChar(140)
   defaultShiftType   ShiftType? @relation(fields: [defaultShiftTypeId], references: [id], onDelete: SetNull)
 
@@ -1065,6 +1162,25 @@ model TimeGateDevice {
   @@map("timegate_device")
 }
 
+model TimeGateTrustedDevice {
+  id              String                       @id @db.VarChar(140)
+  createdAt       DateTime                     @default(now()) @map("created_at")
+  updatedAt       DateTime                     @updatedAt @map("updated_at")
+  userId          String                       @map("user") @db.VarChar(140)
+  user            User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceInstallId String                       @map("device_install_id") @db.VarChar(64)
+  platform        TimeGateDevicePlatform
+  deviceLabel     String?                      @map("device_label") @db.VarChar(140)
+  status          TimeGateTrustedDeviceStatus
+  trustedAt       DateTime?                    @map("trusted_at")
+  lastSeenAt      DateTime                     @default(now()) @map("last_seen_at")
+
+  @@unique([userId, deviceInstallId])
+  @@index([deviceInstallId, status])
+  @@index([userId, status])
+  @@map("timegate_trusted_device")
+}
+
 model TimeGateAttendanceEvent {
   id        String    @id @db.VarChar(140)
   createdAt DateTime  @default(now()) @map("creation")
@@ -1100,6 +1216,55 @@ model TimeGateAttendanceEvent {
   @@map("timegate_attendance_event")
 }
 
+model TimeGatePunchAttemptLog {
+  id         String   @id @db.VarChar(140)
+  createdAt  DateTime @default(now()) @map("created_at")
+  companyId  String   @map("company") @db.VarChar(140)
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId String?  @map("employee") @db.VarChar(140)
+  employee   Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+  branchId   String?  @map("branch") @db.VarChar(140)
+  branch     Branch?  @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  kioskId    String?  @map("kiosk") @db.VarChar(140)
+  source     TimeGateAttendanceEventSource?
+  authMethod TimeGateAttendanceAuthMethod? @map("auth_method")
+  outcome    String   @db.VarChar(32)
+  message    String   @db.Text
+  occurredAt DateTime @map("occurred_at")
+  meta       Json?
+
+  @@index([companyId, createdAt])
+  @@index([employeeId, createdAt])
+  @@map("timegate_punch_attempt_log")
+}
+
+model TimeGatePunchClaim {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId   String                   @map("company") @db.VarChar(140)
+  company     Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId  String                   @map("employee") @db.VarChar(140)
+  employee    Employee                 @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  workDate    DateTime                 @map("work_date") @db.Date
+  type        TimeGatePunchClaimType
+  reason      String                   @db.VarChar(1000)
+  status      TimeGatePunchClaimStatus @default(OPEN)
+
+  timesheetDayId String?               @map("timesheet_day") @db.VarChar(140)
+  timesheetDay   TimeGateTimesheetDay? @relation(fields: [timesheetDayId], references: [id], onDelete: SetNull)
+
+  reviewedByUserId String? @map("reviewed_by") @db.VarChar(140)
+  reviewedBy       User?   @relation(fields: [reviewedByUserId], references: [id], onDelete: SetNull)
+  reviewedAt       DateTime? @map("reviewed_at")
+  reviewNote       String?   @map("review_note") @db.VarChar(500)
+
+  @@index([companyId, status])
+  @@index([employeeId, workDate])
+  @@map("timegate_punch_claim")
+}
+
 model TimeGateTimesheetDay {
   id        String   @id @db.VarChar(140)
   createdAt DateTime @default(now()) @map("creation")
@@ -1121,6 +1286,7 @@ model TimeGateTimesheetDay {
 
   overrides   TimeGateTimesheetOverride[]
   lateRecords TimeGateLateRecord[]
+  punchClaims TimeGatePunchClaim[]
 
   @@unique([employeeId, workDate])
   @@index([companyId, workDate])

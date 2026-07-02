@@ -16,7 +16,8 @@
         "backgroundColor": "#FFD23F"
       },
       "package": "com.timegate.mobile",
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "permissions": ["NFC"]
     },
     "plugins": [
       "expo-router",

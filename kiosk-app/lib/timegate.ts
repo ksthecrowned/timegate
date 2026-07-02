@@ -456,6 +456,19 @@ export function getVerificationUserMessage(error: unknown): string {
     return "Service de reconnaissance momentanément indisponible. Patientez quelques secondes puis réessayez.";
   }
 
+  if (msg.includes("nfc_disabled")) {
+    return "NFC desactive. Activez le NFC dans les parametres de l'appareil.";
+  }
+  if (msg.includes("nfc_timeout")) {
+    return "Aucun badge detecte a temps. Presentez votre badge pres du lecteur.";
+  }
+  if (msg.includes("nfc_unsupported")) {
+    return "Cet appareil ne dispose pas de lecteur NFC.";
+  }
+  if (msg.includes("nfc_cancelled")) {
+    return "Lecture NFC annulee.";
+  }
+
   // Timing
   if (msg.includes("timeout") || msg.includes("verification trop longue")) {
     return "Vérification trop longue. Vérifiez votre connexion réseau puis réessayez.";
@@ -748,25 +761,32 @@ export async function verifyNfcBadge(
 }
 
 /**
- * Hardware stub for reading a single NFC badge UID.
+ * Reads a single NFC badge UID via the device NFC radio.
  *
- * Real implementation will live behind `readNfcBadge` once a native module
- * is wired in (expo-nfc-pe, @react-native-community/nfc, or a custom
- * module). The contract is:
- *
- *   - resolves with the badge UID (hex string)
- *   - rejects with MobileApiError:
- *       - "NFC_TIMEOUT"    (no badge presented within timeoutMs)
- *       - "NFC_CANCELLED"  (user cancelled)
- *       - "NFC_DISABLED"   (NFC radio off)
+ * Resolves with the badge UID (hex string). Rejects with MobileApiError:
+ *   - "NFC_TIMEOUT"    (no badge presented within timeoutMs)
+ *   - "NFC_CANCELLED"  (user cancelled)
+ *   - "NFC_DISABLED"   (NFC radio off)
+ *   - "NFC_UNSUPPORTED" (no NFC hardware)
  */
 export async function readNfcBadge(timeoutMs = 10_000): Promise<string> {
-  // TODO hardware: replace with a call to the chosen NFC lib.
-  mobileLog("log", "readNfcBadge started (stub)", { timeoutMs });
-  await new Promise((r) => setTimeout(r, Math.max(500, timeoutMs * 0.6)));
-  const uid = `STUB-${Math.random().toString(16).slice(2, 10).toUpperCase()}`;
-  mobileLog("log", "readNfcBadge read", { uid });
-  return uid;
+  mobileLog("log", "readNfcBadge started", { timeoutMs });
+  try {
+    const { readNfcBadgeUid } = await import("./nfc-reader");
+    const uid = await readNfcBadgeUid(timeoutMs);
+    mobileLog("log", "readNfcBadge read", { uid });
+    return uid;
+  } catch (error) {
+    const { NfcReaderError } = await import("./nfc-reader");
+    if (error instanceof NfcReaderError) {
+      mobileLog("warn", "readNfcBadge failed", { code: error.code, message: error.message });
+      throw new MobileApiError(error.code, 0);
+    }
+    mobileLog("warn", "readNfcBadge failed", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -782,8 +802,6 @@ export type QrVerifyResult = {
 
 type QrVerifyOptions = {
   idempotencyKey?: string;
-  offlineSync?: boolean;
-  capturedAt?: string;
 };
 
 export async function verifyQrCode(
@@ -805,11 +823,7 @@ export async function verifyQrCode(
         ? { "X-Idempotency-Key": options.idempotencyKey }
         : {}),
     },
-    body: JSON.stringify({
-      qrPayload: qrPayload.trim(),
-      ...(options?.offlineSync ? { offlineSync: "1" } : {}),
-      ...(options?.capturedAt ? { capturedAt: options.capturedAt } : {}),
-    }),
+    body: JSON.stringify({ qrPayload: qrPayload.trim() }),
   });
   if (res.status === 401) await clearProvisioning();
   if (!res.ok) {

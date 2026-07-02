@@ -5,7 +5,8 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { SubscriptionActiveGuard } from '../common/guards/subscription-active.guard';
+import { SubscriptionStateGuard } from '../common/guards/subscription-state.guard';
+import { SaasModule } from '../saas/saas.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { MailService } from './mail.service';
@@ -13,6 +14,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { FaceModule } from '../face/face.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AttendanceModule } from '../attendance/attendance.module';
+import { TrustedDevicesModule } from '../trusted-devices/trusted-devices.module';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 @Module({
@@ -20,7 +22,9 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     FaceModule,
     AttendanceModule,
+    TrustedDevicesModule,
     NotificationsModule,
+    SaasModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -38,7 +42,7 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
     JwtStrategy,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
-    { provide: APP_GUARD, useClass: SubscriptionActiveGuard },
+    { provide: APP_GUARD, useClass: SubscriptionStateGuard },
   ],
   exports: [AuthService, MailService],
 })

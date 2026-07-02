@@ -31,6 +31,7 @@ Objectifs principaux:
 TimeGate/
   api/           -> NestJS + Prisma + PostgreSQL + moteur facial Python
   dashboard/     -> Next.js (backoffice admin, port 3000)
+  console/       -> Next.js (Console Plateforme SaaS, port 3002)
   employee-web/  -> Next.js (espace employé mobile-first, port 3001)
   mobile-app/    -> Expo / React Native (kiosk facial)
 ```
@@ -107,7 +108,7 @@ Copier `api/.env.example` vers `api/.env`.
 Variables importantes dans `api/.env` :
 
 - `PORT` (defaut `4001`)
-- `CORS_ORIGIN` (ex: `http://localhost:3000,http://localhost:3001` pour dashboard + espace employé)
+- `CORS_ORIGIN` (ex: `http://localhost:3000,http://localhost:3001,http://localhost:3002` pour dashboard + employé + console plateforme)
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `FACE_ENGINE_PYTHON_BIN`
@@ -129,7 +130,24 @@ Copier `dashboard/.env.example` vers `dashboard/.env.local` :
 
 - `NEXT_PUBLIC_TIMEGATE_API_URL=http://localhost:4001/api/v1` (API Nest sur port **4001**, prefixe **/api/v1**)
 
-## 3) Espace employé (web)
+## 3) Console Plateforme (SaaS)
+
+```bash
+cd console
+bun install
+bun run dev
+```
+
+URL par defaut: `http://localhost:3002`
+
+Copier `console/.env.example` vers `console/.env.local` :
+
+- `NEXT_PUBLIC_TIMEGATE_API_URL=http://localhost:4001/api/v1`
+- `AUTH_SECRET` (meme valeur que dashboard en local si besoin)
+
+Connexion reservee aux comptes **SUPER_ADMIN** (sans SKU).
+
+## 4) Espace employé (web)
 
 ```bash
 cd employee-web
@@ -145,7 +163,7 @@ Copier `employee-web/.env.example` vers `employee-web/.env` :
 
 Compte seed employe : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!`
 
-## 4) Mobile App
+## 5) Mobile App
 
 ```bash
 cd mobile-app
@@ -177,5 +195,5 @@ Projet en evolution active, avec focus sur:
 Workflow GitHub Actions : [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 - Job **api** : Postgres, migrate, seed, tests use-cases (`bun run test:use-cases`)
-- Job **frontend** : `tsc --noEmit` sur `dashboard`, `employee-web` et `mobile-app`
+- Job **frontend** : `tsc --noEmit` sur `dashboard`, `console`, `employee-web` et `mobile-app`
 

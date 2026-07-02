@@ -286,6 +286,15 @@ export class AdminSaasService {
       ...(dto.pinFailureCooldownSeconds !== undefined
         ? { pinFailureCooldownSeconds: dto.pinFailureCooldownSeconds }
         : {}),
+      ...(dto.timesheetRoundingMinutes !== undefined
+        ? { timesheetRoundingMinutes: dto.timesheetRoundingMinutes }
+        : {}),
+      ...(dto.overtimeAlertThresholdMinutes !== undefined
+        ? { overtimeAlertThresholdMinutes: dto.overtimeAlertThresholdMinutes }
+        : {}),
+      ...(dto.minMinutesBetweenShifts !== undefined
+        ? { minMinutesBetweenShifts: dto.minMinutesBetweenShifts }
+        : {}),
     };
   }
 
@@ -297,6 +306,9 @@ export class AdminSaasService {
     veryLateThreshold: number;
     pinFailureThreshold: number;
     pinFailureCooldownSeconds: number;
+    timesheetRoundingMinutes: number;
+    overtimeAlertThresholdMinutes: number;
+    minMinutesBetweenShifts: number;
     defaultShiftTypeId: string | null;
     company?: { id: string; name: string | null; sku: string | null } | null;
     defaultShiftType?: { id: string; shiftName: string } | null;
@@ -309,6 +321,9 @@ export class AdminSaasService {
       veryLateThreshold: row.veryLateThreshold,
       pinFailureThreshold: row.pinFailureThreshold,
       pinFailureCooldownSeconds: row.pinFailureCooldownSeconds,
+      timesheetRoundingMinutes: row.timesheetRoundingMinutes,
+      overtimeAlertThresholdMinutes: row.overtimeAlertThresholdMinutes,
+      minMinutesBetweenShifts: row.minMinutesBetweenShifts,
       defaultShiftTypeId: row.defaultShiftTypeId,
       defaultShiftType: row.defaultShiftType
         ? { id: row.defaultShiftType.id, name: row.defaultShiftType.shiftName }

@@ -13,6 +13,7 @@ import {
   fetchTimeGateMe,
   loginTimeGate,
 } from "@/lib/auth/timegate-auth";
+import { mapSubscriptionSessionFields } from "@/lib/auth/subscription-session";
 import type { TimeGateRole } from "@/lib/timegate/types";
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
@@ -54,7 +55,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             lastName: me.lastName,
             role: me.role as TimeGateRole,
             companyId: me.companyId,
-            subscriptionActive: subscription.active,
+            ...mapSubscriptionSessionFields(subscription),
             accessToken,
             accessTokenExpires: getAccessTokenExpiry(accessToken),
           };
@@ -87,6 +88,9 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             role: user.role,
             companyId: user.companyId,
             subscriptionActive: user.subscriptionActive,
+            subscriptionReadOnly: user.subscriptionReadOnly,
+            subscriptionBlocked: user.subscriptionBlocked,
+            subscriptionStatus: user.subscriptionStatus,
           },
           accessToken: user.accessToken,
           accessTokenExpires: user.accessTokenExpires,

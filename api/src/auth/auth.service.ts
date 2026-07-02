@@ -17,6 +17,8 @@ import {
   TimeGateAttendanceEventStatus,
   TimeGateAttendanceEventType,
   TimeGateAttendanceAuthMethod,
+  TimeGateSubscriptionSource,
+  TimeGateSubscriptionStatus,
   TimeGateUserRole,
 } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
@@ -28,12 +30,15 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { CreateUserDto } from './dto/create-user.dto';
+import { TrustedDevicesService } from '../trusted-devices/trusted-devices.service';
+import { EmployeeIdentifyDto, EmployeeLoginDto } from './dto/employee-auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
 import { MobileVerifyNfcDto } from './dto/mobile-verify-nfc.dto';
 import { MobileVerifyQrDto } from './dto/mobile-verify-qr.dto';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
+import { SignupDto } from './dto/signup.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
@@ -44,13 +49,21 @@ import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from './mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
+import { SubscriptionStateService } from '../saas/subscription-state.service';
 import { AttendanceEventStatusService } from '../attendance/attendance-event-status.service';
+import { AttendancePunchRecorderService } from '../attendance/attendance-punch-recorder.service';
+import { PunchAttemptLogService } from '../attendance/punch-attempt-log.service';
 import { resolveAttendancePunch } from '../attendance/attendance-punch-resolver';
 import {
   buildDayPunchStateFromEvents,
   PunchWindowService,
 } from '../attendance/punch-window.service';
 import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  parseQrPunchPayload,
+  verifyQrPunchPayload,
+} from '../common/utils/qr-punch-token.util';
 
 type MobileTokenPayload = {
   typ: 'mobile_device';
@@ -95,10 +108,103 @@ export class AuthService {
     private face: FaceEmbeddingService,
     private readonly storage: CloudflareR2Service,
     private readonly eventStatus: AttendanceEventStatusService,
+    private readonly punchRecorder: AttendancePunchRecorderService,
+    private readonly punchAttemptLog: PunchAttemptLogService,
     private readonly punchWindows: PunchWindowService,
     private readonly mail: MailService,
     private readonly notifications: NotificationsService,
+    private readonly subscriptionState: SubscriptionStateService,
+    private readonly subscriptionQuota: SubscriptionQuotaService,
+    private readonly trustedDevices: TrustedDevicesService,
   ) {}
+
+  async signup(dto: SignupDto) {
+    const settings = await this.subscriptionState.getPlatformSettings();
+    const email = dto.adminEmail.trim().toLowerCase();
+    const existingUser = await this.prisma.user.findFirst({ where: { email } });
+    if (existingUser) {
+      throw new ConflictException('Un compte existe deja avec cet e-mail');
+    }
+
+    const sku = await this.resolveUniqueSignupSku(dto.organizationName, dto.sku);
+    const passwordHash = await bcrypt.hash(dto.adminPassword, 10);
+    const trialEndsAt = new Date(Date.now() + settings.trialDays * 24 * 60 * 60 * 1000);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: {
+          id: generateDocId('CO'),
+          name: dto.organizationName.trim(),
+          sku,
+        },
+      });
+
+      await tx.branch.create({
+        data: {
+          id: generateDocId('BR'),
+          branchName: 'Siège',
+          companyId: company.id,
+          isHeadOffice: true,
+          isActive: true,
+        },
+      });
+
+      await tx.timeGateSystemSettings.create({
+        data: {
+          id: generateDocId('CFG'),
+          companyId: company.id,
+        },
+      });
+
+      const user = await tx.user.create({
+        data: {
+          id: generateDocId('USR'),
+          email,
+          passwordHash,
+          timeGateRole: TimeGateUserRole.ADMIN,
+          companyId: company.id,
+        },
+      });
+
+      const subscription = await tx.timeGateSubscription.create({
+        data: {
+          id: generateDocId('SUB'),
+          companyId: company.id,
+          plan: 'TRIAL',
+          maxEmployees: settings.trialMaxEmployees,
+          maxKiosks: settings.trialMaxKiosks,
+          status: TimeGateSubscriptionStatus.TRIAL,
+          source: TimeGateSubscriptionSource.SELF_SIGNUP,
+          trialEndsAt,
+          expiresAt: trialEndsAt,
+        },
+      });
+
+      return { company, user, subscription };
+    });
+
+    return {
+      access_token: await this.signToken(
+        created.user.id,
+        created.user.email,
+        created.user.timeGateRole!,
+        created.company.id,
+      ),
+      organization: {
+        id: created.company.id,
+        name: created.company.name,
+        sku: created.company.sku,
+      },
+      subscription: {
+        status: created.subscription.status,
+        plan: created.subscription.plan,
+        maxEmployees: created.subscription.maxEmployees,
+        maxKiosks: created.subscription.maxKiosks,
+        trialEndsAt: created.subscription.trialEndsAt,
+        expiresAt: created.subscription.expiresAt,
+      },
+    };
+  }
 
   async login(dto: LoginDto) {
     const user = await this.validateCredentials(dto);
@@ -112,8 +218,23 @@ export class AuthService {
     };
   }
 
+  /** Step 0: branch login flow for employee app (email only). */
+  async employeeIdentify(dto: EmployeeIdentifyDto) {
+    const email = dto.email.trim().toLowerCase();
+    const user = await this.prisma.user.findFirst({
+      where: { email, timeGateRole: TimeGateUserRole.EMPLOYEE },
+      select: { passwordHash: true },
+    });
+    if (!user) {
+      return { nextStep: 'CHECK_EMAIL' as const };
+    }
+    return {
+      nextStep: user.passwordHash ? ('PASSWORD' as const) : ('OTP_SETUP' as const),
+    };
+  }
+
   /** Login for mobile/dashboard employee self-service (User linked to Employee). */
-  async employeeLogin(dto: LoginDto) {
+  async employeeLogin(dto: EmployeeLoginDto) {
     const user = await this.validateEmployeeCredentials(dto);
     if (user.timeGateRole !== TimeGateUserRole.EMPLOYEE) {
       throw new UnauthorizedException('This account is not an employee portal user');
@@ -134,6 +255,13 @@ export class AuthService {
       throw new UnauthorizedException('No active employee profile linked to this account');
     }
 
+    const { trust } = await this.trustedDevices.registerOnLogin({
+      userId: user.id,
+      deviceInstallId: dto.deviceInstallId,
+      platform: dto.platform,
+      deviceLabel: dto.deviceLabel,
+    });
+
     const branch = employee.branchId
       ? await this.prisma.branch.findUnique({
           where: { id: employee.branchId },
@@ -141,13 +269,21 @@ export class AuthService {
         })
       : null;
 
+    const deviceTrustMessage =
+      trust === 'PENDING'
+        ? 'Appareil en attente de validation. Pointage indisponible.'
+        : null;
+
     return {
       access_token: await this.signToken(
         user.id,
         user.email,
         user.timeGateRole!,
         user.companyId ?? null,
+        { deviceInstallId: dto.deviceInstallId.trim(), deviceTrust: trust },
       ),
+      deviceTrust: trust,
+      deviceTrustMessage,
       employee: {
         id: employee.id,
         firstName: employee.firstName ?? employee.employeeName,
@@ -252,9 +388,14 @@ export class AuthService {
             where: { id: existingSubscription.id },
             data: {
               plan: activation.plan,
+              planId: activation.planId,
               maxEmployees: activation.maxEmployees,
               maxKiosks: activation.maxKiosks,
               expiresAt: activation.expiresAt,
+              status: TimeGateSubscriptionStatus.ACTIVE,
+              source: TimeGateSubscriptionSource.ACTIVATION_KEY,
+              trialEndsAt: null,
+              graceEndsAt: null,
             },
           })
         : this.prisma.timeGateSubscription.create({
@@ -262,9 +403,12 @@ export class AuthService {
               id: generateDocId('SUB'),
               companyId: activation.companyId,
               plan: activation.plan,
+              planId: activation.planId,
               maxEmployees: activation.maxEmployees,
               maxKiosks: activation.maxKiosks,
               expiresAt: activation.expiresAt,
+              status: TimeGateSubscriptionStatus.ACTIVE,
+              source: TimeGateSubscriptionSource.ACTIVATION_KEY,
             },
           }),
       this.prisma.timeGateActivationKey.update({
@@ -315,6 +459,7 @@ export class AuthService {
       id: c.id,
       name: c.name,
       sku: c.sku,
+      suspendedAt: c.suspendedAt,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
       subscriptions: c.timeGateSubscriptions.map((s) => ({
@@ -354,6 +499,7 @@ export class AuthService {
       id: company.id,
       name: company.name,
       sku: company.sku,
+      suspendedAt: company.suspendedAt,
       createdAt: company.createdAt,
       updatedAt: company.updatedAt,
       subscriptions: company.timeGateSubscriptions.map((s) => ({
@@ -426,19 +572,46 @@ export class AuthService {
     if (!company) {
       throw new NotFoundException('Organization not found');
     }
+    if (!dto.planId && !dto.plan?.trim()) {
+      throw new BadRequestException('plan or planId is required');
+    }
+
+    let planCode = dto.plan?.trim().toUpperCase() ?? 'CUSTOM';
+    let maxEmployees = dto.maxEmployees ?? 10;
+    let maxKiosks = dto.maxDevices ?? 1;
+    let planId: string | null = dto.planId ?? null;
+    let expiresAt = dto.expiresAt
+      ? new Date(dto.expiresAt)
+      : new Date(Date.now() + 1000 * 60 * 60 * 24 * 365);
+
+    if (dto.planId) {
+      const catalogPlan = await this.prisma.timeGateSubscriptionPlan.findUnique({
+        where: { id: dto.planId },
+      });
+      if (!catalogPlan) {
+        throw new BadRequestException('Subscription plan not found');
+      }
+      planCode = catalogPlan.code;
+      planId = catalogPlan.id;
+      if (dto.maxEmployees === undefined) maxEmployees = catalogPlan.maxEmployees;
+      if (dto.maxDevices === undefined) maxKiosks = catalogPlan.maxKiosks;
+      if (!dto.expiresAt && catalogPlan.durationDays) {
+        expiresAt = new Date(Date.now() + catalogPlan.durationDays * 24 * 60 * 60 * 1000);
+      }
+    }
 
     const plainKey = `TMGT-${randomBytes(8).toString('hex').toUpperCase()}`;
     const keyHash = createHash('sha256').update(plainKey).digest('hex');
-    const expiresAt = dto.expiresAt ? new Date(dto.expiresAt) : new Date(Date.now() + 1000 * 60 * 60 * 24 * 365);
 
     const created = await this.prisma.timeGateActivationKey.create({
       data: {
         id: generateDocId('KEY'),
         companyId: organizationId,
         keyHash,
-        plan: dto.plan,
-        maxEmployees: dto.maxEmployees,
-        maxKiosks: dto.maxDevices,
+        plan: planCode,
+        planId,
+        maxEmployees,
+        maxKiosks,
         expiresAt,
       },
       select: {
@@ -693,8 +866,8 @@ export class AuthService {
       where: { id: user.sub },
       select: { id: true, passwordHash: true, companyId: true },
     });
-    if (!dbUser) {
-      throw new UnauthorizedException();
+    if (!dbUser?.passwordHash) {
+      throw new UnauthorizedException('Mot de passe actuel incorrect');
     }
     const ok = await bcrypt.compare(dto.currentPassword, dbUser.passwordHash);
     if (!ok) {
@@ -723,46 +896,119 @@ export class AuthService {
 
   async getSubscriptionStatus(user: JwtUser) {
     if (user.role === TimeGateUserRole.SUPER_ADMIN) {
-      return { active: true, role: user.role, subscription: null };
+      return {
+        active: true,
+        readOnly: false,
+        blocked: false,
+        status: TimeGateSubscriptionStatus.ACTIVE,
+        role: user.role,
+        subscription: null,
+      };
     }
     if (!user.companyId) {
-      return { active: false, role: user.role, subscription: null };
+      return {
+        active: false,
+        readOnly: false,
+        blocked: true,
+        status: null,
+        role: user.role,
+        subscription: null,
+      };
     }
-    const subscription = await this.prisma.timeGateSubscription.findFirst({
-      where: { companyId: user.companyId },
-      orderBy: { createdAt: 'desc' },
-      select: {
-        id: true,
-        plan: true,
-        maxEmployees: true,
-        maxKiosks: true,
-        expiresAt: true,
-      },
-    });
-    const active = Boolean(subscription?.expiresAt && subscription.expiresAt > new Date());
+
+    const resolved = await this.subscriptionState.resolveForCompany(user.companyId);
+    if (!resolved) {
+      return {
+        active: false,
+        readOnly: false,
+        blocked: true,
+        status: null,
+        role: user.role,
+        subscription: null,
+      };
+    }
+
+    const usage = await this.subscriptionQuota.getUsage(user.companyId);
+    const { subscription, effectiveStatus } = resolved;
+
     return {
-      active,
+      active: resolved.isOperational,
+      readOnly: resolved.isReadOnly,
+      blocked: resolved.isBlocked,
+      status: effectiveStatus,
       role: user.role,
-      subscription: subscription
-        ? {
-            ...subscription,
-            maxDevices: subscription.maxKiosks,
-          }
-        : null,
+      subscription: {
+        id: subscription.id,
+        plan: subscription.plan,
+        planId: subscription.planId,
+        maxEmployees: subscription.maxEmployees,
+        maxKiosks: subscription.maxKiosks,
+        maxDevices: subscription.maxKiosks,
+        status: effectiveStatus,
+        storedStatus: subscription.status,
+        source: subscription.source,
+        trialEndsAt: subscription.trialEndsAt,
+        graceEndsAt: subscription.graceEndsAt,
+        expiresAt: subscription.expiresAt,
+        daysUntilExpiry: resolved.daysUntilExpiry,
+        daysUntilGraceEnd: resolved.daysUntilGraceEnd,
+        usage,
+      },
     };
   }
 
-  private signToken(userId: string, email: string, role: TimeGateUserRole, companyId: string | null) {
-    return this.jwt.signAsync({ sub: userId, email, role, companyId });
+  private async resolveUniqueSignupSku(organizationName: string, requested?: string) {
+    const base = this.normalizeSignupSku(requested ?? organizationName);
+    let candidate = base;
+    let attempt = 0;
+    while (attempt < 20) {
+      const exists = await this.prisma.company.findFirst({ where: { sku: candidate } });
+      if (!exists) return candidate;
+      attempt += 1;
+      candidate = `${base.slice(0, 14)}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    }
+    throw new ConflictException('Impossible de generer un SKU unique');
   }
 
-  private async validateEmployeeCredentials(dto: LoginDto) {
+  private normalizeSignupSku(raw: string): string {
+    const normalized = raw
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .toUpperCase();
+    return (normalized || 'ORG').slice(0, 20);
+  }
+
+  private signToken(
+    userId: string,
+    email: string,
+    role: TimeGateUserRole,
+    companyId: string | null,
+    extras?: { deviceInstallId?: string; deviceTrust?: 'TRUSTED' | 'PENDING' },
+  ) {
+    return this.jwt.signAsync({
+      sub: userId,
+      email,
+      role,
+      companyId,
+      ...(extras?.deviceInstallId ? { deviceInstallId: extras.deviceInstallId } : {}),
+      ...(extras?.deviceTrust ? { deviceTrust: extras.deviceTrust } : {}),
+    });
+  }
+
+  private async validateEmployeeCredentials(dto: { email: string; password: string }) {
     const normalizedEmail = dto.email.trim().toLowerCase();
     const user = await this.prisma.user.findFirst({
       where: { email: normalizedEmail, timeGateRole: TimeGateUserRole.EMPLOYEE },
     });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.passwordHash) {
+      throw new UnauthorizedException(
+        'Mot de passe non configuré. Utilisez la procédure d’activation par e-mail.',
+      );
     }
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
     if (!ok) {
@@ -777,6 +1023,9 @@ export class AuthService {
       where: { email: normalizedEmail, timeGateRole: TimeGateUserRole.SUPER_ADMIN, companyId: null },
     });
     if (superAdmin) {
+      if (!superAdmin.passwordHash) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
       const ok = await bcrypt.compare(dto.password, superAdmin.passwordHash);
       if (!ok) {
         throw new UnauthorizedException('Invalid credentials');
@@ -800,6 +1049,9 @@ export class AuthService {
       where: { email: normalizedEmail, companyId: company.id },
     });
     if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    if (!user.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
     const ok = await bcrypt.compare(dto.password, user.passwordHash);
@@ -1283,11 +1535,13 @@ export class AuthService {
     dto: MobileVerifyQrDto,
     options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
   ) {
-    const qrToken = this.parseQrPunchToken(dto.qrPayload);
-    if (!qrToken) {
+    if (options?.offlineSync) {
+      throw new BadRequestException('Le pointage QR necessite une connexion en ligne');
+    }
+    const parsed = parseQrPunchPayload(dto.qrPayload.trim());
+    if (!parsed) {
       throw new BadRequestException('QR code invalide');
     }
-    const tokenHash = this.hashQrPunchToken(qrToken);
 
     const payload = await this.verifyMobileToken(token);
     this.compactVerifyIdempotencyCache();
@@ -1316,47 +1570,43 @@ export class AuthService {
 
     const employee = await this.prisma.employee.findFirst({
       where: {
+        id: parsed.employeeId,
         status: EmployeeStatus.ACTIVE,
         companyId: kiosk.companyId,
-        qrPunchTokenHash: tokenHash,
+        qrPunchSecret: { not: null },
       },
       select: {
         id: true,
         firstName: true,
         lastName: true,
         employeeName: true,
+        qrPunchSecret: true,
       },
     });
-    if (!employee) {
+    if (!employee?.qrPunchSecret) {
       throw new UnauthorizedException('QR code non reconnu');
+    }
+
+    const referenceAt = new Date();
+    const valid = verifyQrPunchPayload(parsed, employee.qrPunchSecret, referenceAt);
+    if (!valid) {
+      throw new UnauthorizedException('QR code expire ou invalide');
     }
 
     return this.finalizeCredentialVerification({
       kiosk,
       employee,
       authMethod: TimeGateAttendanceAuthMethod.QR,
-      logMessage: 'QR punch',
+      logMessage: `QR punch slot ${parsed.slot}`,
       idempotencyKey,
       idempotencyCacheKey,
-      offlineSync: options?.offlineSync,
-      capturedAt: options?.capturedAt,
+      offlineSync: false,
+      capturedAt: undefined,
     });
   }
 
   private normalizeNfcBadgeUid(raw: string): string {
     return raw.replace(/[\s:-]/g, '').toUpperCase();
-  }
-
-  private parseQrPunchToken(raw: string): string | null {
-    const trimmed = raw.trim();
-    const prefixed = /^TGQR:v1:(.+)$/i.exec(trimmed);
-    if (prefixed) return prefixed[1].trim();
-    if (/^[A-Za-z0-9_-]{16,128}$/.test(trimmed)) return trimmed;
-    return null;
-  }
-
-  private hashQrPunchToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
   }
 
   private async finalizeCredentialVerification(params: {
@@ -1491,7 +1741,22 @@ export class AuthService {
       state,
     );
 
-    if (resolution.action === 'REJECTED' || resolution.action === 'NONE') {
+    if (resolution.action === 'REJECTED') {
+      await this.punchAttemptLog.logAttempt({
+        companyId: params.companyId,
+        employeeId: params.employeeId,
+        branchId: params.branchId,
+        kioskId: params.kioskId,
+        source: params.source,
+        authMethod: params.authMethod,
+        outcome: 'REJECTED',
+        message: resolution.message,
+        occurredAt,
+      });
+      return resolution.message;
+    }
+
+    if (resolution.action === 'NONE') {
       return resolution.message;
     }
 
@@ -1505,7 +1770,7 @@ export class AuthService {
     ) {
       const breakEndAt = new Date(occurredAt);
       breakEndAt.setHours(Math.floor(windows.breakEndMin / 60), windows.breakEndMin % 60, 0, 0);
-      const breakMsg = await this.recordPunchEvent({
+      const breakResult = await this.punchRecorder.recordEvent({
         ...params,
         occurredAt: breakEndAt,
         eventType: TimeGateAttendanceEventType.BREAK_END,
@@ -1513,10 +1778,10 @@ export class AuthService {
         wrongSite,
         idempotencySuffix: 'break_end_inferred',
       });
-      messages.push(breakMsg);
+      messages.push(breakResult.message);
     }
 
-    const mainMsg = await this.recordPunchEvent({
+    const mainResult = await this.punchRecorder.recordEvent({
       ...params,
       occurredAt,
       eventType:
@@ -1530,7 +1795,7 @@ export class AuthService {
       lateAbsent: resolution.action === 'CHECK_IN' ? resolution.lateAbsent : undefined,
       idempotencySuffix: resolution.action.toLowerCase(),
     });
-    messages.push(mainMsg);
+    messages.push(mainResult.message);
 
     return messages.filter(Boolean).join(' ');
   }
@@ -1551,100 +1816,11 @@ export class AuthService {
     idempotencySuffix: string;
     authMethod?: TimeGateAttendanceAuthMethod;
   }): Promise<string> {
-    let { status, autoReviewReason } = await this.eventStatus.resolveForCompany(
-      params.companyId,
-      params.confidence,
-    );
-
-    if (params.wrongSite) {
-      status = TimeGateAttendanceEventStatus.REVIEW_REQUIRED;
-      autoReviewReason = 'KIOSK_OTHER_SITE';
-    } else if (params.lateAbsent) {
-      status = TimeGateAttendanceEventStatus.REVIEW_REQUIRED;
-      autoReviewReason = 'LATE_CHECKIN';
-    }
-
-    const pendingMeta = this.eventStatus.buildPendingMeta({ status, autoReviewReason });
-    const meta =
-      pendingMeta ??
-      (params.lateAbsent
-        ? ({ lateAbsent: true } as object)
-        : undefined);
-
-    const event = await this.prisma.timeGateAttendanceEvent.create({
-      data: {
-        id: generateDocId('AEV'),
-        companyId: params.companyId,
-        branchId: params.branchId,
-        kioskId: params.kioskId,
-        employeeId: params.employeeId,
-        source: params.source ?? TimeGateAttendanceEventSource.KIOSK_ONLINE,
-        type: params.eventType,
-        status,
-        occurredAt: params.occurredAt,
-        confidence: params.confidence,
-        verificationRef: params.verificationRef,
-        idempotencyKey: params.verificationRef
-          ? `verify:${params.verificationRef}:attendance:${params.idempotencySuffix}`
-          : undefined,
-        authMethod: params.authMethod,
-        meta,
-      },
+    const result = await this.punchRecorder.recordEvent({
+      ...params,
+      wrongSite: params.wrongSite,
     });
-
-    try {
-      const employee = await this.prisma.employee.findUnique({
-        where: { id: params.employeeId },
-        select: { firstName: true, lastName: true, employeeName: true },
-      });
-      const employeeName =
-        `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() ||
-        employee?.employeeName ||
-        'Employé';
-      await this.notifications.notifyPunchEvent({
-        companyId: params.companyId,
-        branchId: params.branchId,
-        employeeId: params.employeeId,
-        employeeName,
-        eventType: params.eventType,
-        occurredAt: params.occurredAt,
-        reviewRequired: status === TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
-        lateAbsent: params.lateAbsent,
-        reviewReason: this.describeReviewReason(autoReviewReason, params.wrongSite),
-      });
-    } catch (err) {
-      this.logger.warn(`Punch notification failed: ${err instanceof Error ? err.message : err}`);
-    }
-
-    const defaultMessage =
-      params.eventType === TimeGateAttendanceEventType.CHECK_IN
-        ? "Pointage d'arrivee enregistre."
-        : params.eventType === TimeGateAttendanceEventType.BREAK_END
-          ? 'Reprise de pause enregistree.'
-          : 'Pointage de fin enregistre.';
-
-    if (status === TimeGateAttendanceEventStatus.ACCEPTED) {
-      await this.eventStatus.materializeAcceptedEvent(event);
-      return defaultMessage;
-    }
-
-    return `${defaultMessage} En attente de validation manager.`;
-  }
-
-  private describeReviewReason(
-    autoReviewReason: string | undefined,
-    wrongSite: boolean,
-  ): string {
-    if (wrongSite || autoReviewReason === 'KIOSK_OTHER_SITE') {
-      return 'Pointage sur un autre site';
-    }
-    if (autoReviewReason === 'LATE_CHECKIN') {
-      return 'Arrivée en retard';
-    }
-    if (autoReviewReason === 'LOW_CONFIDENCE') {
-      return 'Confiance faciale insuffisante';
-    }
-    return 'Validation requise';
+    return result.message;
   }
 
   private async applyLegacyAttendanceFromVerification(

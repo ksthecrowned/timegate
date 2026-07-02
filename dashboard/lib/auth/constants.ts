@@ -8,6 +8,7 @@ export const TIMEGATE_AUTH_ROUTES = {
   me: '/auth/me',
   subscriptionStatus: '/auth/subscription-status',
   activate: '/auth/activate',
+  signup: '/auth/signup',
 } as const
 
 /** @deprecated Alias legacy ride-api */

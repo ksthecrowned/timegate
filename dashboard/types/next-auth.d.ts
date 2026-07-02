@@ -1,6 +1,7 @@
 import type { DefaultSession } from 'next-auth'
 import type { DefaultJWT } from 'next-auth/jwt'
 import type { TimeGateRole } from '@/lib/timegate/types'
+import type { SubscriptionStatus } from '@/lib/timegate/types'
 
 export type TimeGateSessionUser = {
   id: string
@@ -9,7 +10,11 @@ export type TimeGateSessionUser = {
   lastName?: string | null
   role: TimeGateRole
   companyId: string | null
+  /** Peut accéder au dashboard (essai, actif, grâce lecture seule). */
   subscriptionActive: boolean
+  subscriptionReadOnly?: boolean
+  subscriptionBlocked?: boolean
+  subscriptionStatus?: SubscriptionStatus['status']
 }
 
 declare module 'next-auth' {

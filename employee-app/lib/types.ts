@@ -76,6 +76,42 @@ export type CheckinRow = {
   checkOut?: string | null;
 };
 
+export type AttendanceEventRow = {
+  id: string;
+  type: string;
+  status: string;
+  source: string;
+  authMethod: string | null;
+  occurredAt: string;
+  kiosk?: { id: string; name: string; branch?: { id: string; name: string } | null } | null;
+};
+
+export type PunchClaimType =
+  | "EARLY_DEPARTURE"
+  | "MISSED_CHECKOUT"
+  | "BREAK_NOT_TAKEN"
+  | "OTHER";
+
+export type PunchClaimRow = {
+  id: string;
+  workDate: string;
+  type: PunchClaimType;
+  reason: string;
+  status: string;
+  createdAt: string;
+};
+
+export type EmployeeContractRow = {
+  id: string;
+  signedAt: string;
+  expiresAt: string | null;
+  renewalsCount: number;
+  contractFileUrl: string | null;
+  notes: string | null;
+  isCurrent: boolean;
+  createdAt: string;
+};
+
 export type ShiftAssignment = {
   id: string;
   date: string;
@@ -83,6 +119,19 @@ export type ShiftAssignment = {
   endTime?: string;
   shiftName?: string;
   location?: string | null;
+};
+
+export type BreakResumeStatus = {
+  eligible: boolean;
+  reason: string | null;
+  requiresGeo: boolean;
+  branch: {
+    id: string;
+    name: string;
+    latitude: number | null;
+    longitude: number | null;
+    checkinRadiusMeters: number;
+  } | null;
 };
 
 export type Colleague = {

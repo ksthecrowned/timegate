@@ -34,7 +34,9 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
+import { SignupDto } from './dto/signup.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmployeeIdentifyDto, EmployeeLoginDto } from './dto/employee-auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -43,14 +45,26 @@ export class AuthController {
   constructor(private auth: AuthService) {}
 
   @Public()
+  @Post('signup')
+  signup(@Body() dto: SignupDto) {
+    return this.auth.signup(dto);
+  }
+
+  @Public()
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
   }
 
   @Public()
+  @Post('employee/identify')
+  employeeIdentify(@Body() dto: EmployeeIdentifyDto) {
+    return this.auth.employeeIdentify(dto);
+  }
+
+  @Public()
   @Post('employee/login')
-  employeeLogin(@Body() dto: LoginDto) {
+  employeeLogin(@Body() dto: EmployeeLoginDto) {
     return this.auth.employeeLogin(dto);
   }
 

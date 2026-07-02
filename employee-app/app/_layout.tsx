@@ -103,6 +103,8 @@ export default function RootLayout() {
           name="shift-swap-request"
           options={{ headerShown: false }}
         />
+        <Drawer.Screen name="qr-punch" options={{ headerShown: false }} />
+        <Drawer.Screen name="break-resume" options={{ headerShown: false }} />
       </Drawer>
     </ThemeProvider>
   );

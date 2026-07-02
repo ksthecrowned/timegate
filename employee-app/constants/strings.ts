@@ -30,6 +30,13 @@ export const STRINGS = {
     email: 'Adresse e-mail',
     password: 'Mot de passe',
     signIn: 'Se connecter',
+    continue: 'Continuer',
+    checkEmailHint:
+      'Si un compte employé existe pour cet e-mail, suivez les instructions reçues.',
+    activateAccount: 'Activer mon compte',
+    devicePendingTitle: 'Appareil en attente',
+    devicePendingBody:
+      'Votre appareil doit être approuvé par un administrateur avant le pointage (QR, reprise pause).',
     welcomeBack: 'Bon retour',
     welcomeMessage: 'Connectez-vous à votre espace TimeGate',
     invalidCredentials: 'Identifiants invalides',
@@ -40,15 +47,21 @@ export const STRINGS = {
     sendCode: 'Envoyer le code',
     codeSent: 'Un code a été envoyé à votre adresse e-mail.',
     verifyCodeTitle: 'Vérifier le code',
+    verifyCodeSetupTitle: 'Activer votre compte',
     verifyCodeSubtitle: 'Saisissez le code à 6 chiffres reçu par e-mail.',
+    verifyCodeSetupSubtitle:
+      'Première connexion : saisissez le code reçu pour créer votre mot de passe.',
     codeResend: 'Renvoyer le code',
     codeResendIn: (s: number) => `Renvoyer dans ${s}s`,
     resetPasswordTitle: 'Nouveau mot de passe',
+    setupPasswordTitle: 'Créer votre mot de passe',
     newPassword: 'Nouveau mot de passe',
     confirmPassword: 'Confirmer le mot de passe',
     passwordMismatch: 'Les mots de passe ne correspondent pas',
     passwordTooShort: 'Le mot de passe doit contenir au moins 8 caractères',
     resetSuccess: 'Mot de passe réinitialisé. Vous pouvez vous connecter.',
+    setupSuccess: 'Compte activé. Connexion en cours…',
+    continueToApp: 'Accéder à l’application',
     showPassword: 'Afficher le mot de passe',
     hidePassword: 'Masquer le mot de passe',
     backToLogin: 'Retour à la connexion',
@@ -77,6 +90,38 @@ export const STRINGS = {
     actionSwapShift: 'Échanger un shift',
     actionMyPlanning: 'Mon planning',
     actionAttendance: 'Pointage',
+    actionMyQr: 'Mon QR',
+    actionBreakResume: 'Reprendre la pause',
+  },
+
+  breakResume: {
+    title: 'Reprise de pause',
+    headline: 'Fin de pause',
+    siteLabel: 'Site',
+    eligibleHint:
+      'Vous pouvez enregistrer votre reprise de pause depuis votre téléphone, sur le site uniquement.',
+    notEligibleDefault: 'Reprise non disponible pour le moment.',
+    geoRadius: (m: number) => `Périmètre autorisé : ${m} m autour du site.`,
+    action: 'Reprendre la pause',
+    locationDenied: 'Autorisez la localisation pour reprendre la pause sur site.',
+    successTitle: 'Pause reprise',
+    errorTitle: 'Reprise impossible',
+    kioskFallback:
+      'Vous pouvez aussi reprendre la pause au kiosk TimeGate (même règle horaire).',
+    webGeoNote:
+      'Sur navigateur, la géolocalisation peut être moins précise qu’en application native.',
+  },
+
+  qrPunch: {
+    title: 'Mon QR de pointage',
+    subtitle: 'Présentez ce code à la borne TimeGate pour pointer.',
+    inactiveTitle: 'QR non activé',
+    inactiveHint:
+      'Votre administrateur doit activer le QR de pointage depuis votre fiche employé.',
+    loadError: 'Impossible de charger le QR. Vérifiez votre connexion.',
+    refreshIn: (countdown: string) => `Renouvellement dans ${countdown}`,
+    hint:
+      'Le code se renouvelle automatiquement chaque minute. Gardez l’écran allumé et la connexion active au moment du scan.',
   },
 
   // Leave
@@ -107,6 +152,8 @@ export const STRINGS = {
     chooseDates: 'Choisir les dates',
     endDateBeforeStart: 'La date de fin doit être après la date de début',
     invalidDate: 'Date invalide (format attendu : AAAA-MM-JJ)',
+    attachmentLabel: 'Justificatif (facultatif)',
+    attachmentHint: 'Joindre un fichier PDF ou image',
   },
 
   // Shift swaps
@@ -212,6 +259,41 @@ export const STRINGS = {
     last7: '7 derniers jours',
     last30: '30 derniers jours',
     last90: '90 derniers jours',
+  },
+
+  punchClaim: {
+    title: 'Réclamation pointage',
+    subtitle:
+      'Signalez un oubli de pointage, un départ anticipé ou une pause non prise. Votre manager sera notifié.',
+    banner: 'Signaler un problème de pointage',
+    workDate: 'Date concernée',
+    typeLabel: 'Type de réclamation',
+    reasonLabel: 'Motif',
+    reasonPlaceholder: 'Décrivez la situation…',
+    reasonRequired: 'Le motif est obligatoire.',
+    invalidDate: 'Date invalide (AAAA-MM-JJ).',
+    submit: 'Envoyer la réclamation',
+    submitSuccess: 'Réclamation envoyée',
+    submitError: 'Envoi impossible.',
+    types: {
+      earlyDeparture: 'Départ anticipé',
+      missedCheckout: 'Oubli check-out',
+      breakNotTaken: 'Pause non prise',
+      other: 'Autre',
+    },
+  },
+
+  contracts: {
+    title: 'Mes contrats',
+    menuDesc: 'Contrats de travail et documents PDF',
+    noContracts: 'Aucun contrat disponible',
+    currentContract: 'Contrat en cours',
+    pastContract: 'Ancien contrat',
+    active: 'Actif',
+    signedAt: 'Signé le',
+    expiresAt: 'Expire le',
+    viewPdf: 'Voir le PDF',
+    noPdf: 'Document non disponible',
   },
 
   // Planning

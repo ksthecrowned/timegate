@@ -2,18 +2,25 @@ import { Type } from 'class-transformer';
 import { IsDateString, IsInt, IsOptional, IsString, Min } from 'class-validator';
 
 export class CreateActivationKeyDto {
+  @IsOptional()
   @IsString()
-  plan!: string;
+  planId?: string;
 
+  @IsOptional()
+  @IsString()
+  plan?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  maxEmployees!: number;
+  maxEmployees?: number;
 
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  maxDevices!: number;
+  maxDevices?: number;
 
   @IsOptional()
   @IsDateString()

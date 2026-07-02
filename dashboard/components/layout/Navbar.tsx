@@ -520,13 +520,13 @@ export default function Navbar() {
                     <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
 
                     <div
-                      className="absolute right-0 top-full mt-2 z-20 min-w-60 bg-white shadow-md rounded-lg dark:bg-neutral-800 dark:border dark:border-neutral-700"
+                      className="absolute right-0 top-full mt-2 z-20 min-w-60 tg-card shadow-2xs hover:border-primary/40 transition-colors rounded-lg"
                       role="menu"
                       aria-orientation="vertical"
                       aria-labelledby="hs-dropdown-custom-trigger"
                     >
                       {/* Infos utilisateur */}
-                      <div className="py-3 px-4 border-b border-gray-200 dark:border-neutral-700">
+                      <div className="py-3 px-4 border-b border-slate-200/80 dark:border-border-dark">
                         <p className="text-sm text-gray-500 dark:text-neutral-400">
                           {roleLabel}
                         </p>

@@ -31,7 +31,7 @@ function ChartCard({
 
 function EmptyChart({ message }: { message: string }) {
   return (
-    <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-gray-200 text-sm text-gray-500 dark:border-neutral-700 dark:text-neutral-400">
+    <div className="flex h-[300px] items-center justify-center rounded-lg border border-dashed border-slate-200/80 text-sm text-gray-500 dark:border-border-dark dark:text-neutral-400">
       {message}
     </div>
   )
@@ -124,6 +124,10 @@ export default function DashboardAnalytics({ data }: DashboardAnalyticsProps) {
         ) : (
           <EmptyChart message="Aucune donnée planning sur la période." />
         )}
+      </ChartCard>
+
+      <ChartCard title="Couverture planning" subtitle="Minutes planifiées vs travaillées (30 jours)">
+        <EmptyChart message="Aucune donnée planning sur la période." />
       </ChartCard>
     </div>
   )

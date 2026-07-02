@@ -4,7 +4,10 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceDaysService } from './attendance-days.service';
 import { AttendanceEventStatusService } from './attendance-event-status.service';
+import { AttendancePunchRecorderService } from './attendance-punch-recorder.service';
 import { AttendanceService } from './attendance.service';
+import { EmployeeBreakPunchService } from './employee-break-punch.service';
+import { PunchAttemptLogService } from './punch-attempt-log.service';
 import { PunchCronService } from './punch-cron.service';
 import { PunchWindowService } from './punch-window.service';
 
@@ -15,6 +18,9 @@ import { PunchWindowService } from './punch-window.service';
     AttendanceService,
     AttendanceDaysService,
     AttendanceEventStatusService,
+    AttendancePunchRecorderService,
+    PunchAttemptLogService,
+    EmployeeBreakPunchService,
     PunchWindowService,
     PunchCronService,
   ],
@@ -22,6 +28,9 @@ import { PunchWindowService } from './punch-window.service';
     AttendanceService,
     AttendanceDaysService,
     AttendanceEventStatusService,
+    AttendancePunchRecorderService,
+    PunchAttemptLogService,
+    EmployeeBreakPunchService,
     PunchWindowService,
   ],
 })

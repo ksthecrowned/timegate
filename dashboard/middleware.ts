@@ -34,6 +34,7 @@ export const config = {
     '/countries/:path*',
     '/cities/:path*',
     '/login',
+    '/signup',
     '/activate',
   ],
 }

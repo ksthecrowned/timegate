@@ -145,6 +145,10 @@ export default function Sidebar() {
             </ul>
           </nav>
         </div>
+
+        <div className="mx-3 mt-3 mb-2 rounded-xl">
+          <div className="h-12"></div>
+        </div>
       </div>
     </div>
   )

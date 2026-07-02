@@ -88,7 +88,7 @@ export default function OrganizationSettingsPage() {
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <div className="shrink-0">
               <p className="text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Logo</p>
-              <div className="flex h-24 w-48 items-center justify-center rounded-xl border border-dashed border-gray-300 bg-gray-50 dark:border-neutral-600 dark:bg-neutral-900 p-2">
+              <div className="flex h-24 w-48 items-center justify-center rounded-xl border border-slate-200/80 dark:border-border-dark border-dashed tb-card p-2">
                 {form.logoUrl ? (
                   <Image
                     src={form.logoUrl}

@@ -94,7 +94,7 @@ export function SelectSearch({
     return () => {
       void destroyPrelineSelect(el)
     }
-  }, [options, hsConfig, disabled])
+  }, [options, hsConfig, disabled, selectedValue])
 
   return (
     <div className={`relative w-full min-w-0 overflow-visible ${disabled ? 'opacity-50 pointer-events-none' : ''} ${className}`}>

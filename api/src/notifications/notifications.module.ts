@@ -9,6 +9,6 @@ import { NotificationsService } from './notifications.service';
   imports: [PushModule, DevicesModule],
   controllers: [NotificationsController],
   providers: [NotificationsService, NotificationRecipientResolver],
-  exports: [NotificationsService],
+  exports: [NotificationsService, NotificationRecipientResolver],
 })
 export class NotificationsModule {}

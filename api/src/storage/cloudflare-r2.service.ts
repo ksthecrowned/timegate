@@ -85,6 +85,19 @@ export class CloudflareR2Service {
     });
   }
 
+  async uploadLeaveSupportDocument(params: {
+    organizationId: string;
+    employeeId: string;
+    contentType?: string;
+    buffer: Buffer;
+  }): Promise<string | null> {
+    return this.upload({
+      folder: `leave-documents/${params.organizationId}/${params.employeeId}`,
+      contentType: params.contentType,
+      buffer: params.buffer,
+    });
+  }
+
   private async upload(params: { folder: string; contentType?: string; buffer: Buffer }): Promise<string | null> {
     if (!this.client || !this.bucket || !this.publicBaseUrl) {
       return null;

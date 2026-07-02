@@ -67,13 +67,13 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 2. [x] **Approbation shift-swaps** — erreur 400 sur approbation `/shift-swaps` (cible obligatoire + UX)
 3. [x] **Suppression horaire** — erreur 500 sur DELETE horaire type `E2E Horaire …`
 4. [x] **Clé API kiosk** — `POST /kiosks/:id/regenerate-api-key` + affichage dashboard
-5. [~] **SelectSearch** — correction bug shift-swaps (affectation) ; autres écrans à auditer
+5. [x] **SelectSearch** — audit (console.log, sync valeur async, instanceId shift-swaps, emplacement kiosk)
 6. [x] **Confirm modal** — bug visuel (`z-[80]`)
 
 ### Questions / doc à clarifier
 
-- [ ] **Emplacement horaire** sur l'entité kiosque — qu'est-ce que c'est, comment l'utiliser ?
-- [ ] **Plannings** — rédiger une explication métier (shifts, assignments, work-days)
+- [x] **Emplacement horaire** sur l'entité kiosque — voir [`docs/metier/planning-et-horaires.md`](docs/metier/planning-et-horaires.md)
+- [x] **Plannings** — voir [`docs/metier/planning-et-horaires.md`](docs/metier/planning-et-horaires.md)
 
 ---
 
@@ -90,19 +90,19 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 | Durées | Flexibles par clé (3 mois, 12 mois, etc.) via `expiresAt` |
 | Self-service | Page publique « Créer mon organisation » → essai auto **sans clé** |
 | Conversion | Clé payante pour **prolonger** ou **upgrader** (`/activate`) |
-| Super-admin | **App dédiée** `super-admin/` (port 3002, `admin.timegate.app`) |
+| Super-admin | **App dédiée** `console/` — Console Plateforme (port 3002, `admin.timegate.app`) |
 | Essai gratuit | Configurable plateforme ; **défauts** : 14 j / 10 emp / 1 kiosk / features RH de base |
 | Expiration | **7 j grâce lecture seule** → puis **blocage total** (sauf login + `/activate`) |
 | Plans payants | **Catalogue + override** — plans de base, quotas/durée ajustables pour enterprise |
-| Stratégie livraison | **API d'abord** → dashboard tenant → app `super-admin/` |
+| Stratégie livraison | **API d'abord** → dashboard tenant → app `console/` |
 
 ### Existant / lacunes
 
 - [x] `TimeGateSubscription`, `TimeGateActivationKey`, `POST /auth/activate`
 - [x] `SubscriptionActiveGuard`, super-admin intégré dans `dashboard/`
-- [ ] Quotas `maxEmployees` / `maxKiosks` non appliqués
-- [ ] Pas de statuts intermédiaires (essai, grâce, lecture seule)
-- [ ] Pas d'inscription publique · super-admin à extraire du dashboard
+- [x] Quotas `maxEmployees` / `maxKiosks` appliqués à la création
+- [x] Statuts intermédiaires (essai, grâce, lecture seule, bloqué, suspendu)
+- [x] Inscription publique API (`POST /auth/signup`) · super-admin à extraire du dashboard
 
 ### Lot I — Phase 1 — API & modèle abonnement
 
@@ -110,49 +110,49 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 #### Schéma & données
 
-1. [ ] **`PlatformSettings`** — singleton : défauts essai, durée grâce (défaut 7 j)
-2. [ ] **`SubscriptionPlan`** — catalogue (code, libellé, quotas, feature flags)
-3. [ ] **Statut abonnement** : `TRIAL` | `ACTIVE` | `GRACE_READ_ONLY` | `BLOCKED` | `SUSPENDED`
-4. [ ] Champs : `trialEndsAt`, `graceEndsAt`, `source` (`SELF_SIGNUP` | `ACTIVATION_KEY` | `MANUAL`)
-5. [ ] Lien clé → plan : `planId` sur `TimeGateActivationKey` + override optionnels
+1. [x] **`PlatformSettings`** — singleton : défauts essai, durée grâce (défaut 7 j)
+2. [x] **`SubscriptionPlan`** — catalogue (code, libellé, quotas, feature flags)
+3. [x] **Statut abonnement** : `TRIAL` | `ACTIVE` | `GRACE_READ_ONLY` | `BLOCKED` | `SUSPENDED`
+4. [x] Champs : `trialEndsAt`, `graceEndsAt`, `source` (`SELF_SIGNUP` | `ACTIVATION_KEY` | `MANUAL`)
+5. [x] Lien clé → plan : `planId` sur `TimeGateActivationKey` + override optionnels
 
 #### Endpoints & guards
 
-6. [ ] **`POST /auth/signup`** (public) — company + admin + subscription `TRIAL`
-7. [ ] **`GET /auth/subscription-status`** enrichi
-8. [ ] **`POST /auth/activate`** étendu (upgrade, prolongation)
-9. [ ] **CRUD `/plans`**, **`GET/PATCH /platform-settings`**, **suspend org**
-10. [ ] **`SubscriptionStateGuard`** + `@ReadOnlySubscription` + `@AllowBlockedSubscription`
-11. [ ] **Quotas** employés & kiosks à la création
-12. [ ] **Job cron** — transitions auto + rappels J-7 / J-1 / jour J
+6. [x] **`POST /auth/signup`** (public) — company + admin + subscription `TRIAL`
+7. [x] **`GET /auth/subscription-status`** enrichi
+8. [x] **`POST /auth/activate`** étendu (upgrade, prolongation, statut ACTIVE)
+9. [x] **CRUD `/plans`**, **`GET/PATCH /platform-settings`**, **suspend org** (`PATCH /organizations/:id/suspension`)
+10. [x] **`SubscriptionStateGuard`** + `@ReadOnlySubscriptionBypass` + `@AllowBlockedSubscription`
+11. [x] **Quotas** employés & kiosks à la création
+12. [x] **Job cron** — transitions auto + rappels J-7 / J-1 / jour J
 
 ### Lot I — Phase 2 — Dashboard tenant
 
 **Vague 4** (après phase 1)
 
-1. [ ] **Page `/signup`** (publique)
-2. [ ] **Page `/activate`** enrichie + bandeau statut abonnement
-3. [ ] **`/subscriptions`** tenant en lecture seule
-4. [ ] **Retirer super-admin** du dashboard (`/super-admin/*`, `PlatformDashboard`, middleware)
-5. [ ] `CORS_ORIGIN` + docs — port 3002
+1. [x] **Page `/signup`** (publique)
+2. [x] **Page `/activate`** enrichie + bandeau statut abonnement
+3. [x] **`/subscriptions`** tenant en lecture seule
+4. [x] **Retirer super-admin** du dashboard (`/super-admin/*`, `PlatformDashboard`, middleware)
+5. [x] `CORS_ORIGIN` + docs — port 3002 (app `console/` phase 3)
 
-### Lot I — Phase 3 — App `super-admin/`
+### Lot I — Phase 3 — App `console/` (Console Plateforme)
 
 **Vague 5**
 
-1. [ ] Scaffold `super-admin/` — port 3002, auth `SUPER_ADMIN` only
-2. [ ] **Home** — KPI plateforme
-3. [ ] **Organisations** — liste, création enterprise, détail, suspendre
-4. [ ] **Plans** — CRUD catalogue
-5. [ ] **Clés d'activation** — plan + override durée (3 / 6 / 12 mois)
-6. [ ] **Paramètres plateforme**, **Abonnements** (vue globale)
-7. [ ] Migrer **audit logs**, **pays / villes** depuis dashboard
-8. [ ] Flux enterprise : créer org → clé payante → client active
+1. [x] Scaffold `console/` — port 3002, auth `SUPER_ADMIN` only
+2. [x] **Home** — KPI plateforme
+3. [x] **Organisations** — liste, création enterprise, détail, suspendre
+4. [x] **Plans** — CRUD catalogue
+5. [x] **Clés d'activation** — plan + override durée (3 / 6 / 12 mois)
+6. [x] **Paramètres plateforme**, **Abonnements** (vue globale)
+7. [x] Migrer **audit logs**, **pays / villes** depuis dashboard
+8. [x] Flux enterprise : créer org → clé payante → client active
 
 ### Notifications SaaS (lien Lot D)
 
-- [ ] Essai / grâce / expiration — rappels admin tenant
-- [ ] Quota employés / kiosks — alerte 80 % et 100 %
+- [x] Essai / grâce / expiration — rappels admin tenant
+- [x] Quota employés / kiosks — alerte 80 % et 100 %
 
 ### Reporté — SaaS
 
@@ -199,7 +199,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 | Kiosk autre site | Pointage accepté → **`REVIEW_REQUIRED`** |
 | Congé demi-journée | Pointage pendant plage couverte par congé approuvé → **`REVIEW_REQUIRED`** (fiche jour + calendrier) |
 | « Pas pris ma pause » | **Réclamation** employé → ajustement admin (Lot F) |
-| Offline (visage / QR / NFC) | Résolution sur **`capturedAt`**, pas l'heure de sync — **PIN exclu** (online only) |
+| Offline (visage / NFC) | Résolution sur **`capturedAt`**, pas l'heure de sync — **PIN et QR exclus** (online only) |
 | Shift chevauche minuit | **Hors scope v1** — contrôles dédiés à ajouter plus tard |
 
 ### Cas limites — notes d'implémentation
@@ -216,12 +216,12 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 3. [x] **Inférence `BREAK_END`** à `breakWindowEnd` lors d'un `CHECK_OUT` sans reprise pointée
 4. [x] **Skip reprise** si `CHECK_IN` > `breakWindowEnd`
 5. [x] **Messages kiosk explicites** par cas (arrivée déjà faite, pause en cours, reprise, trop tôt pour départ)
-6. [ ] **Log tentative refusée** — `PunchAttemptLog` ou extension logs existants
-7. [ ] Reprise pause : **employee-app prioritaire** + **fallback kiosk** (même règle `BREAK_END`)
-8. [ ] Employee-app : bouton reprise **actif dans périmètre** site uniquement (géoloc — voir Lot E)
+6. [x] **Log tentative refusée** — `TimeGatePunchAttemptLog`
+7. [x] Reprise pause : **employee-app prioritaire** + **fallback kiosk** (même règle `BREAK_END`)
+8. [x] Employee-app : bouton reprise **actif dans périmètre** site uniquement (géoloc — voir Lot E)
 9. [x] **Horaire fallback tenant** — si employé sans shift résolu (`TimeGateSystemSettings.defaultShiftType`)
 10. [x] **Kiosk autre site** — flag `REVIEW_REQUIRED` sur l'événement
-11. [ ] **Offline** — machine à états sur `capturedAt` (file visage / QR / NFC)
+11. [x] **Offline** — machine à états sur `capturedAt` (file visage / NFC ; QR et PIN online only)
 
 ### Schéma `ShiftType`
 
@@ -252,21 +252,22 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 ### Traçabilité
 
-1. [ ] **`authMethod`** sur `TimeGateAttendanceEvent` (FACE | QR | NFC | PIN)
+1. [x] **`authMethod`** sur `TimeGateAttendanceEvent` (FACE | QR | NFC | PIN)
 2. [ ] Géolocalisation optionnelle au pointage
 
 ### QR-code
 
-3. [ ] **Pointage QR** — employé présente son QR au kiosk
-4. [ ] **QR statique vs rotatif** — décision sécurité au design
-5. [ ] **Pointage QR offline** — résolution sur `capturedAt` (comme visage)
+3. [x] **Pointage QR** — employé présente son QR au kiosk
+4. [x] **QR rotatif (1 min)** — secret employé + slot HMAC `TGQR:v2:…` ; refresh auto côté admin / app
+5. [x] **Pointage QR** — **online only** (codes rotatifs 1 min, pas de file offline)
 
 ### NFC
 
-6. [ ] **Backend `POST /kiosk/verify-nfc`** — remplacer le stub
-7. [ ] **Enregistrement carte NFC** — UID ↔ employé
-8. [ ] **Pointage NFC offline** — résolution sur `capturedAt` (comme visage)
-9. [ ] **PIN kiosk** — **online uniquement** (pas de file offline)
+6. [x] **Backend `POST /auth/mobile/verify-nfc`** — kiosk avec `react-native-nfc-manager`
+7. [x] **Enregistrement carte NFC** — UID ↔ employé (`PATCH /employees/:id/nfc-badge`)
+8. [x] **Pointage NFC offline** — résolution sur `capturedAt` (comme visage)
+9. [x] **PIN kiosk** — **online uniquement** (pas de file offline)
+10. [x] **QR kiosk** — **online uniquement** (pas de file offline)
 
 ---
 
@@ -276,12 +277,12 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 Écran unifié `/employees/:id` :
 
-1. [ ] **QR personnel** — affichage, PDF, renouvellement
-2. [ ] **Carte NFC** — UID, émission, révocation
-3. [ ] **Profil facial** — enroll, re-enrôlement
-4. [ ] **PIN kiosk** — regrouper (`EmployeeKioskPinCard`)
-5. [ ] **Compte utilisateur lié** — `User` par employé
-6. [ ] **Statut « peut pointer »** — oui/non + raison
+1. [x] **QR personnel** — affichage, PDF, renouvellement
+2. [x] **Carte NFC** — UID, émission, révocation
+3. [x] **Profil facial** — enroll, re-enrôlement
+4. [x] **PIN kiosk** — regrouper (`EmployeeKioskPinCard`)
+5. [x] **Compte utilisateur lié** — `User` par employé
+6. [x] **Statut « peut pointer »** — oui/non + raison
 
 ---
 
@@ -313,14 +314,14 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 10. [x] **Retard** — employé + manager
 11. [x] **Absence auto** (cron fin fenêtre arrivée) — manager
 12. [x] **Départ non pointé** — rappel employé (fin shift → minuit) ; manager notifié si cron `UNCLOSED_CHECKIN` (00h30)
-13. [ ] **REVIEW_REQUIRED** — rappel validateur (relance manager)
+13. [x] **REVIEW_REQUIRED** — rappel validateur (relance manager, cron 9h, > 24 h)
 14. [ ] **Pause trop longue** · **HS > seuil** · **tentative hors plage** (optionnel)
 
 ### Autres domaines (vague 6)
 
 - [ ] RH : contrat expire, essai SaaS, document manquant
-- [ ] Calendrier : férié demain, anniversaire J-7/J-1, jour de repos
-- [ ] Ops : kiosk offline, échecs verify, congé en attente, solde bas
+- [x] Calendrier : congé en attente (manager), décision congé (employé)
+- [ ] Ops : kiosk offline, échecs verify, solde bas
 - [ ] **Email** (optionnel par règle)
 
 ---
@@ -342,12 +343,12 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 ### Backlog
 
 1. [ ] Fenêtres pointage & pause — voir [Lot B](#lot-b--fenêtres-de-pointage-shifttype)
-2. [ ] **Calcul pause** — auto baseline + ajustement si `BREAK_END` pointé après fin plage
-3. [ ] **Déduction surplus pause** dans `TimesheetsService` + flag anomalie si seuil dépassé
-4. [ ] **Employee-app** — écran « Reprendre la pause » + géoloc (permission + état bouton)
-5. [ ] **Seuils heures sup** + alertes (lien Lot D)
-6. [ ] **Règles d'arrondi** — 5 / 15 min
-7. [ ] **Tolérance retard** · **temps min entre shifts**
+2. [x] **Calcul pause** — auto baseline + ajustement si `BREAK_END` pointé après fin plage
+3. [x] **Déduction surplus pause** dans `TimesheetsService` + flag anomalie `BREAK_OVERRUN`
+4. [x] **Employee-app** — écran « Reprendre la pause » + géoloc (permission + état bouton)
+5. [x] **Seuils heures sup** + alertes `OVERTIME_THRESHOLD` (recalcul timesheet)
+6. [x] **Règles d'arrondi** — 5 / 15 min (tenant `timesheetRoundingMinutes`)
+7. [x] **Tolérance retard** · **temps min entre shifts** — `lateThreshold` + `minMinutesBetweenShifts` + flag `INSUFFICIENT_REST`
 
 ---
 
@@ -355,12 +356,12 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 **Priorité P2** · **Vague 6** — inbox `REVIEW_REQUIRED` (brainstorming 2026-06-24)
 
-1. [ ] **Vue équipe du jour** — présents / absents / retard / pause
-2. [ ] **Validation en masse** `REVIEW_REQUIRED`
-3. [ ] **Inbox approbations** — congés + swaps + **réclamations pointage** + **check-out oublié** (`UNCLOSED_CHECKIN`)
-4. [ ] **Fiche validation check-out oublié** — heures inférées, réclamation employé liée, actions : valider / corriger / rejeter
-5. [ ] **Calendrier congés équipe** (roadmap #37)
-6. [ ] **Rapport anomalies hebdo** par email
+1. [x] **Vue équipe du jour** — présents / absents / retard / pause
+2. [x] **Validation en masse** `REVIEW_REQUIRED`
+3. [x] **Inbox approbations** — congés + swaps + **réclamations pointage** + **check-out oublié** (`UNCLOSED_CHECKIN`)
+4. [x] **Fiche validation check-out oublié** — heures inférées, réclamation employé liée, actions : valider / corriger / rejeter
+5. [x] **Calendrier congés équipe** (roadmap #37)
+6. [x] **Rapport anomalies hebdo** par email
 
 ---
 
@@ -368,14 +369,14 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 **Priorité P2** · **Vague 6**
 
-1. [ ] **Upload justificatif congé** — fichier (pas URL) — *recoupe bug P0 si bloquant*
-2. [~] **Push notifications** — pointage v1 OK (Lot D) ; congés / rappels RH à faire
-3. [ ] **Mon QR de pointage** (lien Lot C)
-4. [ ] **Voir ses contrats** + PDF
-5. [ ] **Historique pointages** — méthode, kiosk, statut
-6. [ ] **Réclamation pointage** — types : départ anticipé, oubli check-out, **pas pris ma pause**, autre ; motif libre ; visible admin + fiche jour `REVIEW_REQUIRED`
-7. [ ] **Reprise de pause** — bouton `BREAK_END` (géoloc : actif sur site uniquement)
-8. [~] **Mes alertes** — inbox API branchée ; retard / rappel départ via Lot D ; pause oubliée à faire
+1. [x] **Upload justificatif congé** — multipart `POST /employee/leaves` + R2
+2. [x] **Push notifications** — pointage v1 OK (Lot D) ; congés approuvé/refusé + demande manager
+3. [x] **Mon QR de pointage** (lien Lot C) — `GET /employee/qr-punch/current`, écran `/qr-punch`
+4. [x] **Voir ses contrats** + PDF — `GET /employee/contracts`, écran `/contracts`
+5. [x] **Historique pointages** — `GET /employee/attendance-events` (méthode, kiosk, statut)
+6. [x] **Réclamation pointage** — types + motif ; inbox manager + fiche `/punch-claims/:id`
+7. [x] **Reprise de pause** — bouton `BREAK_END` (géoloc : actif sur site uniquement)
+8. [x] **Mes alertes** — notifs push ; rappel départ + **reprise pause** (`BREAK_RESUME_REMINDER`)
 9. [ ] **Auth biométrique OS** (v2 employee-app)
 
 ---
@@ -399,7 +400,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 1. [ ] Méthodes de pointage par défaut (héritées par kiosk) — partiel : par kiosk OK
 2. [x] **Horaire / fenêtres fallback** — `/organization/attendance-settings`
 3. [x] Seuils échecs avant PIN (tenant) · [ ] confiance faciale, tolérance retard (super-admin `/system-config`)
-4. [ ] Règles pause & heures sup
+4. [x] **Règles pause & heures sup** — arrondi, seuil HS, repos min. (`/organization/attendance-settings`)
 5. [ ] Délais notifications
 6. [ ] Politique offline (file d'attente kiosk)
 
@@ -446,4 +447,4 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 4. Préfixer `[ ]` ; numéroter si ordre d'exécution au sein du lot est important.
 5. Les idées floues : suffixe `(à préciser)`.
 
-<!-- Dernière mise à jour : 2026-06-24 — brainstorm pointage/pauses (machine à états, réclamations, UNCLOSED_CHECKIN) -->
+<!-- Dernière mise à jour : 2026-06-28 — Lot I phase 1 API SaaS (signup, guards, quotas, cron) -->

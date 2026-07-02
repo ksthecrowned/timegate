@@ -85,4 +85,49 @@ export class MailService {
     }
     await this.transporter.sendMail({ from: this.from, to, subject, text, html });
   }
+
+  async sendWeeklyAnomalyReport(params: {
+    to: string[];
+    companyName: string;
+    periodLabel: string;
+    lines: string[];
+    dashboardUrl?: string;
+  }): Promise<void> {
+    const { to, companyName, periodLabel, lines, dashboardUrl } = params;
+    if (to.length === 0) return;
+
+    const subject = `TimeGate — Rapport anomalies (${periodLabel})`;
+    const bodyLines = lines.map((l) => `• ${l}`).join('\n');
+    const text =
+      `Bonjour,\n\n` +
+      `Rapport hebdomadaire des anomalies de présence pour ${companyName} (${periodLabel}).\n\n` +
+      `${bodyLines}\n\n` +
+      (dashboardUrl ? `Boîte de réception manager : ${dashboardUrl}\n\n` : '') +
+      `— TimeGate`;
+
+    const listHtml = lines.map((l) => `<li>${l}</li>`).join('');
+    const html =
+      `<p>Bonjour,</p>` +
+      `<p>Rapport hebdomadaire des anomalies de présence pour <strong>${companyName}</strong> (${periodLabel}).</p>` +
+      `<ul>${listHtml}</ul>` +
+      (dashboardUrl
+        ? `<p><a href="${dashboardUrl}">Ouvrir la boîte de réception manager</a></p>`
+        : '') +
+      `<p>— TimeGate</p>`;
+
+    if (!this.transporter) {
+      this.logger.warn(
+        `[mail:dev] Weekly anomaly report for ${companyName} → ${to.join(', ')}\n${text}`,
+      );
+      return;
+    }
+
+    await this.transporter.sendMail({
+      from: this.from,
+      to: to.join(', '),
+      subject,
+      text,
+      html,
+    });
+  }
 }

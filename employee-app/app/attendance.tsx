@@ -9,12 +9,13 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
 import { Colors, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { ScreenLayout } from "@/components/ScreenLayout";
 import { employeeApi } from "@/lib/api";
-import type { CheckinRow } from "@/lib/types";
+import type { AttendanceEventRow } from "@/lib/types";
 
 const S = Spacing;
 
@@ -26,19 +27,40 @@ const RANGE_OPTIONS: { key: RangeKey; label: string; days: number }[] = [
   { key: "90", label: STRINGS.attendance.last90, days: 90 },
 ];
 
-function isoDay(d: Date): string {
-  return d.toISOString().slice(0, 10);
+const EVENT_LABELS: Record<string, string> = {
+  CHECK_IN: "Arrivée",
+  CHECK_OUT: "Départ",
+  BREAK_START: "Début pause",
+  BREAK_END: "Reprise pause",
+};
+
+const AUTH_LABELS: Record<string, string> = {
+  FACE: "Visage",
+  PIN: "PIN",
+  NFC: "NFC",
+  QR: "QR",
+  MOBILE: "App mobile",
+};
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function startOfDay(d: Date): Date {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy;
+function formatDay(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
 export default function AttendanceScreen() {
+  const router = useRouter();
   const [range, setRange] = useState<RangeKey>("30");
-  const [rows, setRows] = useState<CheckinRow[]>([]);
+  const [rows, setRows] = useState<AttendanceEventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,15 +75,12 @@ export default function AttendanceScreen() {
     try {
       if (isRefresh) setRefreshing(true);
       else setLoading(true);
-      const from = startOfDay(
-        new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000),
-      );
-      const to = new Date();
-      const res = await employeeApi.getCheckins({
+      const from = new Date(Date.now() - rangeDays * 24 * 60 * 60 * 1000);
+      const res = await employeeApi.getAttendanceEvents({
         page: 1,
         limit: 100,
         from: from.toISOString(),
-        to: to.toISOString(),
+        to: new Date().toISOString(),
       });
       const data = res.data ?? [];
       setRows(data);
@@ -84,8 +103,16 @@ export default function AttendanceScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
-  // Group rows by day, then split into check-in / check-out entries.
-  const grouped = useMemo(() => groupByDay(rows), [rows]);
+  const grouped = useMemo(() => {
+    const map = new Map<string, AttendanceEventRow[]>();
+    for (const row of rows) {
+      const day = row.occurredAt.slice(0, 10);
+      const bucket = map.get(day) ?? [];
+      bucket.push(row);
+      map.set(day, bucket);
+    }
+    return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
+  }, [rows]);
 
   const showSpinner = loading && rows.length === 0;
 
@@ -106,7 +133,20 @@ export default function AttendanceScreen() {
           />
         }
       >
-        {/* Period selector */}
+        <Pressable
+          onPress={() => router.push("/punch-claim-request")}
+          style={({ pressed }) => [
+            styles.claimBanner,
+            { opacity: pressed ? 0.85 : 1 },
+          ]}
+        >
+          <Ionicons name="alert-circle-outline" size={22} color="#fff" />
+          <Text style={styles.claimBannerText}>
+            {STRINGS.punchClaim.banner}
+          </Text>
+          <Ionicons name="chevron-forward" size={18} color="#fff" />
+        </Pressable>
+
         <View style={styles.chipsRow}>
           <Text
             style={[styles.chipsLabel, { color: Colors.light.textSecondary }]}
@@ -120,7 +160,7 @@ export default function AttendanceScreen() {
                 <Pressable
                   key={opt.key}
                   onPress={() => setRange(opt.key)}
-                  style={({ pressed }) => [
+                  style={[
                     styles.chip,
                     {
                       backgroundColor: isSelected
@@ -129,16 +169,13 @@ export default function AttendanceScreen() {
                       borderColor: isSelected
                         ? Colors.light.primary
                         : Colors.light.border,
-                      opacity: pressed ? 0.7 : 1,
                     },
                   ]}
                 >
                   <Text
                     style={[
                       styles.chipText,
-                      {
-                        color: isSelected ? "#fff" : Colors.light.text,
-                      },
+                      { color: isSelected ? "#fff" : Colors.light.text },
                     ]}
                   >
                     {opt.label}
@@ -181,11 +218,66 @@ export default function AttendanceScreen() {
               <Text
                 style={[styles.counter, { color: Colors.light.textSecondary }]}
               >
-                {rows.length} sur {total} pointages
+                {rows.length} sur {total} événements
               </Text>
             )}
-            {grouped.map((day) => (
-              <DayCard key={day.day} day={day} />
+            {grouped.map(([day, events]) => (
+              <View
+                key={day}
+                style={[
+                  styles.dayCard,
+                  { backgroundColor: Colors.light.surfaceCard },
+                ]}
+              >
+                <Text style={[styles.dayDate, { color: Colors.light.text }]}>
+                  {formatDay(`${day}T12:00:00`)}
+                </Text>
+                {events.map((event) => (
+                  <View key={event.id} style={styles.eventRow}>
+                    <View style={styles.eventMain}>
+                      <Text
+                        style={[
+                          styles.eventType,
+                          { color: Colors.light.text },
+                        ]}
+                      >
+                        {EVENT_LABELS[event.type] ?? event.type}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.eventMeta,
+                          { color: Colors.light.textSecondary },
+                        ]}
+                      >
+                        {formatTime(event.occurredAt)}
+                        {event.kiosk?.name ? ` · ${event.kiosk.name}` : ""}
+                        {event.authMethod
+                          ? ` · ${AUTH_LABELS[event.authMethod] ?? event.authMethod}`
+                          : ""}
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.eventStatus,
+                        {
+                          color:
+                            event.status === "REVIEW_REQUIRED"
+                              ? "#d97706"
+                              : event.status === "REJECTED"
+                                ? "#dc2626"
+                                : Colors.light.textMuted,
+                        },
+                      ]}
+                    >
+                      {event.status === "ACCEPTED"
+                        ? "OK"
+                        : event.status === "REVIEW_REQUIRED"
+                          ? "À valider"
+                          : event.status}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -194,98 +286,30 @@ export default function AttendanceScreen() {
   );
 }
 
-type DayGroup = {
-  day: string;
-  checkIn: CheckinRow | null;
-  checkOut: CheckinRow | null;
-};
-
-function groupByDay(rows: CheckinRow[]): DayGroup[] {
-  const map = new Map<string, DayGroup>();
-  for (const r of rows) {
-    const ts = (r as any).timestamp ?? r.attendanceDate ?? r.date;
-    if (!ts) continue;
-    const day = isoDay(new Date(ts));
-    if (!map.has(day)) map.set(day, { day, checkIn: null, checkOut: null });
-    const group = map.get(day)!;
-    // Server shape: { type: 'CHECK_IN' | 'CHECK_OUT' }.
-    const type = (r as any).type;
-    if (type === "CHECK_IN" || type === "IN") {
-      if (!group.checkIn) group.checkIn = r;
-    } else if (type === "CHECK_OUT" || type === "OUT") {
-      if (!group.checkOut) group.checkOut = r;
-    }
-  }
-  return Array.from(map.values()).sort((a, b) => (a.day < b.day ? 1 : -1));
-}
-
-function DayCard({ day }: { day: DayGroup }) {
-  const date = new Date(day.day);
-  const formattedDate = date.toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-  const checkInTime = formatTime(day.checkIn);
-  const checkOutTime = formatTime(day.checkOut);
-
-  return (
-    <View
-      style={[styles.dayCard, { backgroundColor: Colors.light.surfaceCard }]}
-    >
-      <Text style={[styles.dayDate, { color: Colors.light.text }]}>
-        {formattedDate}
-      </Text>
-      <View style={styles.timeRow}>
-        <View style={styles.timeBlock}>
-          <Text
-            style={[styles.timeLabel, { color: Colors.light.textSecondary }]}
-          >
-            Arrivée
-          </Text>
-          <Text style={[styles.timeValue, { color: Colors.light.text }]}>
-            {checkInTime}
-          </Text>
-        </View>
-        <View
-          style={[styles.divider, { backgroundColor: Colors.light.border }]}
-        />
-        <View style={styles.timeBlock}>
-          <Text
-            style={[styles.timeLabel, { color: Colors.light.textSecondary }]}
-          >
-            Départ
-          </Text>
-          <Text style={[styles.timeValue, { color: Colors.light.text }]}>
-            {checkOutTime}
-          </Text>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function formatTime(row: CheckinRow | null): string {
-  if (!row) return "—";
-  const ts = (row as any).timestamp ?? row.attendanceDate ?? row.date;
-  if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 const styles = StyleSheet.create({
   contentContainer: {
     paddingHorizontal: S[4],
     paddingTop: S[4],
     paddingBottom: S[6],
-    alignItems: "stretch",
     flexGrow: 1,
   },
-  centered: { alignItems: "center", padding: S[8] },
-  chipsRow: {
+  claimBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: S[2],
+    backgroundColor: Colors.light.primary,
+    borderRadius: S[3],
+    padding: S[3],
     marginBottom: S[4],
   },
+  claimBannerText: {
+    flex: 1,
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  centered: { alignItems: "center", padding: S[8] },
+  chipsRow: { marginBottom: S[4] },
   chipsLabel: {
     fontSize: 11,
     fontWeight: "700",
@@ -293,10 +317,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: S[2],
   },
-  chips: {
-    flexDirection: "row",
-    gap: S[2],
-  },
+  chips: { flexDirection: "row", gap: S[2] },
   chip: {
     flex: 1,
     paddingVertical: S[2],
@@ -320,11 +341,7 @@ const styles = StyleSheet.create({
     marginTop: S[4],
   },
   emptyText: { fontSize: 15, marginTop: S[3] },
-  counter: {
-    fontSize: 12,
-    marginBottom: S[2],
-    fontWeight: "500",
-  },
+  counter: { fontSize: 12, marginBottom: S[2], fontWeight: "500" },
   dayCard: {
     borderRadius: S[3],
     borderWidth: 1,
@@ -333,18 +350,15 @@ const styles = StyleSheet.create({
     marginBottom: S[3],
   },
   dayDate: { fontSize: 15, fontWeight: "600", marginBottom: S[3] },
-  timeRow: {
+  eventRow: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: S[2],
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
   },
-  timeBlock: { flex: 1, alignItems: "center" },
-  timeLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  timeValue: { fontSize: 17, fontWeight: "600" },
-  divider: { width: 1, height: 30, marginHorizontal: S[3] },
+  eventMain: { flex: 1 },
+  eventType: { fontSize: 14, fontWeight: "600" },
+  eventMeta: { fontSize: 12, marginTop: 2 },
+  eventStatus: { fontSize: 12, fontWeight: "600" },
 });
