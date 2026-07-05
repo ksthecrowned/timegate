@@ -113,7 +113,7 @@ export default function HolidayCalendar({
           >
             <i className="fa-solid fa-chevron-left" />
           </button>
-          <span className="min-w-[5rem] text-center text-lg font-semibold text-gray-900 dark:text-white">
+          <span className="min-w-20 text-center text-lg font-semibold text-gray-900 dark:text-white">
             {year}
           </span>
           <button

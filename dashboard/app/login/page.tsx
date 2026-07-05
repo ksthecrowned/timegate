@@ -55,7 +55,7 @@ export default function LoginPage() {
     <div className="w-full h-screen overflow-hidden bg-surface flex items-center justify-center dark:bg-surface-dark">
       <div className="container w-full mx-auto px-4">
         <div className="grid md:grid-cols-2 w-full md:w-3/4 lg:w-[60%] mx-auto my-16 shadow-2xl rounded-xl overflow-hidden">
-          <div className="hidden md:flex w-full min-h-[520px] flex-col items-center justify-center bg-gradient-to-br from-primary to-secondary px-8">
+          <div className="hidden md:flex w-full min-h-[520px] flex-col items-center justify-center bg-linear-to-br from-primary to-secondary px-8">
             <BrandLogo variant="full" tone="on-dark" className="max-w-[280px]" priority />
             <p className="mt-8 text-center text-sm font-medium tracking-[0.2em] text-white/80 uppercase">
               HR Software · Time &amp; Attendance
@@ -155,7 +155,7 @@ export default function LoginPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center justify-center w-full px-4 py-3 font-semibold text-white rounded-md shadow-xs gap-x-2 bg-gradient-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200"
+                    className="flex items-center justify-center w-full px-4 py-3 font-semibold text-white rounded-md shadow-xs gap-x-2 bg-linear-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-200"
                   >
                     {loading && <i className="fa-solid fa-spinner fa-spin" />}
                     Se connecter
