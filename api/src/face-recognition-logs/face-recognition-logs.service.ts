@@ -1,12 +1,20 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { FaceRecognitionLogQueryDto } from './dto/face-recognition-log-query.dto';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
+import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
+import { generateDocId } from '../common/utils/doc-id.util';
 
 @Injectable()
 export class FaceRecognitionLogsService {
-  constructor(private prisma: PrismaService) {}
+  private readonly logger = new Logger(FaceRecognitionLogsService.name);
+
+  constructor(
+    private prisma: PrismaService,
+    private readonly storage: CloudflareR2Service,
+  ) {}
 
   async findAll(query: FaceRecognitionLogQueryDto, companyId?: string) {
     const page = query.page ?? 1;
@@ -56,6 +64,57 @@ export class FaceRecognitionLogsService {
   async findOfflineSync(user: JwtUser, query: FaceRecognitionLogQueryDto) {
     query.offlineSync = true;
     return this.findAll(query, user.companyId ?? undefined);
+  }
+
+  @Cron(CronExpression.EVERY_DAY_AT_2AM)
+  async purgeExpiredPhotos() {
+    const settings = await this.prisma.timeGateSystemSettings.findMany({
+      select: { companyId: true, faceLogPhotoRetentionDays: true },
+    });
+    if (!settings.length) return;
+
+    let totalPurged = 0;
+    for (const setting of settings) {
+      const retentionDays = Math.max(0, setting.faceLogPhotoRetentionDays ?? 30);
+      const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+      const rows = await this.prisma.faceRecognitionLog.findMany({
+        where: {
+          companyId: setting.companyId,
+          photo: { not: null },
+          createdAt: { lte: cutoff },
+        },
+        take: 500,
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, photo: true },
+      });
+      if (!rows.length) continue;
+
+      for (const row of rows) {
+        if (row.photo) {
+          await this.storage.deleteByPublicUrl(row.photo);
+        }
+      }
+      await this.prisma.faceRecognitionLog.updateMany({
+        where: { id: { in: rows.map((row) => row.id) } },
+        data: { photo: null },
+      });
+
+      totalPurged += rows.length;
+      await this.prisma.timeGateAuditLog.create({
+        data: {
+          id: generateDocId('AUD'),
+          userId: null,
+          companyId: setting.companyId,
+          action: 'FACE_LOG_PHOTO_PURGED',
+          entity: 'FaceRecognitionLog',
+          entityId: rows[rows.length - 1]?.id ?? 'batch',
+        },
+      });
+    }
+
+    if (totalPurged > 0) {
+      this.logger.log(`Purged ${totalPurged} expired face recognition photo(s).`);
+    }
   }
 
   private toApiShape(log: {

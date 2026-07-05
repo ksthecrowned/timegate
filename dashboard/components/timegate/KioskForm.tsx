@@ -8,6 +8,7 @@ import { listBranches } from '@/lib/timegate/branches'
 import type { KioskPayload, KioskUpdatePayload } from '@/lib/timegate/kiosks'
 import { listShiftLocations } from '@/lib/timegate/shift-locations'
 import { HttpError } from '@/lib/http'
+import { getTenantAttendanceSettings } from '@/lib/timegate/tenant-settings'
 import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import type { SelectOption } from '@/components/ui/select-search-types'
 
@@ -47,6 +48,20 @@ export default function KioskForm({
       setBranchOptions(toSelectOptions(res.data))
     })
   }, [])
+
+  useEffect(() => {
+    if (initial) return
+    void getTenantAttendanceSettings()
+      .then((settings) => {
+        setForm((f) => ({
+          ...f,
+          faceEnabled: settings.defaultFaceEnabled ?? true,
+          nfcEnabled: settings.defaultNfcEnabled ?? false,
+          qrEnabled: settings.defaultQrEnabled ?? false,
+        }))
+      })
+      .catch(() => undefined)
+  }, [initial])
 
   useEffect(() => {
     if (!form.branchId) {

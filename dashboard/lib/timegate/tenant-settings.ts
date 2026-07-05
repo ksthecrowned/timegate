@@ -8,6 +8,17 @@ export type TenantAttendanceSettingsPayload = {
   timesheetRoundingMinutes?: number
   overtimeAlertThresholdMinutes?: number
   minMinutesBetweenShifts?: number
+  defaultFaceEnabled?: boolean
+  defaultNfcEnabled?: boolean
+  defaultQrEnabled?: boolean
+  notificationUnclosedReminderDelayMinutes?: number
+  notificationReviewReminderMinAgeMinutes?: number
+  allowOfflineSync?: boolean
+  offlineSyncMaxAgeMinutes?: number
+  faceLogPhotoRetentionDays?: number
+  webhookEnabled?: boolean
+  webhookUrl?: string | null
+  webhookSecret?: string | null
 }
 
 export type TenantSystemConfigPayload = Pick<

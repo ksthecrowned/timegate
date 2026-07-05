@@ -295,6 +295,33 @@ export class AdminSaasService {
       ...(dto.minMinutesBetweenShifts !== undefined
         ? { minMinutesBetweenShifts: dto.minMinutesBetweenShifts }
         : {}),
+      ...(dto.defaultFaceEnabled !== undefined
+        ? { defaultFaceEnabled: dto.defaultFaceEnabled }
+        : {}),
+      ...(dto.defaultNfcEnabled !== undefined
+        ? { defaultNfcEnabled: dto.defaultNfcEnabled }
+        : {}),
+      ...(dto.defaultQrEnabled !== undefined
+        ? { defaultQrEnabled: dto.defaultQrEnabled }
+        : {}),
+      ...(dto.notificationUnclosedReminderDelayMinutes !== undefined
+        ? { notificationUnclosedReminderDelayMinutes: dto.notificationUnclosedReminderDelayMinutes }
+        : {}),
+      ...(dto.notificationReviewReminderMinAgeMinutes !== undefined
+        ? { notificationReviewReminderMinAgeMinutes: dto.notificationReviewReminderMinAgeMinutes }
+        : {}),
+      ...(dto.allowOfflineSync !== undefined ? { allowOfflineSync: dto.allowOfflineSync } : {}),
+      ...(dto.offlineSyncMaxAgeMinutes !== undefined
+        ? { offlineSyncMaxAgeMinutes: dto.offlineSyncMaxAgeMinutes }
+        : {}),
+      ...(dto.faceLogPhotoRetentionDays !== undefined
+        ? { faceLogPhotoRetentionDays: dto.faceLogPhotoRetentionDays }
+        : {}),
+      ...(dto.webhookEnabled !== undefined ? { webhookEnabled: dto.webhookEnabled } : {}),
+      ...(dto.webhookUrl !== undefined ? { webhookUrl: dto.webhookUrl?.trim() || null } : {}),
+      ...(dto.webhookSecret !== undefined
+        ? { webhookSecret: dto.webhookSecret?.trim() || null }
+        : {}),
     };
   }
 
@@ -309,6 +336,17 @@ export class AdminSaasService {
     timesheetRoundingMinutes: number;
     overtimeAlertThresholdMinutes: number;
     minMinutesBetweenShifts: number;
+    defaultFaceEnabled: boolean;
+    defaultNfcEnabled: boolean;
+    defaultQrEnabled: boolean;
+    notificationUnclosedReminderDelayMinutes: number;
+    notificationReviewReminderMinAgeMinutes: number;
+    allowOfflineSync: boolean;
+    offlineSyncMaxAgeMinutes: number;
+    faceLogPhotoRetentionDays?: number;
+    webhookEnabled?: boolean;
+    webhookUrl?: string | null;
+    webhookSecret?: string | null;
     defaultShiftTypeId: string | null;
     company?: { id: string; name: string | null; sku: string | null } | null;
     defaultShiftType?: { id: string; shiftName: string } | null;
@@ -324,6 +362,17 @@ export class AdminSaasService {
       timesheetRoundingMinutes: row.timesheetRoundingMinutes,
       overtimeAlertThresholdMinutes: row.overtimeAlertThresholdMinutes,
       minMinutesBetweenShifts: row.minMinutesBetweenShifts,
+      defaultFaceEnabled: row.defaultFaceEnabled,
+      defaultNfcEnabled: row.defaultNfcEnabled,
+      defaultQrEnabled: row.defaultQrEnabled,
+      notificationUnclosedReminderDelayMinutes: row.notificationUnclosedReminderDelayMinutes,
+      notificationReviewReminderMinAgeMinutes: row.notificationReviewReminderMinAgeMinutes,
+      allowOfflineSync: row.allowOfflineSync,
+      offlineSyncMaxAgeMinutes: row.offlineSyncMaxAgeMinutes,
+      faceLogPhotoRetentionDays: row.faceLogPhotoRetentionDays ?? 30,
+      webhookEnabled: row.webhookEnabled ?? false,
+      webhookUrl: row.webhookUrl ?? null,
+      webhookSecret: row.webhookSecret ?? null,
       defaultShiftTypeId: row.defaultShiftTypeId,
       defaultShiftType: row.defaultShiftType
         ? { id: row.defaultShiftType.id, name: row.defaultShiftType.shiftName }

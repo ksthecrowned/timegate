@@ -200,6 +200,8 @@ export class AuthController {
     @Headers('x-request-id') requestId: string | undefined,
     @Body('offlineSync') offlineSyncRaw: string | undefined,
     @Body('capturedAt') capturedAtRaw: string | undefined,
+    @Body('latitude') latitudeRaw: string | undefined,
+    @Body('longitude') longitudeRaw: string | undefined,
     @UploadedFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
@@ -210,11 +212,15 @@ export class AuthController {
     const token = this.extractBearerToken(authorization);
     const offlineSync = `${offlineSyncRaw ?? ''}`.trim().toLowerCase() === '1';
     const capturedAt = capturedAtRaw?.trim() ? new Date(capturedAtRaw) : undefined;
+    const latitude = latitudeRaw?.trim() ? Number(latitudeRaw) : undefined;
+    const longitude = longitudeRaw?.trim() ? Number(longitudeRaw) : undefined;
     return this.auth.verifyMobilePhoto(token, file, {
       idempotencyKey: idempotencyKey?.trim() || undefined,
       requestId: requestId?.trim() || undefined,
       offlineSync,
       capturedAt: capturedAt && !Number.isNaN(capturedAt.getTime()) ? capturedAt : undefined,
+      latitude: latitude != null && Number.isFinite(latitude) ? latitude : undefined,
+      longitude: longitude != null && Number.isFinite(longitude) ? longitude : undefined,
     });
   }
 

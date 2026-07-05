@@ -1,5 +1,6 @@
 import { ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import { AppModule } from "./app.module";
 import { randomUUID } from "crypto";
 import type { Request, Response } from "express";
@@ -74,6 +75,32 @@ async function bootstrap() {
       transformOptions: { enableImplicitConversion: true },
     }),
   );
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle("TimeGate Public API")
+    .setDescription(
+      "API publique TimeGate (v1) pour intégrations externes: présence, timesheets, notifications et configuration.",
+    )
+    .setVersion("1.0")
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "JWT",
+        description: "JWT d'authentification TimeGate",
+      },
+      "bearer",
+    )
+    .addServer("/api/v1")
+    .build();
+  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  SwaggerModule.setup("api/v1/docs", app, swaggerDocument, {
+    customSiteTitle: "TimeGate API Docs",
+    swaggerOptions: {
+      persistAuthorization: true,
+      tagsSorter: "alpha",
+      operationsSorter: "alpha",
+    },
+  });
   const port = Number(process.env.PORT) || 4001;
   await app.listen(port);
 }

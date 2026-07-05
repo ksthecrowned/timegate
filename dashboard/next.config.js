@@ -3,6 +3,12 @@ const nextConfig = {
   images: {
     domains: [],
   },
+  async rewrites() {
+    return [
+      { source: '/timegate', destination: '/' },
+      { source: '/timegate/:path*', destination: '/:path*' },
+    ]
+  },
   async redirects() {
     return [
       { source: '/dashboard', destination: '/', permanent: true },

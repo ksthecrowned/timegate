@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
 
 @Injectable()
@@ -96,6 +96,28 @@ export class CloudflareR2Service {
       contentType: params.contentType,
       buffer: params.buffer,
     });
+  }
+
+  async deleteByPublicUrl(url: string): Promise<boolean> {
+    if (!this.client || !this.bucket || !this.publicBaseUrl) return false;
+    const normalizedBase = `${this.publicBaseUrl}/`;
+    if (!url.startsWith(normalizedBase)) return false;
+    const key = url.slice(normalizedBase.length);
+    if (!key) return false;
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({
+          Bucket: this.bucket,
+          Key: key,
+        }),
+      );
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        `Failed to delete R2 object ${key}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
+    }
   }
 
   private async upload(params: { folder: string; contentType?: string; buffer: Buffer }): Promise<string | null> {

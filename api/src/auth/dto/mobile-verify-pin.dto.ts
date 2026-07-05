@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, Length, MaxLength } from 'class-validator';
+import { IsDateString, IsLatitude, IsLongitude, IsOptional, IsString, Length, MaxLength } from 'class-validator';
 
 export class MobileVerifyPinDto {
   @IsString()
@@ -12,4 +12,12 @@ export class MobileVerifyPinDto {
   @IsOptional()
   @IsDateString()
   capturedAt?: string;
+
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
 }

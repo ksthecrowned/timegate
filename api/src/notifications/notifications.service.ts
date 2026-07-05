@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import {
   Prisma,
   TimeGateAttendanceEventType,
@@ -11,6 +11,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationRecipientResolver } from './notification-recipient.resolver';
 import { NotificationQueryDto } from './dto/notification-query.dto';
 import { PushDeliveryService } from '../push/push-delivery.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { UpdateNotificationRuleDto } from './dto/update-notification-rule.dto';
+import { NotificationEmailService } from './notification-email.service';
 
 export type EmitNotificationInput = {
   companyId: string;
@@ -30,6 +33,8 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly recipients: NotificationRecipientResolver,
     private readonly push: PushDeliveryService,
+    private readonly webhooks: WebhooksService,
+    private readonly email: NotificationEmailService,
   ) {}
 
   async findAll(query: NotificationQueryDto, user: JwtUser) {
@@ -94,6 +99,11 @@ export class NotificationsService {
   }
 
   async emit(input: EmitNotificationInput): Promise<number> {
+    const rule = await this.resolveRule(input.companyId, input.type);
+    if (!rule.inAppEnabled && !rule.pushEnabled && !rule.emailEnabled) {
+      return 0;
+    }
+
     const uniqueUserIds = [...new Set(input.userIds.filter(Boolean))];
     if (uniqueUserIds.length === 0) {
       return 0;
@@ -101,8 +111,9 @@ export class NotificationsService {
 
     let created = 0;
     const pushedUserIds: string[] = [];
+    const emailedUserIds: string[] = [];
     for (const userId of uniqueUserIds) {
-      if (input.dedupeKey) {
+      if (rule.inAppEnabled && input.dedupeKey) {
         const existing = await this.prisma.timeGateNotification.findFirst({
           where: {
             userId,
@@ -114,24 +125,31 @@ export class NotificationsService {
         if (existing) continue;
       }
 
-      await this.prisma.timeGateNotification.create({
-        data: {
-          id: generateDocId('NTF'),
-          companyId: input.companyId,
-          userId,
-          type: input.type,
-          title: input.title,
-          body: input.body,
-          meta: {
-            ...(typeof input.meta === 'object' && input.meta !== null && !Array.isArray(input.meta)
-              ? input.meta
-              : {}),
-            ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
+      if (rule.inAppEnabled) {
+        await this.prisma.timeGateNotification.create({
+          data: {
+            id: generateDocId('NTF'),
+            companyId: input.companyId,
+            userId,
+            type: input.type,
+            title: input.title,
+            body: input.body,
+            meta: {
+              ...(typeof input.meta === 'object' && input.meta !== null && !Array.isArray(input.meta)
+                ? input.meta
+                : {}),
+              ...(input.dedupeKey ? { dedupeKey: input.dedupeKey } : {}),
+            },
           },
-        },
-      });
-      created += 1;
-      pushedUserIds.push(userId);
+        });
+        created += 1;
+      }
+      if (rule.pushEnabled) {
+        pushedUserIds.push(userId);
+      }
+      if (rule.emailEnabled) {
+        emailedUserIds.push(userId);
+      }
     }
 
     if (pushedUserIds.length > 0) {
@@ -149,11 +167,114 @@ export class NotificationsService {
           this.logger.warn(`Push dispatch failed: ${err instanceof Error ? err.message : err}`),
         );
     }
+    if (emailedUserIds.length > 0) {
+      void this.sendEmailsForUsers(emailedUserIds, input).catch((err) =>
+        this.logger.warn(`Email dispatch failed: ${err instanceof Error ? err.message : err}`),
+      );
+    }
 
     if (created > 0) {
       this.logger.debug(`Emitted ${created} notification(s) [${input.type}]`);
+      void this.webhooks.emit(input.companyId, 'notification.emitted', {
+        type: input.type,
+        title: input.title,
+        createdCount: created,
+        userCount: uniqueUserIds.length,
+        dedupeKey: input.dedupeKey ?? null,
+      });
     }
     return created;
+  }
+
+  private async sendEmailsForUsers(userIds: string[], input: EmitNotificationInput) {
+    const users = await this.prisma.user.findMany({
+      where: { id: { in: userIds }, enabled: true },
+      select: { email: true },
+    });
+    const emails = users
+      .map((u) => u.email?.trim())
+      .filter((v): v is string => Boolean(v));
+    if (emails.length === 0) return;
+    await this.email.sendNotificationEmail({
+      to: emails,
+      title: input.title,
+      body: input.body,
+      type: input.type,
+    });
+  }
+
+  async listRules(user: JwtUser) {
+    if (!user.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    const rows = await this.prisma.timeGateNotificationRule.findMany({
+      where: { companyId: user.companyId },
+      select: {
+        type: true,
+        inAppEnabled: true,
+        pushEnabled: true,
+        emailEnabled: true,
+      },
+    });
+    const byType = new Map(rows.map((row) => [row.type, row]));
+    return Object.values(TimeGateNotificationType).map((type) => {
+      const row = byType.get(type);
+      return {
+        type,
+        inAppEnabled: row?.inAppEnabled ?? true,
+        pushEnabled: row?.pushEnabled ?? true,
+        emailEnabled: row?.emailEnabled ?? false,
+      };
+    });
+  }
+
+  async updateRule(user: JwtUser, type: TimeGateNotificationType, dto: UpdateNotificationRuleDto) {
+    if (!Object.values(TimeGateNotificationType).includes(type)) {
+      throw new BadRequestException('Invalid notification type');
+    }
+    if (!user.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    const row = await this.prisma.timeGateNotificationRule.upsert({
+      where: {
+        companyId_type: {
+          companyId: user.companyId,
+          type,
+        },
+      },
+      create: {
+        id: generateDocId('NRL'),
+        companyId: user.companyId,
+        type,
+        inAppEnabled: dto.inAppEnabled ?? true,
+        pushEnabled: dto.pushEnabled ?? true,
+        emailEnabled: dto.emailEnabled ?? false,
+      },
+      update: {
+        ...(dto.inAppEnabled !== undefined ? { inAppEnabled: dto.inAppEnabled } : {}),
+        ...(dto.pushEnabled !== undefined ? { pushEnabled: dto.pushEnabled } : {}),
+        ...(dto.emailEnabled !== undefined ? { emailEnabled: dto.emailEnabled } : {}),
+      },
+      select: {
+        type: true,
+        inAppEnabled: true,
+        pushEnabled: true,
+        emailEnabled: true,
+      },
+    });
+    return row;
+  }
+
+  private async resolveRule(companyId: string, type: TimeGateNotificationType) {
+    const row = await this.prisma.timeGateNotificationRule.findUnique({
+      where: { companyId_type: { companyId, type } },
+      select: { inAppEnabled: true, pushEnabled: true, emailEnabled: true },
+    });
+    return {
+      inAppEnabled: row?.inAppEnabled ?? true,
+      pushEnabled: row?.pushEnabled ?? true,
+      emailEnabled: row?.emailEnabled ?? false,
+    };
   }
 
   async notifyPunchEvent(params: {
@@ -380,6 +501,141 @@ export class NotificationsService {
     }
   }
 
+  async notifyOutsideWindowAttempt(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    occurredAt: Date;
+    reason: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    const employeeUserId = await this.recipients.resolveEmployeeUserId(params.employeeId);
+    const when = params.occurredAt.toISOString();
+
+    if (managerIds.length > 0) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: managerIds,
+        type: TimeGateNotificationType.PUNCH_OUTSIDE_WINDOW,
+        title: 'Tentative hors plage',
+        body: `${params.employeeName} — tentative de pointage hors plage (${params.reason}).`,
+        meta: {
+          employeeId: params.employeeId,
+          branchId: params.branchId ?? null,
+          occurredAt: when,
+        },
+        dedupeKey: `outside-window:mgr:${params.employeeId}:${when}`,
+      });
+    }
+
+    if (employeeUserId) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: [employeeUserId],
+        type: TimeGateNotificationType.PUNCH_OUTSIDE_WINDOW,
+        title: 'Pointage hors plage',
+        body: `Votre tentative de pointage est hors plage (${params.reason}).`,
+        meta: { employeeId: params.employeeId, occurredAt: when },
+        dedupeKey: `outside-window:emp:${params.employeeId}:${when}`,
+      });
+    }
+  }
+
+  async notifyBreakOverrun(params: {
+    companyId: string;
+    employeeId: string;
+    employeeName: string;
+    branchId?: string;
+    workDate: Date;
+    overrunMinutes: number;
+  }) {
+    if (params.overrunMinutes <= 0) return;
+    const dateLabel = params.workDate.toISOString().slice(0, 10);
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    const employeeUserId = await this.recipients.resolveEmployeeUserId(params.employeeId);
+
+    if (managerIds.length > 0) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: managerIds,
+        type: TimeGateNotificationType.BREAK_OVERRUN,
+        title: 'Pause trop longue',
+        body: `${params.employeeName} — dépassement pause de ${params.overrunMinutes} min le ${dateLabel}.`,
+        meta: {
+          employeeId: params.employeeId,
+          workDate: dateLabel,
+          overrunMinutes: params.overrunMinutes,
+        },
+        dedupeKey: `break-overrun:mgr:${params.employeeId}:${dateLabel}`,
+      });
+    }
+
+    if (employeeUserId) {
+      await this.emit({
+        companyId: params.companyId,
+        userIds: [employeeUserId],
+        type: TimeGateNotificationType.BREAK_OVERRUN,
+        title: 'Pause prolongée',
+        body: `Votre pause dépasse la durée prévue de ${params.overrunMinutes} min (${dateLabel}).`,
+        meta: {
+          employeeId: params.employeeId,
+          workDate: dateLabel,
+          overrunMinutes: params.overrunMinutes,
+        },
+        dedupeKey: `break-overrun:emp:${params.employeeId}:${dateLabel}`,
+      });
+    }
+  }
+
+  async notifyKioskOffline(params: {
+    companyId: string;
+    branchId?: string;
+    kioskId: string;
+    kioskName: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.KIOSK_OFFLINE,
+      title: 'Kiosk hors ligne',
+      body: `${params.kioskName} est hors ligne (heartbeat absent).`,
+      meta: { kioskId: params.kioskId, branchId: params.branchId ?? null },
+      dedupeKey: `kiosk-offline:${params.kioskId}`,
+    });
+  }
+
+  async notifyVerifyFailureSpike(params: {
+    companyId: string;
+    branchId?: string;
+    kioskId: string;
+    kioskName: string;
+    rejectedCount: number;
+    fromIso: string;
+    toIso: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+    const windowKey = `${params.fromIso.slice(0, 13)}:00`;
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.VERIFY_FAILURE_SPIKE,
+      title: 'Échecs de vérification élevés',
+      body: `${params.kioskName} — ${params.rejectedCount} échecs de vérification sur la dernière heure.`,
+      meta: {
+        kioskId: params.kioskId,
+        branchId: params.branchId ?? null,
+        rejectedCount: params.rejectedCount,
+        from: params.fromIso,
+        to: params.toIso,
+      },
+      dedupeKey: `verify-fail-spike:${params.kioskId}:${windowKey}`,
+    });
+  }
+
   /** Relance managers : pointages / journées encore en REVIEW_REQUIRED (Lot D #13). */
   async notifyReviewRequiredManagerReminder(params: {
     companyId: string;
@@ -542,6 +798,91 @@ export class NotificationsService {
         : `Votre demande ${params.leaveType} (${params.fromDate} → ${params.toDate}) a été refusée.`,
       meta: { leaveId: params.leaveId, employeeId: params.employeeId },
       dedupeKey: `leave-decision:${params.leaveId}:${params.approved ? 'approved' : 'rejected'}`,
+    });
+  }
+
+  async notifyLeaveBalanceLow(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    leaveTypeName: string;
+    year: number;
+    remainingDays: number;
+    dedupeDayKey: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.LEAVE_BALANCE_LOW,
+      title: 'Solde congé faible',
+      body: `${params.employeeName} — ${params.leaveTypeName}: ${params.remainingDays} jour(s) restant(s) (${params.year}).`,
+      meta: {
+        employeeId: params.employeeId,
+        leaveTypeName: params.leaveTypeName,
+        remainingDays: params.remainingDays,
+        year: params.year,
+      },
+      dedupeKey: `leave-balance-low:${params.employeeId}:${params.leaveTypeName}:${params.year}:${params.dedupeDayKey}`,
+    });
+  }
+
+  async notifyHrContractExpiring(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    contractId: string;
+    expiresAtIso: string;
+    daysLeft: number;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+    const urgency =
+      params.daysLeft <= 0
+        ? "expire aujourd'hui"
+        : `expire dans ${params.daysLeft} jour(s)`;
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.HR_CONTRACT_EXPIRING,
+      title: 'Contrat employe a renouveler',
+      body: `${params.employeeName} — contrat ${urgency} (echeance ${params.expiresAtIso}).`,
+      meta: {
+        employeeId: params.employeeId,
+        contractId: params.contractId,
+        expiresAt: params.expiresAtIso,
+        daysLeft: params.daysLeft,
+      },
+      dedupeKey: `hr-contract-expiring:${params.contractId}:${params.daysLeft}:${params.expiresAtIso}`,
+    });
+  }
+
+  async notifyHrMissingDocument(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    contractId: string;
+    signedAtIso: string;
+    weekKey: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    if (managerIds.length === 0) return;
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.HR_DOCUMENT_MISSING,
+      title: 'Document contrat manquant',
+      body: `${params.employeeName} — contrat signe le ${params.signedAtIso} sans piece jointe.`,
+      meta: {
+        employeeId: params.employeeId,
+        contractId: params.contractId,
+        signedAt: params.signedAtIso,
+      },
+      dedupeKey: `hr-document-missing:${params.contractId}:${params.weekKey}`,
     });
   }
 

@@ -149,11 +149,15 @@ enum TimeGateNotificationType {
   PUNCH_CHECK_OUT
   PUNCH_BREAK
   PUNCH_REVIEW_REQUIRED
+  PUNCH_OUTSIDE_WINDOW
   PUNCH_LATE
   ABSENCE_AUTO
   UNCLOSED_CHECK_IN
   UNCLOSED_CHECK_IN_REMINDER
   BREAK_RESUME_REMINDER
+  BREAK_OVERRUN
+  KIOSK_OFFLINE
+  VERIFY_FAILURE_SPIKE
   SUBSCRIPTION_TRIAL_REMINDER
   SUBSCRIPTION_EXPIRING
   SUBSCRIPTION_GRACE
@@ -163,6 +167,9 @@ enum TimeGateNotificationType {
   LEAVE_REQUEST_PENDING
   LEAVE_APPROVED
   LEAVE_REJECTED
+  LEAVE_BALANCE_LOW
+  HR_CONTRACT_EXPIRING
+  HR_DOCUMENT_MISSING
   OVERTIME_THRESHOLD
 }
 
@@ -256,6 +263,7 @@ model Company {
   designations              Designation[]
   shiftSwapRequests         TimeGateShiftSwapRequest[]
   timeGateNotifications     TimeGateNotification[]
+  timeGateNotificationRules TimeGateNotificationRule[]
   timeGatePunchAttemptLogs  TimeGatePunchAttemptLog[]
   timeGatePunchClaims       TimeGatePunchClaim[]
 
@@ -1112,6 +1120,17 @@ model TimeGateSystemSettings {
   timesheetRoundingMinutes Int @default(0) @map("timesheet_rounding_minutes")
   overtimeAlertThresholdMinutes Int @default(120) @map("overtime_alert_threshold_minutes")
   minMinutesBetweenShifts Int @default(660) @map("min_minutes_between_shifts")
+  defaultFaceEnabled Boolean @default(true) @map("default_face_enabled")
+  defaultNfcEnabled Boolean @default(false) @map("default_nfc_enabled")
+  defaultQrEnabled Boolean @default(false) @map("default_qr_enabled")
+  notificationUnclosedReminderDelayMinutes Int @default(0) @map("notification_unclosed_reminder_delay_minutes")
+  notificationReviewReminderMinAgeMinutes Int @default(1440) @map("notification_review_reminder_min_age_minutes")
+  allowOfflineSync Boolean @default(true) @map("allow_offline_sync")
+  offlineSyncMaxAgeMinutes Int @default(720) @map("offline_sync_max_age_minutes")
+  faceLogPhotoRetentionDays Int @default(30) @map("face_log_photo_retention_days")
+  webhookEnabled Boolean @default(false) @map("webhook_enabled")
+  webhookUrl String? @map("webhook_url") @db.VarChar(500)
+  webhookSecret String? @map("webhook_secret") @db.VarChar(255)
   defaultShiftTypeId String? @map("default_shift_type") @db.VarChar(140)
   defaultShiftType   ShiftType? @relation(fields: [defaultShiftTypeId], references: [id], onDelete: SetNull)
 
@@ -1146,6 +1165,22 @@ model TimeGateNotification {
   @@index([userId, createdAt])
   @@index([companyId, type])
   @@map("timegate_notification")
+}
+
+model TimeGateNotificationRule {
+  id           String                   @id @db.VarChar(140)
+  createdAt    DateTime                 @default(now()) @map("created_at")
+  updatedAt    DateTime                 @updatedAt @map("updated_at")
+  companyId    String                   @map("company") @db.VarChar(140)
+  company      Company                  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  type         TimeGateNotificationType
+  inAppEnabled Boolean                  @default(true) @map("in_app_enabled")
+  pushEnabled  Boolean                  @default(true) @map("push_enabled")
+  emailEnabled Boolean                  @default(false) @map("email_enabled")
+
+  @@unique([companyId, type])
+  @@index([companyId])
+  @@map("timegate_notification_rule")
 }
 
 model TimeGateDevice {
@@ -1467,17 +1502,23 @@ model TimeGateShiftSwapRequest {
 }
 
 model TimeGateAuditLog {
-  id        String   @id @db.VarChar(140)
-  userId    String?  @map("user") @db.VarChar(140)
-  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  companyId String   @map("company") @db.VarChar(140)
-  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  action    String   @db.VarChar(140)
-  entity    String   @db.VarChar(140)
-  entityId  String   @map("entity_id") @db.VarChar(140)
-  createdAt DateTime @default(now())
+  id        String    @id @db.VarChar(140)
+  userId    String?   @map("user") @db.VarChar(140)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companyId String    @map("company") @db.VarChar(140)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  branchId  String?   @map("branch") @db.VarChar(140)
+  action    String    @db.VarChar(140)
+  entity    String    @db.VarChar(140)
+  entityId  String    @map("entity_id") @db.VarChar(140)
+  requestId String?   @map("request_id") @db.VarChar(140)
+  ipAddress String?   @map("ip_address") @db.VarChar(64)
+  userAgent String?   @map("user_agent") @db.VarChar(255)
+  metadata  Json?
+  createdAt DateTime  @default(now())
 
   @@index([companyId, createdAt])
+  @@index([branchId, createdAt])
   @@index([entity, entityId])
   @@map("timegate_audit_log")
 }

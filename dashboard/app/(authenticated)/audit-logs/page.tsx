@@ -18,6 +18,11 @@ const columns: Column<AuditLog>[] = [
   { key: 'action', label: 'Action', sortable: true },
   { key: 'entity', label: 'Entité' },
   {
+    key: 'entityId',
+    label: 'Cible',
+    render: (v) => (v ? String(v) : '—'),
+  },
+  {
     key: 'user',
     label: 'Utilisateur',
     render: (_, row) => row.user?.email ?? '—',

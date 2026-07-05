@@ -14,6 +14,15 @@ export type NavSection = {
   items: NavItem[]
 }
 
+const TIMEGATE_PREFIX = '/timegate'
+
+function withTimegatePrefix(href?: string): string | undefined {
+  if (!href) return href
+  if (href === '/') return href
+  if (href.startsWith(TIMEGATE_PREFIX)) return href
+  return `${TIMEGATE_PREFIX}${href}`
+}
+
 export const timegateNavSections: NavSection[] = [
   {
     title: 'Menu principal',
@@ -42,6 +51,12 @@ export const timegateNavSections: NavSection[] = [
         label: 'Paramètres pointage',
         href: '/organization/attendance-settings',
         faIcon: 'fa-solid fa-sliders',
+        roles: ['ADMIN'],
+      },
+      {
+        label: 'Règles notifications',
+        href: '/organization/notification-rules',
+        faIcon: 'fa-solid fa-bell',
         roles: ['ADMIN'],
       },
       {
@@ -238,6 +253,14 @@ function filterItems(items: NavItem[], role?: TimeGateRole | null): NavItem[] {
     .filter((item): item is NavItem => item !== null)
 }
 
+function prefixItems(items: NavItem[]): NavItem[] {
+  return items.map((item) => ({
+    ...item,
+    href: withTimegatePrefix(item.href),
+    ...(item.children ? { children: prefixItems(item.children) } : {}),
+  }))
+}
+
 export function getNavSectionsForRole(role?: TimeGateRole | null): NavSection[] {
   return timegateNavSections
     .filter((section) => {
@@ -247,7 +270,7 @@ export function getNavSectionsForRole(role?: TimeGateRole | null): NavSection[] 
     })
     .map((section) => ({
       ...section,
-      items: filterItems(section.items, role),
+      items: prefixItems(filterItems(section.items, role)),
     }))
     .filter((section) => section.items.length > 0)
 }

@@ -10,7 +10,7 @@ export type NotificationItem = {
   meta?: unknown
 }
 
-export async function listNotifications(params?: { page?: number; unreadOnly?: boolean }) {
+export async function listNotifications(params?: { page?: number; limit?: number; unreadOnly?: boolean }) {
   return http.get<{
     data: NotificationItem[]
     meta: { page: number; limit: number; total: number; unreadCount: number }

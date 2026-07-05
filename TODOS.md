@@ -230,7 +230,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 14. [x] `breakWindowStart` / `breakWindowEnd` + `breakDurationMinutes`
 15. [x] Conserver `startTime` / `endTime` / `lateGraceMinutes` *(existant)*
 16. [x] **UI admin fenêtres** — onglet « Fenêtres pointage » sur `/shift-types`
-17. [ ] **Périmètre géo site** (optionnel) — lat/lng + rayon pour reprise pause app
+17. [x] **Périmètre géo site** (optionnel) — lat/lng + rayon pour reprise pause app
 
 ### Check-in sans check-out
 
@@ -253,7 +253,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 ### Traçabilité
 
 1. [x] **`authMethod`** sur `TimeGateAttendanceEvent` (FACE | QR | NFC | PIN)
-2. [ ] Géolocalisation optionnelle au pointage
+2. [x] Géolocalisation optionnelle au pointage *(lat/lng optionnels + contrôle périmètre si fournis)*
 
 ### QR-code
 
@@ -295,7 +295,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 ### Infrastructure (vague 4 — en premier)
 
 1. [x] Modèle **`TimeGateNotification`** — `userId`, `type`, `title`, `body`, `readAt`, `meta` (+ `timegate_device` push)
-2. [ ] **`NotificationRule`** par tenant
+2. [x] **`NotificationRule`** par tenant — API `/notifications/rules` + UI `/organization/notification-rules`
 3. [x] **`GET /notifications`**, `PATCH read` / `read-all` · `POST/GET /devices/register`
 4. [x] **`NotificationRecipientResolver`** — managers proximité ∪ tous `MANAGER`/`ADMIN` du tenant, dédoublonnage
 5. [x] Job émetteur — cron + hooks post-pointage (`auth.service`, `PunchCronService`)
@@ -315,14 +315,14 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 11. [x] **Absence auto** (cron fin fenêtre arrivée) — manager
 12. [x] **Départ non pointé** — rappel employé (fin shift → minuit) ; manager notifié si cron `UNCLOSED_CHECKIN` (00h30)
 13. [x] **REVIEW_REQUIRED** — rappel validateur (relance manager, cron 9h, > 24 h)
-14. [ ] **Pause trop longue** · **HS > seuil** · **tentative hors plage** (optionnel)
+14. [x] **Pause trop longue** · **HS > seuil** · **tentative hors plage** (optionnel) — `BREAK_OVERRUN` + `OVERTIME_THRESHOLD` + `PUNCH_OUTSIDE_WINDOW`
 
 ### Autres domaines (vague 6)
 
-- [ ] RH : contrat expire, essai SaaS, document manquant
+- [x] RH : contrat expire, essai SaaS, document manquant
 - [x] Calendrier : congé en attente (manager), décision congé (employé)
-- [ ] Ops : kiosk offline, échecs verify, solde bas
-- [ ] **Email** (optionnel par règle)
+- [x] Ops : kiosk offline, échecs verify, solde bas — offline + verify spikes + low leave balance
+- [x] **Email** (optionnel par règle) — `NotificationRule.emailEnabled` + envoi SMTP (fallback log dev)
 
 ---
 
@@ -342,7 +342,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 ### Backlog
 
-1. [ ] Fenêtres pointage & pause — voir [Lot B](#lot-b--fenêtres-de-pointage-shifttype)
+1. [x] Fenêtres pointage & pause — voir [Lot B](#lot-b--fenêtres-de-pointage-shifttype) *(réalisé via Lot B #1-17)*
 2. [x] **Calcul pause** — auto baseline + ajustement si `BREAK_END` pointé après fin plage
 3. [x] **Déduction surplus pause** dans `TimesheetsService` + flag anomalie `BREAK_OVERRUN`
 4. [x] **Employee-app** — écran « Reprendre la pause » + géoloc (permission + état bouton)
@@ -377,7 +377,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 6. [x] **Réclamation pointage** — types + motif ; inbox manager + fiche `/punch-claims/:id`
 7. [x] **Reprise de pause** — bouton `BREAK_END` (géoloc : actif sur site uniquement)
 8. [x] **Mes alertes** — notifs push ; rappel départ + **reprise pause** (`BREAK_RESUME_REMINDER`)
-9. [ ] **Auth biométrique OS** (v2 employee-app)
+9. [x] **Auth biométrique OS** — `expo-local-authentication` + login biométrique optionnel
 
 ---
 
@@ -385,10 +385,10 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 **Vague 6**
 
-1. [ ] **Sélecteur pays** — phone international *(voir aussi P0 SelectSearch)*
-2. [ ] **Sélection nationalité** — UX employé
-3. [ ] **Sélecteur de date** — navigation entre années
-4. [ ] **Renommage routes UI** `/timegate/*` (cosmétique, #31)
+1. [x] **Sélecteur pays** — phone international (hint + placeholder pays)
+2. [x] **Sélection nationalité** — UX employé (`SelectSearch` pays)
+3. [x] **Sélecteur de date** — navigation entre années (`DatePicker` dropdown years)
+4. [x] **Renommage routes UI** `/timegate/*` (cosmétique, #31)
 5. [x] **Hints formulaires** — tooltips icône (`HintTooltip`, `FormField`, paramètres pointage, fenêtres horaires)
 
 ---
@@ -397,12 +397,12 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 **Vague 6**
 
-1. [ ] Méthodes de pointage par défaut (héritées par kiosk) — partiel : par kiosk OK
+1. [x] Méthodes de pointage par défaut (héritées par kiosk) — `defaultFace/Nfc/QrEnabled`
 2. [x] **Horaire / fenêtres fallback** — `/organization/attendance-settings`
-3. [x] Seuils échecs avant PIN (tenant) · [ ] confiance faciale, tolérance retard (super-admin `/system-config`)
+3. [x] Seuils échecs avant PIN (tenant) · [x] confiance faciale, tolérance retard (super-admin `/system-config`)
 4. [x] **Règles pause & heures sup** — arrondi, seuil HS, repos min. (`/organization/attendance-settings`)
-5. [ ] Délais notifications
-6. [ ] Politique offline (file d'attente kiosk)
+5. [x] Délais notifications — relance checkout / review manager paramétrables
+6. [x] Politique offline (file d'attente kiosk) — allow + ancienneté max sync
 
 ---
 
@@ -410,11 +410,11 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 **Priorité P3** · **Vague 7**
 
-1. [ ] **Journal d'audit enrichi**
-2. [ ] **Export légal période** — PDF horodaté
-3. [ ] **Rétention photos faciales** (RGPD)
-4. [ ] **Webhooks**
-5. [ ] **API publique documentée**
+1. [x] **Journal d'audit enrichi** — contexte branche + metadata (review/override/offline/password)
+2. [x] **Export légal période** — PDF horodaté + empreinte SHA-256 + audit log
+3. [x] **Rétention photos faciales** (RGPD) — purge auto + suppression R2 + logs conservés
+4. [x] **Webhooks** — endpoint tenant + signature HMAC + émission `notification.emitted`
+5. [x] **API publique documentée** — Swagger `/api/v1/docs` + guide `api/docs/public-api.md`
 
 ---
 

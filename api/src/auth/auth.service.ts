@@ -64,6 +64,7 @@ import {
   parseQrPunchPayload,
   verifyQrPunchPayload,
 } from '../common/utils/qr-punch-token.util';
+import { isWithinBranchRadius } from '../common/utils/geo.util';
 
 type MobileTokenPayload = {
   typ: 'mobile_device';
@@ -1097,7 +1098,12 @@ export class AuthService {
 
     const pinSettings = await this.prisma.timeGateSystemSettings.findUnique({
       where: { companyId: updatedKiosk.companyId },
-      select: { pinFailureThreshold: true, pinFailureCooldownSeconds: true },
+      select: {
+        pinFailureThreshold: true,
+        pinFailureCooldownSeconds: true,
+        allowOfflineSync: true,
+        offlineSyncMaxAgeMinutes: true,
+      },
     });
 
     return {
@@ -1129,7 +1135,12 @@ export class AuthService {
 
     const pinSettings = await this.prisma.timeGateSystemSettings.findUnique({
       where: { companyId: kiosk.companyId },
-      select: { pinFailureThreshold: true, pinFailureCooldownSeconds: true },
+      select: {
+        pinFailureThreshold: true,
+        pinFailureCooldownSeconds: true,
+        allowOfflineSync: true,
+        offlineSyncMaxAgeMinutes: true,
+      },
     });
 
     return {
@@ -1142,7 +1153,14 @@ export class AuthService {
 
   private buildKioskFeatures(
     kiosk: { faceEnabled: boolean; nfcEnabled: boolean; qrEnabled: boolean },
-    pinSettings: { pinFailureThreshold: number; pinFailureCooldownSeconds: number } | null,
+    pinSettings:
+      | {
+          pinFailureThreshold: number;
+          pinFailureCooldownSeconds: number;
+          allowOfflineSync: boolean;
+          offlineSyncMaxAgeMinutes: number;
+        }
+      | null,
   ) {
     return {
       faceEnabled: kiosk.faceEnabled,
@@ -1150,13 +1168,22 @@ export class AuthService {
       qrEnabled: kiosk.qrEnabled,
       pinFailureThreshold: pinSettings?.pinFailureThreshold ?? 3,
       pinFailureCooldownSeconds: pinSettings?.pinFailureCooldownSeconds ?? 30,
+      allowOfflineSync: pinSettings?.allowOfflineSync ?? true,
+      offlineSyncMaxAgeMinutes: pinSettings?.offlineSyncMaxAgeMinutes ?? 720,
     };
   }
 
   async verifyMobilePhoto(
     token: string,
     file: Express.Multer.File,
-    options?: { offlineSync?: boolean; capturedAt?: Date; idempotencyKey?: string; requestId?: string },
+    options?: {
+      offlineSync?: boolean;
+      capturedAt?: Date;
+      idempotencyKey?: string;
+      requestId?: string;
+      latitude?: number;
+      longitude?: number;
+    },
   ) {
     const verifyId = randomBytes(4).toString('hex');
     const startedAt = Date.now();
@@ -1190,6 +1217,7 @@ export class AuthService {
       if (!kiosk) {
         throw new NotFoundException('Kiosk not found');
       }
+      await this.assertOfflineSyncPolicy(kiosk.companyId, options?.offlineSync, options?.capturedAt);
 
       await this.prisma.timeGateKiosk.update({
         where: { id: kiosk.id },
@@ -1303,6 +1331,8 @@ export class AuthService {
             : TimeGateAttendanceEventSource.KIOSK_ONLINE,
           occurredAt: options?.capturedAt ?? new Date(),
           authMethod: TimeGateAttendanceAuthMethod.FACE,
+          latitude: options?.latitude,
+          longitude: options?.longitude,
         });
         birthdayMessage = await this.buildBirthdayMessage(matched.employeeId);
       }
@@ -1435,6 +1465,8 @@ export class AuthService {
         : TimeGateAttendanceEventSource.KIOSK_ONLINE,
       occurredAt: options?.capturedAt ?? new Date(),
       authMethod: TimeGateAttendanceAuthMethod.PIN,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
     });
     const birthdayMessage = await this.buildBirthdayMessage(employee.id);
     const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
@@ -1527,6 +1559,8 @@ export class AuthService {
       idempotencyCacheKey,
       offlineSync: options?.offlineSync,
       capturedAt: options?.capturedAt,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
     });
   }
 
@@ -1602,6 +1636,8 @@ export class AuthService {
       idempotencyCacheKey,
       offlineSync: false,
       capturedAt: undefined,
+      latitude: dto.latitude,
+      longitude: dto.longitude,
     });
   }
 
@@ -1618,7 +1654,10 @@ export class AuthService {
     idempotencyCacheKey: string | null;
     offlineSync?: boolean;
     capturedAt?: Date;
+    latitude?: number;
+    longitude?: number;
   }): Promise<VerifyMobileResult> {
+    await this.assertOfflineSyncPolicy(params.kiosk.companyId, params.offlineSync, params.capturedAt);
     const firstName = params.employee.firstName ?? params.employee.employeeName;
     const lastName = params.employee.lastName ?? '';
     const log = await this.prisma.faceRecognitionLog.create({
@@ -1651,6 +1690,8 @@ export class AuthService {
         : TimeGateAttendanceEventSource.KIOSK_ONLINE,
       occurredAt: params.capturedAt ?? new Date(),
       authMethod: params.authMethod,
+      latitude: params.latitude,
+      longitude: params.longitude,
     });
     const birthdayMessage = await this.buildBirthdayMessage(params.employee.id);
     const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
@@ -1691,6 +1732,32 @@ export class AuthService {
     }
   }
 
+  private async assertOfflineSyncPolicy(
+    companyId: string,
+    offlineSync?: boolean,
+    capturedAt?: Date,
+  ) {
+    if (!offlineSync) return;
+    const settings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId },
+      select: { allowOfflineSync: true, offlineSyncMaxAgeMinutes: true },
+    });
+    if (settings?.allowOfflineSync === false) {
+      throw new BadRequestException('Synchronisation offline desactivee pour cette organisation');
+    }
+    if (!capturedAt || Number.isNaN(capturedAt.getTime())) {
+      throw new BadRequestException('capturedAt est requis pour la synchronisation offline');
+    }
+    const maxAgeMinutes = settings?.offlineSyncMaxAgeMinutes ?? 720;
+    const ageMs = Date.now() - capturedAt.getTime();
+    if (ageMs < 0) {
+      throw new BadRequestException('capturedAt invalide (futur)');
+    }
+    if (ageMs > maxAgeMinutes * 60_000) {
+      throw new BadRequestException('Evenement offline trop ancien pour etre synchronise');
+    }
+  }
+
   private async applyAttendanceFromVerification(params: {
     employeeId: string;
     kioskId: string;
@@ -1701,6 +1768,8 @@ export class AuthService {
     source?: TimeGateAttendanceEventSource;
     occurredAt?: Date;
     authMethod?: TimeGateAttendanceAuthMethod;
+    latitude?: number;
+    longitude?: number;
   }): Promise<string> {
     const employee = await this.prisma.employee.findUnique({
       where: { id: params.employeeId },
@@ -1711,6 +1780,41 @@ export class AuthService {
     }
     if (!employee.branchId) {
       return "Employe sans site d'affectation. Pointage non enregistre.";
+    }
+    if (
+      params.latitude != null &&
+      params.longitude != null &&
+      Number.isFinite(params.latitude) &&
+      Number.isFinite(params.longitude)
+    ) {
+      const employeeBranch = await this.prisma.branch.findUnique({
+        where: { id: employee.branchId },
+        select: { id: true, branchName: true, latitude: true, longitude: true, checkinRadius: true },
+      });
+      if (employeeBranch?.latitude != null && employeeBranch.longitude != null) {
+        const inRange = isWithinBranchRadius(
+          params.latitude,
+          params.longitude,
+          Number(employeeBranch.latitude),
+          Number(employeeBranch.longitude),
+          employeeBranch.checkinRadius,
+        );
+        if (!inRange) {
+          const msg = `Hors perimetre site (${employeeBranch.branchName}). Pointage refuse.`;
+          await this.punchAttemptLog.logAttempt({
+            companyId: params.companyId,
+            employeeId: params.employeeId,
+            branchId: params.branchId,
+            kioskId: params.kioskId,
+            source: params.source,
+            authMethod: params.authMethod,
+            outcome: 'REJECTED',
+            message: msg,
+            occurredAt: params.occurredAt ?? new Date(),
+          });
+          return msg;
+        }
+      }
     }
 
     const occurredAt = params.occurredAt ?? new Date();
@@ -1753,6 +1857,19 @@ export class AuthService {
         message: resolution.message,
         occurredAt,
       });
+      if (this.isOutsideWindowAttemptMessage(resolution.message)) {
+        const employeeName =
+          `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() ||
+          employee.employeeName;
+        await this.notifications.notifyOutsideWindowAttempt({
+          companyId: params.companyId,
+          branchId: params.branchId,
+          employeeId: params.employeeId,
+          employeeName,
+          occurredAt,
+          reason: resolution.message,
+        });
+      }
       return resolution.message;
     }
 
@@ -1798,6 +1915,18 @@ export class AuthService {
     messages.push(mainResult.message);
 
     return messages.filter(Boolean).join(' ');
+  }
+
+  private isOutsideWindowAttemptMessage(message: string): boolean {
+    const m = message.toLowerCase();
+    return (
+      m.includes('hors fenêtre') ||
+      m.includes('hors fenetre') ||
+      m.includes('trop tôt') ||
+      m.includes('trop tot') ||
+      m.includes('départ anticipé') ||
+      m.includes('depart anticipe')
+    );
   }
 
   private async recordPunchEvent(params: {

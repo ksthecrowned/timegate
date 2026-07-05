@@ -512,6 +512,13 @@ export type Subscription = {
   company?: { id: string; name: string; sku?: string } | null
 }
 
+export type NotificationRule = {
+  type: string
+  inAppEnabled: boolean
+  pushEnabled: boolean
+  emailEnabled: boolean
+}
+
 export type SystemConfig = {
   id: string
   companyId: string
@@ -523,6 +530,17 @@ export type SystemConfig = {
   timesheetRoundingMinutes?: number
   overtimeAlertThresholdMinutes?: number
   minMinutesBetweenShifts?: number
+  defaultFaceEnabled?: boolean
+  defaultNfcEnabled?: boolean
+  defaultQrEnabled?: boolean
+  notificationUnclosedReminderDelayMinutes?: number
+  notificationReviewReminderMinAgeMinutes?: number
+  allowOfflineSync?: boolean
+  offlineSyncMaxAgeMinutes?: number
+  faceLogPhotoRetentionDays?: number
+  webhookEnabled?: boolean
+  webhookUrl?: string | null
+  webhookSecret?: string | null
   defaultShiftTypeId?: string | null
   defaultShiftType?: { id: string; name: string } | null
   company?: { id: string; name: string; sku?: string } | null
@@ -538,6 +556,17 @@ export type TenantAttendanceSettings = Pick<
   | 'timesheetRoundingMinutes'
   | 'overtimeAlertThresholdMinutes'
   | 'minMinutesBetweenShifts'
+  | 'defaultFaceEnabled'
+  | 'defaultNfcEnabled'
+  | 'defaultQrEnabled'
+  | 'notificationUnclosedReminderDelayMinutes'
+  | 'notificationReviewReminderMinAgeMinutes'
+  | 'allowOfflineSync'
+  | 'offlineSyncMaxAgeMinutes'
+  | 'faceLogPhotoRetentionDays'
+  | 'webhookEnabled'
+  | 'webhookUrl'
+  | 'webhookSecret'
   | 'defaultShiftTypeId'
   | 'defaultShiftType'
 >

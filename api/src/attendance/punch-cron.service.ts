@@ -16,8 +16,8 @@ import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window
 import { NotificationsService } from '../notifications/notifications.service';
 
 const KIOSK_OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
-/** Délai minimum avant la première relance manager (Lot D #13). */
-const REVIEW_REMINDER_MIN_AGE_MS = 24 * 60 * 60 * 1000;
+/** Délai minimum par défaut avant la première relance manager (Lot D #13). */
+const DEFAULT_REVIEW_REMINDER_MIN_AGE_MS = 24 * 60 * 60 * 1000;
 
 type ReviewReminderGroup = {
   companyId: string;
@@ -264,11 +264,30 @@ export class PunchCronService {
     });
 
     let sent = 0;
+    const settingsByCompany = new Map<
+      string,
+      { notificationUnclosedReminderDelayMinutes: number }
+    >();
     for (const employee of employees) {
       const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
       if (!windows) continue;
 
-      const reminderFromMin = windows.checkOutStartMin ?? windows.shiftEndMin;
+      let settings = settingsByCompany.get(employee.companyId);
+      if (!settings) {
+        const row = await this.prisma.timeGateSystemSettings.findUnique({
+          where: { companyId: employee.companyId },
+          select: { notificationUnclosedReminderDelayMinutes: true },
+        });
+        settings = {
+          notificationUnclosedReminderDelayMinutes:
+            row?.notificationUnclosedReminderDelayMinutes ?? 0,
+        };
+        settingsByCompany.set(employee.companyId, settings);
+      }
+
+      const reminderFromMin =
+        (windows.checkOutStartMin ?? windows.shiftEndMin) +
+        Math.max(0, settings.notificationUnclosedReminderDelayMinutes);
       if (atMin < reminderFromMin) continue;
 
       const checkIn = await this.prisma.timeGateAttendanceEvent.findFirst({
@@ -389,19 +408,32 @@ export class PunchCronService {
   @Cron('0 9 * * *')
   async sendReviewRequiredManagerReminders() {
     const now = new Date();
-    const reminderCutoff = new Date(now.getTime() - REVIEW_REMINDER_MIN_AGE_MS);
     const reminderDate = now.toISOString().slice(0, 10);
     const groups = new Map<string, ReviewReminderGroup>();
+    const settingsRows = await this.prisma.timeGateSystemSettings.findMany({
+      select: { companyId: true, notificationReviewReminderMinAgeMinutes: true },
+    });
+    const reviewAgeByCompany = new Map(
+      settingsRows.map((row) => [
+        row.companyId,
+        Math.max(0, row.notificationReviewReminderMinAgeMinutes),
+      ]),
+    );
 
     const pendingEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
-        occurredAt: { lte: reminderCutoff },
       },
-      select: { id: true, companyId: true, branchId: true },
+      select: { id: true, companyId: true, branchId: true, occurredAt: true },
     });
 
     for (const event of pendingEvents) {
+      const minAgeMinutes = reviewAgeByCompany.get(event.companyId);
+      const cutoff =
+        minAgeMinutes !== undefined
+          ? now.getTime() - minAgeMinutes * 60_000
+          : now.getTime() - DEFAULT_REVIEW_REMINDER_MIN_AGE_MS;
+      if (event.occurredAt.getTime() > cutoff) continue;
       this.addReviewReminderGroup(groups, {
         companyId: event.companyId,
         branchId: event.branchId,
@@ -413,16 +445,22 @@ export class PunchCronService {
     const pendingDays = await this.prisma.timeGateTimesheetDay.findMany({
       where: {
         status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
-        updatedAt: { lte: reminderCutoff },
       },
       select: {
         id: true,
         companyId: true,
+        updatedAt: true,
         employee: { select: { branchId: true } },
       },
     });
 
     for (const day of pendingDays) {
+      const minAgeMinutes = reviewAgeByCompany.get(day.companyId);
+      const cutoff =
+        minAgeMinutes !== undefined
+          ? now.getTime() - minAgeMinutes * 60_000
+          : now.getTime() - DEFAULT_REVIEW_REMINDER_MIN_AGE_MS;
+      if (day.updatedAt.getTime() > cutoff) continue;
       this.addReviewReminderGroup(groups, {
         companyId: day.companyId,
         branchId: day.employee.branchId ?? undefined,
@@ -460,15 +498,117 @@ export class PunchCronService {
   @Cron(CronExpression.EVERY_5_MINUTES)
   async markStaleKiosksOffline() {
     const cutoff = new Date(Date.now() - KIOSK_OFFLINE_THRESHOLD_MS);
-    const result = await this.prisma.timeGateKiosk.updateMany({
+    const stale = await this.prisma.timeGateKiosk.findMany({
       where: {
         status: KioskStatus.ONLINE,
         OR: [{ lastSeenAt: null }, { lastSeenAt: { lt: cutoff } }],
       },
+      select: {
+        id: true,
+        kioskName: true,
+        companyId: true,
+        branchId: true,
+      },
+    });
+    if (stale.length === 0) return;
+
+    await this.prisma.timeGateKiosk.updateMany({
+      where: { id: { in: stale.map((k) => k.id) } },
       data: { status: KioskStatus.OFFLINE },
     });
-    if (result.count > 0) {
-      this.logger.log(`Marked ${result.count} kiosk(s) OFFLINE (stale heartbeat)`);
+
+    for (const kiosk of stale) {
+      try {
+        await this.notifications.notifyKioskOffline({
+          companyId: kiosk.companyId,
+          branchId: kiosk.branchId,
+          kioskId: kiosk.id,
+          kioskName: kiosk.kioskName,
+        });
+      } catch (err) {
+        this.logger.warn(
+          `Kiosk offline notification failed for ${kiosk.id}: ${
+            err instanceof Error ? err.message : err
+          }`,
+        );
+      }
+    }
+
+    this.logger.log(`Marked ${stale.length} kiosk(s) OFFLINE (stale heartbeat)`);
+  }
+
+  /** Ops: pics d'échecs de vérification sur kiosque (fenêtre glissante 1h). */
+  @Cron(CronExpression.EVERY_HOUR)
+  async sendVerifyFailureSpikeAlerts() {
+    const to = new Date();
+    const from = new Date(to.getTime() - 60 * 60 * 1000);
+    const attempts = await this.prisma.timeGatePunchAttemptLog.findMany({
+      where: {
+        outcome: 'REJECTED',
+        occurredAt: { gte: from, lte: to },
+        kioskId: { not: null },
+      },
+      select: {
+        companyId: true,
+        branchId: true,
+        kioskId: true,
+      },
+    });
+
+    if (attempts.length === 0) return;
+    const counts = new Map<
+      string,
+      { companyId: string; branchId?: string; kioskId: string; rejectedCount: number }
+    >();
+    for (const attempt of attempts) {
+      if (!attempt.kioskId) continue;
+      const key = `${attempt.companyId}:${attempt.kioskId}`;
+      const prev = counts.get(key);
+      if (prev) {
+        prev.rejectedCount += 1;
+      } else {
+        counts.set(key, {
+          companyId: attempt.companyId,
+          branchId: attempt.branchId ?? undefined,
+          kioskId: attempt.kioskId,
+          rejectedCount: 1,
+        });
+      }
+    }
+
+    const spikes = [...counts.values()].filter((v) => v.rejectedCount >= 5);
+    if (spikes.length === 0) return;
+
+    const kiosks = await this.prisma.timeGateKiosk.findMany({
+      where: { id: { in: spikes.map((s) => s.kioskId) } },
+      select: { id: true, kioskName: true },
+    });
+    const kioskNameById = new Map(kiosks.map((k) => [k.id, k.kioskName]));
+
+    let sent = 0;
+    for (const spike of spikes) {
+      try {
+        await this.notifications.notifyVerifyFailureSpike({
+          companyId: spike.companyId,
+          branchId: spike.branchId,
+          kioskId: spike.kioskId,
+          kioskName: kioskNameById.get(spike.kioskId) ?? spike.kioskId,
+          rejectedCount: spike.rejectedCount,
+          fromIso: from.toISOString(),
+          toIso: to.toISOString(),
+        });
+        sent += 1;
+      } catch (err) {
+        this.logger.warn(
+          `Verify failure spike notification failed for ${spike.kioskId}: ${
+            err instanceof Error ? err.message : err
+          }`,
+        );
+      }
+    }
+
+    if (sent > 0) {
+      this.logger.log(`Sent ${sent} verify-failure spike alert(s).`);
     }
   }
 

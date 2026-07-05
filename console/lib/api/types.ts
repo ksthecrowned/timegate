@@ -90,6 +90,15 @@ export type PlatformSettings = {
   updatedAt: string
 }
 
+export type SystemConfig = {
+  id: string
+  companyId: string
+  minConfidence: number
+  lateThreshold: number
+  veryLateThreshold: number
+  company?: { id: string; name: string; sku?: string } | null
+}
+
 export type OrganizationSubscription = {
   id: string
   plan: string

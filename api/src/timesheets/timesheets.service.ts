@@ -310,6 +310,21 @@ export class TimesheetsService {
             })
             .catch(() => undefined);
         }
+        if (isPastDay && metrics.breakOverrunMinutes > 0) {
+          const employeeName =
+            `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() ||
+            employee.employeeName;
+          void this.notifications
+            .notifyBreakOverrun({
+              companyId: employee.companyId!,
+              employeeId: employee.id,
+              employeeName,
+              branchId: employee.branchId ?? undefined,
+              workDate: day,
+              overrunMinutes: metrics.breakOverrunMinutes,
+            })
+            .catch(() => undefined);
+        }
       }
     }
 
@@ -522,6 +537,7 @@ export class TimesheetsService {
     return {
       workedMinutes: Math.max(0, workedMinutes),
       breakMinutes,
+      breakOverrunMinutes: breakResult.breakSurplusMinutes,
       lateMinutes,
       overtimeMinutes,
       status,

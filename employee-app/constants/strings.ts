@@ -66,6 +66,9 @@ export const STRINGS = {
     hidePassword: 'Masquer le mot de passe',
     backToLogin: 'Retour à la connexion',
     codeInvalid: 'Code invalide ou expiré',
+    biometricSignIn: 'Connexion biométrique',
+    enableBiometric: 'Activer la connexion biométrique sur cet appareil',
+    biometricMissingCredentials: 'Aucun identifiant biométrique enregistré.',
   },
 
   // Generic errors

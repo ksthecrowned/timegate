@@ -19,6 +19,12 @@ const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
 
 const publicPaths = new Set(['/login', '/signup', '/activate'])
 
+function stripTimegatePrefix(pathname: string): string {
+  if (pathname === '/timegate') return '/'
+  if (pathname.startsWith('/timegate/')) return pathname.replace(/^\/timegate/, '')
+  return pathname
+}
+
 function isProtectedAppPath(pathname: string): boolean {
   if (publicPaths.has(pathname)) return false
   if (pathname === '/') return true
@@ -65,7 +71,10 @@ export const authConfig = {
   callbacks: {
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user
-      const pathname = nextUrl.pathname
+      const rawPathname = nextUrl.pathname
+      const pathname = stripTimegatePrefix(rawPathname)
+      const isTimegatePrefixed =
+        rawPathname === '/timegate' || rawPathname.startsWith('/timegate/')
       const isLoginPage = pathname === '/login'
       const isSignupPage = pathname === '/signup'
       const isActivatePage = pathname === '/activate'
@@ -79,6 +88,15 @@ export const authConfig = {
 
       if (isDeprecatedShiftLocations) {
         return Response.redirect(new URL('/branches', nextUrl))
+      }
+
+      if (
+        !isTimegatePrefixed &&
+        isProtectedAppPath(pathname) &&
+        pathname !== '/' &&
+        !publicPaths.has(pathname)
+      ) {
+        return Response.redirect(new URL(`/timegate${pathname}`, nextUrl))
       }
 
       if (isLoginPage || isSignupPage) {

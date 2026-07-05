@@ -107,7 +107,13 @@ export function exportAttendanceDays(params: AttendanceDayQuery & { from: string
 }
 
 export function exportAttendanceDaysPdf(params: AttendanceDayQuery & { from: string; to: string }) {
-  return http.get<{ filename: string; contentBase64: string; mimeType: string }>(
+  return http.get<{
+    filename: string
+    contentBase64: string
+    mimeType: string
+    stampedAt?: string
+    digestSha256?: string
+  }>(
     '/attendance/days/export',
     { params: { ...params, format: 'pdf' } },
   )

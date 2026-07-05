@@ -24,7 +24,15 @@ export default function NewKioskPage() {
         submitLabel="Créer le kiosque"
         onCancel={() => router.push('/kiosks')}
         onSubmit={async (values) => {
-          const kiosk = await createKiosk(values)
+          if (!values.name?.trim() || !values.branchId) return
+          const kiosk = await createKiosk({
+            name: values.name.trim(),
+            branchId: values.branchId,
+            shiftLocationId: values.shiftLocationId,
+            faceEnabled: values.faceEnabled,
+            nfcEnabled: values.nfcEnabled,
+            qrEnabled: values.qrEnabled,
+          })
           router.push(`/kiosks/${kiosk.id}`)
         }}
       />

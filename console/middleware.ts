@@ -4,5 +4,16 @@ import { authConfig } from '@/auth.config'
 export default NextAuth(authConfig).auth
 
 export const config = {
-  matcher: ['/', '/login', '/organizations/:path*', '/plans/:path*', '/platform-settings', '/subscriptions', '/audit-logs', '/countries', '/cities'],
+  matcher: [
+    '/',
+    '/login',
+    '/organizations/:path*',
+    '/plans/:path*',
+    '/platform-settings',
+    '/system-config',
+    '/subscriptions',
+    '/audit-logs',
+    '/countries',
+    '/cities',
+  ],
 }

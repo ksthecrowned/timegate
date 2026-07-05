@@ -22,6 +22,8 @@ export interface DatePickerProps {
   maxDate?: Date
   className?: string
   id?: string
+  fromYear?: number
+  toYear?: number
 }
 
 export function DatePicker({
@@ -34,9 +36,14 @@ export function DatePicker({
   maxDate,
   className = '',
   id,
+  fromYear,
+  toYear,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const currentYear = new Date().getFullYear()
+  const resolvedFromYear = fromYear ?? Math.max(1950, currentYear - 80)
+  const resolvedToYear = toYear ?? currentYear + 20
 
   useEffect(() => {
     if (!open) return
@@ -107,6 +114,9 @@ export function DatePicker({
           <DayPicker
             mode="single"
             locale={fr}
+            captionLayout="dropdown-years"
+            fromYear={resolvedFromYear}
+            toYear={resolvedToYear}
             selected={value ?? undefined}
             onSelect={(date) => {
               onChange?.(date ?? null)

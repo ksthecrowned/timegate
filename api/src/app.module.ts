@@ -38,6 +38,7 @@ import { DevicesModule } from './devices/devices.module';
 import { TrustedDevicesModule } from './trusted-devices/trusted-devices.module';
 import { ManagerModule } from './manager/manager.module';
 import { PunchClaimsModule } from './punch-claims/punch-claims.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -80,6 +81,7 @@ import { PunchClaimsModule } from './punch-claims/punch-claims.module';
     TrustedDevicesModule,
     ManagerModule,
     PunchClaimsModule,
+    WebhooksModule,
   ],
 })
 export class AppModule {}

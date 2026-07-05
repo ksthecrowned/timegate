@@ -19,13 +19,26 @@ export class KiosksService {
   ) {}
 
   async create(dto: CreateKioskDto) {
-    this.assertAtLeastOneMethod(dto);
     const branchId = dto.branchId;
     if (!branchId) {
       throw new NotFoundException('branchId is required');
     }
     const branch = await this.ensureBranch(branchId);
     await this.subscriptionQuota.assertCanAddKiosk(branch.companyId);
+    const settings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId: branch.companyId },
+      select: {
+        defaultFaceEnabled: true,
+        defaultNfcEnabled: true,
+        defaultQrEnabled: true,
+      },
+    });
+    const resolvedMethods = {
+      faceEnabled: dto.faceEnabled ?? settings?.defaultFaceEnabled ?? true,
+      nfcEnabled: dto.nfcEnabled ?? settings?.defaultNfcEnabled ?? false,
+      qrEnabled: dto.qrEnabled ?? settings?.defaultQrEnabled ?? false,
+    };
+    this.assertAtLeastOneMethod(resolvedMethods);
     const existing = await this.prisma.timeGateKiosk.findUnique({
       where: { branchId },
     });
@@ -42,9 +55,9 @@ export class KiosksService {
         shiftLocationId: dto.shiftLocationId,
         status: KioskStatus.OFFLINE,
         deviceApiKey: randomBytes(24).toString('hex'),
-        faceEnabled: dto.faceEnabled ?? true,
-        nfcEnabled: dto.nfcEnabled ?? false,
-        qrEnabled: dto.qrEnabled ?? false,
+        faceEnabled: resolvedMethods.faceEnabled,
+        nfcEnabled: resolvedMethods.nfcEnabled,
+        qrEnabled: resolvedMethods.qrEnabled,
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });

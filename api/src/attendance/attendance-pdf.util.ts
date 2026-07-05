@@ -16,6 +16,10 @@ export type AttendancePdfMeta = {
   from: string;
   to: string;
   companyName?: string | null;
+  generatedAtIso?: string;
+  generatedByEmail?: string | null;
+  legalDigestSha256?: string;
+  rowCount?: number;
 };
 
 const MAX_ROWS = 10_000;
@@ -32,13 +36,24 @@ export function buildAttendanceDaysPdf(rows: AttendancePdfRow[], meta: Attendanc
     doc.on('end', () => resolve(Buffer.concat(chunks)));
     doc.on('error', reject);
 
-    doc.fontSize(16).text('Fiche de présence', { align: 'center' });
+    const generatedAtIso = meta.generatedAtIso ?? new Date().toISOString();
+    const generatedAtLabel = generatedAtIso.replace('T', ' ').replace('Z', ' UTC');
+
+    doc.fontSize(16).text('Export legal de presence', { align: 'center' });
     doc.moveDown(0.5);
     if (meta.companyName) {
       doc.fontSize(11).text(meta.companyName, { align: 'center' });
     }
     doc.fontSize(10).text(`Période : ${meta.from} → ${meta.to}`, { align: 'center' });
-    doc.text(`Export : ${new Date().toISOString().slice(0, 10)}`, { align: 'center' });
+    doc.text(`Horodatage UTC : ${generatedAtLabel}`, { align: 'center' });
+    doc.text(`Généré par : ${meta.generatedByEmail ?? 'system'}`, { align: 'center' });
+    doc.text(`Lignes : ${meta.rowCount ?? rows.length}`, { align: 'center' });
+    if (meta.legalDigestSha256) {
+      doc.fontSize(8).text(`Empreinte SHA-256 : ${meta.legalDigestSha256}`, {
+        align: 'center',
+      });
+      doc.fontSize(10);
+    }
     doc.moveDown();
 
     const headers = ['Date', 'Employé', 'Branche', 'Statut', 'Horaire', 'Congé', 'Check-ins'];

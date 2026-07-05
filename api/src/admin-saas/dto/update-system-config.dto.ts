@@ -1,4 +1,4 @@
-import { IsInt, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class UpdateSystemConfigDto {
   @IsOptional()
@@ -50,4 +50,58 @@ export class UpdateSystemConfigDto {
   @Min(0)
   @Max(24 * 60)
   minMinutesBetweenShifts?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  defaultFaceEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  defaultNfcEnabled?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  defaultQrEnabled?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24 * 60)
+  notificationUnclosedReminderDelayMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(7 * 24 * 60)
+  notificationReviewReminderMinAgeMinutes?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  allowOfflineSync?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(5)
+  @Max(7 * 24 * 60)
+  offlineSyncMaxAgeMinutes?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(3650)
+  faceLogPhotoRetentionDays?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  webhookEnabled?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  webhookUrl?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  webhookSecret?: string | null;
 }

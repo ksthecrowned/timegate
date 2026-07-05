@@ -1,4 +1,4 @@
-import { IsDateString, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsDateString, IsLatitude, IsLongitude, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class MobileVerifyNfcDto {
   @IsString()
@@ -9,4 +9,12 @@ export class MobileVerifyNfcDto {
   @IsOptional()
   @IsDateString()
   capturedAt?: string;
+
+  @IsOptional()
+  @IsLatitude()
+  latitude?: number;
+
+  @IsOptional()
+  @IsLongitude()
+  longitude?: number;
 }

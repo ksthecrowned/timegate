@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
 } from "react-native";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
@@ -17,6 +17,13 @@ import { BottomTabInset, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
+import {
+  authenticateBiometric,
+  clearBiometricCredentials,
+  getStoredBiometricCredentials,
+  isBiometricLoginAvailable,
+  saveBiometricCredentials,
+} from "@/lib/biometricAuth";
 import { invalidateMeCache } from "@/lib/meCache";
 
 const S = Spacing;
@@ -34,8 +41,24 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [hasStoredBiometricCredentials, setHasStoredBiometricCredentials] =
+    useState(false);
+  const [rememberBiometric, setRememberBiometric] = useState(false);
 
   const normalizedEmail = email.trim().toLowerCase();
+
+  useEffect(() => {
+    (async () => {
+      const [available, stored] = await Promise.all([
+        isBiometricLoginAvailable(),
+        getStoredBiometricCredentials(),
+      ]);
+      setBiometricAvailable(available);
+      setHasStoredBiometricCredentials(Boolean(stored));
+      if (stored?.email) setEmail(stored.email);
+    })();
+  }, []);
 
   const handleContinue = async () => {
     setError(null);
@@ -78,6 +101,40 @@ export default function LoginScreen() {
     try {
       invalidateMeCache();
       await employeeApi.login({ email: normalizedEmail, password });
+      if (rememberBiometric && biometricAvailable) {
+        await saveBiometricCredentials({ email: normalizedEmail, password });
+        setHasStoredBiometricCredentials(true);
+      } else if (hasStoredBiometricCredentials) {
+        await clearBiometricCredentials();
+        setHasStoredBiometricCredentials(false);
+      }
+      router.replace("/");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : STRINGS.auth.invalidCredentials;
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBiometricLogin = async () => {
+    setError(null);
+    setInfo(null);
+    const stored = await getStoredBiometricCredentials();
+    if (!stored) {
+      setError(STRINGS.auth.biometricMissingCredentials);
+      setHasStoredBiometricCredentials(false);
+      return;
+    }
+    const ok = await authenticateBiometric();
+    if (!ok) return;
+
+    setLoading(true);
+    try {
+      invalidateMeCache();
+      setEmail(stored.email);
+      await employeeApi.login({ email: stored.email, password: stored.password });
       router.replace("/");
     } catch (err: unknown) {
       const message =
@@ -130,6 +187,25 @@ export default function LoginScreen() {
             { backgroundColor: theme.backgroundElement },
           ]}
         >
+          {biometricAvailable && hasStoredBiometricCredentials && (
+            <Pressable
+              onPress={handleBiometricLogin}
+              disabled={loading}
+              style={({ pressed }) => [
+                styles.biometricButton,
+                {
+                  borderColor: theme.tint,
+                  opacity: pressed || loading ? 0.7 : 1,
+                },
+              ]}
+            >
+              <Ionicons name="finger-print-outline" size={18} color={theme.tint} />
+              <Text style={[styles.biometricButtonText, { color: theme.tint }]}>
+                {STRINGS.auth.biometricSignIn}
+              </Text>
+            </Pressable>
+          )}
+
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.auth.email}
@@ -203,6 +279,27 @@ export default function LoginScreen() {
                   </Text>
                 </Pressable>
               </Link>
+
+              {biometricAvailable && (
+                <Pressable
+                  onPress={() => setRememberBiometric((v) => !v)}
+                  style={styles.rememberBiometricRow}
+                >
+                  <Ionicons
+                    name={rememberBiometric ? "checkbox" : "square-outline"}
+                    size={18}
+                    color={theme.tint}
+                  />
+                  <Text
+                    style={[
+                      styles.rememberBiometricText,
+                      { color: theme.textSecondary },
+                    ]}
+                  >
+                    {STRINGS.auth.enableBiometric}
+                  </Text>
+                </Pressable>
+              )}
             </>
           )}
 
@@ -317,6 +414,24 @@ const styles = StyleSheet.create({
   },
   forgotLink: { alignSelf: "flex-end", marginBottom: S[4], marginTop: -S[2] },
   forgotText: { fontSize: 13, fontWeight: "600" },
+  biometricButton: {
+    borderWidth: 1,
+    borderRadius: S[2],
+    paddingVertical: S[2],
+    marginBottom: S[4],
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: S[2],
+  },
+  biometricButtonText: { fontSize: 14, fontWeight: "600" },
+  rememberBiometricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: S[2],
+    marginBottom: S[2],
+  },
+  rememberBiometricText: { fontSize: 13, fontWeight: "500" },
   submitButton: {
     paddingVertical: S[3],
     borderRadius: S[2],

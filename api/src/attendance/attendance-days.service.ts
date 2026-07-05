@@ -27,6 +27,7 @@ import { UpdateAttendanceDayDto } from './dto/update-attendance-day.dto';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { buildAttendanceDaysPdf } from './attendance-pdf.util';
+import { createHash } from 'crypto';
 
 @Injectable()
 export class AttendanceDaysService {
@@ -105,15 +106,46 @@ export class AttendanceDaysService {
         leaveType: row.leaveType?.leaveTypeName ?? '',
         checkinsCount: row._count.checkins,
       }));
+      const generatedAtIso = new Date().toISOString();
+      const legalDigestSha256 = createHash('sha256')
+        .update(
+          JSON.stringify({
+            from: query.from,
+            to: query.to,
+            generatedAtIso,
+            generatedBy: user?.email ?? 'system',
+            rows: pdfRows,
+          }),
+        )
+        .digest('hex');
       const pdfBuffer = await buildAttendanceDaysPdf(pdfRows, {
         from: query.from!,
         to: query.to!,
         companyName: company?.name,
+        generatedAtIso,
+        generatedByEmail: user?.email ?? null,
+        legalDigestSha256,
+        rowCount: pdfRows.length,
       });
+      const stamp = generatedAtIso.replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+      if (companyId) {
+        await this.prisma.timeGateAuditLog.create({
+          data: {
+            id: generateDocId('AUD'),
+            userId: user?.sub ?? null,
+            companyId,
+            action: 'ATTENDANCE_DAYS_EXPORT_PDF_LEGAL',
+            entity: 'Attendance',
+            entityId: `${query.from}_${query.to}`,
+          },
+        });
+      }
       return {
-        filename: `attendance-days-${query.from}_${query.to}.pdf`,
+        filename: `attendance-days-legal-${query.from}_${query.to}-${stamp}.pdf`,
         contentBase64: pdfBuffer.toString('base64'),
         mimeType: 'application/pdf',
+        stampedAt: generatedAtIso,
+        digestSha256: legalDigestSha256,
       };
     }
 

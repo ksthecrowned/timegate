@@ -1,14 +1,16 @@
 # Monorepo local environment files
 api/.env
 dashboard/.env
-mobile-app/.env
+console/.env
+kiosk-app/.env
 employee-app/.env
-employee-app/.env.*
 
 # Variant env files
 api/.env.*
 dashboard/.env.*
-mobile-app/.env.*
+console/.env.*
+kiosk-app/.env.*
+employee-app/.env.*
 
 # TimeGate: misc
 api-deprecation.log

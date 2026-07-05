@@ -18,6 +18,7 @@ export const consoleNavSections: NavSection[] = [
       { label: 'Organisations', href: '/organizations', faIcon: 'fa-solid fa-building' },
       { label: 'Plans', href: '/plans', faIcon: 'fa-solid fa-layer-group' },
       { label: 'Paramètres', href: '/platform-settings', faIcon: 'fa-solid fa-sliders' },
+      { label: 'System config', href: '/system-config', faIcon: 'fa-solid fa-sliders' },
       { label: 'Abonnements', href: '/subscriptions', faIcon: 'fa-solid fa-credit-card' },
     ],
   },

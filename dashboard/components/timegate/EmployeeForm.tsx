@@ -31,6 +31,11 @@ export type EmployeeFormValues = EmployeePayload
 
 type EmployeeFormTab = 'identity' | 'contact' | 'assignment' | 'face' | 'contracts'
 
+type CountryMeta = {
+  name: string
+  phoneCode?: string | null
+}
+
 const GENDER_OPTIONS: SelectOption[] = [
   { value: 'Male', label: 'Homme' },
   { value: 'Female', label: 'Femme' },
@@ -100,6 +105,7 @@ export default function EmployeeForm({
   const [holidayListOptions, setHolidayListOptions] = useState<SelectOption[]>([])
   const [shiftOptions, setShiftOptions] = useState<SelectOption[]>([])
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([])
+  const [countryMetaById, setCountryMetaById] = useState<Record<string, CountryMeta>>({})
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -117,6 +123,11 @@ export default function EmployeeForm({
       setDesignationOptions(toSelectOptions(designations.data))
       setHolidayListOptions(toSelectOptions(holidayLists.data))
       setCountryOptions(countries.data.map((c) => ({ value: c.id, label: c.name })))
+      setCountryMetaById(
+        Object.fromEntries(
+          countries.data.map((c) => [c.id, { name: c.name, phoneCode: c.phoneCode }]),
+        ),
+      )
     })
   }, [])
 
@@ -216,7 +227,14 @@ export default function EmployeeForm({
             />
           </FormField>
           <FormField label="Nationalité">
-            <Input value={form.nationality ?? ''} onChange={(e) => set('nationality', e.target.value)} />
+            <SelectSearch
+              instanceId="employee-nationality"
+              options={countryOptions}
+              value={findOption(countryOptions, form.nationality ?? '')}
+              onChange={(opt) => set('nationality', opt?.value ?? '')}
+              placeholder="Sélectionner une nationalité…"
+              isClearable
+            />
           </FormField>
           <FormField label="Situation matrimoniale">
             <SelectSearch
@@ -240,8 +258,20 @@ export default function EmployeeForm({
           <FormField label="Email">
             <Input type="email" value={form.email ?? ''} onChange={(e) => set('email', e.target.value)} />
           </FormField>
-          <FormField label="Téléphone">
-            <Input value={form.phone ?? ''} onChange={(e) => set('phone', e.target.value)} />
+          <FormField
+            label="Téléphone"
+            hint={
+              form.countryId && countryMetaById[form.countryId]?.phoneCode
+                ? `Format international conseillé: ${countryMetaById[form.countryId]?.phoneCode}`
+                : 'Format international conseillé: +243...'
+            }
+          >
+            <Input
+              type="tel"
+              placeholder={form.countryId && countryMetaById[form.countryId]?.phoneCode ? `${countryMetaById[form.countryId]?.phoneCode} ...` : '+243 ...'}
+              value={form.phone ?? ''}
+              onChange={(e) => set('phone', e.target.value)}
+            />
           </FormField>
           <FormField label="WhatsApp">
             <Input value={form.whatsappPhone ?? ''} onChange={(e) => set('whatsappPhone', e.target.value)} />

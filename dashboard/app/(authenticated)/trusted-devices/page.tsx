@@ -51,9 +51,11 @@ export default function TrustedDevicesPage() {
           { label: 'Administration' },
           { label: 'Appareils en attente' },
         ]}
-        title="Appareils en attente"
-        subtitle="Approuvez les téléphones employés avant le pointage mobile."
       />
+
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Approuvez les téléphones employés avant le pointage mobile.
+      </p>
 
       <ApiErrorBanner message={error} />
 
