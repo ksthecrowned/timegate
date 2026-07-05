@@ -122,10 +122,10 @@ export default function CopilotPanel() {
       <button
         type="button"
         aria-label="Fermer le copilote"
-        className="fixed inset-0 z-[69] bg-black/30 lg:bg-transparent lg:pointer-events-none"
+        className="fixed inset-0 z-69 bg-black/30 lg:bg-transparent lg:pointer-events-none"
         onClick={() => setOpen(false)}
       />
-      <aside className="fixed inset-y-0 right-0 z-[70] flex w-full max-w-md flex-col border-l border-slate-200/80 bg-surface-card shadow-xl dark:border-border-dark dark:bg-surface-card-dark">
+      <aside className="fixed inset-y-0 right-0 z-70 flex w-full max-w-md flex-col border-l border-slate-200/80 bg-surface-card shadow-xl dark:border-border-dark dark:bg-surface-card-dark">
         <header className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-border-dark">
           <div>
             <p className="text-sm font-semibold text-slate-900 dark:text-white">TimeGate Copilot</p>

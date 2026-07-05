@@ -415,7 +415,7 @@ export default function Navbar() {
   return (
     <>
       {/* ========== HEADER ========== */}
-      <header className="fixed top-0 inset-x-0 flex flex-wrap md:justify-start md:flex-nowrap z-[6] w-full bg-surface-card/95 backdrop-blur-sm border-b border-slate-200/80 text-sm py-2.5 lg:ps-[260px] dark:bg-surface-card-dark/95 dark:border-border-dark">
+      <header className="fixed top-0 inset-x-0 flex flex-wrap md:justify-start md:flex-nowrap z-6 w-full bg-surface-card/95 backdrop-blur-sm border-b border-slate-200/80 text-sm py-2.5 lg:ps-[260px] dark:bg-surface-card-dark/95 dark:border-border-dark">
         <nav className="px-4 sm:px-6 flex basis-full items-center w-full mx-auto">
 
           {/* Logo mobile */}
@@ -498,7 +498,7 @@ export default function Navbar() {
                     src="/images/users/avatar-man.jpg"
                     alt="Avatar"
                   />
-                  <span className="font-medium truncate max-w-[7.5rem]">
+                  <span className="font-medium truncate max-w-30">
                     {displayName}
                   </span>
                   <svg
