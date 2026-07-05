@@ -11,13 +11,14 @@ export class CloudflareR2Service {
   private readonly publicBaseUrl: string | null;
 
   constructor(private readonly config: ConfigService) {
-    const endpoint = this.config.get<string>('CLOUDFLARE_R2_ENDPOINT')?.trim();
-    const accessKeyId = this.config.get<string>('CLOUDFLARE_R2_ACCESS_KEY_ID')?.trim();
-    const secretAccessKey = this.config.get<string>('CLOUDFLARE_R2_SECRET_ACCESS_KEY')?.trim();
-    const bucket = this.config.get<string>('CLOUDFLARE_R2_BUCKET')?.trim();
-    const publicBaseUrl = this.config.get<string>('CLOUDFLARE_R2_PUBLIC_BASE_URL')?.trim();
+    const accountId = this.config.get<string>('R2_ACCOUNT_ID')?.trim();
+    const accessKeyId = this.config.get<string>('R2_ACCESS_KEY_ID')?.trim();
+    const secretAccessKey = this.config.get<string>('R2_SECRET_ACCESS_KEY')?.trim();
+    const bucket = this.config.get<string>('R2_BUCKET_NAME')?.trim();
+    const publicBaseUrl = this.config.get<string>('R2_PUBLIC_BASE_URL')?.trim();
+    const endpoint = accountId ? `https://${accountId}.r2.cloudflarestorage.com` : undefined;
 
-    if (!endpoint || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
+    if (!accountId || !accessKeyId || !secretAccessKey || !bucket || !publicBaseUrl) {
       this.client = null;
       this.bucket = null;
       this.publicBaseUrl = null;
