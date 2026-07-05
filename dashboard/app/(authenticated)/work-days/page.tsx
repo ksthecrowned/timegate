@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { Suspense, useCallback, useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import PageHeader from '@/components/ui/PageHeader'
 import DataTable, { Column } from '@/components/ui/DataTable'
@@ -35,6 +35,14 @@ const columns: Column<WorkDay>[] = [
 ]
 
 export default function WorkDaysPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-gray-500">Chargement…</p>}>
+      <WorkDaysPageContent />
+    </Suspense>
+  )
+}
+
+function WorkDaysPageContent() {
   const searchParams = useSearchParams()
   const scheduleId = searchParams.get('scheduleId') ?? undefined
   const [data, setData] = useState<WorkDay[]>([])

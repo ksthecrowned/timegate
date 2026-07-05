@@ -210,7 +210,7 @@ export const SingleSelect = SelectSearch
 
 interface FormFieldProps {
 
-  label: string
+  label: React.ReactNode
 
   required?: boolean
 

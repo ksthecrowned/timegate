@@ -1,6 +1,14 @@
+# Vercel local project links
+.vercel
+dashboard/.vercel
+console/.vercel
+
 # Monorepo local environment files
 api/.env
 dashboard/.env
+dashboard/.env.*
+console/.env
+console/.env.*
 console/.env
 kiosk-app/.env
 employee-app/.env

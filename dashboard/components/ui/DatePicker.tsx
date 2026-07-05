@@ -115,8 +115,8 @@ export function DatePicker({
             mode="single"
             locale={fr}
             captionLayout="dropdown-years"
-            fromYear={resolvedFromYear}
-            toYear={resolvedToYear}
+            startMonth={new Date(resolvedFromYear, 0)}
+            endMonth={new Date(resolvedToYear, 11)}
             selected={value ?? undefined}
             onSelect={(date) => {
               onChange?.(date ?? null)
