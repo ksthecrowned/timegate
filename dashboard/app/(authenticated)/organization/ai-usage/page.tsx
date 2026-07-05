@@ -23,7 +23,7 @@ export default function AiUsagePage() {
     <div className="space-y-6">
       <PageHeader
         breadcrumbs={[
-          { label: 'Organisation' },
+          { label: 'Organisation', href: '#' },
           { label: 'Consommation IA' },
         ]}
       />

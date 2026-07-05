@@ -1,6 +1,5 @@
 'use client'
 
-import SuperAdminNotice from '@/components/dashboard/SuperAdminNotice'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
@@ -40,11 +39,19 @@ function StatCard({
   )
 }
 
-const INITIAL_LOAD = { employees: 0, branches: 0, kiosks: 0, attendanceDays: 0, absences: 0, lateRecords: 0, pendingLeaves: 0, timesheetDays: 0 }
+const INITIAL_LOAD = {
+  employees: 0,
+  branches: 0,
+  kiosks: 0,
+  attendanceDays: 0,
+  absences: 0,
+  lateRecords: 0,
+  pendingLeaves: 0,
+  timesheetDays: 0,
+}
 
 export default function DashboardPage() {
-  const { data: session } = useSession()
-  const isSuperAdmin = session?.user?.role === 'SUPER_ADMIN'
+  useSession()
   const [stats, setStats] = useState<DashboardStats>(INITIAL_LOAD)
   const [chartData, setChartData] = useState<Awaited<ReturnType<typeof loadDashboardData>> | null>(
     null,
@@ -53,7 +60,6 @@ export default function DashboardPage() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    if (isSuperAdmin) return
     setLoading(true)
     setError('')
     try {
@@ -65,19 +71,11 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [isSuperAdmin])
+  }, [])
 
   useEffect(() => {
     void load()
   }, [load])
-
-  const now = new Date().toLocaleString('fr-FR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 
   const isInitialLoad = loading && !chartData
 
@@ -87,32 +85,26 @@ export default function DashboardPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Tableau de bord</h1>
         </div>
-        {!isSuperAdmin && (
-          <button
-            type="button"
-            onClick={() => void load()}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-black/10 dark:bg-white/10 px-3 py-2 text-sm text-gray-700 hover:border-primary/40 disabled:opacity-50 dark:border-border-dark dark:text-neutral-200"
-          >
-            <i className={`fa-solid fa-rotate-right ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => void load()}
+          disabled={loading}
+          className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-black/10 dark:bg-white/10 px-3 py-2 text-sm text-gray-700 hover:border-primary/40 disabled:opacity-50 dark:border-border-dark dark:text-neutral-200"
+        >
+          <i className={`fa-solid fa-rotate-right ${loading ? 'animate-spin' : ''}`} />
+          Actualiser
+        </button>
       </div>
 
-      {isSuperAdmin ? (
-        <SuperAdminNotice />
-      ) : null}
-
-      {!isSuperAdmin && error && (
+      {error && (
         <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}
         </div>
       )}
 
-      {!isSuperAdmin && isInitialLoad ? (
+      {isInitialLoad ? (
         <SkeletonDashboard />
-      ) : !isSuperAdmin ? (
+      ) : (
         <>
           <div
             className={`grid sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 transition-opacity ${loading ? 'opacity-60' : ''}`}
@@ -174,15 +166,6 @@ export default function DashboardPage() {
               icon="fa-solid fa-file-lines"
               accent="text-teal-500"
             />
-            {/* {chartData?.planningVsActual?.coveragePercent != null ? (
-              <StatCard
-                label="Couverture planning (%)"
-                value={Math.round(chartData.planningVsActual.coveragePercent)}
-                href="/planning"
-                icon="fa-solid fa-chart-column"
-                accent="text-violet-500"
-              />
-            ) : null} */}
           </div>
 
           {loading && chartData ? (
@@ -195,9 +178,8 @@ export default function DashboardPage() {
             <DashboardAnalytics data={chartData} />
           ) : null}
         </>
-      ) : null}
+      )}
 
-      {!isSuperAdmin && (
       <div className="tg-card shadow-2xs p-5">
         <h3 className="text-sm font-semibold text-gray-800 dark:text-white mb-4">Accès rapide</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -222,7 +204,6 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
-      )}
     </div>
   )
 }

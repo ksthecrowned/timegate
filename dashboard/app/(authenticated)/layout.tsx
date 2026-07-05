@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* <SubscriptionBanner /> */}
           <CopilotPanel />
           <main className="w-full lg:ps-[260px] mt-16">
-            <div className="p-4 sm:p-6 space-y-6 page-enter">
+            <div className="p-4 sm:px-6 space-y-6 page-enter">
               {children}
             </div>
           </main>

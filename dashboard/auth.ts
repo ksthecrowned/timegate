@@ -48,6 +48,10 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             fetchSubscriptionStatus(accessToken),
           ]);
 
+          if (me.role === "SUPER_ADMIN") {
+            return null;
+          }
+
           return {
             id: me.id,
             email: me.email,

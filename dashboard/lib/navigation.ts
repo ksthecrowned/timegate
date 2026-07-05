@@ -16,11 +16,13 @@ export type NavSection = {
 
 const TIMEGATE_PREFIX = '/timegate'
 
-function withTimegatePrefix(href?: string): string | undefined {
-  if (!href) return href
-  if (href === '/') return href
-  if (href.startsWith(TIMEGATE_PREFIX)) return href
-  return `${TIMEGATE_PREFIX}${href}`
+/** @deprecated Ancien préfixe URL — conservé pour liens/bookmarks ; redirigé vers la racine. */
+export function stripLegacyTimegatePrefix(pathname: string): string {
+  if (pathname === TIMEGATE_PREFIX) return '/'
+  if (pathname.startsWith(`${TIMEGATE_PREFIX}/`)) {
+    return pathname.replace(/^\/timegate/, '') || '/'
+  }
+  return pathname
 }
 
 export const timegateNavSections: NavSection[] = [
@@ -259,14 +261,6 @@ function filterItems(items: NavItem[], role?: TimeGateRole | null): NavItem[] {
     .filter((item): item is NavItem => item !== null)
 }
 
-function prefixItems(items: NavItem[]): NavItem[] {
-  return items.map((item) => ({
-    ...item,
-    href: withTimegatePrefix(item.href),
-    ...(item.children ? { children: prefixItems(item.children) } : {}),
-  }))
-}
-
 export function getNavSectionsForRole(role?: TimeGateRole | null): NavSection[] {
   return timegateNavSections
     .filter((section) => {
@@ -276,7 +270,7 @@ export function getNavSectionsForRole(role?: TimeGateRole | null): NavSection[] 
     })
     .map((section) => ({
       ...section,
-      items: prefixItems(filterItems(section.items, role)),
+      items: filterItems(section.items, role),
     }))
     .filter((section) => section.items.length > 0)
 }

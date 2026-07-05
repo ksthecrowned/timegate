@@ -31,7 +31,7 @@ export default function EmployeeTableCell({
         />
       ) : (
         <span
-          className={`inline-flex ${sizeClass} shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 dark:bg-neutral-700 dark:text-neutral-300`}
+          className={`inline-flex ${sizeClass} shrink-0 items-center justify-center rounded-full text-gray-500 dark:text-neutral-300 bg-black/10 dark:bg-white/10`}
           aria-hidden
         >
           <i className="fa-solid fa-user text-sm" />

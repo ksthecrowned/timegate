@@ -1,11 +1,11 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
 import { FormField, Input } from '@/components/ui/FormField'
+import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import { listBranches } from '@/lib/timegate/branches'
 import { getPlanningCalendar, type PlanningCalendarDay } from '@/lib/timegate/planning'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 function monthBounds(year: number, month: number) {
   const from = new Date(Date.UTC(year, month - 1, 1)).toISOString().slice(0, 10)
@@ -97,7 +97,7 @@ export default function PlanningPage() {
         <div className="min-w-[220px]">
           <FormField label="Branche">
           <select
-            className="w-full rounded-lg border border-gray-200 p-3 text-sm dark:bg-neutral-900 dark:border-neutral-700"
+            className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600"
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
           >
@@ -148,8 +148,8 @@ export default function PlanningPage() {
               key={iso}
               className={`min-h-24 rounded-lg border p-2 text-xs ${
                 inMonth
-                  ? 'border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'
-                  : 'border-transparent bg-gray-50 text-gray-400 dark:bg-neutral-950'
+                  ? 'tg-card'
+                  : 'border-transparent bg-black/10 dark:bg-white/5'
               }`}
             >
               <div className="font-semibold mb-1">{iso.slice(8)}</div>

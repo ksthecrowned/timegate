@@ -126,7 +126,11 @@ export default function AttendanceDaysPage() {
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: 'Présence' }, { label: 'Jours' }]} />
+      <PageHeader
+        breadcrumbs={[
+          { label: 'Présence', href: '/attendance/events' },
+          { label: 'Jours' }]}
+      />
 
       <FormCard title="Période">
         <div className="flex flex-wrap items-end gap-3">

@@ -27,7 +27,7 @@ export function HintTooltip({ text, label = 'Aide', className = '' }: HintToolti
     <div className={`hs-tooltip inline-flex [--placement:top] ${className}`}>
       <button
         type="button"
-        className="hs-tooltip-toggle inline-flex shrink-0 text-gray-400 hover:text-gray-600 focus:outline-none dark:text-neutral-500 dark:hover:text-neutral-300"
+        className="hs-tooltip-toggle inline-flex shrink-0 hover:text-gray-600 focus:outline-none dark:hover:text-neutral-300 text-slate-200/80  dark:text-border-dark"
         aria-label={label}
       >
         <Info className="size-3.5" strokeWidth={2} aria-hidden />

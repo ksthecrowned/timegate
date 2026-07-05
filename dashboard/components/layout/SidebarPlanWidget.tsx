@@ -1,8 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-import { useSession } from 'next-auth/react'
-import { useEffect, useState } from 'react'
 import { fetchSubscriptionStatus } from '@/lib/auth/timegate-auth'
 import {
   planLabel,
@@ -10,6 +7,9 @@ import {
   upgradeTargetPlan,
 } from '@/lib/subscription-ui'
 import type { SubscriptionStatus } from '@/lib/timegate/types'
+import { useSession } from 'next-auth/react'
+import Link from 'next/link'
+import { useEffect, useState } from 'react'
 
 function daysLeftText(days: number | null | undefined): string | null {
   if (days == null || days < 0) return null
@@ -27,7 +27,7 @@ export default function SidebarPlanWidget() {
   const isAdmin = role === 'ADMIN'
 
   useEffect(() => {
-    if (!token || role === 'SUPER_ADMIN') {
+    if (!token) {
       setLoading(false)
       return
     }
@@ -43,15 +43,15 @@ export default function SidebarPlanWidget() {
     return () => {
       cancelled = true
     }
-  }, [token, role])
+  }, [token])
 
-  if (role === 'SUPER_ADMIN' || loading) {
-    return loading && role !== 'SUPER_ADMIN' ? (
+  if (loading) {
+    return (
       <div className="rounded-xl border border-slate-200/80 bg-slate-50/80 p-3 dark:border-border-dark dark:bg-surface-elevated-dark/60">
         <div className="h-3 w-24 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
         <div className="mt-2 h-2.5 w-full animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
       </div>
-    ) : null
+    )
   }
 
   if (!status?.subscription) return null
@@ -107,11 +107,11 @@ export default function SidebarPlanWidget() {
         </p>
       ) : null}
 
-      {isTrial && upgradeTarget ? (
+      {/* {isTrial && upgradeTarget ? (
         <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
           Passez au plan {upgradeTarget} pour débloquer plus de capacité et conserver vos données.
         </p>
-      ) : null}
+      ) : null} */}
 
       {isActive && upgradeTarget ? (
         <p className="mt-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">

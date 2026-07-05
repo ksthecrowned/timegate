@@ -1,14 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
 import { ApiErrorBanner, FormCard } from '@/components/timegate/ui'
+import PageHeader from '@/components/ui/PageHeader'
+import { SwitcherField } from '@/components/ui/Switcher'
 import { HttpError } from '@/lib/http'
 import {
   listNotificationRules,
   updateNotificationRule,
 } from '@/lib/timegate/notification-rules'
 import type { NotificationRule } from '@/lib/timegate/types'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function NotificationRulesPage() {
   const [rows, setRows] = useState<NotificationRule[]>([])
@@ -67,7 +68,7 @@ export default function NotificationRulesPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="text-left border-b border-slate-200 dark:border-neutral-800">
+                <tr className="text-left border-b border-slate-200/80 dark:border-border-dark">
                   <th className="py-2 pr-3">Type</th>
                   <th className="py-2 pr-3">Inbox</th>
                   <th className="py-2 pr-3">Push</th>
@@ -82,27 +83,42 @@ export default function NotificationRulesPage() {
                   >
                     <td className="py-2 pr-3 font-mono">{rule.type}</td>
                     <td className="py-2 pr-3">
-                      <input
+                      {/* <input
                         type="checkbox"
                         checked={rule.inAppEnabled}
                         disabled={savingType === rule.type}
                         onChange={() => void toggle(rule, 'inAppEnabled')}
+                      /> */}
+                      <SwitcherField
+                        checked={rule.inAppEnabled}
+                        disabled={savingType === rule.type}
+                        onCheckedChange={() => void toggle(rule, 'inAppEnabled')}
                       />
                     </td>
                     <td className="py-2 pr-3">
-                      <input
+                      {/* <input
                         type="checkbox"
                         checked={rule.pushEnabled}
                         disabled={savingType === rule.type}
                         onChange={() => void toggle(rule, 'pushEnabled')}
+                      /> */}
+                      <SwitcherField
+                        checked={rule.pushEnabled}
+                        disabled={savingType === rule.type}
+                        onCheckedChange={() => void toggle(rule, 'pushEnabled')}
                       />
                     </td>
                     <td className="py-2">
-                      <input
+                      {/* <input
                         type="checkbox"
                         checked={rule.emailEnabled}
                         disabled={savingType === rule.type}
                         onChange={() => void toggle(rule, 'emailEnabled')}
+                      /> */}
+                      <SwitcherField
+                        checked={rule.emailEnabled}
+                        disabled={savingType === rule.type}
+                        onCheckedChange={() => void toggle(rule, 'emailEnabled')}
                       />
                     </td>
                   </tr>

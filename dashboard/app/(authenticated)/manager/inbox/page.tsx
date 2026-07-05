@@ -153,7 +153,7 @@ export default function ManagerInboxPage() {
           <select
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm min-w-[180px] dark:border-border-dark dark:bg-neutral-900"
+            className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600 cursor-pointer"
           >
             <option value="">Toutes</option>
             {branches.map((b) => (
@@ -169,7 +169,7 @@ export default function ManagerInboxPage() {
               key={f.key}
               type="button"
               onClick={() => setTypeFilter(f.key)}
-              className={`rounded-full px-3 py-1 text-xs font-medium border ${
+              className={`rounded-full py-2 px-8 text-sm font-medium border ${
                 typeFilter === f.key
                   ? 'bg-primary text-white border-primary'
                   : 'border-gray-200 text-gray-600 dark:border-border-dark'

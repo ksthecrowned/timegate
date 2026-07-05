@@ -5,7 +5,6 @@ import type { TimeGateRole } from '@/lib/timegate/types'
 import { operationalPathPrefixes } from '@/lib/navigation'
 
 const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
-  { prefix: '/super-admin', roles: [] },
   { prefix: '/payroll-runs', roles: ['ADMIN'] },
   { prefix: '/salaries', roles: ['ADMIN'] },
   { prefix: '/system-config', roles: ['ADMIN'] },
@@ -21,7 +20,9 @@ const publicPaths = new Set(['/login', '/signup', '/activate'])
 
 function stripTimegatePrefix(pathname: string): string {
   if (pathname === '/timegate') return '/'
-  if (pathname.startsWith('/timegate/')) return pathname.replace(/^\/timegate/, '')
+  if (pathname.startsWith('/timegate/')) {
+    return pathname.replace(/^\/timegate/, '') || '/'
+  }
   return pathname
 }
 
@@ -47,12 +48,6 @@ function isRoleAllowed(pathname: string, role?: string | null): boolean {
   return rule.roles.includes(role as TimeGateRole)
 }
 
-function isOperationalPath(pathname: string): boolean {
-  return operationalPathPrefixes.some(
-    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )
-}
-
 /**
  * Config partagée (Edge-compatible) — pas d'appels fetch API ici.
  * La logique credentials vit dans `auth.ts`.
@@ -73,8 +68,7 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user
       const rawPathname = nextUrl.pathname
       const pathname = stripTimegatePrefix(rawPathname)
-      const isTimegatePrefixed =
-        rawPathname === '/timegate' || rawPathname.startsWith('/timegate/')
+      const role = auth?.user?.role
       const isLoginPage = pathname === '/login'
       const isSignupPage = pathname === '/signup'
       const isActivatePage = pathname === '/activate'
@@ -90,13 +84,8 @@ export const authConfig = {
         return Response.redirect(new URL('/branches', nextUrl))
       }
 
-      if (
-        !isTimegatePrefixed &&
-        isProtectedAppPath(pathname) &&
-        pathname !== '/' &&
-        !publicPaths.has(pathname)
-      ) {
-        return Response.redirect(new URL(`/timegate${pathname}`, nextUrl))
+      if (rawPathname !== pathname) {
+        return Response.redirect(new URL(pathname || '/', nextUrl))
       }
 
       if (isLoginPage || isSignupPage) {
@@ -104,10 +93,6 @@ export const authConfig = {
           return Response.redirect(new URL('/', nextUrl))
         }
         return true
-      }
-
-      if (pathname.startsWith('/super-admin') || pathname.startsWith('/countries') || pathname.startsWith('/cities')) {
-        return Response.redirect(new URL('/', nextUrl))
       }
 
       if (isActivatePage) {
@@ -120,22 +105,16 @@ export const authConfig = {
 
       if (!isLoggedIn) return false
 
-      const role = auth?.user?.role
-      const subscriptionActive = auth?.user?.subscriptionActive
-
-      if (role === 'SUPER_ADMIN' && pathname !== '/') {
-        return Response.redirect(new URL('/', nextUrl))
-      }
-
-      if (role === 'SUPER_ADMIN' && isOperationalPath(pathname)) {
-        return Response.redirect(new URL('/', nextUrl))
+      if (role === 'SUPER_ADMIN') {
+        return false
       }
 
       if (!isRoleAllowed(pathname, role)) {
         return Response.redirect(new URL('/', nextUrl))
       }
 
-      if (subscriptionActive === false && role !== 'SUPER_ADMIN') {
+      const subscriptionActive = auth?.user?.subscriptionActive
+      if (subscriptionActive === false) {
         return Response.redirect(new URL('/activate', nextUrl))
       }
 

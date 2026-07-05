@@ -1,7 +1,6 @@
 import type { TimeGateRole } from '@/lib/timegate/types'
 
-const ROLE_LABELS: Record<TimeGateRole, string> = {
-  SUPER_ADMIN: 'Super administrateur',
+const ROLE_LABELS: Record<Exclude<TimeGateRole, 'SUPER_ADMIN'>, string> = {
   ADMIN: 'Administrateur',
   MANAGER: 'Manager',
   EMPLOYEE: 'Employé',

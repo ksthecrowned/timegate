@@ -27,11 +27,10 @@ export default function SubscriptionBanner() {
   const { data: session } = useSession()
   const [status, setStatus] = useState<SubscriptionStatus | null>(null)
 
-  const role = session?.user?.role
   const token = session?.accessToken
 
   useEffect(() => {
-    if (!token || role === 'SUPER_ADMIN') return
+    if (!token) return
     let cancelled = false
     fetchSubscriptionStatus(token)
       .then((res) => {
@@ -41,9 +40,9 @@ export default function SubscriptionBanner() {
     return () => {
       cancelled = true
     }
-  }, [token, role])
+  }, [token])
 
-  if (!status || role === 'SUPER_ADMIN') return null
+  if (!status) return null
 
   const sub = status.subscription
   const usage = sub?.usage

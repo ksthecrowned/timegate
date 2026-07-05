@@ -1,7 +1,5 @@
 'use client'
 
-import { Bell } from 'lucide-react'
-import { useCallback, useEffect, useState } from 'react'
 import {
   getUnreadNotificationCount,
   listNotifications,
@@ -9,6 +7,8 @@ import {
   markNotificationRead,
   type NotificationItem,
 } from '@/lib/timegate/notifications'
+import { Bell } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
 
 function formatWhen(iso: string) {
   const date = new Date(iso)
@@ -102,7 +102,7 @@ export default function NotificationBell() {
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className="absolute end-0 top-full z-20 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden rounded-xl border border-slate-200/80 bg-white shadow-lg dark:border-border-dark dark:bg-neutral-800"
+            className="absolute end-0 top-full z-20 mt-2 w-[min(100vw-2rem,22rem)] overflow-hidden tg-card"
             role="dialog"
             aria-label="Boîte de notifications"
           >

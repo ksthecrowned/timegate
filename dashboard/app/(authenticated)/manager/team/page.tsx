@@ -130,7 +130,7 @@ export default function ManagerTeamPage() {
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-border-dark dark:bg-neutral-900"
+            className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600 cursor-pointer"
           />
         </label>
         <label className="text-sm">
@@ -138,7 +138,7 @@ export default function ManagerTeamPage() {
           <select
             value={branchId}
             onChange={(e) => setBranchId(e.target.value)}
-            className="rounded-lg border border-gray-200 px-3 py-2 text-sm min-w-[180px] dark:border-border-dark dark:bg-neutral-900"
+            className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600 cursor-pointer"
           >
             <option value="">Toutes</option>
             {branches.map((b) => (

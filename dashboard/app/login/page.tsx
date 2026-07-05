@@ -37,7 +37,9 @@ export default function LoginPage() {
       })
 
       if (result?.error) {
-        setError('Identifiants invalides ou organisation incorrecte.')
+        setError(
+          'Identifiants invalides, organisation incorrecte, ou compte réservé à la Console Plateforme.',
+        )
         return
       }
 

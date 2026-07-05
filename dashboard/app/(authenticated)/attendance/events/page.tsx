@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import ActionButtons from "@/components/ui/ActionButtons";
-import PageHeader from "@/components/ui/PageHeader";
-import DataTable, { Column } from "@/components/ui/DataTable";
-import StatusBadge from "@/components/ui/StatusBadge";
 import { employeeTableColumn } from "@/components/timegate/employee-table-column";
-import { listAttendanceEvents } from "@/lib/timegate/attendance";
-import type { AttendanceEvent } from "@/lib/timegate/types";
+import ActionButtons from "@/components/ui/ActionButtons";
+import DataTable, { Column } from "@/components/ui/DataTable";
+import PageHeader from "@/components/ui/PageHeader";
+import StatusBadge from "@/components/ui/StatusBadge";
+import { STATUS_OPTIONS } from "@/constants";
 import { HttpError } from "@/lib/http";
 import { findOption } from "@/lib/select-options";
-import { STATUS_OPTIONS } from "@/constants";
+import { listAttendanceEvents } from "@/lib/timegate/attendance";
+import type { AttendanceEvent } from "@/lib/timegate/types";
+import { useCallback, useEffect, useState } from "react";
 
 const columns: Column<AttendanceEvent>[] = [
   employeeTableColumn<AttendanceEvent>(),
@@ -84,7 +84,10 @@ export default function AttendanceEventsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: "Présence" }, { label: "Événements" }]}
+        breadcrumbs={[
+          { label: "Présence", href: '/attendance/events' },
+          { label: "Événements" }
+      ]}
       />
 
       {error && (

@@ -85,7 +85,7 @@ export function Switcher({
 }
 
 export interface SwitcherFieldProps extends Omit<SwitcherProps, 'id'> {
-  label: string
+  label?: string
   description?: string
   id?: string
   /** Label à gauche (défaut) ou à droite du switch. */
@@ -119,7 +119,7 @@ export function SwitcherField({
     <div className={`flex items-center justify-between gap-x-3 ${className}`}>
       {labelPosition === 'start' ? (
         <>
-          {text}
+          {label && text}
           <Switcher id={fieldId} {...switcherProps} />
         </>
       ) : (

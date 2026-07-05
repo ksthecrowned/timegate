@@ -7,7 +7,6 @@ export default NextAuth(authConfig).auth
 export const config = {
   matcher: [
     '/',
-    '/timegate/:path*',
     '/employees/:path*',
     '/branches/:path*',
     '/kiosks/:path*',
@@ -38,9 +37,6 @@ export const config = {
     '/punch-claims/:path*',
     '/profile/:path*',
     '/trusted-devices/:path*',
-    '/super-admin/:path*',
-    '/countries/:path*',
-    '/cities/:path*',
     '/login',
     '/signup',
     '/activate',
