@@ -51,8 +51,7 @@ export default function ActivatePage() {
       session.user.subscriptionActive &&
       !session.user.subscriptionReadOnly &&
       !session.user.subscriptionBlocked &&
-      (session.user.subscriptionStatus === 'ACTIVE' ||
-        session.user.subscriptionStatus === 'TRIAL')
+      session.user.subscriptionStatus === 'ACTIVE'
     ) {
       router.replace('/')
       return
@@ -115,7 +114,10 @@ export default function ActivatePage() {
             ? 'Votre accès est en lecture seule. Activez une clé pour prolonger ou upgrader.'
             : subscription?.blocked
               ? 'Votre organisation ne peut plus utiliser TimeGate. Saisissez une clé d’activation.'
-              : 'Saisissez la clé d’activation fournie par TimeGate pour prolonger ou activer votre plan.'}
+              : subscription?.status === 'TRIAL' ||
+                  session?.user.subscriptionStatus === 'TRIAL'
+                ? 'Vous êtes en essai gratuit. Saisissez une clé d’activation pour passer à un plan payant.'
+                : 'Saisissez la clé d’activation fournie par TimeGate pour prolonger ou activer votre plan.'}
         </p>
 
         {sub && (

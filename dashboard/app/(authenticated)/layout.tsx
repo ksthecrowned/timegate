@@ -1,13 +1,12 @@
 "use client"
 import CopilotPanel from '@/components/ai/CopilotPanel'
 import { CopilotProvider } from '@/components/ai/CopilotProvider'
-import SubscriptionBanner from '@/components/layout/SubscriptionBanner'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
+import WebPushSetup from '@/components/layout/WebPushSetup'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { OrganizationProvider } from '@/components/providers/OrganizationProvider'
 import { ToastProvider } from '@/components/ui/Toast'
-import WebPushSetup from '@/components/layout/WebPushSetup'
 import { usePathname } from 'next/navigation'
 import { useEffect } from 'react'
 
@@ -28,7 +27,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
           <Sidebar />
           <Navbar />
-          <SubscriptionBanner />
+          {/* <SubscriptionBanner /> */}
           <CopilotPanel />
           <main className="w-full lg:ps-[260px] mt-16">
             <div className="p-4 sm:p-6 space-y-6 page-enter">

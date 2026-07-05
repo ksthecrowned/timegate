@@ -1,6 +1,7 @@
 'use client'
 
 import OrgLogo from '@/components/brand/OrgLogo'
+import SidebarPlanWidget from '@/components/layout/SidebarPlanWidget'
 import { getNavSectionsForRole, type NavItem } from '@/lib/navigation'
 import type { TimeGateRole } from '@/lib/timegate/types'
 import { useSession } from 'next-auth/react'
@@ -129,7 +130,7 @@ export default function Sidebar() {
           </Link>
         </div>
 
-        <div className="h-full overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-track]:bg-surface-dark dark:[&::-webkit-scrollbar-thumb]:bg-slate-600">
+        <div className="flex-1 min-h-0 overflow-y-auto [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 dark:[&::-webkit-scrollbar-track]:bg-surface-dark dark:[&::-webkit-scrollbar-thumb]:bg-gray-600">
           <nav className="hs-accordion-group px-3 w-full flex flex-col flex-wrap" data-hs-accordion-always-open>
             <ul className="flex flex-col space-y-1 mb-4">
               {navSections.map((section, si) => (
@@ -146,8 +147,8 @@ export default function Sidebar() {
           </nav>
         </div>
 
-        <div className="mx-3 mt-3 mb-2 rounded-xl">
-          <div className="h-12"></div>
+        <div className="mx-3 mt-auto mb-3 shrink-0">
+          <SidebarPlanWidget />
         </div>
       </div>
     </div>

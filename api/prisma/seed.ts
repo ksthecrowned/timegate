@@ -11,6 +11,8 @@ import {
   TimeGateAttendanceEventType,
   TimeGatePayrollRunStatus,
   TimeGateSalaryStatus,
+  TimeGateSubscriptionSource,
+  TimeGateSubscriptionStatus,
   TimeGateTimesheetDayStatus,
   TimeGateUserRole,
   WeekDay,
@@ -468,24 +470,26 @@ async function main() {
       companyId: company.id,
       keyHash: activationHash,
       plan: 'PRO',
+      planId: 'PLN-PRO',
       maxEmployees: 200,
       maxKiosks: 20,
       expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
-      usedAt: new Date(),
     },
   });
+
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
 
   await prisma.timeGateSubscription.create({
     data: {
       id: generateDocId('SUB'),
       companyId: company.id,
-      plan: 'PRO',
-      planId: 'PLN-PRO',
-      maxEmployees: 200,
-      maxKiosks: 20,
-      status: 'ACTIVE',
-      source: 'MANUAL',
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
+      plan: 'TRIAL',
+      maxEmployees: 10,
+      maxKiosks: 1,
+      status: TimeGateSubscriptionStatus.TRIAL,
+      source: TimeGateSubscriptionSource.MANUAL,
+      trialEndsAt,
+      expiresAt: trialEndsAt,
     },
   });
 
