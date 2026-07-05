@@ -101,7 +101,7 @@ export default function ActivatePage() {
   const sub = subscription?.subscription
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary to-secondary px-4 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-primary to-secondary px-4 py-10">
       <div className="w-full max-w-md bg-surface-card dark:bg-surface-card-dark border border-slate-200/80 dark:border-border-dark rounded-xl shadow-xl p-6">
         <div className="flex justify-center mb-4">
           <BrandLogo variant="icon" tone="on-light" className="h-14 w-14" />
@@ -166,7 +166,7 @@ export default function ActivatePage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 font-semibold text-white rounded-md bg-gradient-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70"
+            className="w-full py-3 px-4 font-semibold text-white rounded-md bg-linear-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70"
           >
             {loading ? 'Activation…' : 'Activer'}
           </button>
