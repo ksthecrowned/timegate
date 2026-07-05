@@ -1,4 +1,6 @@
 "use client"
+import CopilotPanel from '@/components/ai/CopilotPanel'
+import { CopilotProvider } from '@/components/ai/CopilotProvider'
 import SubscriptionBanner from '@/components/layout/SubscriptionBanner'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
@@ -21,17 +23,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <AuthProvider>
       <OrganizationProvider>
       <ToastProvider>
+        <CopilotProvider>
         <WebPushSetup />
         <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
           <Sidebar />
           <Navbar />
           <SubscriptionBanner />
+          <CopilotPanel />
           <main className="w-full lg:ps-[260px] mt-16">
             <div className="p-4 sm:p-6 space-y-6 page-enter">
               {children}
             </div>
           </main>
         </div>
+        </CopilotProvider>
       </ToastProvider>
       </OrganizationProvider>
     </AuthProvider>

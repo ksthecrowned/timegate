@@ -1,4 +1,4 @@
-declare module 'preline/dist/select.mjs' {
+declare module 'preline/plugins/select' {
   type HSSelectInstance = { destroy?: () => void }
 
   const HSSelect: {

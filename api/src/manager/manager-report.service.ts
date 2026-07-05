@@ -56,7 +56,7 @@ export class ManagerReportService {
     let sent = 0;
     for (const company of companies) {
       try {
-        const stats = await this.collectWeeklyStats(company.id, periodStart, periodEnd);
+        const stats = await this.getWeeklyAnomalyStats(company.id, periodStart, periodEnd);
         if (stats.total === 0) continue;
 
         const emails = await this.recipients.resolveManagerEmails(company.id);
@@ -86,7 +86,7 @@ export class ManagerReportService {
     }
   }
 
-  private async collectWeeklyStats(companyId: string, from: Date, to: Date) {
+  async getWeeklyAnomalyStats(companyId: string, from: Date, to: Date) {
     const toEnd = new Date(to);
     toEnd.setUTCHours(23, 59, 59, 999);
 
@@ -159,6 +159,19 @@ export class ManagerReportService {
       lines.push(`${pendingLeaves} demande(s) de congé en attente (actuel)`);
     }
 
-    return { total: lines.length, lines };
+    return {
+      from: from.toISOString().slice(0, 10),
+      to: to.toISOString().slice(0, 10),
+      total: lines.length,
+      lines,
+      counts: {
+        pendingReviews,
+        reviewEventsInPeriod,
+        unclosedDays,
+        lateRecords,
+        absences,
+        pendingLeaves,
+      },
+    };
   }
 }

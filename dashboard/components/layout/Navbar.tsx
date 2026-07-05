@@ -383,6 +383,7 @@
 'use client'
 
 import OrgLogo from '@/components/brand/OrgLogo'
+import CopilotNavButton from '@/components/ai/CopilotNavButton'
 import GlobalSearchBox from '@/components/layout/GlobalSearchBox'
 import NotificationBell from '@/components/layout/NotificationBell'
 import { getRoleLabel } from '@/lib/timegate/roles'
@@ -446,6 +447,8 @@ export default function Navbar() {
 
             {/* Actions */}
             <div className="flex flex-row items-center justify-end gap-1 gap-x-2">
+
+              <CopilotNavButton />
 
               <NotificationBell />
 

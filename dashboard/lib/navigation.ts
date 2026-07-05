@@ -60,6 +60,12 @@ export const timegateNavSections: NavSection[] = [
         roles: ['ADMIN'],
       },
       {
+        label: 'Consommation IA',
+        href: '/organization/ai-usage',
+        faIcon: 'fa-solid fa-wand-magic-sparkles',
+        roles: ['ADMIN'],
+      },
+      {
         label: 'Reconnaissance & retards',
         href: '/system-config',
         faIcon: 'fa-solid fa-face-smile',

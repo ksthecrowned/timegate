@@ -1,13 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
+import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
 import DataTable, { Column } from '@/components/ui/DataTable'
 import { FormField, Input } from '@/components/ui/FormField'
-import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
-import { createPlan, listPlans, updatePlan } from '@/lib/api/saas'
+import PageHeader from '@/components/ui/PageHeader'
+import { SwitcherField } from '@/components/ui/Switcher'
+import { createPlan, listPlans, updatePlan, type PlanAiFeatures } from '@/lib/api/saas'
 import type { SubscriptionPlan } from '@/lib/api/types'
 import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 const emptyForm = {
   code: '',
@@ -16,6 +17,43 @@ const emptyForm = {
   maxKiosks: '5',
   durationDays: '365',
   sortOrder: '0',
+  aiCopilotEnabled: true,
+  aiTokensPerMonth: '500000',
+  aiUnlimited: false,
+}
+
+function readAiFeatures(plan: SubscriptionPlan): {
+  aiCopilotEnabled: boolean
+  aiTokensPerMonth: string
+  aiUnlimited: boolean
+} {
+  const features = (plan.features ?? {}) as PlanAiFeatures
+  const unlimited = features.aiTokensPerMonth === null
+  return {
+    aiCopilotEnabled: features.aiCopilotEnabled !== false,
+    aiTokensPerMonth:
+      unlimited || features.aiTokensPerMonth == null
+        ? '500000'
+        : String(features.aiTokensPerMonth),
+    aiUnlimited: unlimited,
+  }
+}
+
+function buildFeatures(form: typeof emptyForm): PlanAiFeatures {
+  return {
+    aiCopilotEnabled: form.aiCopilotEnabled,
+    aiTokensPerMonth: form.aiUnlimited ? null : Number(form.aiTokensPerMonth),
+  }
+}
+
+function formatAiQuota(plan: SubscriptionPlan): string {
+  const features = (plan.features ?? {}) as PlanAiFeatures
+  if (features.aiCopilotEnabled === false) return 'Désactivé'
+  if (features.aiTokensPerMonth === null) return 'Illimité'
+  if (typeof features.aiTokensPerMonth === 'number') {
+    return `${features.aiTokensPerMonth.toLocaleString('fr-FR')} tok/mois`
+  }
+  return 'Par défaut'
 }
 
 export default function PlansPage() {
@@ -54,6 +92,7 @@ export default function PlansPage() {
         maxKiosks: Number(form.maxKiosks),
         durationDays: form.durationDays ? Number(form.durationDays) : undefined,
         sortOrder: Number(form.sortOrder),
+        features: buildFeatures(form),
       }
       if (editingId) {
         await updatePlan(editingId, payload)
@@ -71,6 +110,7 @@ export default function PlansPage() {
   }
 
   function startEdit(plan: SubscriptionPlan) {
+    const ai = readAiFeatures(plan)
     setEditingId(plan.id)
     setForm({
       code: plan.code,
@@ -79,6 +119,7 @@ export default function PlansPage() {
       maxKiosks: String(plan.maxKiosks),
       durationDays: plan.durationDays != null ? String(plan.durationDays) : '',
       sortOrder: String(plan.sortOrder),
+      ...ai,
     })
   }
 
@@ -101,6 +142,11 @@ export default function PlansPage() {
       key: 'durationDays',
       label: 'Durée (j)',
       render: (v) => (v == null ? '—' : String(v)),
+    },
+    {
+      key: 'features',
+      label: 'Copilote IA',
+      render: (_v, row) => formatAiQuota(row),
     },
     {
       key: 'isActive',
@@ -185,6 +231,34 @@ export default function PlansPage() {
                 onChange={(e) => setForm((f) => ({ ...f, sortOrder: e.target.value }))}
               />
             </FormField>
+          </div>
+
+          <div className="mt-6 border-t border-slate-200/80 pt-5 dark:border-border-dark">
+            <h3 className="mb-3 text-sm font-semibold text-slate-800 dark:text-slate-100">
+              Copilote IA (manager)
+            </h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <SwitcherField
+                label="Copilote activé"
+                checked={form.aiCopilotEnabled}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, aiCopilotEnabled: checked }))}
+              />
+              <SwitcherField
+                label="Quota illimité"
+                checked={form.aiUnlimited}
+                onCheckedChange={(checked) => setForm((f) => ({ ...f, aiUnlimited: checked }))}
+              />
+              <FormField label="Tokens / mois">
+                <Input
+                  type="number"
+                  min={1000}
+                  step={1000}
+                  disabled={form.aiUnlimited || !form.aiCopilotEnabled}
+                  value={form.aiTokensPerMonth}
+                  onChange={(e) => setForm((f) => ({ ...f, aiTokensPerMonth: e.target.value }))}
+                />
+              </FormField>
+            </div>
           </div>
         </FormCard>
       </form>

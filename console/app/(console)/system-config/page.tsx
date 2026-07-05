@@ -46,7 +46,7 @@ export default function SystemConfigPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await listSystemConfigs({ page: 1, limit: 200 })
+      const res = await listSystemConfigs({ page: 1, limit: 100 })
       setRows(res.data)
       if (!selectedId && res.data.length > 0) {
         const first = res.data[0]

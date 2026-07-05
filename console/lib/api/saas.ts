@@ -17,6 +17,11 @@ export function getPlan(id: string): Promise<SubscriptionPlan> {
   return http.get<SubscriptionPlan>(`/plans/${id}`)
 }
 
+export type PlanAiFeatures = {
+  aiCopilotEnabled?: boolean
+  aiTokensPerMonth?: number | null
+}
+
 export type CreatePlanPayload = {
   code: string
   label: string
@@ -25,6 +30,7 @@ export type CreatePlanPayload = {
   durationDays?: number
   isActive?: boolean
   sortOrder?: number
+  features?: PlanAiFeatures & Record<string, unknown>
 }
 
 export function createPlan(payload: CreatePlanPayload): Promise<SubscriptionPlan> {

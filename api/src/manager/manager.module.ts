@@ -11,5 +11,6 @@ import { ManagerService } from './manager.service';
   imports: [HolidaysModule, AttendanceModule, AuthModule, NotificationsModule],
   controllers: [ManagerController],
   providers: [ManagerService, ManagerReportService],
+  exports: [ManagerService, ManagerReportService],
 })
 export class ManagerModule {}

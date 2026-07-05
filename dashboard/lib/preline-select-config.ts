@@ -43,12 +43,18 @@ async function loadHSSelect(): Promise<HSSelectCtor | null> {
         const fromMain = (preline as { HSSelect?: HSSelectCtor }).HSSelect
         if (fromMain?.getInstance) return fromMain
 
-        const selectMod = await import('preline/dist/select.mjs')
+        const selectMod = await import('preline/plugins/select')
         const fromPlugin = (selectMod as { default?: HSSelectCtor }).default
         if (fromPlugin?.getInstance) return fromPlugin
       } catch {
         // Preline may be provided by the CDN script instead of the npm bundle.
       }
+
+      if (typeof window !== 'undefined') {
+        const fromWindow = (window as Window & { HSSelect?: HSSelectCtor }).HSSelect
+        if (fromWindow?.getInstance) return fromWindow
+      }
+
       return null
     })()
   }

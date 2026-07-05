@@ -1539,3 +1539,29 @@ model PasswordResetToken {
   @@index([userId, codeExpiresAt])
   @@map("tabPasswordResetToken")
 }
+
+model AiUsageRecord {
+  id           String   @id @db.VarChar(140)
+  companyId    String   @map("company") @db.VarChar(140)
+  userId       String?  @map("user_id") @db.VarChar(140)
+  feature      String   @db.VarChar(64)
+  inputTokens  Int      @map("input_tokens")
+  outputTokens Int      @map("output_tokens")
+  model        String   @db.VarChar(140)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([companyId, createdAt])
+  @@map("timegate_ai_usage_record")
+}
+
+model AiCopilotSession {
+  id        String   @id @db.VarChar(140)
+  companyId String   @map("company") @db.VarChar(140)
+  userId    String   @map("user_id") @db.VarChar(140)
+  messages  Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([companyId, userId, updatedAt])
+  @@map("timegate_ai_copilot_session")
+}
