@@ -1,4 +1,4 @@
-export type TimeGateRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+export type TimeGateRole = 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
 
 export type EmployeeSummary = {
   id?: string
@@ -14,7 +14,7 @@ export type TimeGateUser = {
   email: string
   firstName?: string | null
   lastName?: string | null
-  role: TimeGateRole
+  role: string
   companyId: string | null
   employeeId?: string | null
 }
@@ -34,7 +34,7 @@ export type SubscriptionStatus = {
     | 'BLOCKED'
     | 'SUSPENDED'
     | null
-  role: TimeGateRole
+  role: string
   subscription: {
     id: string
     plan: string

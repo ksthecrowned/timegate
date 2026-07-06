@@ -216,7 +216,7 @@ export const timegateNavSections: NavSection[] = [
   },
 ]
 
-/** Paths reserved for tenant operations — super admin is redirected away. */
+/** Paths reserved for tenant dashboard operations. */
 export const operationalPathPrefixes = [
   '/manager',
   '/employees',

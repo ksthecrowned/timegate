@@ -14,7 +14,7 @@ import {
   loginTimeGate,
 } from "@/lib/auth/timegate-auth";
 import { mapSubscriptionSessionFields } from "@/lib/auth/subscription-session";
-import type { TimeGateRole } from "@/lib/timegate/types";
+import { isDashboardRole } from "@/lib/timegate/roles";
 
 export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
   ...authConfig,
@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             fetchSubscriptionStatus(accessToken),
           ]);
 
-          if (me.role === "SUPER_ADMIN") {
+          if (!isDashboardRole(me.role)) {
             return null;
           }
 
@@ -57,7 +57,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             email: me.email,
             firstName: me.firstName,
             lastName: me.lastName,
-            role: me.role as TimeGateRole,
+            role: me.role,
             companyId: me.companyId,
             ...mapSubscriptionSessionFields(subscription),
             accessToken,

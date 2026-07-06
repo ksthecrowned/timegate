@@ -2,6 +2,7 @@ import type { NextAuthConfig } from 'next-auth'
 import { getAuthSecret } from '@/lib/auth/secret'
 import { getSessionMaxAgeSeconds } from '@/lib/auth/env'
 import type { TimeGateRole } from '@/lib/timegate/types'
+import { isDashboardRole } from '@/lib/timegate/roles'
 import { operationalPathPrefixes } from '@/lib/navigation'
 
 const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
@@ -105,7 +106,7 @@ export const authConfig = {
 
       if (!isLoggedIn) return false
 
-      if (role === 'SUPER_ADMIN') {
+      if (!isDashboardRole(role)) {
         return false
       }
 
