@@ -1,8 +1,73 @@
-import NextAuth from 'next-auth'
-import { authConfig } from '@/auth.config'
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
+import {
+  isProtectedAppPath,
+  sessionCookieNames,
+  stripTimegatePrefix,
+} from '@/lib/auth/route-guard'
 
-/** Garde Edge — ne pas importer `@/auth` (credentials + fetch TimeGate). */
-export default NextAuth(authConfig).auth
+function hasSessionCookie(request: NextRequest): boolean {
+  return sessionCookieNames.some((name) => request.cookies.has(name))
+}
+
+/**
+ * Garde Edge sans NextAuth/jose — la session JWT est validée côté serveur
+ * dans les layouts (`auth()`), pas dans le middleware.
+ */
+export function middleware(request: NextRequest) {
+  const isLoggedIn = hasSessionCookie(request)
+  const rawPathname = request.nextUrl.pathname
+  const pathname = stripTimegatePrefix(rawPathname)
+  const isLoginPage = pathname === '/login'
+  const isSignupPage = pathname === '/signup'
+  const isActivatePage = pathname === '/activate'
+  const isOldDashboardRedirect = pathname.startsWith('/dashboard')
+  const isDeprecatedShiftLocations = pathname.startsWith('/shift-locations')
+
+  if (isOldDashboardRedirect) {
+    const target = pathname.replace(/^\/dashboard/, '') || '/'
+    return NextResponse.redirect(new URL(target, request.url))
+  }
+
+  if (isDeprecatedShiftLocations) {
+    return NextResponse.redirect(new URL('/branches', request.url))
+  }
+
+  if (rawPathname !== pathname) {
+    return NextResponse.redirect(new URL(pathname || '/', request.url))
+  }
+
+  if (isLoginPage || isSignupPage) {
+    if (isLoggedIn) {
+      return NextResponse.redirect(new URL('/', request.url))
+    }
+    return NextResponse.next()
+  }
+
+  if (isActivatePage) {
+    if (!isLoggedIn) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    return NextResponse.next()
+  }
+
+  if (!isProtectedAppPath(pathname)) {
+    return NextResponse.next()
+  }
+
+  if (!isLoggedIn) {
+    return NextResponse.redirect(new URL('/login', request.url))
+  }
+
+  const requestHeaders = new Headers(request.headers)
+  requestHeaders.set('x-pathname', pathname)
+
+  return NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  })
+}
 
 export const config = {
   matcher: [
