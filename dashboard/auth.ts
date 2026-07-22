@@ -83,7 +83,6 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
 
       if (user) {
         return {
-          ...token,
           user: {
             id: user.id,
             email: user.email,

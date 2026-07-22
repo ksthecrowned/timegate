@@ -1,8 +1,3 @@
-import { getApiBaseUrl } from '@/lib/http/config'
-
-/** @deprecated Utiliser `getApiBaseUrl` depuis `@/lib/http` */
-export const getRideApiBaseUrl = getApiBaseUrl
-
 /**
  * TMGT n'expose pas POST /auth/refresh.
  * Tant que false : à l'expiration du JWT API, déconnexion → /login?error=SessionExpired.

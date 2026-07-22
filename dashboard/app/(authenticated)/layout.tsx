@@ -1,4 +1,5 @@
 import { auth } from '@/auth'
+import { safeCallbackUrl } from '@/lib/auth/callback-url'
 import { isRoleAllowedForPathname } from '@/lib/auth/route-guard'
 import { isDashboardRole } from '@/lib/timegate/roles'
 import { headers } from 'next/headers'
@@ -11,9 +12,11 @@ export default async function AuthenticatedLayout({
   children: React.ReactNode
 }) {
   const session = await auth()
+  const pathname = (await headers()).get('x-pathname') ?? '/'
 
   if (!session?.user) {
-    redirect('/login')
+    const returnTo = safeCallbackUrl(pathname)
+    redirect(returnTo ? `/login?callbackUrl=${encodeURIComponent(returnTo)}` : '/login')
   }
 
   if (!isDashboardRole(session.user.role)) {
@@ -24,7 +27,6 @@ export default async function AuthenticatedLayout({
     redirect('/activate')
   }
 
-  const pathname = (await headers()).get('x-pathname') ?? '/'
   if (!isRoleAllowedForPathname(pathname, session.user.role)) {
     redirect('/')
   }

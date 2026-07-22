@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from 'next-auth'
+import { AUTH_COOKIE_APP_ID, buildAuthCookies } from '@/lib/auth/cookies'
 import { getAuthSecret } from '@/lib/auth/secret'
 import { getSessionMaxAgeSeconds } from '@/lib/auth/env'
 
@@ -9,6 +10,7 @@ import { getSessionMaxAgeSeconds } from '@/lib/auth/env'
  */
 export const authConfig = {
   secret: getAuthSecret(),
+  cookies: buildAuthCookies(AUTH_COOKIE_APP_ID),
   pages: {
     signIn: '/login',
     error: '/login',

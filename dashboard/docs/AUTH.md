@@ -1,53 +1,46 @@
-# Authentification (NextAuth + ride-api)
+# Authentification (NextAuth + TimeGate API)
 
 ## Vue d'ensemble
 
 | Couche | Fichier | Rôle |
 |--------|---------|------|
-| Config Edge | `auth.config.ts` | Pages, session JWT, garde `/dashboard` |
-| Config serveur | `auth.ts` | Credentials → `POST /api/admins/auth/login`, refresh, logout |
+| Config Edge | `auth.config.ts` | Pages, cookies app, session JWT, callbacks de base |
+| Config serveur | `auth.ts` | Credentials → `POST /auth/login`, me + abo, refresh optionnel |
 | Route | `app/api/auth/[...nextauth]/route.ts` | Handlers Auth.js v5 |
-| Middleware | `middleware.ts` | Redirige non connectés vers `/login` |
-| Client HTTP | `lib/http/index.ts` | `http` — fetch unique, Bearer session, parse `ApiEnvelope` |
-| Types | `types/next-auth.d.ts` | `accessToken`, `roleTitle`, erreurs refresh |
+| Middleware | `middleware.ts` | Garde via `lib/auth/route-guard.ts` |
+| Client HTTP | `lib/http/index.ts` | `http` — Bearer session |
+| Auth API | `lib/auth/timegate-auth.ts` | Login, me, subscription, activate, signup |
+| Types | `types/next-auth.d.ts` | `accessToken`, rôle, champs abonnement |
 
 ## Variables d'environnement
 
-Copier `.env.example` vers `.env.local` et renseigner :
+Voir `.env.example` :
 
-- `AUTH_SECRET` — obligatoire (`openssl rand -base64 32`)
-- `AUTH_URL` / `NEXTAUTH_URL` — URL du dashboard
-- `RIDE_API_URL` — base API (prod : `https://ride-api-v2-2jsrx7vy7a-bq.a.run.app`, [Swagger admin](https://ride-api-v2-2jsrx7vy7a-bq.a.run.app/api-docs/admin))
-- `RIDE_API_PREFIX` — défaut `/api`
+- `AUTH_SECRET` — obligatoire, **unique à cette app** (ne pas partager avec `console/`)
+- `AUTH_URL` / `NEXTAUTH_URL` — URL publique du dashboard
+- `NEXT_PUBLIC_TIMEGATE_API_URL` — base API (ex. `http://localhost:4001/api/v1`)
+- `AUTH_REFRESH_ENABLED` — défaut `false` (pas de refresh côté API)
+
+## Cookies
+
+Noms préfixés `timegate-dashboard.*` (`lib/auth/cookies.ts`) pour éviter les collisions NextAuth avec la console sur le même hôte (localhost / domaine partagé).
 
 ## Flux login
 
-1. Formulaire `/login` → `signIn('credentials', { email, password, redirect: false })`
-2. `authorize()` appelle `POST {RIDE_API}/admins/auth/login`
-3. JWT session stocke `accessToken`, `refreshToken` (si fourni), `accessTokenExpires`
+1. Formulaire `/login` → `signIn('credentials', { email, password, sku?, redirect: false })`
+2. `authorize()` appelle `POST /auth/login`, puis `/auth/me` + `/auth/subscription-status`
+3. Rôles hors dashboard (ex. `SUPER_ADMIN`) → refus (`null`)
+4. Session JWT : `accessToken`, `accessTokenExpires`, user + flags abonnement
 
-## Refresh token (préparé)
+## Refresh token
 
-L'API **ne renvoie pas encore** de `refreshToken`. Quand ride-api l'ajoutera :
-
-1. Retourner `{ accessToken, refreshToken, admin }` au login
-2. Implémenter `POST /api/admins/auth/refresh` avec body `{ refreshToken }`
-3. Mettre `AUTH_REFRESH_ENABLED=true` dans `.env.local`
-4. Optionnel : `POST /api/admins/auth/logout` pour révoquer le refresh
-
-Fichiers concernés : `lib/auth/ride-api-auth.ts`, `lib/auth/refresh-access-token.ts`, `auth.ts` (callback `jwt` + event `signOut`).
+Désactivé par défaut. Si `AUTH_REFRESH_ENABLED=true` et qu’un endpoint refresh existe : `lib/auth/refresh-access-token.ts` + callback `jwt` dans `auth.ts`. Sinon, à l’expiration → déconnexion / `SessionExpired`.
 
 ## Logout
 
-- UI : `signOut({ callbackUrl: '/login' })` (voir `Navbar.tsx`)
-- Event `signOut` dans `auth.ts` appelle `logoutAdmin()` si l'endpoint existe
+- UI : `signOut({ callbackUrl: '/login' })`
+- Event `signOut` dans `auth.ts` peut appeler `logoutAdmin()` si l’API le supporte
 
 ## Session expirée côté client
 
-Si `session.error === 'RefreshAccessTokenError'`, rediriger vers `/login` (ex. dans un layout dashboard ou `SessionProvider`).
-
-## Prochaines étapes suggérées
-
-- [ ] Remplacer les mocks par `http.get('/admins/...')` (voir `lib/http/index.ts`)
-- [ ] Ajouter `SessionProvider` si besoin de `useSession` côté client
-- [ ] Implémenter refresh/logout dans ride-api
+Si `session.error === 'RefreshAccessTokenError'`, rediriger vers `/login`.

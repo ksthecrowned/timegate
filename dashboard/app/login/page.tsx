@@ -1,18 +1,29 @@
 'use client'
 
-import Link from 'next/link'
 import BrandLogo from '@/components/brand/BrandLogo'
 import { SwitcherField } from '@/components/ui/FormField'
+import { safeCallbackUrl } from '@/lib/auth/callback-url'
 import { signIn } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 
+function pathFromAuthUrl(url: string | null | undefined, fallback: string): string {
+  if (!url) return fallback
+  try {
+    const parsed = new URL(url, window.location.origin)
+    if (parsed.origin !== window.location.origin) return fallback
+    return safeCallbackUrl(`${parsed.pathname}${parsed.search}`) ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
 export default function LoginPage() {
-  const router = useRouter()
   const [sessionExpired, setSessionExpired] = useState(false)
+  const [callbackUrl, setCallbackUrl] = useState('/')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [sku, setSku] = useState('SOTR')
+  const [sku, setSku] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -21,12 +32,14 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     setSessionExpired(params.get('error') === 'SessionExpired')
+    setCallbackUrl(safeCallbackUrl(params.get('callbackUrl')) ?? '/')
   }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
+    setSessionExpired(false)
 
     try {
       const result = await signIn('credentials', {
@@ -34,19 +47,21 @@ export default function LoginPage() {
         password,
         sku: sku.trim() || undefined,
         redirect: false,
+        callbackUrl,
       })
 
       if (result?.error) {
         setError(
           'Identifiants invalides, organisation incorrecte, ou compte réservé à la Console Plateforme.',
         )
+        setLoading(false)
         return
       }
 
-      router.replace('/')
+      // Hard redirect : soft nav depuis ?error=… bloquait la session ; callbackUrl honoré.
+      window.location.assign(pathFromAuthUrl(result?.url, callbackUrl))
     } catch {
-      setError('Impossible de contacter TimeGate API. Vérifiez NEXT_PUBLIC_TIMEGATE_API_URL.')
-    } finally {
+      setError('Impossible de contacter TimeGate API.')
       setLoading(false)
     }
   }

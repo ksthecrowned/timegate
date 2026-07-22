@@ -1,4 +1,4 @@
-/** Enveloppe legacy ride-api (`ApiResponseDto`). */
+/** Enveloppe API legacy `{ statusCode, message, data }` (sans `meta`). */
 export type ApiEnvelope<T> = {
   statusCode: number
   message: string

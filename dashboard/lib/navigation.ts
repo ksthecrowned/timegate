@@ -216,32 +216,6 @@ export const timegateNavSections: NavSection[] = [
   },
 ]
 
-/** Paths reserved for tenant dashboard operations. */
-export const operationalPathPrefixes = [
-  '/manager',
-  '/employees',
-  '/branches',
-  '/kiosks',
-  '/departments',
-  '/designations',
-  '/shift-types',
-  '/shift-assignments',
-  '/planning',
-  '/shift-swaps',
-  '/work-days',
-  '/leaves',
-  '/leave-types',
-  '/absences',
-  '/late-records',
-  '/attendance',
-  '/timesheets',
-  '/face-recognition-logs',
-  '/payroll-runs',
-  '/salaries',
-  '/holidays',
-  '/admins',
-]
-
 function itemVisible(item: NavItem, role?: TimeGateRole | null): boolean {
   if (!item.roles) return true
   if (!role) return false

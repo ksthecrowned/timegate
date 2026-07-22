@@ -10,6 +10,3 @@ export const TIMEGATE_AUTH_ROUTES = {
   activate: '/auth/activate',
   signup: '/auth/signup',
 } as const
-
-/** @deprecated Alias legacy ride-api */
-export const ADMIN_AUTH_ROUTES = TIMEGATE_AUTH_ROUTES

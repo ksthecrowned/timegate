@@ -38,6 +38,3 @@ declare module 'next-auth/jwt' {
     error?: 'RefreshAccessTokenError'
   }
 }
-
-/** @deprecated Alias legacy ride-api */
-export type RideAdminUser = TimeGateSessionUser

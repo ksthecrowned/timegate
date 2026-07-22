@@ -11,11 +11,11 @@ function extractMessage(payload: unknown): string | undefined {
   return undefined
 }
 
-function isRideApiEnvelope(payload: object): payload is ApiEnvelope<unknown> {
+function isLegacyApiEnvelope(payload: object): payload is ApiEnvelope<unknown> {
   return 'statusCode' in payload && 'message' in payload && 'data' in payload && !('meta' in payload)
 }
 
-/** Parse JSON TimeGate (ou legacy ride-api envelope). */
+/** Parse JSON TimeGate (déballe aussi l'enveloppe legacy si présente). */
 export async function parseResponse<T>(res: Response): Promise<T> {
   const contentType = res.headers.get('content-type') ?? ''
   const isJson = contentType.includes('application/json')
@@ -35,7 +35,7 @@ export async function parseResponse<T>(res: Response): Promise<T> {
   }
 
   if (isJson && payload && typeof payload === 'object') {
-    if (isRideApiEnvelope(payload)) {
+    if (isLegacyApiEnvelope(payload)) {
       return payload.data as T
     }
   }

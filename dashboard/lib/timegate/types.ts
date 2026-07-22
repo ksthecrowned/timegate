@@ -290,19 +290,6 @@ export type ShiftType = {
   weekDays?: WorkDay[]
 }
 
-export type ShiftLocation = {
-  id: string
-  name: string
-  branchId?: string | null
-  checkinRadius?: number | null
-  latitude?: number | null
-  longitude?: number | null
-  isKioskLocation?: boolean
-  createdAt: string
-  updatedAt: string
-  branch?: { id: string; name: string } | null
-}
-
 export type ShiftAssignment = {
   id: string
   employeeId: string

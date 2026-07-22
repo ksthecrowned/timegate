@@ -1,5 +1,5 @@
+import { sessionCookieNamesFor } from '@/lib/auth/cookies'
 import type { TimeGateRole } from '@/lib/timegate/types'
-import { operationalPathPrefixes } from '@/lib/navigation'
 
 const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
   { prefix: '/payroll-runs', roles: ['ADMIN'] },
@@ -15,34 +15,53 @@ const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
 
 export const publicPaths = new Set(['/login', '/signup', '/activate'])
 
-export const sessionCookieNames = [
-  '__Secure-authjs.session-token',
-  '__Host-authjs.session-token',
-  'authjs.session-token',
+/** Préfixes authentifiés — source unique pour middleware + garde de routes. */
+export const protectedPathPrefixes = [
+  '/manager',
+  '/employees',
+  '/branches',
+  '/kiosks',
+  '/departments',
+  '/designations',
+  '/shift-types',
+  '/shift-assignments',
+  '/planning',
+  '/shift-swaps',
+  '/work-days',
+  '/leaves',
+  '/leave-types',
+  '/absences',
+  '/late-records',
+  '/attendance',
+  '/timesheets',
+  '/face-recognition-logs',
+  '/payroll-runs',
+  '/salaries',
+  '/holidays',
+  '/admins',
+  '/audit-logs',
+  '/subscriptions',
+  '/system-config',
+  '/organization',
+  '/punch-claims',
+  '/profile',
+  '/trusted-devices',
 ] as const
 
-export function stripTimegatePrefix(pathname: string): string {
-  if (pathname === '/timegate') return '/'
-  if (pathname.startsWith('/timegate/')) {
-    return pathname.replace(/^\/timegate/, '') || '/'
-  }
-  return pathname
-}
+export const sessionCookieNames = sessionCookieNamesFor()
+
+/** Matcher Next.js middleware dérivé de `protectedPathPrefixes` + pages publiques. */
+export const middlewareMatcher: string[] = [
+  '/',
+  ...protectedPathPrefixes.flatMap((prefix) => [prefix, `${prefix}/:path*`]),
+  ...publicPaths,
+]
 
 export function isProtectedAppPath(pathname: string): boolean {
   if (publicPaths.has(pathname)) return false
   if (pathname === '/') return true
-  return (
-    operationalPathPrefixes.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    ) ||
-    [
-      '/audit-logs',
-      '/subscriptions',
-      '/system-config',
-      '/admins',
-      '/organization',
-    ].some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+  return protectedPathPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
   )
 }
 
