@@ -7,6 +7,7 @@ import { HttpError } from '@/lib/http'
 import { listBranches } from '@/lib/timegate/branches'
 import { getPlanningCalendar, type PlanningCalendarDay } from '@/lib/timegate/planning'
 import Link from 'next/link'
+import WriteLink from '@/components/timegate/WriteLink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 function monthBounds(year: number, month: number) {
@@ -128,7 +129,7 @@ export default function ManagerLeavesCalendarPage() {
         <div className="min-w-[220px]">
           <FormField label="Branche">
             <select
-              className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600  "
+              className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600  "
               value={branchId}
               onChange={(e) => setBranchId(e.target.value)}
             >
@@ -171,14 +172,14 @@ export default function ManagerLeavesCalendarPage() {
           >
             <div className="font-semibold mb-1">{iso.slice(8)}</div>
             {day?.leaves.map((leave) => (
-              <Link
+              <WriteLink
                 key={`${iso}-${leave.id}`}
                 href={`/leaves/${leave.id}/edit`}
                 className={`block truncate rounded px-1 py-0.5 mb-0.5 text-[10px] hover:opacity-80 ${leaveStatusClass(leave.status)}`}
                 title={`${leave.employee.firstName} ${leave.employee.lastName} — ${leave.leaveType}`}
               >
                 {leave.employee.firstName} {leave.employee.lastName?.[0]}.
-              </Link>
+              </WriteLink>
             ))}
           </div>
         ))}
@@ -209,9 +210,9 @@ export default function ManagerLeavesCalendarPage() {
                   <span className={`rounded-full px-2 py-0.5 text-xs ${leaveStatusClass(leave.status)}`}>
                     {leaveStatusLabel(leave.status)}
                   </span>
-                  <Link href={`/leaves/${leave.id}/edit`} className="text-xs text-primary hover:underline">
+                  <WriteLink href={`/leaves/${leave.id}/edit`} className="text-xs text-primary hover:underline">
                     Voir
-                  </Link>
+                  </WriteLink>
                 </div>
               </li>
             ))}

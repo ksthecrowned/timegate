@@ -1,4 +1,8 @@
+'use client'
+
 import { HintTooltip } from '@/components/ui/HintTooltip'
+import { useSubscriptionAccess } from '@/components/providers/SubscriptionAccessProvider'
+import Link from 'next/link'
 
 export function ApiErrorBanner({ message }: { message: string }) {
   if (!message) return null
@@ -49,6 +53,8 @@ export function FormCard({
   children: React.ReactNode
   footer?: React.ReactNode
 }) {
+  const { canWrite } = useSubscriptionAccess()
+
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
@@ -57,10 +63,23 @@ export function FormCard({
           {hint ? <HintTooltip text={hint} /> : null}
         </h2>
       </div>
-      <div className="p-4 md:p-5">{children}</div>
+      <div
+        className={`p-4 md:p-5 ${!canWrite ? 'pointer-events-none opacity-60' : ''}`}
+        aria-disabled={!canWrite}
+      >
+        {children}
+      </div>
       {footer && (
-        <div className="flex justify-end gap-2 border-t border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-          {footer}
+        <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
+          {!canWrite ? (
+            <p className="me-auto text-xs text-amber-800 dark:text-amber-200">
+              Lecture seule —{' '}
+              <Link href="/activate" className="font-semibold underline underline-offset-2">
+                activer une clé
+              </Link>
+            </p>
+          ) : null}
+          <div className={!canWrite ? 'pointer-events-none opacity-50' : undefined}>{footer}</div>
         </div>
       )}
     </div>
@@ -71,4 +90,4 @@ export const primaryBtnClass =
   'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-primary text-white shadow-sm hover:bg-secondary disabled:opacity-50 transition-colors'
 
 export const secondaryBtnClass =
-  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'
+  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'

@@ -10,6 +10,7 @@ import type { ShiftType, WorkDay } from '@/lib/timegate/types'
 import { WEEK_DAY_LABELS } from '@/lib/timegate/work-days'
 import { Calendar } from 'lucide-react'
 import Link from 'next/link'
+import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
@@ -52,9 +53,9 @@ export default function ShiftTypeDetailPage() {
         action={
           row && (
             <div className="flex gap-2">
-              <Link href={`/shift-types/${id}/edit`} className={primaryBtnClass}>
+              <WriteLink href={`/shift-types/${id}/edit`} className={primaryBtnClass}>
                 Modifier
-              </Link>
+              </WriteLink>
               <ActionButtons
                 onDelete={() => {
                   void deleteShiftType(id).then(() => router.push('/shift-types'))

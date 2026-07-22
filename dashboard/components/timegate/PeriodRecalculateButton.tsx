@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { FormField, DateField } from "@/components/ui/FormField";
 import { ApiErrorBanner, primaryBtnClass } from "@/components/timegate/ui";
+import { useSubscriptionAccess } from "@/components/providers/SubscriptionAccessProvider";
 import { lastNDaysRange } from "@/lib/timegate/period-range";
 import { parseApiDate } from "@/lib/date-utils";
 import { HttpError } from "@/lib/http";
@@ -21,6 +22,7 @@ export default function PeriodRecalculateButton({
   defaultDays = 30,
   onRecalculate,
 }: PeriodRecalculateButtonProps) {
+  const { canWrite } = useSubscriptionAccess();
   const defaults = lastNDaysRange(defaultDays);
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
@@ -29,6 +31,7 @@ export default function PeriodRecalculateButton({
   const [success, setSuccess] = useState("");
 
   async function handleRecalculate() {
+    if (!canWrite) return;
     setLoading(true);
     setError("");
     setSuccess("");
@@ -57,7 +60,8 @@ export default function PeriodRecalculateButton({
         </FormField>
         <button
           type="button"
-          disabled={loading}
+          disabled={loading || !canWrite}
+          title={!canWrite ? "Lecture seule — activez une clé" : undefined}
           onClick={() => void handleRecalculate()}
           className={primaryBtnClass}
         >

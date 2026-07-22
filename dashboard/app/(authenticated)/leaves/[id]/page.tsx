@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -53,9 +53,9 @@ export default function LeaveDetailPage() {
         action={
           row && (
             <div className="flex gap-2">
-              <Link href={`/leaves/${id}/edit`} className={primaryBtnClass}>
+              <WriteLink href={`/leaves/${id}/edit`} className={primaryBtnClass}>
                 Modifier
-              </Link>
+              </WriteLink>
               <ActionButtons
                 onDelete={() => {
                   void deleteLeave(id).then(() => router.push('/leaves'))

@@ -40,3 +40,21 @@ export function subscriptionStatusLabel(status: SubscriptionStatus['status']): s
       return 'Abonnement'
   }
 }
+
+/** Libellés courts pour la sidebar. */
+export function subscriptionStatusShortLabel(status: SubscriptionStatus['status']): string {
+  switch (status) {
+    case 'TRIAL':
+      return 'Essai'
+    case 'ACTIVE':
+      return 'Actif'
+    case 'GRACE_READ_ONLY':
+      return 'Grâce'
+    case 'BLOCKED':
+      return 'Expiré'
+    case 'SUSPENDED':
+      return 'Suspendu'
+    default:
+      return 'Abo'
+  }
+}

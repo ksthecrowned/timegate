@@ -55,7 +55,7 @@ export default function GlobalSearchBox() {
         onFocus={() => q.trim().length >= 2 && setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
         placeholder="Recherche globale…"
-        className="ps-9 py-2 px-3 block w-full border border-slate-200/80 shadow-xs rounded-lg text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:opacity-50 dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500"
+        className="ps-9 py-2 px-3 block w-full border border-slate-200/80 shadow-xs rounded-lg text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:opacity-50 dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500"
       />
       <div className="absolute inset-y-0 start-0 flex items-center pointer-events-none ps-3">
         <svg className="size-4 text-slate-400 dark:text-slate-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">

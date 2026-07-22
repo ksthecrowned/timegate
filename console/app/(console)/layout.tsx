@@ -23,7 +23,7 @@ export default function ConsoleLayout({ children }: { children: React.ReactNode 
           <Sidebar />
           <Navbar />
           <main className="w-full lg:ps-[260px] mt-16">
-            <div className="p-4 sm:px-6 space-y-6 page-enter">{children}</div>
+            <div className="px-4 py-6 sm:px-6 sm:py-4 space-y-6 page-enter">{children}</div>
           </main>
         </div>
       </ToastProvider>

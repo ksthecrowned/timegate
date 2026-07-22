@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -13,6 +12,7 @@ import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
 import ResourceProfileHeader from '@/components/timegate/ResourceProfileHeader'
+import WriteLink from '@/components/timegate/WriteLink'
 import { ApiErrorBanner, primaryBtnClass } from '@/components/timegate/ui'
 import { deleteEmployee, getEmployee } from '@/lib/timegate/employees'
 import type { Employee } from '@/lib/timegate/types'
@@ -74,9 +74,9 @@ export default function EmployeeDetailPage() {
             isActive={employee.isActive}
           >
             <div className="flex gap-2 pb-1">
-              <Link href={`/employees/${id}/edit`} className={primaryBtnClass}>
+              <WriteLink href={`/employees/${id}/edit`} className={primaryBtnClass}>
                 Modifier
-              </Link>
+              </WriteLink>
               <ActionButtons
                 onDelete={() => void handleDelete()}
                 deleteMessage="Cet employé sera définitivement supprimé."

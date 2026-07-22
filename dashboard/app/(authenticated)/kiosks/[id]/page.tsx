@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -48,9 +48,9 @@ export default function KioskDetailPage() {
         action={
           kiosk && (
             <div className="flex gap-2">
-              <Link href={`/kiosks/${id}/edit`} className={primaryBtnClass}>
+              <WriteLink href={`/kiosks/${id}/edit`} className={primaryBtnClass}>
                 Modifier
-              </Link>
+              </WriteLink>
               <ActionButtons
                 onDelete={async () => {
                   await deleteKiosk(id)

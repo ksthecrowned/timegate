@@ -1,6 +1,6 @@
 'use client'
 
-import Link from 'next/link'
+import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
@@ -58,9 +58,9 @@ export default function BranchDetailPage() {
             isActive={branch.isActive ?? true}
           >
             <div className="flex gap-2 pb-1">
-              <Link href={`/branches/${id}/edit`} className={primaryBtnClass}>
+              <WriteLink href={`/branches/${id}/edit`} className={primaryBtnClass}>
                 Modifier
-              </Link>
+              </WriteLink>
               <ActionButtons
                 onDelete={async () => {
                   await deleteBranch(id)

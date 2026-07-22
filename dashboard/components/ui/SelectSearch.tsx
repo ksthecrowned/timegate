@@ -159,21 +159,34 @@ function SearchMenuList(props: MenuListProps<SelectOption, false, GroupBase<Sele
   )
 }
 
-function buildClassNames(error?: boolean): ClassNamesConfig<SelectOption, false, GroupBase<SelectOption>> {
+function buildClassNames(
+  error?: boolean,
+  variant: 'default' | 'toolbar' = 'default',
+): ClassNamesConfig<SelectOption, false, GroupBase<SelectOption>> {
+  const isToolbar = variant === 'toolbar'
   return {
     container: () => 'relative w-full',
     control: ({ isFocused, isDisabled }) =>
       cn(
-        'relative py-3 px-4 flex gap-x-2 text-nowrap w-full cursor-pointer bg-surface-card border border-slate-200 rounded-lg text-start text-sm',
-        'focus:outline-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-300',
-        isFocused && 'ring-2 ring-primary dark:ring-1 dark:ring-neutral-600',
+        'relative flex gap-x-2 text-nowrap w-full cursor-pointer border rounded-lg text-start',
+        isToolbar
+          ? 'py-1.5 px-2.5 text-sm border-slate-200/80 bg-transparent dark:bg-white/10 dark:border-border-dark dark:text-slate-200'
+          : 'py-3 px-4 text-sm bg-surface-card border-slate-200 dark:bg-white/10 dark:border-border-dark dark:text-slate-300',
+        'focus:outline-none',
+        isFocused &&
+          (isToolbar
+            ? 'ring-1 ring-primary/40 border-primary/40'
+            : 'ring-2 ring-primary dark:ring-1 dark:ring-neutral-600'),
         isDisabled && 'pointer-events-none opacity-50',
         error && 'border-red-400 ring-red-400',
       ),
     valueContainer: () => 'p-0 gap-x-2 flex-1 min-w-0',
-    placeholder: () => 'text-slate-800 dark:text-slate-300 truncate',
+    placeholder: () =>
+      cn('truncate', isToolbar ? 'text-slate-600 dark:text-slate-300' : 'text-slate-800 dark:text-slate-300'),
+    singleValue: () => 'truncate text-slate-800 dark:text-slate-200',
     indicatorsContainer: () => 'items-center shrink-0',
     dropdownIndicator: () => 'p-0 text-gray-500',
+    clearIndicator: () => 'p-0 text-gray-400 hover:text-gray-600',
     menu: () =>
       cn(
         'mt-2 z-50 w-full min-w-[var(--select-width,100%)] bg-surface-card border border-slate-200 rounded-lg shadow-lg',
@@ -198,7 +211,7 @@ export const selectSearchMenuStyles = {
   searchWrapper:
     'bg-surface-card p-2 sticky top-0 z-10 dark:bg-surface-card-dark border-b border-slate-100 dark:border-border-dark',
   searchInput:
-    'block w-full text-sm border border-slate-200 rounded-lg focus:border-primary focus:ring-primary dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-neutral-500 py-2 px-3',
+    'block w-full text-sm border border-slate-200 rounded-lg focus:border-primary focus:ring-primary dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-neutral-500 py-2 px-3',
 }
 
 export interface SelectSearchProps
@@ -211,6 +224,8 @@ export interface SelectSearchProps
   showIcons?: boolean | 'auto'
   /** Validation HTML5 native via input caché. */
   required?: boolean
+  /** `toolbar` : hauteur réduite pour barres d’outils (inbox, filtres). */
+  variant?: 'default' | 'toolbar'
 }
 
 export function SelectSearch({
@@ -221,6 +236,7 @@ export function SelectSearch({
   instanceId,
   showIcons = 'auto',
   required,
+  variant = 'default',
   components: userComponents,
   onMenuClose,
   onMenuOpen,
@@ -284,7 +300,7 @@ export function SelectSearch({
         value={value}
         instanceId={selectId}
         unstyled
-        classNames={buildClassNames(error)}
+        classNames={buildClassNames(error, variant)}
         options={options}
         placeholder={placeholder}
         isSearchable={false}
