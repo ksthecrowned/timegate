@@ -50,13 +50,6 @@ export const protectedPathPrefixes = [
 
 export const sessionCookieNames = sessionCookieNamesFor()
 
-/** Matcher Next.js middleware dérivé de `protectedPathPrefixes` + pages publiques. */
-export const middlewareMatcher: string[] = [
-  '/',
-  ...protectedPathPrefixes.flatMap((prefix) => [prefix, `${prefix}/:path*`]),
-  ...publicPaths,
-]
-
 export function isProtectedAppPath(pathname: string): boolean {
   if (publicPaths.has(pathname)) return false
   if (pathname === '/') return true

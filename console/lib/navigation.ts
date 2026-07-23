@@ -20,6 +20,7 @@ export const consoleNavSections: NavSection[] = [
       { label: 'Paramètres', href: '/platform-settings', faIcon: 'fa-solid fa-sliders' },
       { label: 'System config', href: '/system-config', faIcon: 'fa-solid fa-sliders' },
       { label: 'Abonnements', href: '/subscriptions', faIcon: 'fa-solid fa-credit-card' },
+      { label: 'Clés d’activation', href: '/activation-keys', faIcon: 'fa-solid fa-key' },
     ],
   },
   {

@@ -22,8 +22,46 @@ import {
   setOrganizationSuspension,
 } from '@/lib/api/organizations'
 import { expiresAtFromMonths, listPlans } from '@/lib/api/saas'
-import type { Organization, SubscriptionPlan } from '@/lib/api/types'
+import type { Organization, OrganizationActivationKey, SubscriptionPlan } from '@/lib/api/types'
+import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
+import StatusBadge from '@/components/ui/StatusBadge'
+import DataTable, { Column } from '@/components/ui/DataTable'
+
+const orgKeyColumns: Column<OrganizationActivationKey>[] = [
+  { key: 'plan', label: 'Plan', sortable: true },
+  {
+    key: 'maxEmployees',
+    label: 'Max emp.',
+    render: (v) => (v == null ? '—' : String(v)),
+  },
+  {
+    key: 'maxKiosks',
+    label: 'Max kiosks',
+    render: (v, row) => String(v ?? row.maxDevices ?? '—'),
+  },
+  {
+    key: 'status',
+    label: 'État',
+    render: (v) => (v ? <StatusBadge status={String(v)} /> : '—'),
+  },
+  {
+    key: 'usedAt',
+    label: 'Utilisée le',
+    render: (v, row) =>
+      row.status === 'USED' && v ? formatApiDateTime(String(v)) : '—',
+  },
+  {
+    key: 'expiresAt',
+    label: 'Expire le',
+    render: (v) => formatApiDate(v == null ? null : String(v)),
+  },
+  {
+    key: 'createdAt',
+    label: 'Créée le',
+    render: (v) => formatApiDate(v == null ? null : String(v)),
+  },
+]
 
 export default function OrganizationDetailPage() {
   const params = useParams<{ id: string }>()
@@ -209,76 +247,91 @@ export default function OrganizationDetailPage() {
       id: 'activation',
       label: 'Activation',
       content: () => (
-        <form onSubmit={handleCreateKey}>
-          <FormCard
-            title="Générer une clé d’activation"
-            footer={
-              <button type="submit" disabled={submitting === 'key'} className={primaryBtnClass}>
-                {submitting === 'key' ? 'Génération…' : 'Générer la clé'}
-              </button>
-            }
-          >
-            {keySuccess && (
-              <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">
-                {keySuccess}
-                {plainKey && (
-                  <div className="mt-2 font-mono text-base font-semibold">{plainKey}</div>
-                )}
+        <div className="space-y-6">
+          <form onSubmit={handleCreateKey}>
+            <FormCard
+              title="Générer une clé d’activation"
+              footer={
+                <button type="submit" disabled={submitting === 'key'} className={primaryBtnClass}>
+                  {submitting === 'key' ? 'Génération…' : 'Générer la clé'}
+                </button>
+              }
+            >
+              {keySuccess && (
+                <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">
+                  {keySuccess}
+                  {plainKey && (
+                    <div className="mt-2 font-mono text-base font-semibold">{plainKey}</div>
+                  )}
+                </div>
+              )}
+              <div className="grid gap-4 md:grid-cols-2">
+                <FormField label="Plan catalogue *">
+                  <select
+                    required
+                    className="input"
+                    value={keyForm.planId}
+                    onChange={(e) => setKeyForm((f) => ({ ...f, planId: e.target.value }))}
+                  >
+                    {plans.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label} ({p.code}) — {p.maxEmployees} emp. / {p.maxKiosks} kiosks
+                      </option>
+                    ))}
+                  </select>
+                </FormField>
+                <FormField label="Durée override">
+                  <select
+                    className="input"
+                    value={keyForm.durationMonths}
+                    onChange={(e) =>
+                      setKeyForm((f) => ({
+                        ...f,
+                        durationMonths: e.target.value as '' | '3' | '6' | '12',
+                      }))
+                    }
+                  >
+                    <option value="">Défaut plan</option>
+                    <option value="3">3 mois</option>
+                    <option value="6">6 mois</option>
+                    <option value="12">12 mois</option>
+                  </select>
+                </FormField>
+                <FormField label="Max employés (override)">
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Optionnel"
+                    value={keyForm.maxEmployees}
+                    onChange={(e) => setKeyForm((f) => ({ ...f, maxEmployees: e.target.value }))}
+                  />
+                </FormField>
+                <FormField label="Kiosks max (override)">
+                  <Input
+                    type="number"
+                    min={1}
+                    placeholder="Optionnel"
+                    value={keyForm.maxDevices}
+                    onChange={(e) => setKeyForm((f) => ({ ...f, maxDevices: e.target.value }))}
+                  />
+                </FormField>
               </div>
-            )}
-            <div className="grid gap-4 md:grid-cols-2">
-              <FormField label="Plan catalogue *">
-                <select
-                  required
-                  className="input"
-                  value={keyForm.planId}
-                  onChange={(e) => setKeyForm((f) => ({ ...f, planId: e.target.value }))}
-                >
-                  {plans.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label} ({p.code}) — {p.maxEmployees} emp. / {p.maxKiosks} kiosks
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <FormField label="Durée override">
-                <select
-                  className="input"
-                  value={keyForm.durationMonths}
-                  onChange={(e) =>
-                    setKeyForm((f) => ({
-                      ...f,
-                      durationMonths: e.target.value as '' | '3' | '6' | '12',
-                    }))
-                  }
-                >
-                  <option value="">Défaut plan</option>
-                  <option value="3">3 mois</option>
-                  <option value="6">6 mois</option>
-                  <option value="12">12 mois</option>
-                </select>
-              </FormField>
-              <FormField label="Max employés (override)">
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="Optionnel"
-                  value={keyForm.maxEmployees}
-                  onChange={(e) => setKeyForm((f) => ({ ...f, maxEmployees: e.target.value }))}
-                />
-              </FormField>
-              <FormField label="Kiosks max (override)">
-                <Input
-                  type="number"
-                  min={1}
-                  placeholder="Optionnel"
-                  value={keyForm.maxDevices}
-                  onChange={(e) => setKeyForm((f) => ({ ...f, maxDevices: e.target.value }))}
-                />
-              </FormField>
-            </div>
-          </FormCard>
-        </form>
+            </FormCard>
+          </form>
+
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-gray-800 dark:text-neutral-200">
+              Clés de cette organisation
+            </h3>
+            <DataTable
+              data={org?.activationKeys ?? []}
+              columns={orgKeyColumns}
+              entityLabel="clés"
+              tableId="hs-org-activation-keys-table"
+              emptyMessage="Aucune clé pour cette organisation."
+            />
+          </div>
+        </div>
       ),
     },
   ]

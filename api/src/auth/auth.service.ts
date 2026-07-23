@@ -449,13 +449,23 @@ export class AuthService {
           orderBy: { createdAt: 'desc' },
         },
         timeGateActivationKeys: {
-          select: { id: true, plan: true, expiresAt: true, usedAt: true, revokedAt: true, createdAt: true },
+          select: {
+            id: true,
+            plan: true,
+            maxEmployees: true,
+            maxKiosks: true,
+            expiresAt: true,
+            usedAt: true,
+            revokedAt: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: 'desc' },
           take: 10,
         },
       },
     });
 
+    const now = new Date();
     return companies.map((c) => ({
       id: c.id,
       name: c.name,
@@ -468,7 +478,7 @@ export class AuthService {
         maxDevices: s.maxKiosks,
       })),
       users: c.users.map((u) => ({ ...u, role: u.timeGateRole })),
-      activationKeys: c.timeGateActivationKeys,
+      activationKeys: c.timeGateActivationKeys.map((k) => this.mapActivationKey(k, now)),
     }));
   }
 
@@ -487,15 +497,24 @@ export class AuthService {
           orderBy: { createdAt: 'desc' },
         },
         timeGateActivationKeys: {
-          select: { id: true, plan: true, expiresAt: true, usedAt: true, revokedAt: true, createdAt: true },
+          select: {
+            id: true,
+            plan: true,
+            maxEmployees: true,
+            maxKiosks: true,
+            expiresAt: true,
+            usedAt: true,
+            revokedAt: true,
+            createdAt: true,
+          },
           orderBy: { createdAt: 'desc' },
-          take: 10,
         },
       },
     });
     if (!company) {
       throw new NotFoundException('Organization not found');
     }
+    const now = new Date();
     return {
       id: company.id,
       name: company.name,
@@ -508,7 +527,68 @@ export class AuthService {
         maxDevices: s.maxKiosks,
       })),
       users: company.users.map((u) => ({ ...u, role: u.timeGateRole })),
-      activationKeys: company.timeGateActivationKeys,
+      activationKeys: company.timeGateActivationKeys.map((k) => this.mapActivationKey(k, now)),
+    };
+  }
+
+  async listActivationKeys() {
+    const now = new Date();
+    const keys = await this.prisma.timeGateActivationKey.findMany({
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        companyId: true,
+        plan: true,
+        maxEmployees: true,
+        maxKiosks: true,
+        expiresAt: true,
+        usedAt: true,
+        revokedAt: true,
+        createdAt: true,
+        company: { select: { id: true, name: true, sku: true } },
+      },
+    });
+
+    return keys.map((k) => ({
+      ...this.mapActivationKey(k, now),
+      companyId: k.companyId,
+      company: k.company,
+    }));
+  }
+
+  private mapActivationKey(
+    key: {
+      id: string;
+      plan: string;
+      maxEmployees: number;
+      maxKiosks: number;
+      expiresAt: Date;
+      usedAt: Date | null;
+      revokedAt: Date | null;
+      createdAt: Date;
+    },
+    now: Date,
+  ) {
+    let status: 'AVAILABLE' | 'USED' | 'REVOKED' | 'EXPIRED' = 'AVAILABLE';
+    if (key.revokedAt) {
+      status = 'REVOKED';
+    } else if (key.usedAt) {
+      status = 'USED';
+    } else if (key.expiresAt <= now) {
+      status = 'EXPIRED';
+    }
+
+    return {
+      id: key.id,
+      plan: key.plan,
+      maxEmployees: key.maxEmployees,
+      maxKiosks: key.maxKiosks,
+      maxDevices: key.maxKiosks,
+      expiresAt: key.expiresAt,
+      usedAt: key.usedAt,
+      revokedAt: key.revokedAt,
+      createdAt: key.createdAt,
+      status,
     };
   }
 

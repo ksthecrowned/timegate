@@ -118,6 +118,12 @@ export class AuthController {
   }
 
   @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Get('super-admin/activation-keys')
+  listActivationKeys() {
+    return this.auth.listActivationKeys();
+  }
+
+  @Roles(TimeGateUserRole.SUPER_ADMIN)
   @Get('super-admin/organizations/:organizationId')
   getOrganization(@Param('organizationId', DocIdPipe) organizationId: string) {
     return this.auth.getOrganization(organizationId);

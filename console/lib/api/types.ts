@@ -115,13 +115,34 @@ export type OrganizationUser = {
   createdAt: string
 }
 
+export type ActivationKeyStatus = 'AVAILABLE' | 'USED' | 'REVOKED' | 'EXPIRED'
+
 export type OrganizationActivationKey = {
   id: string
   plan: string
+  maxEmployees?: number
+  maxKiosks?: number
+  maxDevices?: number
   expiresAt: string | null
   usedAt: string | null
   revokedAt: string | null
   createdAt: string
+  status?: ActivationKeyStatus
+}
+
+export type ActivationKey = {
+  id: string
+  companyId: string
+  plan: string
+  maxEmployees: number
+  maxKiosks: number
+  maxDevices: number
+  expiresAt: string
+  usedAt: string | null
+  revokedAt: string | null
+  createdAt: string
+  status: ActivationKeyStatus
+  company: { id: string; name: string; sku: string } | null
 }
 
 export type Organization = {

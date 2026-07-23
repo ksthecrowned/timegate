@@ -45,6 +45,22 @@ const cfg: Record<string, { label: string; cls: string }> = {
     label: "Suspendu",
     cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/10 dark:text-yellow-500",
   },
+  AVAILABLE: {
+    label: "Disponible",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-500",
+  },
+  USED: {
+    label: "Utilisée",
+    cls: "bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-500",
+  },
+  REVOKED: {
+    label: "Révoquée",
+    cls: "bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-500",
+  },
+  EXPIRED: {
+    label: "Expirée",
+    cls: "bg-gray-100 text-gray-800 dark:bg-neutral-700 dark:text-neutral-300",
+  },
   processing: {
     label: "En cours",
     cls: "bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-500",

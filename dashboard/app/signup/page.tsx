@@ -127,7 +127,7 @@ export default function SignupPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 px-4 font-semibold text-white rounded-md bg-gradient-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70"
+            className="w-full py-3 px-4 font-semibold text-white rounded-md bg-linear-to-r from-primary to-secondary text-sm hover:from-secondary hover:to-primary disabled:opacity-70"
           >
             {loading ? 'Création…' : 'Démarrer l\'essai'}
           </button>

@@ -1,5 +1,6 @@
 import { http } from '@/lib/http'
 import type {
+  ActivationKey,
   ActivationKeyResult,
   Organization,
   PlatformStats,
@@ -50,6 +51,10 @@ export function createActivationKey(organizationId: string, payload: CreateActiv
     `/auth/super-admin/organizations/${organizationId}/activation-keys`,
     payload,
   )
+}
+
+export function listActivationKeys(): Promise<ActivationKey[]> {
+  return http.get<ActivationKey[]>('/auth/super-admin/activation-keys')
 }
 
 export function setOrganizationSuspension(organizationId: string, suspended: boolean) {
