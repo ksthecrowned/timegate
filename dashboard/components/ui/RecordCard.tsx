@@ -14,8 +14,8 @@ type RecordCardProps = {
 
 const shellClass = (selected: boolean, interactive: boolean) =>
   [
-    'bg-white border border-gray-200 rounded-xl p-4 dark:bg-neutral-900 dark:border-neutral-700',
-    interactive ? 'hover:border-gray-300 dark:hover:border-neutral-600' : '',
+    'bg-surface-card border border-slate-200/80 rounded-xl p-4 dark:bg-surface-card-dark dark:border-border-dark',
+    interactive ? 'hover:border-slate-300 dark:hover:border-border-dark' : '',
     selected ? 'ring-2 ring-primary border-primary' : '',
   ]
     .filter(Boolean)

@@ -1,9 +1,19 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { EmployeeStatus, LeaveApplicationStatus, TimeGateUserRole } from '@prisma/client';
+import {
+  EmployeeStatus,
+  KioskStatus,
+  LeaveApplicationStatus,
+  TimeGateAttendanceEventStatus,
+  TimeGateUserRole,
+  WeekDay,
+} from '@prisma/client';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
+import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from '../manager/dto/manager-query.dto';
+import { ManagerService } from '../manager/manager.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { toWeekDay } from '../common/utils/punch-time.util';
 import { PlanningVsActualQueryDto } from './dto/planning-vs-actual-query.dto';
 
 function toDateOnly(value: string): Date {
@@ -50,7 +60,118 @@ export class DashboardService {
   constructor(
     private prisma: PrismaService,
     private holidayCalendar: HolidayCalendarService,
+    private manager: ManagerService,
   ) {}
+
+  async home(user: JwtUser) {
+    const companyId = this.resolveCompanyFilter(user);
+    if (!companyId) {
+      throw new BadRequestException('companyId is required for this operation');
+    }
+
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const to = toDateOnly(todayIso);
+    const from = new Date(to);
+    from.setUTCDate(from.getUTCDate() - 29);
+    const fromIso = from.toISOString().slice(0, 10);
+
+    const teamQuery = Object.assign(new ManagerTeamTodayQueryDto(), { date: todayIso });
+    const inboxQuery = Object.assign(new ManagerInboxQueryDto(), { limit: 1 });
+    const planningQuery = Object.assign(new PlanningVsActualQueryDto(), {
+      from: fromIso,
+      to: todayIso,
+    });
+
+    const [
+      team,
+      inbox,
+      kiosksOffline,
+      kiosksTotal,
+      employees,
+      branches,
+      kiosks,
+      absences30,
+      late30,
+      pendingLeaves,
+      timesheets30,
+      reviewEventsToday,
+      planning,
+    ] = await Promise.all([
+      this.manager.teamToday(teamQuery, user),
+      this.manager.inbox(inboxQuery, user),
+      this.prisma.timeGateKiosk.count({
+        where: { companyId, isActive: true, status: KioskStatus.OFFLINE },
+      }),
+      this.prisma.timeGateKiosk.count({ where: { companyId, isActive: true } }),
+      this.prisma.employee.count({
+        where: { companyId, status: EmployeeStatus.ACTIVE },
+      }),
+      this.prisma.branch.count({ where: { companyId } }),
+      this.prisma.timeGateKiosk.count({ where: { companyId } }),
+      this.prisma.timeGateAbsenceRecord.count({
+        where: { companyId, recordDate: { gte: from, lte: to } },
+      }),
+      this.prisma.timeGateLateRecord.count({
+        where: { companyId, recordDate: { gte: from, lte: to } },
+      }),
+      this.prisma.leaveApplication.count({
+        where: {
+          companyId,
+          status: LeaveApplicationStatus.OPEN,
+        },
+      }),
+      this.prisma.timeGateTimesheetDay.count({
+        where: { companyId, workDate: { gte: from, lte: to } },
+      }),
+      this.prisma.timeGateAttendanceEvent.count({
+        where: {
+          companyId,
+          status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
+          occurredAt: {
+            gte: new Date(`${todayIso}T00:00:00.000Z`),
+            lte: new Date(`${todayIso}T23:59:59.999Z`),
+          },
+        },
+      }),
+      this.planningVsActual(planningQuery, user),
+    ]);
+
+    const role = user.role === TimeGateUserRole.MANAGER ? 'MANAGER' : 'ADMIN';
+    const summary = team.summary;
+
+    return {
+      role,
+      date: todayIso,
+      today: {
+        total: summary.total,
+        present: summary.present,
+        absent: summary.absent,
+        onLeave: summary.onLeave,
+        late: summary.late,
+        onBreak: summary.onBreak,
+        reviewRequired: summary.reviewRequired,
+        off: summary.off,
+        reviewEventsToday,
+        inboxTotal: inbox.counts.total,
+        inbox: inbox.counts,
+        kiosksOffline,
+        kiosksTotal,
+      },
+      kpis: {
+        employees,
+        branches,
+        kiosks,
+        absences30,
+        late30,
+        pendingLeaves,
+        timesheets30,
+        coveragePercent: planning.coveragePercent,
+        plannedMinutes: planning.plannedMinutes,
+        workedMinutes: planning.workedMinutes,
+      },
+      planningVsActual: planning,
+    };
+  }
 
   async planningVsActual(query: PlanningVsActualQueryDto, user: JwtUser) {
     const from = toDateOnly(query.from);
@@ -79,7 +200,13 @@ export class DashboardService {
         companyId: true,
         holidayListId: true,
         defaultShiftId: true,
-        defaultShift: { select: { startTime: true, endTime: true } },
+        defaultShift: {
+          select: {
+            startTime: true,
+            endTime: true,
+            weekDays: { select: { day: true, startTime: true, endTime: true } },
+          },
+        },
       },
     });
 
@@ -93,7 +220,13 @@ export class DashboardService {
           employeeId: { in: employeeIds },
         },
         include: {
-          shiftType: { select: { startTime: true, endTime: true } },
+          shiftType: {
+            select: {
+              startTime: true,
+              endTime: true,
+              weekDays: { select: { day: true, startTime: true, endTime: true } },
+            },
+          },
         },
       }),
       this.prisma.leaveApplication.findMany({
@@ -154,7 +287,26 @@ export class DashboardService {
         const employeeAssignments = assignmentsByEmployee.get(employee.id) ?? [];
         const activeAssignment = employeeAssignments.find((a) => isAssignmentActive(a, day));
         const shift = activeAssignment?.shiftType ?? employee.defaultShift;
-        const planned = shift ? shiftMinutes(shift.startTime, shift.endTime) : 480;
+        if (!shift) continue;
+
+        const weekDays = shift.weekDays as Array<{
+          day: WeekDay;
+          startTime: string;
+          endTime: string;
+        }>;
+        const weekDayRow =
+          weekDays.length > 0 ? weekDays.find((row) => row.day === toWeekDay(day)) : null;
+        if (weekDays.length > 0 && !weekDayRow) {
+          continue;
+        }
+
+        const planned = weekDayRow
+          ? (() => {
+              const [sh, sm] = weekDayRow.startTime.split(':').map(Number);
+              const [eh, em] = weekDayRow.endTime.split(':').map(Number);
+              return Math.max(0, eh * 60 + (em || 0) - (sh * 60 + (sm || 0)));
+            })()
+          : shiftMinutes(shift.startTime, shift.endTime);
 
         plannedMinutes += planned;
         weekPlanned.set(week, (weekPlanned.get(week) ?? 0) + planned);

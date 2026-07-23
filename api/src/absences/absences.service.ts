@@ -14,6 +14,7 @@ import { generateDocId } from '../common/utils/doc-id.util';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
 import { CreateAbsenceDto } from './dto/create-absence.dto';
 import { UpdateAbsenceDto } from './dto/update-absence.dto';
+import { PunchWindowService } from '../attendance/punch-window.service';
 
 type AbsenceRow = Prisma.TimeGateAbsenceRecordGetPayload<{
   include: {
@@ -23,7 +24,10 @@ type AbsenceRow = Prisma.TimeGateAbsenceRecordGetPayload<{
 
 @Injectable()
 export class AbsencesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private punchWindows: PunchWindowService,
+  ) {}
 
   async create(dto: CreateAbsenceDto) {
     const employee = await this.prisma.employee.findUnique({
@@ -36,6 +40,12 @@ export class AbsencesService {
     }
 
     const recordDate = this.toDateOnly(dto.date);
+    const windows = await this.punchWindows.resolveForEmployee(dto.employeeId, recordDate);
+    if (!windows) {
+      throw new BadRequestException(
+        "Impossible de créer une absence : ce jour n'est pas prévu dans le planning de l'employé (affectation, horaire ou défaut entreprise).",
+      );
+    }
 
     try {
       const created = await this.prisma.timeGateAbsenceRecord.create({

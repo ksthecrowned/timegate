@@ -65,7 +65,7 @@ export default function EmployeeKioskPinCard({ employeeId, hasKioskPin, onUpdate
               type="button"
               disabled={saving}
               onClick={() => void save('')}
-              className="rounded-lg border px-3 py-2 text-sm dark:border-neutral-700"
+              className="rounded-lg border px-3 py-2 text-sm dark:border-border-dark"
             >
               Supprimer PIN
             </button>
@@ -73,7 +73,7 @@ export default function EmployeeKioskPinCard({ employeeId, hasKioskPin, onUpdate
         </div>
       </div>
     </DetailCard>
-    // <div className="rounded-xl border p-4 space-y-3 dark:border-neutral-700">
+    // <div className="rounded-xl border p-4 space-y-3 dark:border-border-dark">
     //   <h3 className="font-semibold">PIN kiosk (fallback)</h3>
     //   <p className="text-sm text-gray-500 dark:text-neutral-400">
     //     Code numérique 4–6 chiffres pour pointage sur borne si la reconnaissance faciale échoue.
@@ -103,7 +103,7 @@ export default function EmployeeKioskPinCard({ employeeId, hasKioskPin, onUpdate
     //         type="button"
     //         disabled={saving}
     //         onClick={() => void save('')}
-    //         className="rounded-lg border px-3 py-2 text-sm dark:border-neutral-700"
+    //         className="rounded-lg border px-3 py-2 text-sm dark:border-border-dark"
     //       >
     //         Supprimer PIN
     //       </button>

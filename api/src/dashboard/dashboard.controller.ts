@@ -14,6 +14,12 @@ export class DashboardController {
   constructor(private readonly dashboard: DashboardService) {}
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Get('home')
+  home(@CurrentUser() user: JwtUser) {
+    return this.dashboard.home(user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Get('planning-vs-actual')
   planningVsActual(@CurrentUser() user: JwtUser, @Query() query: PlanningVsActualQueryDto) {
     return this.dashboard.planningVsActual(query, user);

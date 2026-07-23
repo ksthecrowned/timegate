@@ -52,7 +52,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <div className="toast-container">
         {toasts.map(toast => (
           <div key={toast.id}
-            className="flex items-start gap-x-3 p-4 bg-white border border-gray-200 rounded-xl shadow-lg dark:bg-neutral-800 dark:border-neutral-700 max-w-sm animate-[slideIn_0.2s_ease-out]"
+            className="flex items-start gap-x-3 p-4 bg-surface-card border border-slate-200/80 rounded-xl shadow-lg dark:bg-surface-card-dark dark:border-border-dark max-w-sm animate-[slideIn_0.2s_ease-out]"
             style={{ animation: 'slideIn 0.2s ease-out' }}>
             <div className="shrink-0 mt-0.5">{icons[toast.type]}</div>
             <div>

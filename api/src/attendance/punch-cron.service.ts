@@ -12,6 +12,8 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { dateToMinutes } from '../common/utils/punch-time.util';
+import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
+import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window.service';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -34,6 +36,7 @@ export class PunchCronService {
     private readonly prisma: PrismaService,
     private readonly punchWindows: PunchWindowService,
     private readonly notifications: NotificationsService,
+    private readonly holidayCalendar: HolidayCalendarService,
   ) {}
 
   /** Fin fenêtre arrivée : absent auto si pas de CHECK_IN. */
@@ -46,11 +49,31 @@ export class PunchCronService {
 
     const employees = await this.prisma.employee.findMany({
       where: { status: EmployeeStatus.ACTIVE },
-      select: { id: true, companyId: true, employeeName: true, firstName: true, lastName: true, branchId: true },
+      select: {
+        id: true,
+        companyId: true,
+        employeeName: true,
+        firstName: true,
+        lastName: true,
+        branchId: true,
+        holidayListId: true,
+      },
     });
+
+    const holidayIndex = await this.holidayCalendar.buildIndexForEmployees(
+      employees.map((e) => ({
+        id: e.id,
+        companyId: e.companyId,
+        holidayListId: e.holidayListId,
+      })),
+      dayStart,
+      dayStart,
+    );
 
     let marked = 0;
     for (const employee of employees) {
+      if (isEmployeeHoliday(holidayIndex, employee.id, dayStart)) continue;
+
       const onLeave = await this.prisma.leaveApplication.findFirst({
         where: {
           employeeId: employee.id,

@@ -179,7 +179,7 @@ export default function CopilotPanel() {
               onChange={(e) => setInput(e.target.value)}
               placeholder="Posez votre question…"
               disabled={loading || quotaBlocked || !canUseCopilot}
-              className="flex-1 rounded-lg border border-slate-200/80 px-3 py-2 text-sm dark:border-border-dark dark:bg-white/10"
+              className="flex-1 rounded-lg border border-slate-200/80 bg-surface px-3 py-2 text-sm dark:border-border-dark dark:bg-surface-dark"
             />
             <button
               type="submit"

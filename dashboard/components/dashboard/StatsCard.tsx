@@ -10,7 +10,7 @@ interface StatsCardProps {
 
 export default function StatsCard({ title, value, subtitle, icon, iconBg = 'bg-primary/10 text-primary', trend }: StatsCardProps) {
   return (
-    <div className="flex flex-col bg-white border shadow-xs rounded-xl dark:bg-neutral-900 dark:border-neutral-700">
+    <div className="flex flex-col tg-card">
       <div className="p-4 md:p-5">
         <div className="flex items-center gap-x-4">
           {icon && (

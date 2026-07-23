@@ -55,7 +55,7 @@ export default function AdminUserForm({ onSuccess, onCancel }: AdminUserFormProp
   return (
     <form onSubmit={handleSubmit}>
       <FormCard
-        title="Nouvel utilisateur admin"
+        title="Nouvel utilisateur"
         footer={
           <>
             {onCancel && (

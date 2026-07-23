@@ -35,7 +35,7 @@ export default function AuthenticatedShell({ children }: { children: React.React
                 <CopilotPanel />
                 <main className="w-full lg:ps-[260px] mt-16">
                   <SubscriptionBanner />
-                  <div className="px-4 py-6 sm:px-6 sm:py-4 space-y-6 page-enter">
+                  <div className="px-4 py-6 sm:py-4 space-y-6 page-enter">
                     <SubscriptionWritePageGuard>{children}</SubscriptionWritePageGuard>
                   </div>
                 </main>

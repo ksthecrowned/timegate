@@ -1,13 +1,13 @@
 'use client'
 
 import { ApiErrorBanner, secondaryBtnClass } from '@/components/timegate/ui'
+import WriteLink from '@/components/timegate/WriteLink'
 import { FormField, Input } from '@/components/ui/FormField'
 import PageHeader from '@/components/ui/PageHeader'
 import { HttpError } from '@/lib/http'
 import { listBranches } from '@/lib/timegate/branches'
 import { getPlanningCalendar, type PlanningCalendarDay } from '@/lib/timegate/planning'
 import Link from 'next/link'
-import WriteLink from '@/components/timegate/WriteLink'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 
 function monthBounds(year: number, month: number) {
@@ -21,8 +21,10 @@ function weekdayLabels() {
 }
 
 function leaveStatusClass(status: string) {
-  if (status === 'APPROVED') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
-  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300'
+  if (status === 'APPROVED') {
+    return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+  }
+  return 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300'
 }
 
 function leaveStatusLabel(status: string) {
@@ -104,8 +106,6 @@ export default function ManagerLeavesCalendarPage() {
     <div className="space-y-4">
       <PageHeader
         breadcrumbs={[{ label: 'Manager', href: '/' }, { label: 'Calendrier congés' }]}
-        // title="Calendrier congés équipe"
-        // subtitle="Congés approuvés et demandes en attente — vue mensuelle."
         action={
           <Link href="/manager/inbox" className={secondaryBtnClass}>
             Boîte de réception
@@ -115,7 +115,7 @@ export default function ManagerLeavesCalendarPage() {
 
       <ApiErrorBanner message={error} />
 
-      <div className="flex flex-wrap gap-3 items-end">
+      <div className="flex flex-wrap items-end gap-3">
         <div className="w-28">
           <FormField label="Année">
             <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
@@ -123,13 +123,19 @@ export default function ManagerLeavesCalendarPage() {
         </div>
         <div className="w-28">
           <FormField label="Mois">
-            <Input type="number" min={1} max={12} value={month} onChange={(e) => setMonth(Number(e.target.value))} />
+            <Input
+              type="number"
+              min={1}
+              max={12}
+              value={month}
+              onChange={(e) => setMonth(Number(e.target.value))}
+            />
           </FormField>
         </div>
         <div className="min-w-[220px]">
           <FormField label="Branche">
             <select
-              className="py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600  "
+              className="block w-full rounded-lg border border-slate-200/80 bg-surface px-4 py-3 text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:pointer-events-none disabled:opacity-50 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
               value={branchId}
               onChange={(e) => setBranchId(e.target.value)}
             >
@@ -144,20 +150,25 @@ export default function ManagerLeavesCalendarPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3 text-xs">
+      <div className="flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-400">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-emerald-200" /> Approuvé
+          <span className="size-3 rounded bg-emerald-200 dark:bg-emerald-800/80" /> Approuvé
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-3 rounded bg-amber-200" /> En attente
+          <span className="size-3 rounded bg-amber-200 dark:bg-amber-800/80" /> En attente
         </span>
       </div>
 
-      {loading ? <p className="text-sm text-gray-500">Chargement…</p> : null}
+      {loading ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Chargement…</p>
+      ) : null}
 
       <div className="grid grid-cols-7 gap-2">
         {weekdayLabels().map((label) => (
-          <div key={label} className="text-center text-xs font-semibold text-gray-500 py-1">
+          <div
+            key={label}
+            className="py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
+          >
             {label}
           </div>
         ))}
@@ -166,16 +177,22 @@ export default function ManagerLeavesCalendarPage() {
             key={iso}
             className={`min-h-28 rounded-lg border p-2 text-xs ${
               inMonth
-                ? 'border-gray-200 bg-white dark:border-neutral-700 dark:bg-neutral-900'
-                : 'border-transparent bg-gray-50 text-gray-400 dark:bg-neutral-950'
+                ? 'border-slate-200/80 bg-surface-card dark:border-border-dark dark:bg-surface-card-dark'
+                : 'border-transparent bg-surface text-slate-400 dark:bg-surface-dark dark:text-slate-600'
             }`}
           >
-            <div className="font-semibold mb-1">{iso.slice(8)}</div>
+            <div
+              className={`mb-1 font-semibold ${
+                inMonth ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-600'
+              }`}
+            >
+              {iso.slice(8)}
+            </div>
             {day?.leaves.map((leave) => (
               <WriteLink
                 key={`${iso}-${leave.id}`}
                 href={`/leaves/${leave.id}/edit`}
-                className={`block truncate rounded px-1 py-0.5 mb-0.5 text-[10px] hover:opacity-80 ${leaveStatusClass(leave.status)}`}
+                className={`mb-0.5 block truncate rounded px-1 py-0.5 text-[10px] hover:opacity-80 ${leaveStatusClass(leave.status)}`}
                 title={`${leave.employee.firstName} ${leave.employee.lastName} — ${leave.leaveType}`}
               >
                 {leave.employee.firstName} {leave.employee.lastName?.[0]}.
@@ -185,32 +202,37 @@ export default function ManagerLeavesCalendarPage() {
         ))}
       </div>
 
-      <div className="tg-card shadow-2xs p-4">
-        <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+      <div className="tg-card p-4 shadow-2xs">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
           Congés du mois ({monthLeaves.length})
         </h3>
         {monthLeaves.length === 0 ? (
-          <p className="text-sm text-gray-500">Aucun congé sur cette période.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">Aucun congé sur cette période.</p>
         ) : (
           <ul className="space-y-2">
             {monthLeaves.map((leave) => (
               <li
                 key={leave.id}
-                className="flex flex-wrap items-center justify-between gap-2 text-sm border-b border-gray-100 dark:border-neutral-800 pb-2 last:border-0"
+                className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 text-sm last:border-0 dark:border-border-dark"
               >
                 <div>
-                  <p className="font-medium text-gray-900 dark:text-white">
+                  <p className="font-medium text-slate-900 dark:text-slate-100">
                     {leave.employee.firstName} {leave.employee.lastName}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     {leave.leaveType} · {leave.fromDate} → {leave.toDate}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-xs ${leaveStatusClass(leave.status)}`}>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${leaveStatusClass(leave.status)}`}
+                  >
                     {leaveStatusLabel(leave.status)}
                   </span>
-                  <WriteLink href={`/leaves/${leave.id}/edit`} className="text-xs text-primary hover:underline">
+                  <WriteLink
+                    href={`/leaves/${leave.id}/edit`}
+                    className="text-xs font-medium text-primary hover:underline dark:text-accent"
+                  >
                     Voir
                   </WriteLink>
                 </div>

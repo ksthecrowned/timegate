@@ -9,23 +9,23 @@ import { useSubscriptionAccess } from '@/components/providers/SubscriptionAccess
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
-function daysLeftShort(days: number | null | undefined): string | null {
+function daysLeftLabel(days: number | null | undefined): string | null {
   if (days == null || days < 0) return null
-  if (days === 0) return 'expire aujourd’hui'
-  return `${days}j restants`
+  if (days === 0) return "Expire aujourd'hui"
+  return `${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`
 }
 
 export default function SidebarPlanWidget() {
   const { data: session } = useSession()
   const { status, loading } = useSubscriptionAccess()
 
-  const role = session?.user?.role
-  const isAdmin = role === 'ADMIN'
+  const isAdmin = session?.user?.role === 'ADMIN'
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-slate-200/80 px-2.5 py-2 dark:border-border-dark">
-        <div className="h-3 w-28 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+      <div className="rounded-xl border border-slate-200/80 px-3 py-3 dark:border-border-dark">
+        <div className="h-3.5 w-32 animate-pulse rounded bg-slate-200 dark:bg-slate-700" />
+        <div className="mt-2 h-3 w-40 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
       </div>
     )
   }
@@ -36,7 +36,7 @@ export default function SidebarPlanWidget() {
   const plan = sub.plan
   const label = planLabel(plan)
   const upgradeTarget = upgradeTargetPlan(plan)
-  const daysLeft = daysLeftShort(sub.daysUntilExpiry)
+  const daysLeft = daysLeftLabel(sub.daysUntilExpiry)
   const isTrial = status.status === 'TRIAL'
   const isActive = status.status === 'ACTIVE'
   const needsActivation = status.readOnly || status.blocked || isTrial
@@ -52,36 +52,50 @@ export default function SidebarPlanWidget() {
         : 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/40 dark:bg-emerald-950/20'
 
   const badgeTone = status.blocked
-    ? 'text-red-700 dark:text-red-300'
+    ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'
     : status.readOnly
-      ? 'text-amber-800 dark:text-amber-200'
+      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200'
       : isTrial
-        ? 'text-sky-700 dark:text-sky-300'
-        : 'text-emerald-700 dark:text-emerald-300'
+        ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+        : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
 
   const activateLabel =
     isTrial && upgradeTarget ? `Passer au ${upgradeTarget}` : 'Activer une clé'
 
-  const metaParts = [
-    sub.usage
-      ? `${sub.usage.employees}/${sub.usage.maxEmployees} emp. · ${sub.usage.kiosks}/${sub.usage.maxKiosks} kiosks`
-      : null,
-    daysLeft && (isTrial || status.readOnly || isActive) ? daysLeft : null,
-  ].filter(Boolean)
+  const usageLine = sub.usage
+    ? `${sub.usage.employees}/${sub.usage.maxEmployees} employés · ${sub.usage.kiosks}/${sub.usage.maxKiosks} kiosks`
+    : null
+
+  const showDays = Boolean(daysLeft && (isTrial || status.readOnly || isActive || status.blocked))
 
   return (
-    <div className={`rounded-lg border px-2.5 py-2 ${tone}`}>
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <p className="truncate text-xs font-semibold text-slate-900 dark:text-white">
-          {label}
-          {showStatusBadge ? (
-            <span className={`font-medium ${badgeTone}`}> · {statusShort}</span>
+    <div className={`rounded-xl border px-3 py-3 ${tone}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 space-y-1">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">{label}</p>
+            {showStatusBadge ? (
+              <span
+                className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badgeTone}`}
+              >
+                {statusShort}
+              </span>
+            ) : null}
+          </div>
+
+          {usageLine ? (
+            <p className="text-xs leading-snug text-slate-600 dark:text-slate-300">{usageLine}</p>
           ) : null}
-        </p>
+
+          {showDays ? (
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{daysLeft}</p>
+          ) : null}
+        </div>
+
         {isAdmin ? (
           <Link
             href="/subscriptions"
-            className="shrink-0 text-[11px] font-medium text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary"
+            className="shrink-0 pt-0.5 text-xs font-medium text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-primary"
             title="Voir l'abonnement"
           >
             Détails
@@ -89,16 +103,10 @@ export default function SidebarPlanWidget() {
         ) : null}
       </div>
 
-      {metaParts.length > 0 ? (
-        <p className="mt-0.5 truncate text-[11px] leading-tight text-slate-500 dark:text-slate-400">
-          {metaParts.join(' · ')}
-        </p>
-      ) : null}
-
       {isAdmin && needsActivation ? (
         <Link
           href="/activate"
-          className="mt-1.5 inline-flex w-full items-center justify-center rounded-md bg-primary px-2 py-1 text-[11px] font-semibold text-white hover:bg-primary/90"
+          className="mt-2.5 inline-flex w-full items-center justify-center rounded-lg bg-primary px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-primary/90"
         >
           {activateLabel}
         </Link>

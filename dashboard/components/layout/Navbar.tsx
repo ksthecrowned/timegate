@@ -386,21 +386,18 @@ import OrgLogo from '@/components/brand/OrgLogo'
 import CopilotNavButton from '@/components/ai/CopilotNavButton'
 import GlobalSearchBox from '@/components/layout/GlobalSearchBox'
 import NotificationBell from '@/components/layout/NotificationBell'
+import { useClickOutside } from '@/lib/hooks/use-click-outside'
 import { getRoleLabel } from '@/lib/timegate/roles'
 import { signOut, useSession } from 'next-auth/react'
 import Link from 'next/link'
-import { useState } from 'react'
-
-function getGreeting() {
-  const month = new Date().getMonth() + 1
-  if (month === 12) return '🎄 Bonne fête de noël'
-  if (month === 1) return '🎊 Heureux nouvel an'
-  return '💼 Bon service'
-}
+import { useCallback, useRef, useState } from 'react'
 
 export default function Navbar() {
   const { data: session } = useSession()
+  const profileRef = useRef<HTMLDivElement>(null)
   const [profileOpen, setProfileOpen] = useState(false)
+  const closeProfile = useCallback(() => setProfileOpen(false), [])
+  useClickOutside(profileRef, profileOpen, closeProfile)
 
   const adminEmail = session?.user?.email ?? 'admin@timegate.com'
   const displayName =
@@ -483,15 +480,15 @@ export default function Navbar() {
               </button>
 
               {/* Dropdown profile */}
-              <div className="hs-dropdown relative inline-flex">
+              <div className="hs-dropdown relative inline-flex" ref={profileRef}>
                 <button
                   id="hs-dropdown-custom-trigger"
                   type="button"
-                  onClick={() => setProfileOpen(!profileOpen)}
+                  onClick={() => setProfileOpen((v) => !v)}
                   className="hs-dropdown-toggle inline-flex items-center gap-x-2 py-1 ps-1 pe-3 bg-black/10 dark:bg-white/10 rounded-full text-sm text-black dark:text-white hover:bg-black/20 dark:hover:bg-white/20 focus:outline-none focus:bg-black/20 dark:focus:bg-white/20"
                   aria-haspopup="menu"
                   aria-expanded={profileOpen}
-                  aria-label="Dropdown"
+                  aria-label="Menu profil"
                 >
                   <img
                     className="size-9 object-cover object-center rounded-full"
@@ -517,58 +514,51 @@ export default function Navbar() {
                   </svg>
                 </button>
 
-                {profileOpen && (
-                  <>
-                    {/* Overlay pour fermer */}
-                    <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
-
-                    <div
-                      className="absolute right-0 top-full mt-2 z-20 min-w-60 tg-card shadow-2xs hover:border-primary/40 transition-colors rounded-lg"
-                      role="menu"
-                      aria-orientation="vertical"
-                      aria-labelledby="hs-dropdown-custom-trigger"
-                    >
-                      {/* Infos utilisateur */}
-                      <div className="py-3 px-4 border-b border-slate-200/80 dark:border-border-dark">
-                        <p className="text-sm text-gray-500 dark:text-neutral-400">
-                          {roleLabel}
-                        </p>
-                        <p className="text-sm font-medium text-gray-800 dark:text-neutral-300">
-                          {adminEmail}
-                        </p>
-                      </div>
-
-                      {/* Section Informations */}
-                      <div className="p-1 space-y-0.5">
-                        <span className="block pt-2 pb-1 px-3 text-xs font-medium uppercase text-gray-400 dark:text-neutral-500">
-                          Informations
-                        </span>
-                        <Link
-                          href="/profile"
-                          onClick={() => setProfileOpen(false)}
-                          className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-black/20 focus:outline-none focus:bg-transparent focus:text-primary dark:text-neutral-400 dark:hover:bg-black/20 dark:hover:text-neutral-300 dark:focus:bg-neutral-700"
-                        >
-                          <i className="fa-solid fa-id-card-clip shrink-0 size-4" />
-                          Profil
-                        </Link>
-                      </div>
-
-                      {/* Section Compte */}
-                      <div className="p-1 space-y-0.5">
-                        <span className="block pt-2 pb-1 px-3 text-xs font-medium uppercase text-gray-400 dark:text-neutral-500">
-                          Compte
-                        </span>
-                        <button
-                          onClick={() => { setProfileOpen(false); handleLogout() }}
-                          className="w-full flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-red-600 hover:bg-secondary/20 focus:outline-none focus:bg-transparent focus:text-primary dark:text-red-600 dark:hover:bg-secondary/20 dark:hover:text-white dark:focus:bg-neutral-700"
-                        >
-                          <i className="fa-solid fa-power-off shrink-0 size-4" />
-                          Déconnexion
-                        </button>
-                      </div>
+                {profileOpen ? (
+                  <div
+                    className="absolute right-0 top-full mt-2 z-20 min-w-60 tg-card shadow-2xs rounded-lg"
+                    role="menu"
+                    aria-orientation="vertical"
+                    aria-labelledby="hs-dropdown-custom-trigger"
+                  >
+                    <div className="py-3 px-4 border-b border-slate-200/80 dark:border-border-dark">
+                      <p className="text-sm text-slate-500 dark:text-slate-400">
+                        {roleLabel}
+                      </p>
+                      <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                        {adminEmail}
+                      </p>
                     </div>
-                  </>
-                )}
+
+                    <div className="p-1 space-y-0.5">
+                      <span className="block pt-2 pb-1 px-3 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        Informations
+                      </span>
+                      <Link
+                        href="/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 focus:text-primary dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-accent"
+                      >
+                        <i className="fa-solid fa-id-card-clip shrink-0 size-4" />
+                        Profil
+                      </Link>
+                    </div>
+
+                    <div className="p-1 space-y-0.5">
+                      <span className="block pt-2 pb-1 px-3 text-xs font-medium uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                        Compte
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => { setProfileOpen(false); handleLogout() }}
+                        className="w-full flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-red-600 hover:bg-red-50 focus:outline-none focus:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
+                      >
+                        <i className="fa-solid fa-power-off shrink-0 size-4" />
+                        Déconnexion
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
               </div>
               {/* End Dropdown */}
 

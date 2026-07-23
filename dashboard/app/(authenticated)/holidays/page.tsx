@@ -7,6 +7,7 @@ import HolidayCalendar from '@/components/timegate/HolidayCalendar'
 import { deleteHoliday, listHolidaysForYear } from '@/lib/timegate/holidays'
 import type { Holiday } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { ApiErrorBanner } from '@/components/timegate/ui'
 
 export default function HolidaysPage() {
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -46,11 +47,7 @@ export default function HolidaysPage() {
         action={<AddPageLink href="/holidays/new" label="Ajouter un jour férié" />}
       />
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <ApiErrorBanner message={error} />
 
       <HolidayCalendar
         year={year}

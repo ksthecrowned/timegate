@@ -25,6 +25,10 @@ export function stripLegacyTimegatePrefix(pathname: string): string {
   return pathname
 }
 
+/**
+ * Navigation dashboard — sections regroupées :
+ * Menu · Manager · Structure & planning · RH · Présence · Paie · Administration
+ */
 export const timegateNavSections: NavSection[] = [
   {
     title: 'Menu principal',
@@ -40,45 +44,22 @@ export const timegateNavSections: NavSection[] = [
     ],
   },
   {
-    title: 'Organisation',
+    title: 'Structure & planning',
     roles: ['ADMIN', 'MANAGER'],
     items: [
       {
-        label: 'Configuration',
-        href: '/organization',
-        faIcon: 'fa-solid fa-building-circle-check',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Paramètres pointage',
-        href: '/organization/attendance-settings',
-        faIcon: 'fa-solid fa-sliders',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Règles notifications',
-        href: '/organization/notification-rules',
-        faIcon: 'fa-solid fa-bell',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Consommation IA',
-        href: '/organization/ai-usage',
-        faIcon: 'fa-solid fa-wand-magic-sparkles',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Reconnaissance & retards',
-        href: '/system-config',
-        faIcon: 'fa-solid fa-face-smile',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Structure',
-        faIcon: 'fa-solid fa-building',
+        label: 'Lieux',
+        faIcon: 'fa-solid fa-map-location-dot',
         children: [
           { label: 'Branches', href: '/branches', faIcon: 'fa-solid fa-code-branch' },
           { label: 'Kiosques', href: '/kiosks', faIcon: 'fa-solid fa-tablet-screen-button' },
+        ],
+      },
+      {
+        label: 'Organisation',
+        faIcon: 'fa-solid fa-sitemap',
+        roles: ['ADMIN'],
+        children: [
           {
             label: 'Départements',
             href: '/departments',
@@ -91,6 +72,12 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-id-badge',
             roles: ['ADMIN'],
           },
+        ],
+      },
+      {
+        label: 'Temps',
+        faIcon: 'fa-solid fa-calendar-days',
+        children: [
           {
             label: 'Horaires',
             href: '/shift-types',
@@ -120,16 +107,29 @@ export const timegateNavSections: NavSection[] = [
     items: [
       { label: 'Employés', href: '/employees', faIcon: 'fa-solid fa-users' },
       {
-        label: 'Congés',
-        href: '/leaves',
+        label: 'Congés & calendrier',
         faIcon: 'fa-solid fa-umbrella-beach',
         roles: ['ADMIN'],
-      },
-      {
-        label: 'Types de congé',
-        href: '/leave-types',
-        faIcon: 'fa-solid fa-list',
-        roles: ['ADMIN'],
+        children: [
+          {
+            label: 'Congés',
+            href: '/leaves',
+            faIcon: 'fa-solid fa-umbrella-beach',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Types de congé',
+            href: '/leave-types',
+            faIcon: 'fa-solid fa-list',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Jours fériés',
+            href: '/holidays',
+            faIcon: 'fa-solid fa-calendar-day',
+            roles: ['ADMIN'],
+          },
+        ],
       },
       { label: 'Absences', href: '/absences', faIcon: 'fa-solid fa-user-xmark' },
       { label: 'Retards', href: '/late-records', faIcon: 'fa-solid fa-hourglass-half' },
@@ -180,36 +180,74 @@ export const timegateNavSections: NavSection[] = [
     ],
   },
   {
-    title: 'Calendrier',
-    roles: ['ADMIN'],
-    items: [{ label: 'Jours fériés', href: '/holidays', faIcon: 'fa-solid fa-calendar-day' }],
-  },
-  {
     title: 'Administration',
     roles: ['ADMIN', 'MANAGER'],
     items: [
       {
-        label: 'Utilisateurs',
-        href: '/admins',
-        faIcon: 'fa-solid fa-user-shield',
+        label: 'Configuration',
+        faIcon: 'fa-solid fa-gears',
         roles: ['ADMIN'],
+        children: [
+          {
+            label: 'Organisation',
+            href: '/organization',
+            faIcon: 'fa-solid fa-building-circle-check',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Paramètres pointage',
+            href: '/organization/attendance-settings',
+            faIcon: 'fa-solid fa-sliders',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Règles notifications',
+            href: '/organization/notification-rules',
+            faIcon: 'fa-solid fa-bell',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Consommation IA',
+            href: '/organization/ai-usage',
+            faIcon: 'fa-solid fa-wand-magic-sparkles',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Reconnaissance & retards',
+            href: '/system-config',
+            faIcon: 'fa-solid fa-face-smile',
+            roles: ['ADMIN'],
+          },
+        ],
+      },
+      {
+        label: 'Accès',
+        faIcon: 'fa-solid fa-shield-halved',
+        children: [
+          {
+            label: 'Utilisateurs',
+            href: '/users',
+            faIcon: 'fa-solid fa-users-gear',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Appareils en attente',
+            href: '/trusted-devices',
+            faIcon: 'fa-solid fa-mobile-screen',
+            roles: ['ADMIN', 'MANAGER'],
+          },
+          {
+            label: "Journaux d'audit",
+            href: '/audit-logs',
+            faIcon: 'fa-solid fa-clipboard-list',
+            roles: ['ADMIN'],
+          },
+        ],
       },
       {
         label: 'Mon abonnement',
         href: '/subscriptions',
         faIcon: 'fa-solid fa-credit-card',
-        roles: ['ADMIN'],
-      },
-      {
-        label: 'Appareils en attente',
-        href: '/trusted-devices',
-        faIcon: 'fa-solid fa-mobile-screen',
-        roles: ['ADMIN', 'MANAGER'],
-      },
-      {
-        label: 'Journaux d\'audit',
-        href: '/audit-logs',
-        faIcon: 'fa-solid fa-clipboard-list',
         roles: ['ADMIN'],
       },
     ],
@@ -228,6 +266,7 @@ function filterItems(items: NavItem[], role?: TimeGateRole | null): NavItem[] {
       if (item.children) {
         const children = filterItems(item.children, role)
         if (children.length === 0) return null
+        if (!itemVisible(item, role)) return null
         return { ...item, children }
       }
       return itemVisible(item, role) ? item : null

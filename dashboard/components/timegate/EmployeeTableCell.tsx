@@ -27,7 +27,7 @@ export default function EmployeeTableCell({
         <img
           src={photoUrl}
           alt={name}
-          className={`${sizeClass} shrink-0 rounded-full object-cover bg-gray-100 dark:bg-neutral-700`}
+          className={`${sizeClass} shrink-0 rounded-full object-cover bg-slate-100 dark:bg-surface-elevated-dark`}
         />
       ) : (
         <span

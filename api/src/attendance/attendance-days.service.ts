@@ -28,12 +28,14 @@ import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { buildAttendanceDaysPdf } from './attendance-pdf.util';
 import { createHash } from 'crypto';
+import { PunchWindowService } from './punch-window.service';
 
 @Injectable()
 export class AttendanceDaysService {
   constructor(
     private prisma: PrismaService,
     private holidayCalendar: HolidayCalendarService,
+    private punchWindows: PunchWindowService,
   ) {}
 
   async findAll(query: FindAttendanceDaysQueryDto, user?: JwtUser) {
@@ -385,6 +387,7 @@ export class AttendanceDaysService {
         `${employee.firstName ?? ''} ${employee.lastName ?? ''}`.trim() || employee.employeeName;
 
       for (const day of days) {
+        const windows = await this.punchWindows.resolveForEmployee(employee.id, day);
         const status = this.resolveDayStatus({
           employeeId: employee.id,
           day,
@@ -393,6 +396,7 @@ export class AttendanceDaysService {
           checkins,
           acceptedEvents,
           isHoliday: isEmployeeHoliday(holidayIndex, employee.id, day),
+          isScheduled: windows != null,
         });
 
         if (!status) continue;
@@ -530,9 +534,18 @@ export class AttendanceDaysService {
     checkins: Array<{ employeeId: string; time: Date; logType: string }>;
     acceptedEvents: Array<{ employeeId: string | null; occurredAt: Date; type: string }>;
     isHoliday: boolean;
+    isScheduled: boolean;
   }): AttendanceStatus | null {
-    const { employeeId, day, todayStart, leaves, checkins, acceptedEvents, isHoliday } =
-      params;
+    const {
+      employeeId,
+      day,
+      todayStart,
+      leaves,
+      checkins,
+      acceptedEvents,
+      isHoliday,
+      isScheduled,
+    } = params;
 
     const onLeave = leaves.some(
       (l) =>
@@ -559,6 +572,11 @@ export class AttendanceDaysService {
 
     if (isHoliday) {
       return AttendanceStatus.ON_HOLIDAY;
+    }
+
+    // Hors planning résolu (affectation / horaire employé / défaut entreprise) : pas d'absence.
+    if (!isScheduled) {
+      return null;
     }
 
     if (day >= todayStart) {

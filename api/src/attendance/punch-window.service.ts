@@ -47,8 +47,26 @@ export class PunchWindowService {
 
     if (!shiftType) return null;
 
+    // Jours ouvrés : ceux de l'horaire résolu ; si non configurés, ceux du défaut entreprise.
+    let weekDays = shiftType.weekDays;
+    if (weekDays.length === 0 && employee.companyId) {
+      const settings = await this.prisma.timeGateSystemSettings.findUnique({
+        where: { companyId: employee.companyId },
+        include: { defaultShiftType: { include: { weekDays: true } } },
+      });
+      const companyWeekDays = settings?.defaultShiftType?.weekDays;
+      if (companyWeekDays && companyWeekDays.length > 0) {
+        weekDays = companyWeekDays;
+      }
+    }
+
+    // Pas de règle weekend : un jour est travaillé ssi le planning résolu le prévoit.
     const weekDay = toWeekDay(at);
-    const weekDayRow = shiftType.weekDays.find((row) => row.day === weekDay);
+    const weekDayRow = weekDays.find((row) => row.day === weekDay);
+    if (weekDays.length > 0 && !weekDayRow) {
+      return null;
+    }
+
     const { startMin, endMin } = resolveShiftBounds(
       shiftType.startTime,
       shiftType.endTime,

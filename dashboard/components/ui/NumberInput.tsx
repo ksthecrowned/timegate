@@ -76,7 +76,7 @@ export function NumberInput({
 
   return (
     <div
-      className={`py-2 px-3 bg-white border border-gray-200 rounded-lg dark:bg-white/10 dark:border-neutral-700 ${
+      className={`py-2 px-3 bg-surface border border-slate-200/80 rounded-lg dark:bg-surface-dark dark:border-border-dark ${
         error ? 'border-red-400' : ''
       } ${wrapperClassName}`}
       data-hs-input-number=""

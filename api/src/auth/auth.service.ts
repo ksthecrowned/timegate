@@ -519,18 +519,38 @@ export class AuthService {
     const users = await this.prisma.user.findMany({
       where: {
         companyId: user.companyId,
-        timeGateRole: { in: [TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER] },
+        timeGateRole: {
+          in: [TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, TimeGateUserRole.EMPLOYEE],
+        },
       },
       select: {
         id: true,
         email: true,
         timeGateRole: true,
+        enabled: true,
         createdAt: true,
         updatedAt: true,
+        employee: {
+          select: {
+            id: true,
+            employeeName: true,
+            status: true,
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
-    return users.map((u) => ({ ...u, role: u.timeGateRole }));
+    return users.map((u) => ({
+      ...u,
+      role: u.timeGateRole,
+      employee: u.employee
+        ? {
+            id: u.employee.id,
+            name: u.employee.employeeName,
+            status: u.employee.status,
+          }
+        : null,
+    }));
   }
 
   async createOrganization(dto: CreateOrganizationDto) {

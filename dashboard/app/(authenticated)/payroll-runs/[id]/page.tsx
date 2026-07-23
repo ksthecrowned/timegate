@@ -262,7 +262,7 @@ export default function PayrollRunDetailPage() {
               emptyMessage="Aucune ligne de paie."
             />
             {explainLine?.explainJson && (
-              <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl dark:bg-neutral-900 dark:border-neutral-700">
+              <div className="mt-4 p-4 bg-gray-50 border border-slate-200/80 rounded-xl dark:bg-surface-card-dark dark:border-border-dark">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-medium text-gray-800 dark:text-neutral-200">
                     Détail du calcul —{' '}

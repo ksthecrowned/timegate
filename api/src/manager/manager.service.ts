@@ -12,6 +12,7 @@ import {
   TimeGateUserRole,
 } from '@prisma/client';
 import { AttendanceService } from '../attendance/attendance.service';
+import { PunchWindowService } from '../attendance/punch-window.service';
 import { ReviewAttendanceEventDto } from '../attendance/dto/review-attendance-event.dto';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
@@ -90,6 +91,7 @@ export class ManagerService {
     private prisma: PrismaService,
     private holidayCalendar: HolidayCalendarService,
     private attendance: AttendanceService,
+    private punchWindows: PunchWindowService,
   ) {}
 
   async teamToday(query: ManagerTeamTodayQueryDto, user: JwtUser) {
@@ -197,7 +199,8 @@ export class ManagerService {
       off: 0,
     };
 
-    const members = employees.map((employee) => {
+    const members = await Promise.all(
+      employees.map(async (employee) => {
       const employeeEvents = eventsByEmployee.get(employee.id) ?? [];
       const timesheet = timesheetByEmployee.get(employee.id);
       const pendingReviewEvents = employeeEvents.filter(
@@ -205,11 +208,12 @@ export class ManagerService {
       ).length;
       const timesheetReview =
         timesheet?.status === TimeGateTimesheetDayStatus.REVIEW_REQUIRED;
+      const scheduled = await this.punchWindows.resolveForEmployee(employee.id, workDate);
 
       let status: TeamMemberStatus;
       if (onLeaveIds.has(employee.id)) {
         status = 'ON_LEAVE';
-      } else if (isEmployeeHoliday(holidayIndex, employee.id, workDate)) {
+      } else if (isEmployeeHoliday(holidayIndex, employee.id, workDate) || !scheduled) {
         status = 'OFF';
       } else if (pendingReviewEvents > 0 || timesheetReview) {
         status = 'REVIEW_REQUIRED';
@@ -252,7 +256,8 @@ export class ManagerService {
         lastEventAt: lastEvent?.occurredAt.toISOString() ?? null,
         lastEventType: lastEvent?.type ?? null,
       };
-    });
+    }),
+    );
 
     return {
       date: workDate.toISOString().slice(0, 10),

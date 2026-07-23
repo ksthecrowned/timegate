@@ -12,11 +12,11 @@ export default function NewAdminPage() {
       <PageHeader
         breadcrumbs={[
           { label: 'Administration', href: '/admins' },
-          { label: 'Utilisateurs', href: '/admins' },
+          { label: 'Utilisateurs', href: '/users' },
           { label: 'Ajouter' },
         ]}
       />
-      <AdminUserForm onCancel={() => router.push('/admins')} />
+      <AdminUserForm onCancel={() => router.push('/users')} />
     </div>
   )
 }

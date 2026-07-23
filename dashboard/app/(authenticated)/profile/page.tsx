@@ -164,8 +164,8 @@ export default function ProfilePage() {
     <div>
       <PageHeader breadcrumbs={[{ label: 'Profil' }]} />
 
-      <div className="bg-white border border-gray-200 shadow-xs rounded-xl dark:bg-neutral-900 dark:border-neutral-700 mt-4">
-        <div className="p-6 flex items-start gap-x-5 border-b border-gray-200 dark:border-neutral-700">
+      <div className="bg-surface-card border border-slate-200/80 shadow-xs rounded-xl dark:bg-surface-card-dark dark:border-border-dark mt-4">
+        <div className="p-6 flex items-start gap-x-5 border-b border-slate-200/80 dark:border-border-dark">
           <div className="relative">
             <div className="shrink-0 size-20 rounded-full bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-3xl font-bold text-white">
               {displayEmail.charAt(0).toUpperCase()}

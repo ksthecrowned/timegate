@@ -118,12 +118,12 @@
 
 @layer components {
   .input {
-    @apply block w-full rounded-lg bg-white py-3 px-4 text-base text-slate-800 outline -outline-offset-1 outline-slate-200 placeholder:text-slate-400 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6;
+    @apply block w-full rounded-lg bg-surface py-3 px-4 text-base text-slate-800 outline -outline-offset-1 outline-slate-200 placeholder:text-slate-400 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6;
     box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
   }
 
   .dark .input {
-    @apply bg-white/10 text-slate-100 placeholder:text-slate-500;
+    @apply bg-surface-dark text-slate-100 placeholder:text-slate-500;
     outline-color: var(--color-border-dark);
     box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.03);
   }

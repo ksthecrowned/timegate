@@ -126,8 +126,22 @@ export default function DashboardAnalytics({ data }: DashboardAnalyticsProps) {
         )}
       </ChartCard>
 
-      <ChartCard title="Couverture planning" subtitle="Minutes planifiées vs travaillées (30 jours)">
-        <EmptyChart message="Aucune donnée planning sur la période." />
+      <ChartCard title="Couverture planning" subtitle="Réalisé / prévu (30 jours)">
+        {data.planningVsActual?.coveragePercent != null ? (
+          <div className="flex h-[300px] flex-col items-center justify-center gap-3">
+            <p className="text-5xl font-semibold text-slate-900 dark:text-white">
+              {data.planningVsActual.coveragePercent.toLocaleString('fr-FR')}%
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {Math.round(data.planningVsActual.workedMinutes / 60).toLocaleString('fr-FR')} h
+              réalisées /{' '}
+              {Math.round(data.planningVsActual.plannedMinutes / 60).toLocaleString('fr-FR')} h
+              prévues
+            </p>
+          </div>
+        ) : (
+          <EmptyChart message="Aucune donnée planning sur la période." />
+        )}
       </ChartCard>
     </div>
   )

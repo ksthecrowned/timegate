@@ -37,7 +37,7 @@ const toolbarBtnClass =
   'py-2 px-3 inline-flex items-center gap-x-2 text-sm rounded-lg border border-slate-200/80 bg-surface-card text-slate-700 shadow-xs hover:bg-slate-50 focus:outline-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark whitespace-nowrap'
 
 const toolbarInputClass =
-  'py-2 px-3 block w-full border border-slate-200/80 shadow-xs rounded-lg text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:opacity-50 dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500'
+  'py-2 px-3 block w-full border border-slate-200/80 shadow-xs rounded-lg text-sm text-slate-800 bg-surface focus:border-primary focus:ring-primary disabled:opacity-50 dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500'
 
 const sortHeaderClass =
   'py-1 px-2.5 inline-flex items-center border border-transparent text-sm text-slate-500 rounded-md hover:border-slate-200 dark:text-slate-400 dark:hover:border-border-dark'
@@ -231,7 +231,7 @@ export default function DataTable<T extends Record<string, unknown>>({
                                   <div className="absolute z-20 tg-card shadow-md p-2 mt-2" style={{minWidth:160}}>
                                     <div className="max-w-sm flex gap-x-2">
                                       <input type="text" autoFocus value={colFilters[String(col.key)]??''} onChange={e=>{setColFilters(f=>({...f,[String(col.key)]:e.target.value}));setPage(1)}}
-                                        className="py-1 px-2.5 block w-full border border-slate-200/80 rounded-md text-[13px] focus:border-primary focus:ring-primary dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500"
+                                        className="py-1 px-2.5 block w-full border border-slate-200/80 rounded-md text-[13px] bg-surface focus:border-primary focus:ring-primary dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500"
                                         placeholder={col.filterPlaceholder??col.label.toLowerCase()}/>
                                     </div>
                                   </div>

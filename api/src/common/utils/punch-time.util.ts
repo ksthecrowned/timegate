@@ -12,7 +12,16 @@ const JS_DAY_TO_WEEKDAY: WeekDay[] = [
 ];
 
 export function toWeekDay(value: Date): WeekDay {
-  return JS_DAY_TO_WEEKDAY[value.getDay()];
+  // Les dates métier (@db.Date) sont stockées à minuit UTC : utiliser getUTCDay
+  // pour rester aligné avec le planning. Pour un horodatage « maintenant »,
+  // préférer le jour local.
+  const isUtcMidnight =
+    value.getUTCHours() === 0 &&
+    value.getUTCMinutes() === 0 &&
+    value.getUTCSeconds() === 0 &&
+    value.getUTCMilliseconds() === 0;
+  const dayIndex = isUtcMidnight ? value.getUTCDay() : value.getDay();
+  return JS_DAY_TO_WEEKDAY[dayIndex];
 }
 
 export function parseHHmmToMinutes(value: string): number {

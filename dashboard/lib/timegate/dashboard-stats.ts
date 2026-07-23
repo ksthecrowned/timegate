@@ -1,15 +1,11 @@
 import { fetchAllPages } from '@/lib/timegate/fetch-all-pages'
 import { listAbsences } from '@/lib/timegate/absences'
 import { listAttendanceDays } from '@/lib/timegate/attendance'
-import { listBranches } from '@/lib/timegate/branches'
-import { listEmployees } from '@/lib/timegate/employees'
-import { listKiosks } from '@/lib/timegate/kiosks'
 import { listLateRecords } from '@/lib/timegate/late-records'
-import { listLeaves } from '@/lib/timegate/leaves'
 import { lastNDaysRange } from '@/lib/timegate/period-range'
 import { listTimesheets } from '@/lib/timegate/timesheets'
 import { getPlanningVsActual, type PlanningVsActual } from '@/lib/timegate/planning-vs-actual'
-import type { AttendanceDay, Leave, TimesheetDay } from '@/lib/timegate/types'
+import type { AttendanceDay, TimesheetDay } from '@/lib/timegate/types'
 import { normalizeApiDate } from '@/lib/date-utils'
 
 export type DashboardStats = {
@@ -134,27 +130,11 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
   const statsRange = lastNDaysRange(30)
 
   const [
-    employees,
-    branches,
-    kiosks,
-    attendanceMeta,
-    absencesMeta,
-    lateMeta,
-    leaves,
-    timesheetsMeta,
     statsDays,
     absences,
     lateRecords,
     timesheets,
   ] = await Promise.all([
-    listEmployees({ page: 1, limit: 1 }),
-    listBranches({ page: 1, limit: 1 }),
-    listKiosks({ page: 1, limit: 1 }),
-    listAttendanceDays({ page: 1, limit: 1 }),
-    listAbsences({ page: 1, limit: 1, ...statsRange }),
-    listLateRecords({ page: 1, limit: 1, ...statsRange }),
-    fetchAllPages((page) => listLeaves({ page, limit: 100 })),
-    listTimesheets({ page: 1, limit: 1, ...statsRange }),
     fetchAllPages((page) =>
       listAttendanceDays({ page, limit: 100, ...statsRange }),
     ),
@@ -162,8 +142,6 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
     fetchAllPages((page) => listLateRecords({ page, limit: 100, ...statsRange })),
     fetchAllPages((page) => listTimesheets({ page, limit: 100, ...statsRange })),
   ])
-
-  const pendingLeaves = leaves.filter((l: Leave) => l.status === 'PENDING').length
 
   const trendKeys = lastNDaysIso(14)
   const { present, absent, statusCounts } = groupAttendanceByDay(statsDays)
@@ -186,14 +164,14 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
 
   return {
     stats: {
-      employees: employees.meta.total,
-      branches: branches.meta.total,
-      kiosks: kiosks.meta.total,
-      attendanceDays: attendanceMeta.meta.total,
-      absences: absencesMeta.meta.total,
-      lateRecords: lateMeta.meta.total,
-      pendingLeaves,
-      timesheetDays: timesheetsMeta.meta.total,
+      employees: 0,
+      branches: 0,
+      kiosks: 0,
+      attendanceDays: 0,
+      absences: absences.length,
+      lateRecords: lateRecords.length,
+      pendingLeaves: 0,
+      timesheetDays: timesheets.length,
     },
     planningVsActual,
     attendanceTrend: {

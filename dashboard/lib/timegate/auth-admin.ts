@@ -8,12 +8,20 @@ export type CreateAdminUserPayload = {
   companyId?: string
 }
 
+export type AdminUserEmployee = {
+  id: string
+  name: string
+  status: string
+}
+
 export type AdminUser = {
   id: string
   email: string
   role: TimeGateRole
   timeGateRole?: TimeGateRole
+  enabled?: boolean
   createdAt: string
+  employee?: AdminUserEmployee | null
 }
 
 export function createAdminUser(payload: CreateAdminUserPayload) {

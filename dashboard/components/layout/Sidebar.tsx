@@ -10,9 +10,9 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
 const LINK_BASE =
-  'flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-600 rounded-lg hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 focus:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-accent dark:focus:text-accent'
+  'flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-600 rounded-lg hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 focus:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-accent dark:focus:text-accent line-clamp-1'
 const TOGGLE_BASE =
-  'hs-accordion-toggle w-full text-start flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-600 rounded-lg hover:bg-primary/10 hover:text-primary focus:outline-none dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-accent'
+  'hs-accordion-toggle w-full text-start flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-600 rounded-lg hover:bg-primary/10 hover:text-primary focus:outline-none dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-accent line-clamp-1'
 
 function AccordionItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
   const pathname = usePathname()

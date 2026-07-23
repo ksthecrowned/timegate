@@ -2,14 +2,17 @@
 
 import { ApiErrorBanner, FormCard } from '@/components/timegate/ui'
 import PageHeader from '@/components/ui/PageHeader'
-import { SwitcherField } from '@/components/ui/Switcher'
+import { Switcher } from '@/components/ui/Switcher'
 import { HttpError } from '@/lib/http'
+import { notificationTypeLabel } from '@/lib/timegate/notification-labels'
 import {
   listNotificationRules,
   updateNotificationRule,
 } from '@/lib/timegate/notification-rules'
 import type { NotificationRule } from '@/lib/timegate/types'
 import { useCallback, useEffect, useState } from 'react'
+
+type ChannelKey = 'inAppEnabled' | 'pushEnabled' | 'emailEnabled'
 
 export default function NotificationRulesPage() {
   const [rows, setRows] = useState<NotificationRule[]>([])
@@ -34,7 +37,7 @@ export default function NotificationRulesPage() {
     void load()
   }, [load])
 
-  async function toggle(rule: NotificationRule, key: keyof NotificationRule) {
+  async function toggle(rule: NotificationRule, key: ChannelKey) {
     const next = !Boolean(rule[key])
     setSavingType(rule.type)
     setError('')
@@ -59,8 +62,8 @@ export default function NotificationRulesPage() {
       <ApiErrorBanner message={error} />
 
       <FormCard
-        title="NotificationRule par tenant"
-        hint="Contrôle par type de notification: inbox, push et email."
+        title="Règles de notification"
+        hint="Activez ou désactivez chaque canal (boîte de réception, push, e-mail) par type d’événement."
       >
         {loading ? (
           <p className="text-sm text-slate-500">Chargement…</p>
@@ -69,10 +72,18 @@ export default function NotificationRulesPage() {
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="text-left border-b border-slate-200/80 dark:border-border-dark">
-                  <th className="py-2 pr-3">Type</th>
-                  <th className="py-2 pr-3">Inbox</th>
-                  <th className="py-2 pr-3">Push</th>
-                  <th className="py-2">Email</th>
+                  <th className="py-2.5 pr-4 font-semibold text-slate-700 dark:text-slate-200">
+                    Événement
+                  </th>
+                  <th className="py-2.5 pr-4 font-semibold text-slate-700 dark:text-slate-200">
+                    Boîte de réception
+                  </th>
+                  <th className="py-2.5 pr-4 font-semibold text-slate-700 dark:text-slate-200">
+                    Push
+                  </th>
+                  <th className="py-2.5 font-semibold text-slate-700 dark:text-slate-200">
+                    E-mail
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -81,44 +92,39 @@ export default function NotificationRulesPage() {
                     key={rule.type}
                     className="border-b border-slate-100 dark:border-neutral-900"
                   >
-                    <td className="py-2 pr-3 font-mono">{rule.type}</td>
-                    <td className="py-2 pr-3">
-                      {/* <input
-                        type="checkbox"
-                        checked={rule.inAppEnabled}
-                        disabled={savingType === rule.type}
-                        onChange={() => void toggle(rule, 'inAppEnabled')}
-                      /> */}
-                      <SwitcherField
+                    <td className="py-3 pr-4">
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {notificationTypeLabel(rule.type)}
+                      </p>
+                      <p className="mt-0.5 text-xs text-slate-400 dark:text-slate-500">
+                        {rule.type}
+                      </p>
+                    </td>
+                    <td className="py-3 pr-4">
+                      <Switcher
+                        size="sm"
                         checked={rule.inAppEnabled}
                         disabled={savingType === rule.type}
                         onCheckedChange={() => void toggle(rule, 'inAppEnabled')}
+                        aria-label={`Boîte de réception — ${notificationTypeLabel(rule.type)}`}
                       />
                     </td>
-                    <td className="py-2 pr-3">
-                      {/* <input
-                        type="checkbox"
-                        checked={rule.pushEnabled}
-                        disabled={savingType === rule.type}
-                        onChange={() => void toggle(rule, 'pushEnabled')}
-                      /> */}
-                      <SwitcherField
+                    <td className="py-3 pr-4">
+                      <Switcher
+                        size="sm"
                         checked={rule.pushEnabled}
                         disabled={savingType === rule.type}
                         onCheckedChange={() => void toggle(rule, 'pushEnabled')}
+                        aria-label={`Push — ${notificationTypeLabel(rule.type)}`}
                       />
                     </td>
-                    <td className="py-2">
-                      {/* <input
-                        type="checkbox"
-                        checked={rule.emailEnabled}
-                        disabled={savingType === rule.type}
-                        onChange={() => void toggle(rule, 'emailEnabled')}
-                      /> */}
-                      <SwitcherField
+                    <td className="py-3">
+                      <Switcher
+                        size="sm"
                         checked={rule.emailEnabled}
                         disabled={savingType === rule.type}
                         onCheckedChange={() => void toggle(rule, 'emailEnabled')}
+                        aria-label={`E-mail — ${notificationTypeLabel(rule.type)}`}
                       />
                     </td>
                   </tr>

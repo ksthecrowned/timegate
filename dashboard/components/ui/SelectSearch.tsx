@@ -170,8 +170,8 @@ function buildClassNames(
       cn(
         'relative flex gap-x-2 text-nowrap w-full cursor-pointer border rounded-lg text-start',
         isToolbar
-          ? 'py-1.5 px-2.5 text-sm border-slate-200/80 bg-transparent dark:bg-white/10 dark:border-border-dark dark:text-slate-200'
-          : 'py-3 px-4 text-sm bg-surface-card border-slate-200 dark:bg-white/10 dark:border-border-dark dark:text-slate-300',
+          ? 'py-1.5 px-2.5 text-sm border-slate-200/80 bg-surface dark:bg-surface-dark dark:border-border-dark dark:text-slate-200'
+          : 'py-3 px-4 text-sm bg-surface border-slate-200 dark:bg-surface-dark dark:border-border-dark dark:text-slate-300',
         'focus:outline-none',
         isFocused &&
           (isToolbar
@@ -211,7 +211,7 @@ export const selectSearchMenuStyles = {
   searchWrapper:
     'bg-surface-card p-2 sticky top-0 z-10 dark:bg-surface-card-dark border-b border-slate-100 dark:border-border-dark',
   searchInput:
-    'block w-full text-sm border border-slate-200 rounded-lg focus:border-primary focus:ring-primary dark:bg-white/10 dark:border-border-dark dark:text-slate-200 dark:placeholder-neutral-500 py-2 px-3',
+    'block w-full text-sm border border-slate-200 rounded-lg focus:border-primary focus:ring-primary bg-surface dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-neutral-500 py-2 px-3',
 }
 
 export interface SelectSearchProps

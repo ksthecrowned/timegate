@@ -1,180 +1,227 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useSession } from 'next-auth/react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
-import { RecordCard, RecordCardField, RecordCardList } from '@/components/ui/RecordCard'
-import { SkeletonBlock } from '@/components/ui/Skeleton'
-import { fetchSubscriptionStatus } from '@/lib/auth/timegate-auth'
+import DataTable, { type Column } from '@/components/ui/DataTable'
+import { SkeletonDetailCard } from '@/components/ui/Skeleton'
+import {
+  ApiErrorBanner,
+  DetailCard,
+  DetailRow,
+  primaryBtnClass,
+} from '@/components/timegate/ui'
+import { useSubscriptionAccess } from '@/components/providers/SubscriptionAccessProvider'
 import { listSubscriptions } from '@/lib/timegate/admin-saas'
 import type { Subscription, SubscriptionStatus } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import {
+  planLabel,
+  subscriptionStatusLabel,
+  upgradeTargetPlan,
+} from '@/lib/subscription-ui'
 import { formatApiDate } from '@/lib/date-utils'
+import { HttpError } from '@/lib/http'
 
-function statusBadge(status: SubscriptionStatus['status']) {
+function StatusBadge({ status }: { status: SubscriptionStatus['status'] }) {
+  if (!status) return <span className="text-slate-400">—</span>
   const map: Record<string, string> = {
     TRIAL: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
     ACTIVE: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
     GRACE_READ_ONLY: 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200',
     BLOCKED: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200',
-    SUSPENDED: 'bg-gray-200 text-gray-800 dark:bg-neutral-800 dark:text-neutral-200',
+    SUSPENDED: 'bg-slate-200 text-slate-800 dark:bg-slate-800 dark:text-slate-200',
   }
-  const label: Record<string, string> = {
-    TRIAL: 'Essai',
-    ACTIVE: 'Actif',
-    GRACE_READ_ONLY: 'Grâce (lecture seule)',
-    BLOCKED: 'Expiré',
-    SUSPENDED: 'Suspendu',
-  }
-  if (!status) return null
   return (
-    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${map[status] ?? map.BLOCKED}`}>
-      {label[status] ?? status}
+    <span
+      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${map[status] ?? map.BLOCKED}`}
+    >
+      {subscriptionStatusLabel(status)}
     </span>
   )
 }
 
-function SubscriptionCardsSkeleton() {
+function UsageMeter({
+  label,
+  used,
+  max,
+}: {
+  label: string
+  used: number
+  max: number
+}) {
+  const pct = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0
+  const over = used >= max && max > 0
   return (
-    <div className="space-y-3" aria-busy="true">
-      {Array.from({ length: 2 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-gray-200 p-4 dark:border-neutral-700">
-          <SkeletonBlock className="h-4 w-40 mb-3" />
-          <SkeletonBlock className="h-3 w-full mb-2" />
-        </div>
-      ))}
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">{label}</p>
+        <p className="text-sm font-semibold text-slate-900 dark:text-white">
+          {used} / {max}
+        </p>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+        <div
+          className={`h-full rounded-full transition-all ${over ? 'bg-amber-500' : 'bg-primary'}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{pct} % utilisés</p>
     </div>
   )
 }
 
+const historyColumns: Column<Subscription>[] = [
+  {
+    key: 'plan',
+    label: 'Plan',
+    sortable: true,
+    render: (v) => planLabel(String(v)),
+  },
+  {
+    key: 'maxEmployees',
+    label: 'Employés max.',
+    sortable: true,
+  },
+  {
+    key: 'maxKiosks',
+    label: 'Kiosks max.',
+    sortable: true,
+  },
+  {
+    key: 'expiresAt',
+    label: 'Expire le',
+    sortable: true,
+    render: (v) => formatApiDate(String(v)),
+  },
+  {
+    key: 'createdAt',
+    label: 'Créé le',
+    sortable: true,
+    render: (v) => formatApiDate(String(v)),
+  },
+]
+
 export default function SubscriptionsPage() {
-  const { data: session } = useSession()
-  const [live, setLive] = useState<SubscriptionStatus | null>(null)
+  const { status: live, loading: statusLoading } = useSubscriptionAccess()
   const [history, setHistory] = useState<Subscription[]>([])
-  const [loading, setLoading] = useState(true)
+  const [historyLoading, setHistoryLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async () => {
-    if (!session?.accessToken) return
-    setLoading(true)
+  const loadHistory = useCallback(async () => {
+    setHistoryLoading(true)
     setError('')
     try {
-      const [current, rows] = await Promise.all([
-        fetchSubscriptionStatus(session.accessToken),
-        listSubscriptions({ page: 1, limit: 100 }),
-      ])
-      setLive(current)
+      const rows = await listSubscriptions({ page: 1, limit: 100 })
       setHistory(rows.data ?? [])
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Erreur de chargement')
     } finally {
-      setLoading(false)
+      setHistoryLoading(false)
     }
-  }, [session?.accessToken])
+  }, [])
 
   useEffect(() => {
-    void load()
-  }, [load])
+    void loadHistory()
+  }, [loadHistory])
 
   const sub = live?.subscription
+  const loading = statusLoading || historyLoading
+  const needsActivation = Boolean(live && (live.readOnly || live.blocked || live.status === 'TRIAL'))
+  const activateLabel =
+    live?.status === 'TRIAL' && upgradeTargetPlan(sub?.plan)
+      ? `Passer au ${upgradeTargetPlan(sub?.plan)}`
+      : 'Activer une clé'
+
+  const daysLabel = useMemo(() => {
+    const days = sub?.daysUntilExpiry
+    if (days == null) return '—'
+    if (days < 0) return 'Expiré'
+    if (days === 0) return "Expire aujourd'hui"
+    return `${days} jour${days > 1 ? 's' : ''}`
+  }, [sub?.daysUntilExpiry])
 
   return (
     <div>
       <PageHeader
-        breadcrumbs={[
-          { label: 'Administration' },
-          { label: 'Mon abonnement' },
-        ]}
+        breadcrumbs={[{ label: 'Administration' }, { label: 'Mon abonnement' }]}
+        action={
+          <Link href="/activate" className={primaryBtnClass}>
+            {needsActivation ? activateLabel : 'Activer une clé'}
+          </Link>
+        }
       />
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <ApiErrorBanner message={error} />
 
       {loading ? (
-        <SubscriptionCardsSkeleton />
+        <SkeletonDetailCard rows={6} />
       ) : (
         <div className="space-y-6">
-          {live && sub ? (
-            <div className="tg-card shadow-2xs p-5 space-y-4">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                    Abonnement actuel
-                  </h2>
-                  <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
-                    Plan {sub.plan}
-                    {sub.source ? ` · ${sub.source}` : ''}
-                  </p>
-                </div>
-                {statusBadge(live.status)}
-              </div>
+          {sub ? (
+            <>
+              <DetailCard
+                title={planLabel(sub.plan)}
+                actions={live?.status ? <StatusBadge status={live.status} /> : undefined}
+              >
+                <DetailRow label="Plan" value={planLabel(sub.plan)} />
+                <DetailRow label="Source" value={sub.source ?? '—'} />
+                <DetailRow
+                  label="Expire le"
+                  value={sub.expiresAt ? formatApiDate(sub.expiresAt) : '—'}
+                />
+                <DetailRow label="Jours restants" value={daysLabel} />
+                {sub.trialEndsAt ? (
+                  <DetailRow label="Fin d’essai" value={formatApiDate(sub.trialEndsAt)} />
+                ) : null}
+                {sub.graceEndsAt ? (
+                  <DetailRow label="Fin de grâce" value={formatApiDate(sub.graceEndsAt)} />
+                ) : null}
+              </DetailCard>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500 dark:text-neutral-400">Expire le</p>
-                  <p className="font-medium">{sub.expiresAt ? formatApiDate(sub.expiresAt) : '—'}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-neutral-400">Employés</p>
-                  <p className="font-medium">
-                    {sub.usage
-                      ? `${sub.usage.employees} / ${sub.usage.maxEmployees}`
-                      : sub.maxEmployees}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-neutral-400">Kiosks</p>
-                  <p className="font-medium">
-                    {sub.usage
-                      ? `${sub.usage.kiosks} / ${sub.usage.maxKiosks}`
-                      : sub.maxKiosks}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-gray-500 dark:text-neutral-400">Jours restants</p>
-                  <p className="font-medium">
-                    {sub.daysUntilExpiry != null ? sub.daysUntilExpiry : '—'}
-                  </p>
+              <div className="tg-card shadow-2xs p-5">
+                <h3 className="mb-4 text-sm font-semibold text-slate-900 dark:text-white">
+                  Utilisation
+                </h3>
+                <div className="grid gap-6 sm:grid-cols-2">
+                  <UsageMeter
+                    label="Employés"
+                    used={sub.usage?.employees ?? 0}
+                    max={sub.usage?.maxEmployees ?? sub.maxEmployees}
+                  />
+                  <UsageMeter
+                    label="Kiosks"
+                    used={sub.usage?.kiosks ?? 0}
+                    max={sub.usage?.maxKiosks ?? sub.maxKiosks}
+                  />
                 </div>
               </div>
-
-              {(live.readOnly || live.blocked || live.status === 'TRIAL') && (
-                <div className="flex flex-wrap gap-3 pt-2 border-t border-gray-100 dark:border-neutral-800">
-                  <Link
-                    href="/activate"
-                    className="inline-flex items-center rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white"
-                  >
-                    Activer une clé
-                  </Link>
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          {history.length > 0 && (
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-neutral-300 mb-3">
-                Historique des périodes
-              </h3>
-              <RecordCardList
-                items={history}
-                emptyMessage="Aucun enregistrement d'abonnement."
-                keyFn={(row) => row.id}
-                renderItem={(row) => (
-                  <RecordCard title={`Plan ${row.plan}`}>
-                    <RecordCardField label="Employés max." value={String(row.maxEmployees)} />
-                    <RecordCardField label="Kiosks max." value={String(row.maxKiosks)} />
-                    <RecordCardField label="Expire le" value={formatApiDate(row.expiresAt)} />
-                    <RecordCardField label="Créé le" value={formatApiDate(row.createdAt)} />
-                  </RecordCard>
-                )}
-              />
+            </>
+          ) : (
+            <div className="tg-card space-y-3 p-6 text-center shadow-2xs">
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                Aucun abonnement actif pour cette organisation.
+              </p>
+              <div className="flex justify-center">
+                <Link href="/activate" className={primaryBtnClass}>
+                  Activer une clé
+                </Link>
+              </div>
             </div>
           )}
+
+          <div>
+            <h3 className="mb-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              Historique des périodes
+            </h3>
+            <DataTable
+              data={history}
+              columns={historyColumns}
+              entityLabel="périodes"
+              tableId="hs-subscriptions-history"
+              emptyMessage="Aucun enregistrement d’abonnement."
+              searchPlaceholder="Rechercher une période…"
+            />
+          </div>
         </div>
       )}
     </div>

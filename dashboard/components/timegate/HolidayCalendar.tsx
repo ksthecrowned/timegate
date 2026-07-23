@@ -33,16 +33,19 @@ const dayPickerClassNames = {
   months: 'w-full',
   month: 'w-full',
   month_grid: 'w-full border-collapse',
-  weekdays: 'text-[10px] text-gray-500 dark:text-neutral-400',
+  weekdays: 'text-[10px] text-slate-500 dark:text-slate-400',
   weekday: 'w-7 font-medium pb-1',
   week: 'mt-0.5',
   day: 'w-7 h-7 p-0 text-center',
   day_button:
-    'size-7 rounded-md text-xs hover:bg-orange-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary/40',
-  outside: 'text-gray-300 dark:text-neutral-600 opacity-60',
+    'size-7 rounded-md text-xs text-slate-700 hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40 dark:text-slate-200 dark:hover:bg-primary/15',
+  outside: 'text-slate-300 dark:text-slate-600 opacity-60',
   disabled: 'opacity-30 pointer-events-none',
   today: '[&>button]:font-bold [&>button]:ring-1 [&>button]:ring-primary/40',
 }
+
+const navBtnClass =
+  'inline-flex items-center rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-primary/10 hover:text-primary focus:outline-none dark:bg-surface-elevated-dark dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-accent'
 
 type HolidayCalendarProps = {
   year: number
@@ -63,7 +66,9 @@ function HolidayDayButton({
       {...props}
       type="button"
       title={holiday?.name}
-      className={`${props.className ?? ''} ${holiday ? 'bg-primary/15 text-primary font-semibold hover:bg-primary/25' : ''}`}
+      className={`${props.className ?? ''} ${
+        holiday ? 'bg-primary/15 font-semibold text-primary hover:bg-primary/25' : ''
+      }`}
     />
   )
 }
@@ -108,18 +113,18 @@ export default function HolidayCalendar({
           <button
             type="button"
             onClick={() => onYearChange(year - 1)}
-            className="py-2.5 px-4 inline-flex items-center rounded-lg text-sm text-gray-700 hover:bg-gray-50 bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className={`${navBtnClass} px-4 py-2.5`}
             aria-label="Année précédente"
           >
             <i className="fa-solid fa-chevron-left" />
           </button>
-          <span className="min-w-20 text-center text-lg font-semibold text-gray-900 dark:text-white">
+          <span className="min-w-20 text-center text-lg font-semibold text-slate-900 dark:text-white">
             {year}
           </span>
           <button
             type="button"
             onClick={() => onYearChange(year + 1)}
-            className="py-2.5 px-4 inline-flex items-center rounded-lg text-sm text-gray-700 hover:bg-gray-50 bg-black/10 dark:bg-white/10 dark:text-neutral-200 dark:hover:bg-neutral-800"
+            className={`${navBtnClass} px-4 py-2.5`}
             aria-label="Année suivante"
           >
             <i className="fa-solid fa-chevron-right" />
@@ -127,33 +132,33 @@ export default function HolidayCalendar({
           <button
             type="button"
             onClick={() => onYearChange(new Date().getFullYear())}
-            className="py-2 px-3 text-sm rounded-lg bg-black/10 dark:bg-white/10 text-gray-600 hover:bg-gray-50 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            className={navBtnClass}
           >
             Aujourd&apos;hui
           </button>
         </div>
-        <p className="text-sm text-gray-500 dark:text-neutral-400">
+        <div className="text-sm text-slate-500 dark:text-slate-400">
           {loading ? (
             <SkeletonBlock className="inline-block h-3 w-36 rounded-full align-middle" />
           ) : (
             `${sortedHolidays.length} jour(s) férié(s)`
           )}
-        </p>
+        </div>
       </div>
 
       <div className="rounded-xl p-4 md:p-6 tg-card">
-        <div className="mb-4 flex items-center gap-3 text-xs text-gray-600 dark:text-neutral-400">
-          <span className="inline-flex size-4 rounded-md bg-primary/15 border border-primary/30" />
+        <div className="mb-4 flex items-center gap-3 text-xs text-slate-600 dark:text-slate-400">
+          <span className="inline-flex size-4 rounded-md border border-primary/30 bg-primary/15" />
           Jour férié — cliquez sur une date surlignée pour voir le détail
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {MONTH_NAMES.map((monthName, monthIndex) => (
             <div
               key={monthName}
-              className="rounded-lg border border-slate-200/80 bg-gray-50/60 p-3 dark:border-border-dark dark:bg-neutral-800/40"
+              className="rounded-lg border border-slate-200/80 bg-surface p-3 dark:border-border-dark dark:bg-surface-elevated-dark/40"
             >
-              <p className="mb-2 text-sm font-semibold text-gray-800 dark:text-neutral-200 capitalize">
+              <p className="mb-2 text-sm font-semibold capitalize text-slate-800 dark:text-slate-200">
                 {monthName}
               </p>
               {loading ? (
@@ -164,41 +169,43 @@ export default function HolidayCalendar({
                 </div>
               ) : (
                 <DayPicker
-                month={new Date(year, monthIndex, 1)}
-                disableNavigation
-                locale={fr}
-                showOutsideDays
-                weekStartsOn={1}
-                modifiers={{
-                  holiday: (date) => holidayMap.has(toIsoDate(date)),
-                }}
-                onDayClick={handleDayClick}
-                classNames={dayPickerClassNames}
-                components={{
-                  DayButton: (props) => <HolidayDayButton {...props} holidayMap={holidayMap} />,
-                }}
-              />
+                  month={new Date(year, monthIndex, 1)}
+                  disableNavigation
+                  locale={fr}
+                  showOutsideDays
+                  weekStartsOn={1}
+                  modifiers={{
+                    holiday: (date) => holidayMap.has(toIsoDate(date)),
+                  }}
+                  onDayClick={handleDayClick}
+                  classNames={dayPickerClassNames}
+                  components={{
+                    DayButton: (props) => (
+                      <HolidayDayButton {...props} holidayMap={holidayMap} />
+                    ),
+                  }}
+                />
               )}
             </div>
           ))}
         </div>
       </div>
 
-      {selectedHoliday && (
-        <div className="rounded-xl border border-primary/20 bg-orange-50/60 p-4 dark:bg-orange-900/10 dark:border-orange-800/40">
+      {selectedHoliday ? (
+        <div className="rounded-xl border border-primary/25 bg-primary/5 p-4 dark:border-primary/30 dark:bg-primary/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              <p className="text-sm font-semibold text-slate-900 dark:text-white">
                 {selectedHoliday.name}
               </p>
-              <p className="mt-1 text-sm text-gray-600 dark:text-neutral-400">
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
                 {formatApiDateLong(selectedHoliday.date)}
               </p>
-              {selectedHoliday.holidayListName && (
-                <p className="mt-1 text-xs text-gray-500 dark:text-neutral-500">
+              {selectedHoliday.holidayListName ? (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                   Liste : {selectedHoliday.holidayListName}
                 </p>
-              )}
+              ) : null}
             </div>
             <ActionButtons
               editHref={`/holidays/${selectedHoliday.id}/edit`}
@@ -213,27 +220,29 @@ export default function HolidayCalendar({
             />
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="tg-card">
-        <div className="border-b border-gray-200 px-4 py-3 dark:border-neutral-700">
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-neutral-200">
+        <div className="border-b border-slate-200/80 px-4 py-3 dark:border-border-dark">
+          <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
             Liste {year}
           </h3>
         </div>
         {sortedHolidays.length === 0 ? (
-          <p className="p-4 text-sm text-gray-500 dark:text-neutral-400">
+          <p className="p-4 text-sm text-slate-500 dark:text-slate-400">
             Aucun jour férié enregistré pour cette année.
           </p>
         ) : (
-          <ul className="divide-y divide-gray-100 dark:divide-neutral-800">
+          <ul className="divide-y divide-slate-100 dark:divide-border-dark">
             {sortedHolidays.map((holiday) => {
               const dateLabel = formatApiDateShort(holiday.date)
               return (
                 <li
                   key={holiday.id}
                   className={`flex items-center justify-between gap-3 px-4 py-3 ${
-                    selectedHoliday?.id === holiday.id ? 'bg-orange-50/70 dark:bg-orange-900/10' : ''
+                    selectedHoliday?.id === holiday.id
+                      ? 'bg-primary/5 dark:bg-primary/10'
+                      : ''
                   }`}
                 >
                   <button
@@ -241,10 +250,10 @@ export default function HolidayCalendar({
                     onClick={() => setSelectedHoliday(holiday)}
                     className="min-w-0 flex-1 text-left"
                   >
-                    <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                    <span className="block text-sm font-medium text-slate-900 dark:text-slate-100">
                       {holiday.name}
                     </span>
-                    <span className="block text-xs text-gray-500 dark:text-neutral-400 capitalize">
+                    <span className="block text-xs capitalize text-slate-500 dark:text-slate-400">
                       {dateLabel}
                     </span>
                   </button>

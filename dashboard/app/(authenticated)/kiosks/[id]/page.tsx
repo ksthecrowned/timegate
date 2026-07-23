@@ -1,16 +1,16 @@
 'use client'
 
+import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
 import WriteLink from '@/components/timegate/WriteLink'
-import { useParams, useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import ActionButtons from '@/components/ui/ActionButtons'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import StatusBadge from '@/components/ui/StatusBadge'
-import ActionButtons from '@/components/ui/ActionButtons'
-import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
+import { HttpError } from '@/lib/http'
 import { deleteKiosk, getKiosk, regenerateKioskApiKey } from '@/lib/timegate/kiosks'
 import type { Kiosk } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import { useParams, useRouter } from 'next/navigation'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function KioskDetailPage() {
   const params = useParams<{ id: string }>()

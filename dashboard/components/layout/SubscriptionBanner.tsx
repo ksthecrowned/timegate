@@ -1,8 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useSubscriptionAccess } from '@/components/providers/SubscriptionAccessProvider'
 import { planLabel, subscriptionStatusLabel } from '@/lib/subscription-ui'
+import Link from 'next/link'
 
 export default function SubscriptionBanner() {
   const { status, readOnly, blocked } = useSubscriptionAccess()
@@ -55,28 +55,30 @@ export default function SubscriptionBanner() {
   }
 
   return (
-    <div className={`border-b px-4 py-2.5 text-sm ${tone}`}>
-      <div className="mx-auto flex flex-wrap items-center justify-between gap-2 max-w-[1600px]">
-        <p>
-          <span className="font-semibold">{detailParts.join(' · ')}</span>
-          {readOnly ? (
-            <span className="ml-2 opacity-90">
-              Les modifications sont désactivées jusqu&apos;à activation d&apos;une clé.
-            </span>
-          ) : null}
-          {quotaHigh && !readOnly ? (
-            <span className="ml-2 opacity-90">Quota proche de la limite.</span>
-          ) : null}
-        </p>
-        <div className="flex items-center gap-3 shrink-0">
-          <Link href="/subscriptions" className="font-semibold underline underline-offset-2">
-            Voir l&apos;abonnement
-          </Link>
-          {(readOnly || blocked || status.status === 'TRIAL') && (
-            <Link href="/activate" className="font-semibold underline underline-offset-2">
-              Activer une clé
+    <div className="p-4 pb-0">
+      <div className={`border-b px-4 py-2.5 text-sm ${tone}`}>
+        <div className="mx-auto flex flex-wrap items-center justify-between gap-2 max-w-[1600px]">
+          <p>
+            <span className="font-semibold">{detailParts.join(' · ')}</span>
+            {readOnly ? (
+              <span className="ml-2 opacity-90">
+                Les modifications sont désactivées jusqu&apos;à activation d&apos;une clé.
+              </span>
+            ) : null}
+            {quotaHigh && !readOnly ? (
+              <span className="ml-2 opacity-90">Quota proche de la limite.</span>
+            ) : null}
+          </p>
+          <div className="flex items-center gap-3 shrink-0">
+            <Link href="/subscriptions" className="font-semibold underline underline-offset-2">
+              Voir l&apos;abonnement
             </Link>
-          )}
+            {(readOnly || blocked || status.status === 'TRIAL') && (
+              <Link href="/activate" className="font-semibold underline underline-offset-2">
+                Activer une clé
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     </div>

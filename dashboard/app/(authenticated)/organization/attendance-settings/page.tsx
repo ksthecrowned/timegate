@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
-import { FormField, Input, SelectSearch } from '@/components/ui/FormField'
+import { FormField, Input, SelectSearch, SwitcherField } from '@/components/ui/FormField'
 import { HintTooltip } from '@/components/ui/HintTooltip'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
@@ -14,6 +14,32 @@ import {
   updateTenantAttendanceSettings,
 } from '@/lib/timegate/tenant-settings'
 import type { SelectOption } from '@/components/ui/select-search-types'
+
+const ROUNDING_OPTIONS: SelectOption[] = [
+  { value: '0', label: 'Aucun' },
+  { value: '5', label: '5 minutes' },
+  { value: '15', label: '15 minutes' },
+]
+
+function Section({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="md:col-span-2 border-t border-slate-200/80 pt-5 dark:border-border-dark">
+      <h3 className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-neutral-200">
+        {title}
+        {hint ? <HintTooltip text={hint} /> : null}
+      </h3>
+      {children}
+    </div>
+  )
+}
 
 export default function TenantAttendanceSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -127,7 +153,7 @@ export default function TenantAttendanceSettingsPage() {
 
       {error ? <ApiErrorBanner message={error} /> : null}
       {success ? (
-        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
           {success}
         </div>
       ) : null}
@@ -145,7 +171,7 @@ export default function TenantAttendanceSettingsPage() {
               </button>
             }
           >
-            <div className="grid gap-6 md:grid-cols-2 max-w-3xl">
+            <div className="grid max-w-3xl gap-6 md:grid-cols-2">
               <FormField
                 label="Horaire fallback"
                 hint="Utilisé pour les fenêtres de pointage si l'employé n'a ni affectation du jour ni horaire par défaut."
@@ -160,11 +186,10 @@ export default function TenantAttendanceSettingsPage() {
                 />
               </FormField>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Fallback PIN (kiosque)
-                  <HintTooltip text="Après le seuil d'échecs sur visage ou NFC, le kiosque propose le PIN puis impose ce délai avant de réessayer le mode principal." />
-                </h3>
+              <Section
+                title="Fallback PIN (kiosque)"
+                hint="Après le seuil d'échecs sur visage ou NFC, le kiosque propose le PIN puis impose ce délai avant de réessayer le mode principal."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField label="Échecs avant bascule PIN">
                     <Input
@@ -184,72 +209,63 @@ export default function TenantAttendanceSettingsPage() {
                       max={600}
                       value={pinFailureCooldownSeconds}
                       onChange={(e) =>
-                        setPinFailureCooldownSeconds(
-                          Math.max(0, Number(e.target.value) || 0),
-                        )
+                        setPinFailureCooldownSeconds(Math.max(0, Number(e.target.value) || 0))
                       }
                     />
                   </FormField>
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Méthodes kiosque par défaut
-                  <HintTooltip text="Appliquées automatiquement à la création d’un nouveau kiosque. Modifiables ensuite au cas par cas." />
-                </h3>
-                <div className="grid gap-4 md:grid-cols-3">
-                  <FormField label="Visage (défaut)">
-                    <Input
-                      type="checkbox"
-                      checked={defaultFaceEnabled}
-                      onChange={(e) => setDefaultFaceEnabled(e.target.checked)}
-                    />
-                  </FormField>
-                  <FormField label="NFC (défaut)">
-                    <Input
-                      type="checkbox"
-                      checked={defaultNfcEnabled}
-                      onChange={(e) => setDefaultNfcEnabled(e.target.checked)}
-                    />
-                  </FormField>
-                  <FormField label="QR (défaut)">
-                    <Input
-                      type="checkbox"
-                      checked={defaultQrEnabled}
-                      onChange={(e) => setDefaultQrEnabled(e.target.checked)}
-                    />
-                  </FormField>
+              <Section
+                title="Méthodes kiosque par défaut"
+                hint="Appliquées automatiquement à la création d’un nouveau kiosque. Modifiables ensuite au cas par cas."
+              >
+                <div className="divide-y divide-slate-100 rounded-lg border border-slate-200/80 dark:divide-border-dark dark:border-border-dark">
+                  <SwitcherField
+                    className="px-4 py-3"
+                    label="Reconnaissance faciale"
+                    description="Activée par défaut sur les nouveaux kiosques"
+                    checked={defaultFaceEnabled}
+                    onCheckedChange={setDefaultFaceEnabled}
+                  />
+                  <SwitcherField
+                    className="px-4 py-3"
+                    label="Badge NFC"
+                    description="Lecture de badge sur la borne"
+                    checked={defaultNfcEnabled}
+                    onCheckedChange={setDefaultNfcEnabled}
+                  />
+                  <SwitcherField
+                    className="px-4 py-3"
+                    label="QR-code"
+                    description="Scan du QR employé"
+                    checked={defaultQrEnabled}
+                    onCheckedChange={setDefaultQrEnabled}
+                  />
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Politique timesheet
-                  <HintTooltip text="Appliquée lors du recalcul des journées. Les retards utilisent aussi le seuil tenant (page Reconnaissance & retards) ou la tolérance de l'horaire type." />
-                </h3>
+              <Section
+                title="Politique timesheet"
+                hint="Appliquée lors du recalcul des journées. Les retards utilisent aussi le seuil tenant (page Reconnaissance & retards) ou la tolérance de l'horaire type."
+              >
                 <div className="grid gap-4 md:grid-cols-3">
                   <FormField label="Arrondi (minutes)" hint="0 = aucun, 5 ou 15 min au plus proche.">
                     <SelectSearch
                       instanceId="tenant-rounding"
-                      options={[
-                        { value: '0', label: 'Aucun' },
-                        { value: '5', label: '5 minutes' },
-                        { value: '15', label: '15 minutes' },
-                      ]}
+                      options={ROUNDING_OPTIONS}
                       value={
-                        [
-                          { value: '0', label: 'Aucun' },
-                          { value: '5', label: '5 minutes' },
-                          { value: '15', label: '15 minutes' },
-                        ].find((o) => o.value === String(timesheetRoundingMinutes)) ?? null
+                        ROUNDING_OPTIONS.find(
+                          (o) => o.value === String(timesheetRoundingMinutes),
+                        ) ?? null
                       }
-                      onChange={(opt) =>
-                        setTimesheetRoundingMinutes(Number(opt?.value ?? 0))
-                      }
+                      onChange={(opt) => setTimesheetRoundingMinutes(Number(opt?.value ?? 0))}
                     />
                   </FormField>
-                  <FormField label="Alerte HS (min)" hint="Notification si HS ≥ seuil sur une journée clôturée.">
+                  <FormField
+                    label="Alerte HS (min)"
+                    hint="Notification si HS ≥ seuil sur une journée clôturée."
+                  >
                     <Input
                       type="number"
                       min={0}
@@ -262,7 +278,10 @@ export default function TenantAttendanceSettingsPage() {
                       }
                     />
                   </FormField>
-                  <FormField label="Repos min. entre shifts (min)" hint="Ex. 660 = 11 h entre deux journées.">
+                  <FormField
+                    label="Repos min. entre shifts (min)"
+                    hint="Ex. 660 = 11 h entre deux journées."
+                  >
                     <Input
                       type="number"
                       min={0}
@@ -274,13 +293,12 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Délais notifications
-                  <HintTooltip text="Contrôle les relances automatiques pour validations manager et check-out oublié." />
-                </h3>
+              <Section
+                title="Délais notifications"
+                hint="Contrôle les relances automatiques pour validations manager et check-out oublié."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     label="Relance check-out oublié (min)"
@@ -315,21 +333,21 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Politique offline (kiosk)
-                  <HintTooltip text="Détermine si la borne peut synchroniser des événements capturés hors ligne (visage/NFC)." />
-                </h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField label="Autoriser la sync offline">
-                    <Input
-                      type="checkbox"
+              <Section
+                title="Politique offline (kiosk)"
+                hint="Détermine si la borne peut synchroniser des événements capturés hors ligne (visage/NFC)."
+              >
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-slate-200/80 px-4 py-3 dark:border-border-dark">
+                    <SwitcherField
+                      label="Autoriser la sync offline"
+                      description="Accepte les pointages capturés hors connexion"
                       checked={allowOfflineSync}
-                      onChange={(e) => setAllowOfflineSync(e.target.checked)}
+                      onCheckedChange={setAllowOfflineSync}
                     />
-                  </FormField>
+                  </div>
                   <FormField
                     label="Ancienneté max event offline (min)"
                     hint="Au-delà de ce délai, la sync offline est rejetée."
@@ -346,13 +364,12 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  RGPD photos faciales
-                  <HintTooltip text="Conserve les logs de reconnaissance, mais supprime automatiquement l’image après ce délai." />
-                </h3>
+              <Section
+                title="RGPD photos faciales"
+                hint="Conserve les logs de reconnaissance, mais supprime automatiquement l’image après ce délai."
+              >
                 <div className="grid gap-4 md:grid-cols-2">
                   <FormField
                     label="Rétention photo (jours)"
@@ -369,41 +386,45 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </div>
+              </Section>
 
-              <div className="md:col-span-2 border-t border-gray-100 pt-4 dark:border-neutral-800">
-                <h3 className="mb-3 inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 dark:text-neutral-200">
-                  Webhooks
-                  <HintTooltip text="Émet des événements signés HMAC SHA-256 vers votre endpoint." />
-                </h3>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <FormField label="Activer les webhooks">
-                    <Input
-                      type="checkbox"
+              <Section
+                title="Webhooks"
+                hint="Émet des événements signés HMAC SHA-256 vers votre endpoint."
+              >
+                <div className="space-y-4">
+                  <div className="rounded-lg border border-slate-200/80 px-4 py-3 dark:border-border-dark">
+                    <SwitcherField
+                      label="Activer les webhooks"
+                      description="Envoie les événements vers l’URL configurée"
                       checked={webhookEnabled}
-                      onChange={(e) => setWebhookEnabled(e.target.checked)}
+                      onCheckedChange={setWebhookEnabled}
                     />
-                  </FormField>
-                  <FormField label="URL endpoint webhook">
-                    <Input
-                      type="url"
-                      value={webhookUrl}
-                      placeholder="https://example.com/timegate/webhook"
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                    />
-                  </FormField>
-                  <FormField
-                    label="Secret de signature"
-                    hint="Header: x-timegate-signature = sha256=<hmac(timestamp.body)>"
-                  >
-                    <Input
-                      type="text"
-                      value={webhookSecret}
-                      onChange={(e) => setWebhookSecret(e.target.value)}
-                    />
-                  </FormField>
+                  </div>
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <FormField label="URL endpoint webhook">
+                      <Input
+                        type="url"
+                        value={webhookUrl}
+                        placeholder="https://example.com/timegate/webhook"
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                        disabled={!webhookEnabled}
+                      />
+                    </FormField>
+                    <FormField
+                      label="Secret de signature"
+                      hint="Header: x-timegate-signature = sha256=<hmac(timestamp.body)>"
+                    >
+                      <Input
+                        type="text"
+                        value={webhookSecret}
+                        onChange={(e) => setWebhookSecret(e.target.value)}
+                        disabled={!webhookEnabled}
+                      />
+                    </FormField>
+                  </div>
                 </div>
-              </div>
+              </Section>
             </div>
           </FormCard>
         </form>

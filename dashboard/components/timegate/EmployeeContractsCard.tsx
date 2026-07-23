@@ -107,7 +107,7 @@ export default function EmployeeContractsCard({
                 {Array.from({ length: 2 }).map((_, i) => (
                   <div
                     key={i}
-                    className="rounded-xl border border-gray-200 p-4 dark:border-neutral-700"
+                    className="rounded-xl border border-slate-200/80 p-4 dark:border-border-dark"
                   >
                     <SkeletonBlock className="h-4 w-36 mb-3" />
                     <SkeletonBlock className="h-3 w-full mb-2" />

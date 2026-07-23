@@ -167,14 +167,14 @@ export default function FileUpload({
       {!atCapacity && (
         <div
           {...getRootProps()}
-          className={`cursor-pointer p-8 sm:p-12 flex justify-center bg-white border border-dashed border-gray-300 rounded-xl transition-colors dark:bg-neutral-800 dark:border-neutral-600 ${
-            isDragActive ? 'border-primary bg-orange-50/50 dark:bg-neutral-700/50' : ''
+          className={`cursor-pointer p-8 sm:p-12 flex justify-center bg-surface-card border border-dashed border-slate-300 rounded-xl transition-colors dark:bg-surface-card-dark dark:border-border-dark ${
+            isDragActive ? 'border-primary bg-primary/5 dark:bg-primary/10' : ''
           } ${disabled ? 'pointer-events-none opacity-50' : ''}`}
           data-hs-file-upload-trigger=""
         >
           <input {...getInputProps()} />
           <div className="text-center">
-            <span className="inline-flex justify-center items-center size-16 bg-gray-100 text-gray-800 rounded-full dark:bg-neutral-700 dark:text-neutral-200">
+            <span className="inline-flex justify-center items-center size-16 bg-slate-100 text-slate-800 rounded-full dark:bg-surface-elevated-dark dark:text-slate-200">
               <svg
                 className="shrink-0 size-6"
                 xmlns="http://www.w3.org/2000/svg"
@@ -234,8 +234,8 @@ function FilePreviewCard({
   const isImage = isImageFile(file)
 
   return (
-    <div className="relative group rounded-xl border border-gray-200 overflow-hidden bg-white dark:bg-neutral-800 dark:border-neutral-700">
-      <div className="relative aspect-[4/3] bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
+    <div className="relative group rounded-xl border border-slate-200/80 overflow-hidden bg-white dark:bg-surface-card-dark dark:border-border-dark">
+      <div className="relative aspect-[4/3] bg-slate-50 dark:bg-surface-elevated-dark flex items-center justify-center">
         {isImage && previewUrl ? (
           <img
             src={previewUrl}
@@ -246,7 +246,7 @@ function FilePreviewCard({
           />
         ) : (
           <div className="flex flex-col items-center gap-2 p-4 text-center">
-            <span className="inline-flex justify-center items-center size-12 rounded-full bg-gray-100 dark:bg-neutral-700 text-gray-500">
+            <span className="inline-flex justify-center items-center size-12 rounded-full bg-slate-100 dark:bg-surface-elevated-dark text-gray-500">
               <svg className="size-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path
                   strokeLinecap="round"
@@ -290,7 +290,7 @@ function FilePreviewCard({
         )}
       </div>
 
-      <div className="px-2.5 py-2 border-t border-gray-100 dark:border-neutral-700 flex items-center justify-between gap-2">
+      <div className="px-2.5 py-2 border-t border-slate-100 dark:border-border-dark flex items-center justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-medium text-gray-800 dark:text-neutral-200 truncate" title={file.name}>
             {file.name}
