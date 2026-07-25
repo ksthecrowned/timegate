@@ -1,26 +1,29 @@
-import type { NavigationProp, ParamListBase } from "@react-navigation/native";
-
 /**
  * Walk up the navigator tree and open the nearest drawer.
+ * Loose typing avoids a hard dep on @react-navigation/native types.
  */
-export function openRootDrawer(
-  navigation: NavigationProp<ParamListBase> | { getParent?: () => unknown },
-): void {
-  let nav: any = navigation;
-  while (nav && typeof nav.getParent === "function") {
+type NavLike = {
+  getParent?: () => NavLike | undefined;
+  getState?: () => { type?: string; key?: string } | undefined;
+  dispatch?: (action: { type: string; target?: string }) => void;
+};
+
+export function openRootDrawer(navigation: NavLike): void {
+  let nav: NavLike | undefined = navigation;
+  while (nav && typeof nav.getParent === 'function') {
     const parent = nav.getParent();
     if (!parent) break;
     const state = parent.getState?.();
-    if (state?.type === "drawer") {
-      parent.dispatch({ type: "OPEN_DRAWER", target: state.key });
+    if (state?.type === 'drawer') {
+      parent.dispatch?.({ type: 'OPEN_DRAWER', target: state.key });
       return;
     }
     nav = parent;
   }
   try {
-    const state = (navigation as any)?.getState?.();
-    if (state?.type === "drawer") {
-      (navigation as any).dispatch({ type: "OPEN_DRAWER", target: state.key });
+    const state = navigation.getState?.();
+    if (state?.type === 'drawer') {
+      navigation.dispatch?.({ type: 'OPEN_DRAWER', target: state.key });
     }
   } catch {
     /* not in a drawer */

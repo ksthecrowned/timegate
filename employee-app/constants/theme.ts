@@ -145,6 +145,12 @@ export const Spacing = {
   md: 16,
   lg: 24,
   xl: 32,
+  /** Legacy Expo template aliases */
+  half: 4,
+  two: 8,
+  three: 12,
+  four: 16,
+  five: 20,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
