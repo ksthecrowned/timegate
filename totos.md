@@ -95,7 +95,7 @@ Ce n’est **pas** une suite RH complète type Factorial/Lucca, ni un outil de t
 
 - [ ] Unifier le thème via `useTheme()` partout
 - [x] Kit formulaires partagé (champ, erreur, bouton, empty state)
-- [x] Tests e2e sur parcours sensibles (login, scan QR, reprise pause)
+- [ ] Tests e2e sur parcours sensibles (login, scan QR, reprise pause)
 - [ ] Harmoniser labels a11y FR (`STRINGS.a11y`) sur tous les écrans restants
 
 ---
