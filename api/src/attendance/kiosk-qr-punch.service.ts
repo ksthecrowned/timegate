@@ -217,20 +217,35 @@ export class KioskQrPunchService {
     }
 
     const payloadHash = createHash('sha256').update(params.payload.trim()).digest('hex');
+    const expiresAt = new Date((parsed.slot + 1) * KIOSK_QR_SLOT_MS);
+
     if (!challenge) {
       // Offline-generated challenge: create on first redeem when MAC is valid.
-      const expiresAt = new Date((parsed.slot + 1) * KIOSK_QR_SLOT_MS);
-      challenge = await this.prisma.timeGateQrChallenge.create({
-        data: {
-          id: generateDocId('QRC'),
-          kioskId: kiosk.id,
-          nonce: parsed.nonce,
-          slot: parsed.slot,
-          payloadHash,
-          expiresAt,
-          clientId: params.clientId,
-        },
-      });
+      try {
+        challenge = await this.prisma.timeGateQrChallenge.create({
+          data: {
+            id: generateDocId('QRC'),
+            kioskId: kiosk.id,
+            nonce: parsed.nonce,
+            slot: parsed.slot,
+            payloadHash,
+            expiresAt,
+            clientId: params.clientId,
+          },
+        });
+      } catch (err) {
+        // Concurrent create on same nonce — reload winner.
+        const existing = await this.prisma.timeGateQrChallenge.findUnique({
+          where: {
+            kioskId_nonce: { kioskId: kiosk.id, nonce: parsed.nonce },
+          },
+        });
+        if (!existing) throw err;
+        challenge = existing;
+        if (challenge.redeemedAt) {
+          throw new ConflictException('QR code deja utilise');
+        }
+      }
     } else if (params.clientId && !challenge.clientId) {
       await this.prisma.timeGateQrChallenge.update({
         where: { id: challenge.id },
@@ -238,21 +253,48 @@ export class KioskQrPunchService {
       });
     }
 
-    const occurredAt = params.scannedAt;
-    const punch = await this.recordPunchFromQr({
-      employee: {
-        id: employee.id,
-        firstName: employee.firstName,
-        lastName: employee.lastName,
-        employeeName: employee.employeeName,
-        branchId: employeeBranchId,
-        companyId: employeeCompanyId,
+    if (params.scannedAt.getTime() > challenge.expiresAt.getTime()) {
+      throw new BadRequestException('QR code expire');
+    }
+
+    // Claim atomically before recording attendance to avoid double-punch races.
+    const claimed = await this.prisma.timeGateQrChallenge.updateMany({
+      where: { id: challenge.id, redeemedAt: null },
+      data: {
+        redeemedAt: new Date(),
+        employeeId: employee.id,
+        ...(params.clientId ? { clientId: params.clientId } : {}),
       },
-      kiosk,
-      occurredAt,
-      offlineSync: params.offlineSync,
-      verificationRef: challenge.id,
     });
+    if (claimed.count === 0) {
+      throw new ConflictException('QR code deja utilise');
+    }
+
+    const occurredAt = params.scannedAt;
+    let punch: { message: string; eventType: string };
+    try {
+      punch = await this.recordPunchFromQr({
+        employee: {
+          id: employee.id,
+          firstName: employee.firstName,
+          lastName: employee.lastName,
+          employeeName: employee.employeeName,
+          branchId: employeeBranchId,
+          companyId: employeeCompanyId,
+        },
+        kiosk,
+        occurredAt,
+        offlineSync: params.offlineSync,
+        verificationRef: challenge.id,
+      });
+    } catch (err) {
+      // Release claim so a transient window rejection can be retried.
+      await this.prisma.timeGateQrChallenge.updateMany({
+        where: { id: challenge.id, employeeId: employee.id },
+        data: { redeemedAt: null, employeeId: null },
+      });
+      throw err;
+    }
 
     const resultJson = {
       message: punch.message,
@@ -267,8 +309,6 @@ export class KioskQrPunchService {
     await this.prisma.timeGateQrChallenge.update({
       where: { id: challenge.id },
       data: {
-        redeemedAt: new Date(),
-        employeeId: employee.id,
         resultJson,
         ...(params.clientId ? { clientId: params.clientId } : {}),
       },

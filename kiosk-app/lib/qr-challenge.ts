@@ -2,7 +2,7 @@ import * as SecureStore from 'expo-secure-store';
 import HmacSHA256 from 'crypto-js/hmac-sha256';
 import Base64 from 'crypto-js/enc-base64';
 import Utf8 from 'crypto-js/enc-utf8';
-import { API_BASE, getLifetimeToken } from './timegate';
+import { API_BASE, clearProvisioning, getLifetimeToken } from './timegate';
 
 const QR_SECRET_KEY = 'timegate_kiosk_qr_challenge_secret';
 const KIOSK_ID_KEY = 'timegate_mobile_device_id';
@@ -85,38 +85,57 @@ export async function createQrChallenge(): Promise<QrChallenge> {
   const secret = await getQrChallengeSecret();
   const kioskId = await SecureStore.getItemAsync(KIOSK_ID_KEY);
 
-  if (token) {
-    try {
-      const res = await fetch(`${API_BASE}/auth/mobile/qr-challenge`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = (await res.json()) as {
-          id: string;
-          payload: string;
-          expiresAt: string;
-          nonce: string;
-        };
-        return {
-          id: json.id,
-          payload: json.payload,
-          expiresAt: new Date(json.expiresAt),
-          nonce: json.nonce,
-          offline: false,
-        };
-      }
-    } catch {
-      // fall through to offline
-    }
+  const offlineOrThrow = (): QrChallenge => {
+    if (secret && kioskId) return buildLocalChallenge(kioskId, secret);
+    throw new Error(
+      token
+        ? 'Impossible de créer un challenge QR. Vérifiez la connexion ou re-provisionnez.'
+        : 'Appareil non provisionné.',
+    );
+  };
+
+  if (!token) return offlineOrThrow();
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}/auth/mobile/qr-challenge`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  } catch {
+    // Network failure only — allow locally signed challenge.
+    return offlineOrThrow();
   }
 
-  if (secret && kioskId) return buildLocalChallenge(kioskId, secret);
-  throw new Error(
-    token
-      ? 'Impossible de créer un challenge QR. Vérifiez la connexion ou re-provisionnez.'
-      : 'Appareil non provisionné.',
-  );
+  if (res.ok) {
+    const json = (await res.json()) as {
+      id: string;
+      payload: string;
+      expiresAt: string;
+      nonce: string;
+    };
+    return {
+      id: json.id,
+      payload: json.payload,
+      expiresAt: new Date(json.expiresAt),
+      nonce: json.nonce,
+      offline: false,
+    };
+  }
+
+  // Auth / policy denial: never fall back to a locally cached signing secret.
+  if (res.status === 401) {
+    await clearProvisioning();
+    throw new Error('Session kiosk invalide. Re-provisionnez l’appareil.');
+  }
+  if (res.status === 403) {
+    throw new Error('Pointage QR refusé pour cet appareil.');
+  }
+  if (res.status >= 500) {
+    return offlineOrThrow();
+  }
+
+  throw new Error(`Impossible de créer un challenge QR (${res.status}).`);
 }
 
 export async function pollQrChallengeResult(

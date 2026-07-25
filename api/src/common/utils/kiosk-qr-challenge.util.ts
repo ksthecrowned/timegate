@@ -58,7 +58,9 @@ export function verifyKioskQrChallengePayload(
   referenceAt: Date,
 ): boolean {
   const ref = kioskQrSlot(referenceAt);
-  const slots = [...new Set([ref, ref - 1, ref + 1, parsed.slot])];
+  // Only current ±1 slot — never trust parsed.slot alone (would accept stale screenshots).
+  const slots = [...new Set([ref, ref - 1, ref + 1])];
+  if (!slots.includes(parsed.slot)) return false;
   return slots.some((slot) => {
     const expected = buildKioskQrMac(parsed.kioskId, slot, parsed.nonce, secret);
     if (expected.length !== parsed.mac.length) return false;
