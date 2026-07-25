@@ -5,13 +5,17 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  RefreshControl,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useColorScheme } from 'react-native';
-import { Colors, Spacing } from '@/constants/theme';
+import { Colors, MinTouchTarget, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { FilterChips } from '@/components/ui/FilterChips';
+import { StatusBadge, statusToneFromLeave } from '@/components/ui/StatusBadge';
+import { EmptyState, ErrorState } from '@/components/ui/EmptyState';
 import { employeeApi } from '@/lib/api';
 
 type StatusFilter = 'all' | 'pending' | 'approved' | 'rejected';
@@ -109,31 +113,22 @@ export default function ShiftSwapsScreen() {
     return layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
   };
 
-  const getStatusColors = (status: string) => {
-    switch (status) {
-      case 'approved':
-        return { bg: '#2ECC7120', text: '#2ECC71' };
-      case 'rejected':
-        return { bg: '#E74C3C20', text: '#E74C3C' };
-      case 'pending':
-        return { bg: '#F39C1220', text: '#F39C12' };
-      default:
-        return { bg: colors.surfaceMuted, text: colors.textSecondary };
-    }
-  };
-
   return (
     <ScreenLayout
       title={STRINGS.swaps.title}
+      showScroll={false}
       refreshing={refreshing}
       onRefresh={onRefresh}
       rightAction={
         <Pressable
           onPress={() => router.push('/shift-swap-request')}
+          accessibilityRole="button"
+          accessibilityLabel={STRINGS.swaps.newRequest}
+          hitSlop={8}
           style={{
-            width: 40,
-            height: 40,
-            borderRadius: 20,
+            minWidth: MinTouchTarget,
+            minHeight: MinTouchTarget,
+            borderRadius: MinTouchTarget / 2,
             backgroundColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
@@ -143,44 +138,11 @@ export default function ShiftSwapsScreen() {
         </Pressable>
       }
     >
-      {/* Filter chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{
-          paddingHorizontal: Spacing[4],
-          gap: Spacing[2],
-          paddingVertical: Spacing[2],
-        }}
-      >
-        {filters.map((f) => {
-          const active = filter === f;
-          return (
-            <Pressable
-              key={f}
-              onPress={() => changeFilter(f)}
-              style={{
-                paddingHorizontal: Spacing[4],
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: active ? colors.primary : colors.surfaceCard,
-                borderWidth: 1,
-                borderColor: active ? colors.primary : colors.border,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: active ? '#ffffff' : colors.text,
-                }}
-              >
-                {filterLabel(f)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <FilterChips
+        options={filters.map((f) => ({ value: f, label: filterLabel(f) }))}
+        value={filter}
+        onChange={changeFilter}
+      />
 
       <ScrollView
         onScroll={({ nativeEvent }) => {
@@ -189,61 +151,34 @@ export default function ShiftSwapsScreen() {
         scrollEventThrottle={400}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
+        contentContainerStyle={{ paddingBottom: Spacing[10] }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            accessibilityLabel="Actualiser"
+          />
+        }
       >
         {loading && swaps.length === 0 ? (
           <View style={{ padding: Spacing[8], alignItems: 'center' }}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
         ) : error ? (
-          <View
-            style={{
-              margin: Spacing[4],
-              padding: Spacing[5],
-              backgroundColor: '#E74C3C15',
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: '#E74C3C40',
-            }}
-          >
-            <Text style={{ color: '#E74C3C', fontSize: 14 }}>{error}</Text>
-          </View>
+          <ErrorState message={error} onRetry={() => loadSwaps(1)} />
         ) : swaps.length === 0 ? (
-          <View
-            style={{
-              margin: Spacing[4],
-              padding: Spacing[8],
-              backgroundColor: colors.surfaceCard,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-              alignItems: 'center',
-            }}
-          >
-            <Ionicons
-              name="swap-horizontal-outline"
-              size={48}
-              color={colors.textMuted}
-            />
-            <Text
-              style={{
-                fontSize: 15,
-                color: colors.textSecondary,
-                marginTop: 12,
-              }}
-            >
-              {STRINGS.swaps.noRequests}
-            </Text>
-            <Text
-              style={{
-                fontSize: 13,
-                color: colors.textMuted,
-                marginTop: 4,
-                textAlign: 'center',
-              }}
-            >
-              {filter !== 'all' ? STRINGS.swaps.differentFilter : STRINGS.swaps.noRequestsHint}
-            </Text>
-          </View>
+          <EmptyState
+            icon="swap-horizontal-outline"
+            title={STRINGS.swaps.noRequests}
+            hint={
+              filter !== 'all'
+                ? STRINGS.swaps.differentFilter
+                : STRINGS.swaps.noRequestsHint
+            }
+            actionLabel={STRINGS.swaps.newRequest}
+            onAction={() => router.push('/shift-swap-request')}
+          />
         ) : (
           <View style={{ padding: Spacing[4] }}>
             {total > 0 && (
@@ -259,7 +194,7 @@ export default function ShiftSwapsScreen() {
               </Text>
             )}
             {swaps.map((swap) => {
-              const sc = getStatusColors(swap.status);
+              const title = swap.shift?.name || `Shift #${swap.shiftId}`;
               return (
                 <View
                   key={swap.id}
@@ -271,6 +206,8 @@ export default function ShiftSwapsScreen() {
                     borderColor: colors.border,
                     marginBottom: Spacing[3],
                   }}
+                  accessibilityRole="summary"
+                  accessibilityLabel={`${title}, ${statusLabel(swap.status)}`}
                 >
                   <View
                     style={{
@@ -280,7 +217,7 @@ export default function ShiftSwapsScreen() {
                       marginBottom: 8,
                     }}
                   >
-                    <View style={{ flex: 1 }}>
+                    <View style={{ flex: 1, marginRight: 8 }}>
                       <Text
                         style={{
                           fontSize: 15,
@@ -289,7 +226,7 @@ export default function ShiftSwapsScreen() {
                           marginBottom: 2,
                         }}
                       >
-                        {swap.shift?.name || `Shift #${swap.shiftId}`}
+                        {title}
                       </Text>
                       {swap.swapWith && (
                         <Text
@@ -302,26 +239,10 @@ export default function ShiftSwapsScreen() {
                         </Text>
                       )}
                     </View>
-                    <View
-                      style={{
-                        paddingHorizontal: 10,
-                        paddingVertical: 4,
-                        borderRadius: 999,
-                        backgroundColor: sc.bg,
-                      }}
-                    >
-                      <Text
-                        style={{
-                          color: sc.text,
-                          fontSize: 11,
-                          fontWeight: '700',
-                          textTransform: 'uppercase',
-                          letterSpacing: 0.5,
-                        }}
-                      >
-                        {statusLabel(swap.status)}
-                      </Text>
-                    </View>
+                    <StatusBadge
+                      label={statusLabel(swap.status)}
+                      tone={statusToneFromLeave(swap.status)}
+                    />
                   </View>
                   {swap.reason && (
                     <Text

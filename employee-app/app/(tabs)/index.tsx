@@ -1,84 +1,130 @@
-import { useCallback, useEffect, useState } from 'react';
-import { View, Text, Pressable, ActivityIndicator, Alert } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Alert, Pressable, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useColorScheme } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing, Radius, MinTouchTarget } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { TrustedDeviceBanner } from '@/components/TrustedDeviceBanner';
 import { useDeviceTrustPending } from '@/components/PendingDeviceBlock';
+import { Card } from '@/components/ui/Card';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import { getMeCached } from '@/lib/meCache';
-import type { Profile } from '@/lib/types';
+import {
+  getQrOfflineQueueCount,
+  syncQrOfflineQueue,
+} from '@/lib/qr-offline-queue';
+import type {
+  AttendanceEventRow,
+  Profile,
+  ShiftAssignment,
+} from '@/lib/types';
 
-type QuickStat = {
+type DayStatus = 'not_started' | 'on_site' | 'on_break' | 'done' | 'unknown';
+
+type PrimaryAction = {
   label: string;
-  value: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  color: string;
   href: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  sensitive?: boolean;
 };
 
-const quickActions = [
+const secondaryActions = [
   {
     label: STRINGS.home.actionRequestLeave,
-    icon: 'calendar-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#0d9488',
+    icon: 'calendar-outline' as const,
     href: '/leave-request',
   },
   {
     label: STRINGS.home.actionSwapShift,
-    icon: 'swap-horizontal-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#0284c7',
+    icon: 'swap-horizontal-outline' as const,
     href: '/shift-swap-request',
   },
   {
     label: STRINGS.home.actionMyPlanning,
-    icon: 'calendar-number-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#14b8a6',
+    icon: 'calendar-number-outline' as const,
     href: '/planning',
   },
   {
-    label: STRINGS.home.actionMyQr,
-    icon: 'qr-code-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#6366f1',
-    href: '/qr-punch',
-  },
-  {
-    label: STRINGS.home.actionBreakResume,
-    icon: 'cafe-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#f59e0b',
-    href: '/break-resume',
-  },
-  {
     label: STRINGS.home.actionAttendance,
-    icon: 'time-outline' as keyof typeof Ionicons.glyphMap,
-    color: '#0d9488',
+    icon: 'time-outline' as const,
     href: '/attendance',
   },
 ];
 
-const SENSITIVE_ACTION_HREFS = new Set(['/qr-punch', '/break-resume']);
+function isoDay(d = new Date()): string {
+  return d.toISOString().slice(0, 10);
+}
+
+function formatTime(iso?: string | null): string {
+  if (!iso) return '';
+  // HH:mm already or full ISO
+  if (/^\d{2}:\d{2}/.test(iso)) return iso.slice(0, 5);
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function deriveDayStatus(events: AttendanceEventRow[]): DayStatus {
+  if (events.length === 0) return 'not_started';
+  const sorted = [...events].sort(
+    (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+  );
+  const last = sorted[sorted.length - 1];
+  if (last.type === 'CHECK_OUT') return 'done';
+  if (last.type === 'BREAK_START') return 'on_break';
+  if (last.type === 'CHECK_IN' || last.type === 'BREAK_END') return 'on_site';
+  return 'unknown';
+}
+
+function statusLabel(status: DayStatus): string {
+  switch (status) {
+    case 'not_started':
+      return STRINGS.home.statusNotStarted;
+    case 'on_site':
+      return STRINGS.home.statusOnSite;
+    case 'on_break':
+      return STRINGS.home.statusOnBreak;
+    case 'done':
+      return STRINGS.home.statusDone;
+    default:
+      return STRINGS.home.statusUnknown;
+  }
+}
 
 export default function HomeScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const theme = useTheme();
   const devicePending = useDeviceTrustPending();
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [leaveDays, setLeaveDays] = useState<number | null>(null);
-  const [pendingLeaves, setPendingLeaves] = useState<number>(0);
-  const [pendingSwaps, setPendingSwaps] = useState<number>(0);
+  const [pendingLeaves, setPendingLeaves] = useState(0);
+  const [pendingSwaps, setPendingSwaps] = useState(0);
+  const [todayShift, setTodayShift] = useState<ShiftAssignment | null>(null);
+  const [dayEvents, setDayEvents] = useState<AttendanceEventRow[]>([]);
+  const [breakEligible, setBreakEligible] = useState(false);
+  const [offlinePending, setOfflinePending] = useState(0);
+  const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
-      const [me, balances, leaves, swaps] = await Promise.all([
+      const today = isoDay();
+      const [
+        me,
+        balances,
+        leaves,
+        swaps,
+        shifts,
+        events,
+        breakStatus,
+        offlineCount,
+      ] = await Promise.all([
         getMeCached().catch(() => null),
         employeeApi
           .getLeaveBalances({ year: new Date().getFullYear() })
@@ -89,18 +135,32 @@ export default function HomeScreen() {
         employeeApi
           .getShiftSwaps({ status: 'pending', limit: 100 })
           .catch(() => null),
+        employeeApi.getMyShifts({ from: today, to: today }).catch(() => []),
+        employeeApi
+          .getAttendanceEvents({
+            page: 1,
+            limit: 50,
+            from: `${today}T00:00:00.000Z`,
+            to: `${today}T23:59:59.999Z`,
+          })
+          .catch(() => null),
+        employeeApi.getBreakResumeStatus().catch(() => null),
+        getQrOfflineQueueCount().catch(() => 0),
       ]);
 
       setProfile(me);
-      // Sum remaining days across all leave balances, ignoring unlimited types.
       const totalRemaining = (balances?.balances ?? [])
         .filter((b) => !b.unlimited)
         .reduce((sum, b) => sum + (b.remaining ?? 0), 0);
       setLeaveDays(totalRemaining);
       setPendingLeaves(leaves?.meta?.total ?? leaves?.data?.length ?? 0);
       setPendingSwaps(swaps?.meta?.total ?? swaps?.data?.length ?? 0);
-    } catch (err) {
-      // Don't block the UI on errors — quick-stats just show 0 / —.
+      setTodayShift((shifts ?? [])[0] ?? null);
+      setDayEvents(events?.data ?? []);
+      setBreakEligible(Boolean(breakStatus?.eligible));
+      setOfflinePending(offlineCount);
+    } catch {
+      // Soft-fail home metrics
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -108,19 +168,64 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
-    loadData();
+    void loadData();
   }, [loadData]);
 
-  const onRefresh = useCallback(() => {
-    loadData(true);
-  }, [loadData]);
+  const dayStatus = useMemo(() => {
+    if (breakEligible) return 'on_break' as DayStatus;
+    return deriveDayStatus(dayEvents);
+  }, [breakEligible, dayEvents]);
 
-  const handleActionPress = (href: string) => {
-    if (devicePending && SENSITIVE_ACTION_HREFS.has(href)) {
+  const primaryAction: PrimaryAction = useMemo(() => {
+    if (breakEligible) {
+      return {
+        label: STRINGS.home.primaryBreak,
+        href: '/break-resume',
+        icon: 'cafe-outline',
+        sensitive: true,
+      };
+    }
+    if (dayStatus === 'not_started' || dayStatus === 'on_site' || dayStatus === 'done') {
+      return {
+        label: STRINGS.home.primaryPunch,
+        href: '/qr-punch',
+        icon: 'qr-code-outline',
+        sensitive: true,
+      };
+    }
+    return {
+      label: STRINGS.home.primaryAttendance,
+      href: '/attendance',
+      icon: 'time-outline',
+    };
+  }, [breakEligible, dayStatus]);
+
+  const handleNavigate = (href: string, sensitive?: boolean) => {
+    if (devicePending && sensitive) {
       Alert.alert(STRINGS.auth.devicePendingTitle, STRINGS.auth.devicePendingBody);
       return;
     }
-    router.push(href as any);
+    router.push(href as never);
+  };
+
+  const handleSyncOffline = async () => {
+    if (devicePending) {
+      Alert.alert(STRINGS.auth.devicePendingTitle, STRINGS.auth.devicePendingBody);
+      return;
+    }
+    setSyncing(true);
+    try {
+      const summary = await syncQrOfflineQueue();
+      setOfflinePending(summary.pending);
+      if (summary.synced > 0) {
+        Alert.alert(STRINGS.app.name, STRINGS.qrPunch.syncSuccess(summary.synced));
+        void loadData(true);
+      } else if (summary.failed > 0) {
+        Alert.alert(STRINGS.app.name, summary.lastMessage ?? STRINGS.qrPunch.syncFailed);
+      }
+    } finally {
+      setSyncing(false);
+    }
   };
 
   const greeting = () => {
@@ -130,29 +235,23 @@ export default function HomeScreen() {
     return STRINGS.home.greetingEvening;
   };
 
-  const quickStats: QuickStat[] = [
-    {
-      label: STRINGS.home.leaveDays,
-      value: leaveDays == null ? '—' : String(leaveDays),
-      icon: 'calendar',
-      color: '#0d9488',
-      href: '/leave-balances',
-    },
-    {
-      label: STRINGS.home.pending,
-      value: String(pendingLeaves),
-      icon: 'hourglass-outline',
-      color: '#0284c7',
-      href: '/leave-balances',
-    },
-    {
-      label: STRINGS.home.swaps,
-      value: String(pendingSwaps),
-      icon: 'swap-horizontal',
-      color: '#14b8a6',
-      href: '/shift-swap-request',
-    },
-  ];
+  const displayName = profile?.firstName
+    ? `${profile.firstName} ${profile.lastName ?? ''}`.trim()
+    : STRINGS.home.welcomeBack;
+
+  const shiftWindow =
+    todayShift?.startTime || todayShift?.endTime
+      ? `${formatTime(todayShift?.startTime)} – ${formatTime(todayShift?.endTime)}`
+      : '';
+
+  const shiftLine = todayShift
+    ? STRINGS.home.shiftToday(
+        todayShift.shiftName || profile?.defaultShiftName || 'Shift',
+        shiftWindow,
+      )
+    : STRINGS.home.noShiftToday;
+
+  const primaryBlocked = Boolean(devicePending && primaryAction.sensitive);
 
   return (
     <ScreenLayout
@@ -160,203 +259,296 @@ export default function HomeScreen() {
       showSearch={false}
       showNotifications
       refreshing={refreshing}
-      onRefresh={onRefresh}
+      onRefresh={() => void loadData(true)}
     >
       <TrustedDeviceBanner />
-      {/* Greeting card */}
+
       <View
-        style={{
-          margin: Spacing[4],
-          padding: Spacing[5],
-          backgroundColor: colors.primary,
-          borderRadius: 16,
-          shadowColor: '#0d9488',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 8,
-          elevation: 4,
-        }}
+        style={[styles.hero, { backgroundColor: theme.primary }]}
+        accessibilityRole="summary"
+        accessibilityLabel={`${greeting()} ${displayName}`}
       >
-        <Text
-          style={{
-            color: '#ffffffcc',
-            fontSize: 14,
-            fontWeight: '500',
-          }}
-        >
-          {greeting()},
-        </Text>
-        <Text
-          style={{
-            color: '#ffffff',
-            fontSize: 22,
-            fontWeight: '700',
-            marginTop: 4,
-            marginBottom: 12,
-          }}
-        >
-          {profile?.firstName
-            ? `${profile.firstName} ${profile.lastName ?? ''}`.trim()
-            : STRINGS.home.welcomeBack}
-        </Text>
-        {profile?.position && (
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: '#ffffff20',
-              paddingHorizontal: 10,
-              paddingVertical: 4,
-              borderRadius: 12,
-              alignSelf: 'flex-start',
-            }}
-          >
-            <MaterialCommunityIcons
-              name="briefcase-outline"
-              size={12}
-              color="#ffffff"
-            />
-            <Text
-              style={{
-                color: '#ffffff',
-                fontSize: 12,
-                marginLeft: 4,
-                fontWeight: '500',
-              }}
-            >
-              {profile.position}
+        <Text style={styles.heroGreeting}>{greeting()},</Text>
+        <Text style={styles.heroName}>{displayName}</Text>
+        {profile?.position || profile?.branchName ? (
+          <View style={styles.heroChip}>
+            <Ionicons name="briefcase-outline" size={12} color="#fff" />
+            <Text style={styles.heroChipText}>
+              {[profile.position, profile.branchName].filter(Boolean).join(' · ')}
             </Text>
           </View>
-        )}
+        ) : null}
       </View>
 
-      {/* Quick stats */}
-      <View
-        style={{
-          flexDirection: 'row',
-          paddingHorizontal: Spacing[4],
-          gap: Spacing[3],
-          marginBottom: Spacing[4],
-        }}
+      {offlinePending > 0 ? (
+        <Pressable
+          onPress={() => void handleSyncOffline()}
+          accessibilityRole="button"
+          accessibilityLabel={STRINGS.home.offlinePending(offlinePending)}
+          style={({ pressed }) => [
+            styles.offlineBanner,
+            {
+              backgroundColor: theme.warningSoft,
+              borderColor: theme.warning,
+              opacity: pressed || syncing ? 0.85 : 1,
+            },
+          ]}
+        >
+          {syncing ? (
+            <ActivityIndicator color={theme.warning} />
+          ) : (
+            <Ionicons name="cloud-upload-outline" size={20} color={theme.warning} />
+          )}
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.offlineTitle, { color: theme.warning }]}>
+              {STRINGS.home.offlinePending(offlinePending)}
+            </Text>
+            <Text style={[styles.offlineHint, { color: theme.textSecondary }]}>
+              {STRINGS.home.offlineSyncNow}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={theme.warning} />
+        </Pressable>
+      ) : null}
+
+      <Card
+        style={styles.todayCard}
+        accessibilityLabel={`${STRINGS.home.todayTitle}. ${statusLabel(dayStatus)}. ${shiftLine}`}
       >
-        {quickStats.map((stat) => (
-          <Pressable
+        <Text style={[styles.todayEyebrow, { color: theme.textSecondary }]}>
+          {STRINGS.home.todayTitle}
+        </Text>
+        <Text style={[styles.todayStatus, { color: theme.text }]}>
+          {loading ? '…' : statusLabel(dayStatus)}
+        </Text>
+        <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
+          {loading ? '…' : shiftLine}
+        </Text>
+
+        <Pressable
+          onPress={() => handleNavigate(primaryAction.href, primaryAction.sensitive)}
+          accessibilityRole="button"
+          accessibilityLabel={primaryAction.label}
+          accessibilityHint={
+            primaryBlocked ? STRINGS.a11y.actionBlocked : undefined
+          }
+          disabled={primaryBlocked}
+          style={({ pressed }) => [
+            styles.primaryCta,
+            {
+              backgroundColor: theme.primary,
+              opacity: pressed || primaryBlocked ? 0.7 : 1,
+            },
+          ]}
+        >
+          <Ionicons name={primaryAction.icon} size={22} color="#fff" />
+          <Text style={styles.primaryCtaText}>{primaryAction.label}</Text>
+          <Ionicons name="arrow-forward" size={18} color="#fff" />
+        </Pressable>
+      </Card>
+
+      <View style={styles.statsRow}>
+        {[
+          {
+            label: STRINGS.home.leaveDays,
+            value: leaveDays == null ? '—' : String(leaveDays),
+            icon: 'calendar' as const,
+            color: theme.primary,
+            href: '/leave-balances',
+          },
+          {
+            label: STRINGS.home.pending,
+            value: String(pendingLeaves),
+            icon: 'hourglass-outline' as const,
+            color: theme.secondary,
+            href: '/leave',
+          },
+          {
+            label: STRINGS.home.swaps,
+            value: String(pendingSwaps),
+            icon: 'swap-horizontal' as const,
+            color: theme.accent,
+            href: '/shift-swaps',
+          },
+        ].map((stat) => (
+          <Card
             key={stat.label}
-            onPress={() => router.push(stat.href as any)}
-            style={{
-              flex: 1,
-              padding: Spacing[3],
-              backgroundColor: colors.surfaceCard,
-              borderRadius: 12,
-              borderWidth: 1,
-              borderColor: colors.border,
-            }}
+            style={styles.statCard}
+            onPress={() => router.push(stat.href as never)}
+            accessibilityLabel={STRINGS.a11y.stat(
+              stat.label,
+              loading ? '…' : stat.value,
+            )}
           >
             <View
-              style={{
-                width: 32,
-                height: 32,
-                borderRadius: 16,
-                backgroundColor: stat.color + '20',
-                alignItems: 'center',
-                justifyContent: 'center',
-                marginBottom: 8,
-              }}
+              style={[styles.statIcon, { backgroundColor: `${stat.color}20` }]}
             >
               <Ionicons name={stat.icon} size={18} color={stat.color} />
             </View>
-            <Text
-              style={{
-                fontSize: 22,
-                fontWeight: '700',
-                color: colors.text,
-              }}
-            >
+            <Text style={[styles.statValue, { color: theme.text }]}>
               {loading ? '…' : stat.value}
             </Text>
-            <Text
-              style={{
-                fontSize: 12,
-                color: colors.textSecondary,
-                marginTop: 2,
-              }}
-            >
+            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
               {stat.label}
             </Text>
-          </Pressable>
+          </Card>
         ))}
       </View>
 
-      {/* Quick actions */}
-      <View style={{ paddingHorizontal: Spacing[4] }}>
+      <View style={styles.section}>
         <Text
-          style={{
-            fontSize: 12,
-            fontWeight: '700',
-            color: colors.textSecondary,
-            textTransform: 'uppercase',
-            letterSpacing: 0.8,
-            marginBottom: 8,
-          }}
+          style={[styles.sectionTitle, { color: theme.textSecondary }]}
+          accessibilityRole="header"
         >
           {STRINGS.home.quickActions}
         </Text>
-
-        <View
-          style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            gap: Spacing[3],
-          }}
-        >
-          {quickActions.map((action) => {
-            const blocked =
-              devicePending === true && SENSITIVE_ACTION_HREFS.has(action.href);
-            return (
-            <Pressable
+        <View style={styles.actionsGrid}>
+          {secondaryActions.map((action) => (
+            <Card
               key={action.label}
-              onPress={() => handleActionPress(action.href)}
-              style={{
-                width: '48%',
-                padding: Spacing[4],
-                backgroundColor: colors.surfaceCard,
-                borderRadius: 12,
-                borderWidth: 1,
-                borderColor: colors.border,
-                alignItems: 'flex-start',
-                opacity: blocked ? 0.45 : 1,
-              }}
+              style={styles.actionCard}
+              onPress={() => handleNavigate(action.href)}
+              accessibilityLabel={action.label}
             >
               <View
-                style={{
-                  width: 40,
-                  height: 40,
-                  borderRadius: 20,
-                  backgroundColor: action.color + '20',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginBottom: 10,
-                }}
+                style={[
+                  styles.actionIcon,
+                  { backgroundColor: `${theme.primary}20` },
+                ]}
               >
-                <Ionicons name={action.icon} size={20} color={action.color} />
+                <Ionicons name={action.icon} size={20} color={theme.primary} />
               </View>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: colors.text,
-                }}
-              >
+              <Text style={[styles.actionLabel, { color: theme.text }]}>
                 {action.label}
               </Text>
-            </Pressable>
-            );
-          })}
+            </Card>
+          ))}
         </View>
       </View>
-
-      {/* Footer space */}
-      <View style={{ height: Spacing[8] }} />
     </ScreenLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  hero: {
+    marginHorizontal: Spacing[4],
+    marginTop: Spacing[4],
+    marginBottom: Spacing[3],
+    padding: Spacing[5],
+    borderRadius: Radius.lg,
+  },
+  heroGreeting: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  heroName: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  heroChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    alignSelf: 'flex-start',
+  },
+  heroChipText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  offlineBanner: {
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[3],
+    padding: Spacing[3],
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    minHeight: MinTouchTarget,
+  },
+  offlineTitle: { fontSize: 14, fontWeight: '700' },
+  offlineHint: { fontSize: 12, marginTop: 2 },
+  todayCard: {
+    marginHorizontal: Spacing[4],
+    marginBottom: Spacing[4],
+  },
+  todayEyebrow: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  todayStatus: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: Spacing[1],
+  },
+  todayShift: {
+    fontSize: 13,
+    marginTop: 4,
+    marginBottom: Spacing[4],
+  },
+  primaryCta: {
+    minHeight: MinTouchTarget + 8,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing[4],
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+  },
+  primaryCtaText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: Spacing[4],
+    gap: Spacing[3],
+    marginBottom: Spacing[5],
+  },
+  statCard: { flex: 1, minHeight: 96, padding: Spacing[3] },
+  statIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 8,
+  },
+  statValue: { fontSize: 22, fontWeight: '700' },
+  statLabel: { fontSize: 12, marginTop: 2, fontWeight: '500' },
+  section: { paddingHorizontal: Spacing[4], paddingBottom: Spacing[8] },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+    marginBottom: Spacing[3],
+  },
+  actionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing[3],
+  },
+  actionCard: {
+    width: '47.5%',
+    flexGrow: 1,
+    minHeight: 96,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  actionLabel: { fontSize: 14, fontWeight: '600' },
+});

@@ -12,9 +12,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 
-import { Colors, Spacing } from "@/constants/theme";
+import { Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { ScreenLayout } from "@/components/ScreenLayout";
+import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
 import type { EmployeeContractRow } from "@/lib/types";
 
@@ -40,6 +41,7 @@ async function openContract(url: string) {
 }
 
 export default function ContractsScreen() {
+  const theme = useTheme();
   const [rows, setRows] = useState<EmployeeContractRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -80,18 +82,18 @@ export default function ContractsScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
       >
         {loading && rows.length === 0 ? (
-          <ActivityIndicator size="large" color={Colors.light.primary} />
+          <ActivityIndicator size="large" color={theme.primary} />
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : rows.length === 0 ? (
-          <View style={[styles.empty, { backgroundColor: Colors.light.surfaceCard }]}>
-            <Ionicons name="document-text-outline" size={48} color={Colors.light.textMuted} />
-            <Text style={{ color: Colors.light.textSecondary, marginTop: S[3] }}>
+          <View style={[styles.empty, { backgroundColor: theme.surfaceCard }]}>
+            <Ionicons name="document-text-outline" size={48} color={theme.textMuted} />
+            <Text style={{ color: theme.textSecondary, marginTop: S[3] }}>
               {STRINGS.contracts.noContracts}
             </Text>
           </View>
@@ -99,45 +101,50 @@ export default function ContractsScreen() {
           rows.map((row) => (
             <View
               key={row.id}
-              style={[styles.card, { backgroundColor: Colors.light.surfaceCard }]}
+              style={[
+                styles.card,
+                { backgroundColor: theme.surfaceCard, borderColor: theme.border },
+              ]}
             >
               <View style={styles.cardHeader}>
-                <Text style={[styles.cardTitle, { color: Colors.light.text }]}>
+                <Text style={[styles.cardTitle, { color: theme.text }]}>
                   {row.isCurrent
                     ? STRINGS.contracts.currentContract
                     : STRINGS.contracts.pastContract}
                 </Text>
                 {row.isCurrent ? (
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{STRINGS.contracts.active}</Text>
+                    <Text style={[styles.badgeText, { color: theme.primary }]}>
+                      {STRINGS.contracts.active}
+                    </Text>
                   </View>
                 ) : null}
               </View>
-              <Text style={[styles.meta, { color: Colors.light.textSecondary }]}>
+              <Text style={[styles.meta, { color: theme.textSecondary }]}>
                 {STRINGS.contracts.signedAt}: {formatDate(row.signedAt)}
               </Text>
               {row.expiresAt ? (
-                <Text style={[styles.meta, { color: Colors.light.textSecondary }]}>
+                <Text style={[styles.meta, { color: theme.textSecondary }]}>
                   {STRINGS.contracts.expiresAt}: {formatDate(row.expiresAt)}
                 </Text>
               ) : null}
               {row.notes ? (
-                <Text style={[styles.notes, { color: Colors.light.text }]}>
+                <Text style={[styles.notes, { color: theme.text }]}>
                   {row.notes}
                 </Text>
               ) : null}
               {row.contractFileUrl ? (
                 <Pressable
                   onPress={() => void openContract(row.contractFileUrl!)}
-                  style={[styles.pdfBtn, { borderColor: Colors.light.primary }]}
+                  style={[styles.pdfBtn, { borderColor: theme.primary }]}
                 >
-                  <Ionicons name="document-outline" size={18} color={Colors.light.primary} />
-                  <Text style={[styles.pdfBtnText, { color: Colors.light.primary }]}>
+                  <Ionicons name="document-outline" size={18} color={theme.primary} />
+                  <Text style={[styles.pdfBtnText, { color: theme.primary }]}>
                     {STRINGS.contracts.viewPdf}
                   </Text>
                 </Pressable>
               ) : (
-                <Text style={[styles.noPdf, { color: Colors.light.textMuted }]}>
+                <Text style={[styles.noPdf, { color: theme.textMuted }]}>
                   {STRINGS.contracts.noPdf}
                 </Text>
               )}
@@ -161,7 +168,6 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: S[3],
     borderWidth: 1,
-    borderColor: Colors.light.border,
     padding: S[4],
     marginBottom: S[3],
   },
@@ -178,7 +184,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: S[1],
   },
-  badgeText: { color: Colors.light.primary, fontSize: 11, fontWeight: "700" },
+  badgeText: { fontSize: 11, fontWeight: "700" },
   meta: { fontSize: 13, marginBottom: 4 },
   notes: { fontSize: 13, marginTop: S[2], fontStyle: "italic" },
   pdfBtn: {

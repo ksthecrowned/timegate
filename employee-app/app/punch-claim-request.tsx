@@ -13,13 +13,14 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { BottomTabInset, Colors, Spacing } from "@/constants/theme";
+import { BottomTabInset, MinTouchTarget, Radius, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
+import { DateField } from "@/components/ui/DateField";
+import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
 import type { PunchClaimType } from "@/lib/types";
 
 const S = Spacing;
-const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const CLAIM_TYPES: { key: PunchClaimType; label: string }[] = [
   { key: "EARLY_DEPARTURE", label: STRINGS.punchClaim.types.earlyDeparture },
@@ -34,6 +35,7 @@ function todayIso(): string {
 
 export default function PunchClaimRequestScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [workDate, setWorkDate] = useState(todayIso());
   const [claimType, setClaimType] = useState<PunchClaimType>("MISSED_CHECKOUT");
   const [reason, setReason] = useState("");
@@ -42,7 +44,7 @@ export default function PunchClaimRequestScreen() {
   const [success, setSuccess] = useState(false);
 
   const handleSubmit = async () => {
-    if (!DATE_REGEX.test(workDate)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(workDate)) {
       setError(STRINGS.punchClaim.invalidDate);
       return;
     }
@@ -72,22 +74,24 @@ export default function PunchClaimRequestScreen() {
         style={[
           styles.container,
           styles.centered,
-          { backgroundColor: Colors.light.background },
+          { backgroundColor: theme.background },
         ]}
       >
         <View
           style={[
             styles.successCard,
-            { backgroundColor: Colors.light.surfaceCard },
+            { backgroundColor: theme.surfaceCard, borderColor: theme.border },
           ]}
         >
-          <Ionicons name="checkmark-circle" size={56} color={Colors.light.primary} />
-          <Text style={[styles.successTitle, { color: Colors.light.text }]}>
+          <Ionicons name="checkmark-circle" size={56} color={theme.primary} />
+          <Text style={[styles.successTitle, { color: theme.text }]}>
             {STRINGS.punchClaim.submitSuccess}
           </Text>
           <Pressable
             onPress={() => router.back()}
-            style={[styles.primaryBtn, { backgroundColor: Colors.light.primary }]}
+            accessibilityRole="button"
+            accessibilityLabel={STRINGS.app.back}
+            style={[styles.primaryBtn, { backgroundColor: theme.primary }]}
           >
             <Text style={styles.primaryBtnText}>{STRINGS.app.back}</Text>
           </Pressable>
@@ -98,7 +102,7 @@ export default function PunchClaimRequestScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: Colors.light.background }]}
+      style={[styles.container, { backgroundColor: theme.background }]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
     >
       <ScrollView
@@ -108,22 +112,23 @@ export default function PunchClaimRequestScreen() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={[styles.title, { color: Colors.light.text }]}>
+        <Text style={[styles.title, { color: theme.text }]}>
           {STRINGS.punchClaim.title}
         </Text>
-        <Text style={[styles.subtitle, { color: Colors.light.textSecondary }]}>
+        <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
           {STRINGS.punchClaim.subtitle}
         </Text>
 
-        <Text style={styles.label}>{STRINGS.punchClaim.workDate}</Text>
-        <TextInput
+        <DateField
+          label={STRINGS.punchClaim.workDate}
           value={workDate}
-          onChangeText={setWorkDate}
-          placeholder="AAAA-MM-JJ"
-          style={[styles.input, { borderColor: Colors.light.border, color: Colors.light.text }]}
+          onChange={setWorkDate}
+          maximumDate={new Date()}
         />
 
-        <Text style={styles.label}>{STRINGS.punchClaim.typeLabel}</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>
+          {STRINGS.punchClaim.typeLabel}
+        </Text>
         <View style={styles.typeGrid}>
           {CLAIM_TYPES.map((opt) => {
             const selected = opt.key === claimType;
@@ -131,17 +136,22 @@ export default function PunchClaimRequestScreen() {
               <Pressable
                 key={opt.key}
                 onPress={() => setClaimType(opt.key)}
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                accessibilityLabel={opt.label}
                 style={[
                   styles.typeChip,
                   {
-                    borderColor: selected ? Colors.light.primary : Colors.light.border,
-                    backgroundColor: selected ? "#ecfdf5" : Colors.light.surfaceCard,
+                    borderColor: selected ? theme.primary : theme.border,
+                    backgroundColor: selected
+                      ? theme.successSoft
+                      : theme.surfaceCard,
                   },
                 ]}
               >
                 <Text
                   style={{
-                    color: selected ? Colors.light.primary : Colors.light.text,
+                    color: selected ? theme.primary : theme.text,
                     fontWeight: selected ? "700" : "500",
                     fontSize: 13,
                   }}
@@ -153,25 +163,39 @@ export default function PunchClaimRequestScreen() {
           })}
         </View>
 
-        <Text style={styles.label}>{STRINGS.punchClaim.reasonLabel}</Text>
+        <Text style={[styles.label, { color: theme.textSecondary }]}>
+          {STRINGS.punchClaim.reasonLabel}
+        </Text>
         <TextInput
           value={reason}
           onChangeText={setReason}
           multiline
           numberOfLines={4}
           placeholder={STRINGS.punchClaim.reasonPlaceholder}
+          placeholderTextColor={theme.textMuted}
           style={[
             styles.textarea,
-            { borderColor: Colors.light.border, color: Colors.light.text },
+            {
+              borderColor: theme.border,
+              color: theme.text,
+              backgroundColor: theme.surfaceCard,
+            },
           ]}
         />
 
-        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+        {error ? (
+          <Text style={[styles.errorText, { color: theme.danger }]}>{error}</Text>
+        ) : null}
 
         <Pressable
           onPress={() => void handleSubmit()}
           disabled={loading}
-          style={[styles.primaryBtn, { backgroundColor: Colors.light.primary, opacity: loading ? 0.7 : 1 }]}
+          accessibilityRole="button"
+          accessibilityLabel={STRINGS.punchClaim.submit}
+          style={[
+            styles.primaryBtn,
+            { backgroundColor: theme.primary, opacity: loading ? 0.7 : 1 },
+          ]}
         >
           {loading ? (
             <ActivityIndicator color="#fff" />
@@ -186,60 +210,51 @@ export default function PunchClaimRequestScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  centered: { justifyContent: "center", alignItems: "center", padding: S[4] },
-  scroll: { padding: S[4] },
-  title: { fontSize: 22, fontWeight: "700", marginBottom: S[2] },
-  subtitle: { fontSize: 14, marginBottom: S[5], lineHeight: 20 },
+  centered: { alignItems: "center", justifyContent: "center", padding: S[4] },
+  scroll: { padding: S[4], gap: S[3] },
+  title: { fontSize: 22, fontWeight: "700" },
+  subtitle: { fontSize: 14, marginBottom: S[2], lineHeight: 20 },
   label: {
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: S[2],
-    color: Colors.light.textSecondary,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: S[2],
-    padding: S[3],
-    marginBottom: S[4],
-    fontSize: 16,
-  },
-  textarea: {
-    borderWidth: 1,
-    borderRadius: S[2],
-    padding: S[3],
-    minHeight: 100,
-    textAlignVertical: "top",
-    marginBottom: S[4],
-    fontSize: 15,
-  },
-  typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: S[2], marginBottom: S[4] },
-  typeChip: {
-    borderWidth: 1,
-    borderRadius: S[2],
-    paddingVertical: S[2],
-    paddingHorizontal: S[3],
-  },
-  errorText: { color: "#C0392B", marginBottom: S[3], fontSize: 14 },
-  primaryBtn: {
-    borderRadius: S[2],
-    paddingVertical: S[3],
-    alignItems: "center",
+    letterSpacing: 0.4,
     marginTop: S[2],
   },
-  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
+  typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: S[2] },
+  typeChip: {
+    minHeight: MinTouchTarget,
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: S[3],
+    paddingVertical: S[2],
+    justifyContent: "center",
+  },
+  textarea: {
+    minHeight: 110,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    padding: S[3],
+    textAlignVertical: "top",
+    fontSize: 15,
+  },
+  errorText: { fontSize: 14, fontWeight: "600" },
+  primaryBtn: {
+    marginTop: S[3],
+    minHeight: MinTouchTarget + 4,
+    borderRadius: Radius.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   successCard: {
-    borderRadius: S[4],
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
     padding: S[6],
     alignItems: "center",
-    width: "100%",
-    maxWidth: 360,
+    gap: S[4],
   },
-  successTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
-    marginVertical: S[4],
-  },
+  successTitle: { fontSize: 18, fontWeight: "700", textAlign: "center" },
 });

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   View,
@@ -12,7 +13,10 @@ import { useColorScheme } from 'react-native';
 import { Colors, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { FilterChips } from '@/components/ui/FilterChips';
 import { employeeApi } from '@/lib/api';
+import { resolveNotificationHref } from '@/lib/notificationDeepLink';
+import { useRouter } from 'expo-router';
 
 type FilterType = 'all' | 'unread';
 
@@ -23,6 +27,7 @@ type NotificationRow = {
   body: string;
   readAt: string | null;
   createdAt: string;
+  meta?: Record<string, unknown> | null;
 };
 
 const typeIcons: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -76,6 +81,7 @@ const relativeTime = (dateStr: string) => {
 };
 
 export default function NotificationsScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
 
@@ -140,22 +146,35 @@ export default function NotificationsScreen() {
     }
   };
 
+  const openNotification = async (item: NotificationRow) => {
+    await markRead(item);
+    const href = resolveNotificationHref({ type: item.type, meta: item.meta });
+    router.push(href as never);
+  };
+
   return (
     <ScreenLayout
       title={STRINGS.notifications.title}
       subtitle={STRINGS.notifications.activitySubtitle}
+      showBack
       showNotifications={false}
+      showScroll={false}
       refreshing={refreshing}
       onRefresh={onRefresh}
       rightAction={
         unreadCount > 0 ? (
           <Pressable
             onPress={() => void markAllAsRead()}
+            accessibilityRole="button"
+            accessibilityLabel={STRINGS.notifications.markAll}
+            hitSlop={8}
             style={{
+              minHeight: 44,
               paddingHorizontal: Spacing[3],
               paddingVertical: 6,
               borderRadius: 999,
               backgroundColor: colors.primary + '20',
+              justifyContent: 'center',
             }}
           >
             <Text
@@ -171,107 +190,90 @@ export default function NotificationsScreen() {
         ) : null
       }
     >
-      <View
-        style={{
-          flexDirection: 'row',
-          paddingHorizontal: Spacing[4],
-          gap: Spacing[2],
-          marginBottom: Spacing[3],
-        }}
-      >
-        {(['all', 'unread'] as FilterType[]).map((f) => {
-          const active = filter === f;
-          return (
-            <Pressable
-              key={f}
-              onPress={() => setFilter(f)}
-              style={{
-                paddingHorizontal: Spacing[4],
-                paddingVertical: 6,
-                borderRadius: 999,
-                backgroundColor: active ? colors.primary : colors.surfaceCard,
-                borderWidth: 1,
-                borderColor: active ? colors.primary : colors.border,
-              }}
-            >
-              <Text
-                style={{
-                  fontSize: 13,
-                  fontWeight: '600',
-                  color: active ? '#ffffff' : colors.text,
-                }}
-              >
-                {f === 'all'
-                  ? STRINGS.notifications.all
-                  : STRINGS.notifications.unread}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+      <FilterChips
+        options={[
+          { value: 'all' as FilterType, label: STRINGS.notifications.all },
+          { value: 'unread' as FilterType, label: STRINGS.notifications.unread },
+        ]}
+        value={filter}
+        onChange={setFilter}
+      />
 
-      {loading && items.length === 0 ? (
-        <View style={{ padding: Spacing[8], alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : error ? (
-        <View
-          style={{
-            margin: Spacing[4],
-            padding: Spacing[5],
-            backgroundColor: '#E74C3C15',
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: '#E74C3C40',
-          }}
-        >
-          <Text style={{ color: '#E74C3C', fontSize: 14 }}>{error}</Text>
-        </View>
-      ) : items.length === 0 ? (
-        <View
-          style={{
-            margin: Spacing[4],
-            padding: Spacing[8],
-            backgroundColor: colors.surfaceCard,
-            borderRadius: 12,
-            borderWidth: 1,
-            borderColor: colors.border,
-            alignItems: 'center',
-          }}
-        >
-          <Ionicons
-            name="checkmark-done-circle-outline"
-            size={48}
-            color={colors.textMuted}
+      <ScrollView
+        style={{ flex: 1 }}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: Spacing[10] }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+            accessibilityLabel="Actualiser"
           />
-          <Text
+        }
+      >
+        {loading && items.length === 0 ? (
+          <View style={{ padding: Spacing[8], alignItems: 'center' }}>
+            <ActivityIndicator size="large" color={colors.primary} />
+          </View>
+        ) : error ? (
+          <View
             style={{
-              fontSize: 15,
-              color: colors.textSecondary,
-              marginTop: 12,
-              textAlign: 'center',
+              margin: Spacing[4],
+              padding: Spacing[5],
+              backgroundColor: '#E74C3C15',
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: '#E74C3C40',
             }}
           >
-            {filter === 'unread'
-              ? STRINGS.notifications.noUnread
-              : STRINGS.notifications.noNotifications}
-          </Text>
-        </View>
-      ) : (
-        <ScrollView
-          style={{ flex: 1 }}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: Spacing[6] }}
-        >
+            <Text style={{ color: '#E74C3C', fontSize: 14 }}>{error}</Text>
+          </View>
+        ) : items.length === 0 ? (
+          <View
+            style={{
+              margin: Spacing[4],
+              padding: Spacing[8],
+              backgroundColor: colors.surfaceCard,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.border,
+              alignItems: 'center',
+            }}
+          >
+            <Ionicons
+              name="checkmark-done-circle-outline"
+              size={48}
+              color={colors.textMuted}
+            />
+            <Text
+              style={{
+                fontSize: 15,
+                color: colors.textSecondary,
+                marginTop: 12,
+                textAlign: 'center',
+              }}
+            >
+              {filter === 'unread'
+                ? STRINGS.notifications.noUnread
+                : STRINGS.notifications.noNotifications}
+            </Text>
+          </View>
+        ) : (
           <View style={{ paddingHorizontal: Spacing[4] }}>
             {items.map((item) => {
               const isUnread = !item.readAt;
               return (
                 <Pressable
                   key={item.id}
-                  onPress={() => void markRead(item)}
+                  onPress={() => void openNotification(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${item.title}. ${item.body}. ${relativeTime(item.createdAt)}${isUnread ? ', non lue' : ''}`}
+                  accessibilityHint="Ouvre l’écran concerné"
+                  accessibilityState={{ selected: isUnread }}
                   style={{
                     flexDirection: 'row',
+                    minHeight: 44,
                     padding: Spacing[4],
                     backgroundColor: isUnread
                       ? colors.primary + '08'
@@ -294,6 +296,7 @@ export default function NotificationsScreen() {
                       justifyContent: 'center',
                       marginRight: Spacing[3],
                     }}
+                    importantForAccessibility="no"
                   >
                     <Ionicons
                       name={iconForType(item.type)}
@@ -329,6 +332,8 @@ export default function NotificationsScreen() {
                             backgroundColor: colors.primary,
                             marginTop: 6,
                           }}
+                          accessibilityElementsHidden
+                          importantForAccessibility="no-hide-descendants"
                         />
                       ) : null}
                     </View>
@@ -357,8 +362,8 @@ export default function NotificationsScreen() {
               );
             })}
           </View>
-        </ScrollView>
-      )}
+        )}
+      </ScrollView>
     </ScreenLayout>
   );
 }

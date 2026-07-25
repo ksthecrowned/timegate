@@ -35,6 +35,8 @@ export type QrRedeemResult = {
   ok: true;
   message: string;
   eventType: string;
+  occurredAt?: string;
+  kiosk?: { id: string; name: string; branchName: string | null };
   employee: { id: string; firstName: string; lastName: string };
   challengeId: string;
 };
@@ -160,10 +162,12 @@ export class KioskQrPunchService {
       },
       select: {
         id: true,
+        kioskName: true,
         companyId: true,
         branchId: true,
         qrEnabled: true,
         qrChallengeSecret: true,
+        branch: { select: { id: true, branchName: true } },
       },
     });
     if (!kiosk?.qrEnabled) {
@@ -193,9 +197,14 @@ export class KioskQrPunchService {
       if (byClient?.redeemedAt) {
         const result = byClient.resultJson as { message?: string; eventType?: string } | null;
         return {
-          ok: true,
+          ok: true as const,
           message: result?.message ?? 'Pointage deja synchronise',
           eventType: result?.eventType ?? 'UNKNOWN',
+          occurredAt:
+            (result as { occurredAt?: string } | null)?.occurredAt ??
+            byClient.redeemedAt?.toISOString(),
+          kiosk: (result as { kiosk?: { id: string; name: string; branchName: string | null } } | null)
+            ?.kiosk,
           employee: {
             id: employee.id,
             firstName: employee.firstName ?? employee.employeeName,
@@ -299,6 +308,12 @@ export class KioskQrPunchService {
     const resultJson = {
       message: punch.message,
       eventType: punch.eventType,
+      occurredAt: occurredAt.toISOString(),
+      kiosk: {
+        id: kiosk.id,
+        name: kiosk.kioskName,
+        branchName: kiosk.branch?.branchName ?? null,
+      },
       employee: {
         id: employee.id,
         firstName: employee.firstName ?? employee.employeeName,
@@ -315,9 +330,11 @@ export class KioskQrPunchService {
     });
 
     return {
-      ok: true,
+      ok: true as const,
       message: punch.message,
       eventType: punch.eventType,
+      occurredAt: occurredAt.toISOString(),
+      kiosk: resultJson.kiosk,
       employee: resultJson.employee,
       challengeId: challenge.id,
     };

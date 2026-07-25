@@ -1,7 +1,6 @@
-import { View, Text, ScrollView, RefreshControl } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useColorScheme } from "react-native";
-import { Colors } from "@/constants/theme";
+import { BottomTabInset, Colors } from "@/constants/theme";
 import { AppBar } from "@/components/AppBar";
 import {
   SafeAreaView,
@@ -22,13 +21,13 @@ type ScreenLayoutProps = {
   refreshing?: boolean;
   onRefresh?: () => void;
   children: ReactNode;
-  contentStyle?: any;
+  contentStyle?: object;
 };
 
 export function ScreenLayout({
   title,
   subtitle,
-  showBack = false,
+  showBack,
   showSearch = false,
   showNotifications = true,
   notificationCount = 0,
@@ -48,34 +47,38 @@ export function ScreenLayout({
     <SafeAreaView
       edges={["top"]}
       style={{ flex: 1, backgroundColor: colors.background }}
+      accessibilityElementsHidden={false}
     >
-      {showAppBar && (
+      {showAppBar ? (
         <AppBar
           title={title}
+          subtitle={subtitle}
+          showBack={showBack}
           showSearch={showSearch}
           showNotifications={showNotifications}
           notificationCount={notificationCount}
           rightAction={rightAction}
         />
-      )}
+      ) : null}
 
       {showScroll ? (
         <ScrollView
-          style={{ flex: 1 }}
+          style={styles.flex}
           contentContainerStyle={[
             {
-              // Leave space for the native tab bar (~80px on Android, ~50px on iOS)
-              paddingBottom: insets.bottom + 80,
+              paddingBottom: insets.bottom + BottomTabInset + 16,
             },
             contentStyle,
           ]}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
           refreshControl={
             onRefresh ? (
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
                 tintColor={colors.primary}
+                accessibilityLabel="Actualiser"
               />
             ) : undefined
           }
@@ -83,8 +86,12 @@ export function ScreenLayout({
           {children}
         </ScrollView>
       ) : (
-        <View style={{ flex: 1 }}>{children}</View>
+        <View style={styles.flex}>{children}</View>
       )}
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+});

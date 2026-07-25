@@ -1,6 +1,6 @@
 import Constants from "expo-constants";
 import * as SecureStore from "expo-secure-store";
-import { Platform } from "react-native";
+import { NativeModules } from "react-native";
 
 import { dispatchLogout } from "./authEvents";
 import { getDeviceInstallId, setDeviceTrust } from "./deviceInstallId";
@@ -27,25 +27,64 @@ import type {
 
 export const TOKEN_KEY = "auth_token";
 
-const FALLBACK_API_URL = "http://192.168.148.97:4001/api/v1";
+const API_PORT = 4001;
+const FALLBACK_API_URL = `http://192.168.1.65:${API_PORT}/api/v1`;
+
+/**
+ * LAN host of the machine serving the JS bundle.
+ * Prefer SourceCode.scriptURL — expoConfig.extra is baked into the native
+ * binary at build time and often has a stale IP.
+ */
+function resolveDevLanHost(): string | null {
+  const scriptURL = NativeModules.SourceCode?.scriptURL as string | undefined;
+  if (typeof scriptURL === "string" && scriptURL.length > 0) {
+    const match = /https?:\/\/([^/:]+)(?::\d+)?/i.exec(scriptURL);
+    const host = match?.[1]?.trim();
+    if (host && host !== "localhost" && host !== "127.0.0.1" && host !== "10.0.2.2") {
+      return host;
+    }
+  }
+
+  const expoGo = Constants.expoGoConfig as { debuggerHost?: string } | null;
+  const legacyManifest = (
+    Constants as { manifest?: { debuggerHost?: string } | null }
+  ).manifest;
+  const hostUri =
+    Constants.expoConfig?.hostUri ??
+    expoGo?.debuggerHost ??
+    legacyManifest?.debuggerHost ??
+    null;
+  if (!hostUri) return null;
+  const host = hostUri.split(":")[0]?.trim();
+  if (!host || host === "localhost" || host === "127.0.0.1") return null;
+  return host;
+}
 
 function resolveApiUrl(): string {
-  const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
-  if (extra.apiUrl) return extra.apiUrl;
+  const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (envUrl) return envUrl.replace(/\/$/, "");
+
   if (__DEV__) {
-    return (
-      Platform.select({
-        web: FALLBACK_API_URL,
-        android: FALLBACK_API_URL,
-        ios: FALLBACK_API_URL,
-        default: FALLBACK_API_URL,
-      }) ?? FALLBACK_API_URL
-    );
+    const lanHost = resolveDevLanHost();
+    if (lanHost) return `http://${lanHost}:${API_PORT}/api/v1`;
+    // Do NOT use expoConfig.extra.apiUrl here — it is embedded in the APK
+    // and frequently out of date after network changes.
+    return FALLBACK_API_URL;
   }
+
+  const extra = (Constants.expoConfig?.extra ?? {}) as { apiUrl?: string };
+  if (extra.apiUrl) return extra.apiUrl.replace(/\/$/, "");
   return "/api";
 }
 
 const API_URL = resolveApiUrl();
+
+if (__DEV__) {
+  const scriptURL = NativeModules.SourceCode?.scriptURL as string | undefined;
+  console.log(
+    `[TimeGate] API_URL=${API_URL} scriptURL=${scriptURL ?? "n/a"}`,
+  );
+}
 
 // ---------------------------------------------------------------------------
 // Token storage
@@ -380,6 +419,7 @@ export const employeeApi = {
         body: string;
         readAt: string | null;
         createdAt: string;
+        meta?: Record<string, unknown> | null;
       }>;
       meta: { unreadCount: number };
     }>(`/notifications${qs(query)}`),
@@ -396,6 +436,8 @@ export const employeeApi = {
       ok: true;
       message: string;
       eventType: string;
+      occurredAt?: string;
+      kiosk?: { id: string; name: string; branchName: string | null };
       employee: { id: string; firstName: string; lastName: string };
       challengeId: string;
     }>("/employee/qr-punch/scan", {

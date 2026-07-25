@@ -13,8 +13,10 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
+import { DateField } from '@/components/ui/DateField';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import { getMeCached } from '@/lib/meCache';
 import type { Colleague, Profile } from '@/lib/types';
@@ -48,6 +50,7 @@ type ShiftOption = {
 
 export default function ShiftSwapRequestScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftOption | null>(null);
@@ -160,24 +163,24 @@ export default function ShiftSwapRequestScreen() {
         style={[
           styles.container,
           styles.centered,
-          { backgroundColor: Colors.light.background },
+          { backgroundColor: theme.background },
         ]}
       >
         <View
           style={[
             styles.successCard,
-            { backgroundColor: Colors.light.surfaceCard },
+            { backgroundColor: theme.surfaceCard },
           ]}
         >
           <View
             style={[
               styles.successIcon,
-              { backgroundColor: Colors.light.primary },
+              { backgroundColor: theme.primary },
             ]}
           >
             <Ionicons name="checkmark" size={36} color="#fff" />
           </View>
-          <Text style={[styles.successTitle, { color: Colors.light.text }]}>
+          <Text style={[styles.successTitle, { color: theme.text }]}>
             {STRINGS.swaps.submitSuccess}
           </Text>
           <Pressable
@@ -185,7 +188,7 @@ export default function ShiftSwapRequestScreen() {
             style={({ pressed }) => [
               styles.successButton,
               {
-                backgroundColor: Colors.light.primary,
+                backgroundColor: theme.primary,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
@@ -199,7 +202,7 @@ export default function ShiftSwapRequestScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: Colors.light.background }]}
+      style={[styles.container, { backgroundColor: theme.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -211,7 +214,7 @@ export default function ShiftSwapRequestScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: Colors.light.text }]}>
+          <Text style={[styles.title, { color: theme.text }]}>
             {STRINGS.swaps.requestSwap}
           </Text>
         </View>
@@ -225,23 +228,23 @@ export default function ShiftSwapRequestScreen() {
         <View
           style={[
             styles.formCard,
-            { backgroundColor: Colors.light.surfaceCard },
+            { backgroundColor: theme.surfaceCard },
           ]}
         >
           {/* Shift picker */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.swaps.chooseShift}
             </Text>
             {loading ? (
               <ActivityIndicator
                 size="small"
-                color={Colors.light.primary}
+                color={theme.primary}
                 style={{ alignSelf: 'flex-start' }}
               />
             ) : shifts.length === 0 ? (
               <Text
-                style={[styles.hint, { color: Colors.light.textSecondary }]}
+                style={[styles.hint, { color: theme.textSecondary }]}
               >
                 {STRINGS.swaps.noShifts}
               </Text>
@@ -257,11 +260,11 @@ export default function ShiftSwapRequestScreen() {
                         styles.option,
                         {
                           backgroundColor: isSelected
-                            ? Colors.light.primary + '15'
-                            : Colors.light.background,
+                            ? theme.primary + '15'
+                            : theme.background,
                           borderColor: isSelected
-                            ? Colors.light.primary
-                            : Colors.light.border,
+                            ? theme.primary
+                            : theme.border,
                           opacity: pressed ? 0.7 : 1,
                         },
                       ]}
@@ -273,15 +276,15 @@ export default function ShiftSwapRequestScreen() {
                         size={18}
                         color={
                           isSelected
-                            ? Colors.light.primary
-                            : Colors.light.textSecondary
+                            ? theme.primary
+                            : theme.textSecondary
                         }
                       />
                       <View style={{ flex: 1 }}>
                         <Text
                           style={[
                             styles.optionTitle,
-                            { color: Colors.light.text },
+                            { color: theme.text },
                           ]}
                         >
                           {s.shiftName ?? 'Shift'}
@@ -289,7 +292,7 @@ export default function ShiftSwapRequestScreen() {
                         <Text
                           style={[
                             styles.optionMeta,
-                            { color: Colors.light.textSecondary },
+                            { color: theme.textSecondary },
                           ]}
                         >
                           {new Date(s.date).toLocaleDateString('fr-FR', {
@@ -317,27 +320,27 @@ export default function ShiftSwapRequestScreen() {
 
           {/* Colleague search + picker */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.swaps.chooseColleague}
             </Text>
             <View style={styles.searchRow}>
               <Ionicons
                 name="search-outline"
                 size={18}
-                color={Colors.light.textSecondary}
+                color={theme.textSecondary}
                 style={styles.searchIcon}
               />
               <TextInput
                 value={search}
                 onChangeText={setSearch}
                 placeholder={STRINGS.swaps.searchColleague}
-                placeholderTextColor={Colors.light.textSecondary}
+                placeholderTextColor={theme.textSecondary}
                 style={[
                   styles.input,
                   styles.searchInput,
                   {
-                    color: Colors.light.text,
-                    backgroundColor: Colors.light.background,
+                    color: theme.text,
+                    backgroundColor: theme.background,
                   },
                 ]}
                 autoCapitalize="none"
@@ -347,7 +350,7 @@ export default function ShiftSwapRequestScreen() {
             <View style={styles.optionsList}>
               {colleagues.length === 0 ? (
                 <Text
-                  style={[styles.hint, { color: Colors.light.textSecondary }]}
+                  style={[styles.hint, { color: theme.textSecondary }]}
                 >
                   {search.trim()
                     ? STRINGS.app.noResults
@@ -365,11 +368,11 @@ export default function ShiftSwapRequestScreen() {
                         styles.option,
                         {
                           backgroundColor: isSelected
-                            ? Colors.light.primary + '15'
-                            : Colors.light.background,
+                            ? theme.primary + '15'
+                            : theme.background,
                           borderColor: isSelected
-                            ? Colors.light.primary
-                            : Colors.light.border,
+                            ? theme.primary
+                            : theme.border,
                           opacity: pressed ? 0.7 : 1,
                         },
                       ]}
@@ -381,15 +384,15 @@ export default function ShiftSwapRequestScreen() {
                         size={18}
                         color={
                           isSelected
-                            ? Colors.light.primary
-                            : Colors.light.textSecondary
+                            ? theme.primary
+                            : theme.textSecondary
                         }
                       />
                       <View style={{ flex: 1 }}>
                         <Text
                           style={[
                             styles.optionTitle,
-                            { color: Colors.light.text },
+                            { color: theme.text },
                           ]}
                         >
                           {fullName || c.email || c.id}
@@ -398,7 +401,7 @@ export default function ShiftSwapRequestScreen() {
                           <Text
                             style={[
                               styles.optionMeta,
-                              { color: Colors.light.textSecondary },
+                              { color: theme.textSecondary },
                             ]}
                           >
                             {[c.position, c.branchName].filter(Boolean).join(' · ')}
@@ -412,48 +415,22 @@ export default function ShiftSwapRequestScreen() {
             </View>
           </View>
 
-          {/* Swap date */}
-          <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
-              {STRINGS.swaps.swapDate}
-            </Text>
-            <View style={styles.dateField}>
-              <TextInput
-                value={swapDate}
-                onChangeText={setSwapDate}
-                placeholder="AAAA-MM-JJ"
-                placeholderTextColor={Colors.light.textSecondary}
-                keyboardType="numbers-and-punctuation"
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={[
-                  styles.input,
-                  styles.dateInput,
-                  {
-                    color: Colors.light.text,
-                    backgroundColor: Colors.light.background,
-                  },
-                ]}
-              />
-              <Ionicons
-                name="calendar-outline"
-                size={18}
-                color={Colors.light.textSecondary}
-                style={styles.dateIcon}
-              />
-            </View>
-          </View>
+          <DateField
+            label={STRINGS.swaps.swapDate}
+            value={swapDate}
+            onChange={setSwapDate}
+          />
 
           {/* Reason */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.swaps.reason}
             </Text>
             <TextInput
               value={reason}
               onChangeText={setReason}
               placeholder={STRINGS.swaps.reason}
-              placeholderTextColor={Colors.light.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -461,8 +438,8 @@ export default function ShiftSwapRequestScreen() {
                 styles.input,
                 styles.textArea,
                 {
-                  color: Colors.light.text,
-                  backgroundColor: Colors.light.background,
+                  color: theme.text,
+                  backgroundColor: theme.background,
                 },
               ]}
             />
@@ -474,7 +451,7 @@ export default function ShiftSwapRequestScreen() {
             style={({ pressed }) => [
               styles.submitButton,
               {
-                backgroundColor: Colors.light.primary,
+                backgroundColor: theme.primary,
                 opacity: pressed || submitting ? 0.7 : 1,
               },
             ]}

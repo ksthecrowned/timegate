@@ -14,8 +14,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 
-import { BottomTabInset, Colors, Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
+import { DateField } from '@/components/ui/DateField';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import type { LeaveType } from '@/lib/types';
 
@@ -35,6 +37,7 @@ function todayIso(): string {
 
 export default function LeaveRequestScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [selectedLeaveType, setSelectedLeaveType] = useState<string | null>(
     null,
@@ -117,24 +120,24 @@ export default function LeaveRequestScreen() {
         style={[
           styles.container,
           styles.centered,
-          { backgroundColor: Colors.light.background },
+          { backgroundColor: theme.background },
         ]}
       >
         <View
           style={[
             styles.successCard,
-            { backgroundColor: Colors.light.surfaceCard },
+            { backgroundColor: theme.surfaceCard },
           ]}
         >
           <View
             style={[
               styles.successIcon,
-              { backgroundColor: Colors.light.primary },
+              { backgroundColor: theme.primary },
             ]}
           >
             <Ionicons name="checkmark" size={36} color="#fff" />
           </View>
-          <Text style={[styles.successTitle, { color: Colors.light.text }]}>
+          <Text style={[styles.successTitle, { color: theme.text }]}>
             {STRINGS.leave.submitSuccess}
           </Text>
           <Pressable
@@ -142,7 +145,7 @@ export default function LeaveRequestScreen() {
             style={({ pressed }) => [
               styles.successButton,
               {
-                backgroundColor: Colors.light.primary,
+                backgroundColor: theme.primary,
                 opacity: pressed ? 0.7 : 1,
               },
             ]}
@@ -156,7 +159,7 @@ export default function LeaveRequestScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={[styles.container, { backgroundColor: Colors.light.background }]}
+      style={[styles.container, { backgroundColor: theme.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -168,7 +171,7 @@ export default function LeaveRequestScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.header}>
-          <Text style={[styles.title, { color: Colors.light.text }]}>
+          <Text style={[styles.title, { color: theme.text }]}>
             {STRINGS.leave.requestLeave}
           </Text>
         </View>
@@ -182,16 +185,16 @@ export default function LeaveRequestScreen() {
         <View
           style={[
             styles.formCard,
-            { backgroundColor: Colors.light.surfaceCard },
+            { backgroundColor: theme.surfaceCard },
           ]}
         >
           {/* Leave type selector */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.leave.leaveType}
             </Text>
             {leaveTypes.length === 0 ? (
-              <Text style={[styles.hint, { color: Colors.light.textSecondary }]}>
+              <Text style={[styles.hint, { color: theme.textSecondary }]}>
                 {STRINGS.app.loading}
               </Text>
             ) : (
@@ -206,11 +209,11 @@ export default function LeaveRequestScreen() {
                         styles.typeChip,
                         {
                           backgroundColor: isSelected
-                            ? Colors.light.primary
-                            : Colors.light.background,
+                            ? theme.primary
+                            : theme.background,
                           borderColor: isSelected
-                            ? Colors.light.primary
-                            : Colors.light.border,
+                            ? theme.primary
+                            : theme.border,
                           opacity: pressed ? 0.7 : 1,
                         },
                       ]}
@@ -221,7 +224,7 @@ export default function LeaveRequestScreen() {
                           {
                             color: isSelected
                               ? '#fff'
-                              : Colors.light.text,
+                              : theme.text,
                           },
                         ]}
                       >
@@ -234,7 +237,7 @@ export default function LeaveRequestScreen() {
                             {
                               color: isSelected
                                 ? 'rgba(255,255,255,0.85)'
-                                : Colors.light.textSecondary,
+                                : theme.textSecondary,
                             },
                           ]}
                         >
@@ -249,81 +252,34 @@ export default function LeaveRequestScreen() {
           </View>
 
           <View style={styles.dateRow}>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text
-                style={[styles.label, { color: Colors.light.textSecondary }]}
-              >
-                {STRINGS.leave.startDate}
-              </Text>
-              <View style={styles.dateField}>
-                <TextInput
-                  placeholder="AAAA-MM-JJ"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  value={startDate}
-                  onChangeText={setStartDate}
-                  keyboardType="numbers-and-punctuation"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={[
-                    styles.input,
-                    styles.dateInput,
-                    {
-                      color: Colors.light.text,
-                      backgroundColor: Colors.light.background,
-                    },
-                  ]}
-                />
-                <Ionicons
-                  name="calendar-outline"
-                  size={18}
-                  color={Colors.light.textSecondary}
-                  style={styles.dateIcon}
-                />
-              </View>
+            <View style={{ flex: 1 }}>
+              <DateField
+                label={STRINGS.leave.startDate}
+                value={startDate}
+                onChange={setStartDate}
+              />
             </View>
-            <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text
-                style={[styles.label, { color: Colors.light.textSecondary }]}
-              >
-                {STRINGS.leave.endDate}
-              </Text>
-              <View style={styles.dateField}>
-                <TextInput
-                  placeholder="AAAA-MM-JJ"
-                  placeholderTextColor={Colors.light.textSecondary}
-                  value={endDate}
-                  onChangeText={setEndDate}
-                  keyboardType="numbers-and-punctuation"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  style={[
-                    styles.input,
-                    styles.dateInput,
-                    {
-                      color: Colors.light.text,
-                      backgroundColor: Colors.light.background,
-                    },
-                  ]}
-                />
-                <Ionicons
-                  name="calendar-outline"
-                  size={18}
-                  color={Colors.light.textSecondary}
-                  style={styles.dateIcon}
-                />
-              </View>
+            <View style={{ flex: 1 }}>
+              <DateField
+                label={STRINGS.leave.endDate}
+                value={endDate}
+                onChange={setEndDate}
+                minimumDate={
+                  startDate ? new Date(`${startDate}T12:00:00`) : undefined
+                }
+              />
             </View>
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.leave.reasonOptional}
             </Text>
             <TextInput
               value={reason}
               onChangeText={setReason}
               placeholder={STRINGS.leave.reason}
-              placeholderTextColor={Colors.light.textSecondary}
+              placeholderTextColor={theme.textSecondary}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
@@ -331,15 +287,15 @@ export default function LeaveRequestScreen() {
                 styles.input,
                 styles.textArea,
                 {
-                  color: Colors.light.text,
-                  backgroundColor: Colors.light.background,
+                  color: theme.text,
+                  backgroundColor: theme.background,
                 },
               ]}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.label, { color: theme.textSecondary }]}>
               {STRINGS.leave.attachmentLabel}
             </Text>
             <Pressable
@@ -358,16 +314,16 @@ export default function LeaveRequestScreen() {
               }}
               style={[
                 styles.attachmentBtn,
-                { borderColor: Colors.light.border, backgroundColor: Colors.light.background },
+                { borderColor: theme.border, backgroundColor: theme.background },
               ]}
             >
-              <Ionicons name="attach-outline" size={18} color={Colors.light.primary} />
-              <Text style={{ color: Colors.light.text, flex: 1 }}>
+              <Ionicons name="attach-outline" size={18} color={theme.primary} />
+              <Text style={{ color: theme.text, flex: 1 }}>
                 {attachment?.name ?? STRINGS.leave.attachmentHint}
               </Text>
               {attachment ? (
                 <Pressable onPress={() => setAttachment(null)} hitSlop={8}>
-                  <Ionicons name="close-circle" size={18} color={Colors.light.textSecondary} />
+                  <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
                 </Pressable>
               ) : null}
             </Pressable>
@@ -379,7 +335,7 @@ export default function LeaveRequestScreen() {
             style={({ pressed }) => [
               styles.submitButton,
               {
-                backgroundColor: Colors.light.primary,
+                backgroundColor: theme.primary,
                 opacity: pressed || loading ? 0.7 : 1,
               },
             ]}

@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
-  RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -11,9 +9,12 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { Colors, Spacing } from "@/constants/theme";
+import { MinTouchTarget, Radius, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { ScreenLayout } from "@/components/ScreenLayout";
+import { FilterChips } from "@/components/ui/FilterChips";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
 import type { AttendanceEventRow } from "@/lib/types";
 
@@ -57,8 +58,23 @@ function formatDay(iso: string): string {
   });
 }
 
+function eventStatusLabel(status: string): string {
+  if (status === "ACCEPTED") return "OK";
+  if (status === "REVIEW_REQUIRED") return "À valider";
+  if (status === "REJECTED") return "Refusé";
+  return status;
+}
+
+function eventStatusTone(status: string): StatusTone {
+  if (status === "ACCEPTED") return "success";
+  if (status === "REVIEW_REQUIRED") return "warning";
+  if (status === "REJECTED") return "danger";
+  return "neutral";
+}
+
 export default function AttendanceScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const [range, setRange] = useState<RangeKey>("30");
   const [rows, setRows] = useState<AttendanceEventRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -119,134 +135,114 @@ export default function AttendanceScreen() {
   return (
     <ScreenLayout
       title={STRINGS.attendance.title}
+      showBack
       refreshing={refreshing}
       onRefresh={onRefresh}
+      contentStyle={styles.contentContainer}
     >
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.contentContainer}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
-          />
-        }
+      <Pressable
+        onPress={() => router.push("/punch-claim-request")}
+        accessibilityRole="button"
+        accessibilityLabel={STRINGS.punchClaim.banner}
+        style={({ pressed }) => [
+          styles.claimBanner,
+          { backgroundColor: theme.primary, opacity: pressed ? 0.85 : 1 },
+        ]}
       >
-        <Pressable
-          onPress={() => router.push("/punch-claim-request")}
-          style={({ pressed }) => [
-            styles.claimBanner,
-            { opacity: pressed ? 0.85 : 1 },
+        <Ionicons name="alert-circle-outline" size={22} color="#fff" />
+        <Text style={styles.claimBannerText}>{STRINGS.punchClaim.banner}</Text>
+        <Ionicons name="chevron-forward" size={18} color="#fff" />
+      </Pressable>
+
+      <Text
+        style={[styles.chipsLabel, { color: theme.textSecondary }]}
+        accessibilityRole="header"
+      >
+        {STRINGS.attendance.dateRange}
+      </Text>
+      <FilterChips
+        options={RANGE_OPTIONS.map((o) => ({
+          value: o.key,
+          label: o.label,
+        }))}
+        value={range}
+        onChange={setRange}
+      />
+
+      {showSpinner ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color={theme.primary} />
+        </View>
+      ) : error ? (
+        <View
+          style={[
+            styles.errorBox,
+            { backgroundColor: theme.dangerSoft, borderColor: theme.danger },
           ]}
         >
-          <Ionicons name="alert-circle-outline" size={22} color="#fff" />
-          <Text style={styles.claimBannerText}>
-            {STRINGS.punchClaim.banner}
+          <Text style={[styles.errorText, { color: theme.danger }]}>
+            {error}
           </Text>
-          <Ionicons name="chevron-forward" size={18} color="#fff" />
-        </Pressable>
-
-        <View style={styles.chipsRow}>
-          <Text
-            style={[styles.chipsLabel, { color: Colors.light.textSecondary }]}
-          >
-            {STRINGS.attendance.dateRange}
-          </Text>
-          <View style={styles.chips}>
-            {RANGE_OPTIONS.map((opt) => {
-              const isSelected = opt.key === range;
-              return (
-                <Pressable
-                  key={opt.key}
-                  onPress={() => setRange(opt.key)}
-                  style={[
-                    styles.chip,
-                    {
-                      backgroundColor: isSelected
-                        ? Colors.light.primary
-                        : Colors.light.surfaceCard,
-                      borderColor: isSelected
-                        ? Colors.light.primary
-                        : Colors.light.border,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: isSelected ? "#fff" : Colors.light.text },
-                    ]}
-                  >
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
         </View>
-
-        {showSpinner ? (
-          <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
-          </View>
-        ) : error ? (
-          <View style={styles.errorBox}>
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        ) : grouped.length === 0 ? (
-          <View
-            style={[
-              styles.emptyCard,
-              { backgroundColor: Colors.light.surfaceCard },
-            ]}
-          >
-            <Ionicons
-              name="time-outline"
-              size={48}
-              color={Colors.light.textMuted}
-            />
-            <Text
-              style={[styles.emptyText, { color: Colors.light.textSecondary }]}
-            >
-              {STRINGS.attendance.noRecords}
+      ) : grouped.length === 0 ? (
+        <View
+          style={[
+            styles.emptyCard,
+            {
+              backgroundColor: theme.surfaceCard,
+              borderColor: theme.border,
+            },
+          ]}
+        >
+          <Ionicons name="time-outline" size={48} color={theme.textMuted} />
+          <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
+            {STRINGS.attendance.noRecords}
+          </Text>
+        </View>
+      ) : (
+        <View>
+          {total > 0 && (
+            <Text style={[styles.counter, { color: theme.textSecondary }]}>
+              {rows.length} sur {total} événements
             </Text>
-          </View>
-        ) : (
-          <View>
-            {total > 0 && (
-              <Text
-                style={[styles.counter, { color: Colors.light.textSecondary }]}
-              >
-                {rows.length} sur {total} événements
+          )}
+          {grouped.map(([day, events]) => (
+            <View
+              key={day}
+              style={[
+                styles.dayCard,
+                {
+                  backgroundColor: theme.surfaceCard,
+                  borderColor: theme.border,
+                },
+              ]}
+              accessibilityRole="summary"
+              accessibilityLabel={formatDay(`${day}T12:00:00`)}
+            >
+              <Text style={[styles.dayDate, { color: theme.text }]}>
+                {formatDay(`${day}T12:00:00`)}
               </Text>
-            )}
-            {grouped.map(([day, events]) => (
-              <View
-                key={day}
-                style={[
-                  styles.dayCard,
-                  { backgroundColor: Colors.light.surfaceCard },
-                ]}
-              >
-                <Text style={[styles.dayDate, { color: Colors.light.text }]}>
-                  {formatDay(`${day}T12:00:00`)}
-                </Text>
-                {events.map((event) => (
-                  <View key={event.id} style={styles.eventRow}>
+              {events.map((event) => {
+                const typeLabel = EVENT_LABELS[event.type] ?? event.type;
+                const statusLabel = eventStatusLabel(event.status);
+                return (
+                  <View
+                    key={event.id}
+                    style={[
+                      styles.eventRow,
+                      { borderTopColor: theme.border },
+                    ]}
+                    accessible
+                    accessibilityLabel={`${typeLabel}, ${formatTime(event.occurredAt)}, ${statusLabel}`}
+                  >
                     <View style={styles.eventMain}>
-                      <Text
-                        style={[
-                          styles.eventType,
-                          { color: Colors.light.text },
-                        ]}
-                      >
-                        {EVENT_LABELS[event.type] ?? event.type}
+                      <Text style={[styles.eventType, { color: theme.text }]}>
+                        {typeLabel}
                       </Text>
                       <Text
                         style={[
                           styles.eventMeta,
-                          { color: Colors.light.textSecondary },
+                          { color: theme.textSecondary },
                         ]}
                       >
                         {formatTime(event.occurredAt)}
@@ -256,50 +252,34 @@ export default function AttendanceScreen() {
                           : ""}
                       </Text>
                     </View>
-                    <Text
-                      style={[
-                        styles.eventStatus,
-                        {
-                          color:
-                            event.status === "REVIEW_REQUIRED"
-                              ? "#d97706"
-                              : event.status === "REJECTED"
-                                ? "#dc2626"
-                                : Colors.light.textMuted,
-                        },
-                      ]}
-                    >
-                      {event.status === "ACCEPTED"
-                        ? "OK"
-                        : event.status === "REVIEW_REQUIRED"
-                          ? "À valider"
-                          : event.status}
-                    </Text>
+                    <StatusBadge
+                      label={statusLabel}
+                      tone={eventStatusTone(event.status)}
+                    />
                   </View>
-                ))}
-              </View>
-            ))}
-          </View>
-        )}
-      </ScrollView>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      )}
     </ScreenLayout>
   );
 }
 
 const styles = StyleSheet.create({
   contentContainer: {
-    paddingHorizontal: S[4],
     paddingTop: S[4],
     paddingBottom: S[6],
-    flexGrow: 1,
   },
   claimBanner: {
     flexDirection: "row",
     alignItems: "center",
     gap: S[2],
-    backgroundColor: Colors.light.primary,
-    borderRadius: S[3],
+    minHeight: MinTouchTarget,
+    borderRadius: Radius.md,
     padding: S[3],
+    marginHorizontal: S[4],
     marginBottom: S[4],
   },
   claimBannerText: {
@@ -309,56 +289,54 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   centered: { alignItems: "center", padding: S[8] },
-  chipsRow: { marginBottom: S[4] },
   chipsLabel: {
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.8,
     textTransform: "uppercase",
-    marginBottom: S[2],
+    marginBottom: S[1],
+    paddingHorizontal: S[4],
   },
-  chips: { flexDirection: "row", gap: S[2] },
-  chip: {
-    flex: 1,
-    paddingVertical: S[2],
-    paddingHorizontal: S[3],
-    borderRadius: S[2],
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  chipText: { fontSize: 13, fontWeight: "600" },
   errorBox: {
-    backgroundColor: "#FADBD8",
-    borderRadius: S[2],
+    borderRadius: Radius.md,
+    borderWidth: 1,
     padding: S[3],
-    margin: S[4],
+    marginHorizontal: S[4],
+    marginTop: S[3],
   },
-  errorText: { color: "#C0392B", fontSize: 14, textAlign: "center" },
+  errorText: { fontSize: 14, textAlign: "center" },
   emptyCard: {
-    borderRadius: S[4],
+    borderRadius: Radius.lg,
+    borderWidth: 1,
     padding: S[6],
     alignItems: "center",
+    marginHorizontal: S[4],
     marginTop: S[4],
   },
   emptyText: { fontSize: 15, marginTop: S[3] },
-  counter: { fontSize: 12, marginBottom: S[2], fontWeight: "500" },
+  counter: {
+    fontSize: 12,
+    marginBottom: S[2],
+    fontWeight: "500",
+    paddingHorizontal: S[4],
+  },
   dayCard: {
-    borderRadius: S[3],
+    borderRadius: Radius.md,
     borderWidth: 1,
-    borderColor: Colors.light.border,
     padding: S[4],
+    marginHorizontal: S[4],
     marginBottom: S[3],
   },
   dayDate: { fontSize: 15, fontWeight: "600", marginBottom: S[3] },
   eventRow: {
     flexDirection: "row",
     alignItems: "center",
+    minHeight: MinTouchTarget,
     paddingVertical: S[2],
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    gap: S[2],
   },
   eventMain: { flex: 1 },
   eventType: { fontSize: 14, fontWeight: "600" },
   eventMeta: { fontSize: 12, marginTop: 2 },
-  eventStatus: { fontSize: 12, fontWeight: "600" },
 });

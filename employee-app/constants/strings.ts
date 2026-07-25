@@ -23,6 +23,28 @@ export const STRINGS = {
     noResults: 'Aucun résultat',
   },
 
+  a11y: {
+    back: 'Retour',
+    home: 'Accueil TimeGate',
+    openMenu: 'Ouvrir le menu',
+    closeMenu: 'Fermer le menu',
+    notifications: 'Notifications',
+    notificationsWithCount: (n: number) =>
+      n <= 0
+        ? 'Notifications'
+        : n === 1
+          ? 'Notifications, 1 non lue'
+          : `Notifications, ${n} non lues`,
+    profile: 'Profil',
+    search: 'Rechercher',
+    filterSelected: (label: string) => `Filtre ${label}, sélectionné`,
+    filter: (label: string) => `Filtre ${label}`,
+    logout: 'Se déconnecter',
+    actionBlocked: 'Action indisponible : appareil en attente d’approbation',
+    openDrawerTab: 'Menu Plus',
+    stat: (label: string, value: string) => `${label} : ${value}`,
+  },
+
   // Auth
   auth: {
     login: 'Connexion',
@@ -32,7 +54,9 @@ export const STRINGS = {
     signIn: 'Se connecter',
     continue: 'Continuer',
     checkEmailHint:
-      'Si un compte employé existe pour cet e-mail, suivez les instructions reçues.',
+      'Aucun compte employé actif trouvé pour cet e-mail, ou le compte n’est pas encore activé. Vérifiez l’adresse, ou utilisez « Mot de passe oublié » / demandez l’activation à votre administrateur.',
+    enterPasswordHint: 'Saisissez votre mot de passe pour continuer.',
+    changeEmail: 'Changer d’e-mail',
     activateAccount: 'Activer mon compte',
     devicePendingTitle: 'Appareil en attente',
     devicePendingBody:
@@ -88,7 +112,24 @@ export const STRINGS = {
     leaveDays: 'Jours de congé',
     pending: 'En attente',
     swaps: 'Échanges',
-    quickActions: 'Actions rapides',
+    quickActions: 'Autres actions',
+    todayTitle: 'Aujourd’hui',
+    noShiftToday: 'Aucun shift prévu aujourd’hui',
+    shiftToday: (name: string, window: string) =>
+      window ? `${name} · ${window}` : name,
+    statusNotStarted: 'Pas encore pointé',
+    statusOnSite: 'Présent sur site',
+    statusOnBreak: 'En pause',
+    statusDone: 'Journée terminée',
+    statusUnknown: 'Statut du jour',
+    primaryPunch: 'Pointer par QR',
+    primaryBreak: 'Reprendre la pause',
+    primaryAttendance: 'Voir mon pointage',
+    offlinePending: (n: number) =>
+      n === 1
+        ? '1 pointage en attente de sync'
+        : `${n} pointages en attente de sync`,
+    offlineSyncNow: 'Synchroniser',
     actionRequestLeave: 'Demander un congé',
     actionSwapShift: 'Échanger un shift',
     actionMyPlanning: 'Mon planning',
@@ -123,6 +164,15 @@ export const STRINGS = {
     openSettings: 'Ouvrir les réglages',
     processing: 'Pointage en cours…',
     successDefault: 'Pointage enregistré',
+    successTitle: 'Pointage réussi',
+    viewAttendance: 'Voir mon historique',
+    scanAgain: 'Scanner un autre QR',
+    eventCheckIn: 'Arrivée',
+    eventCheckOut: 'Départ',
+    eventBreakStart: 'Début de pause',
+    eventBreakEnd: 'Reprise de pause',
+    atKiosk: (name: string) => `Borne ${name}`,
+    atBranch: (name: string) => `Site ${name}`,
     queuedOffline:
       'Hors ligne — pointage enregistré localement. Il sera synchronisé dès que la connexion revient.',
     scanError: 'Impossible de valider ce QR. Réessayez.',
@@ -140,6 +190,8 @@ export const STRINGS = {
     claimCta: 'Créer une réclamation de pointage',
     hint:
       'Placez le QR de la borne dans le cadre. En cas de problème réseau, le scan est mis en file et synchronisé plus tard (appareil approuvé requis).',
+    a11yCamera: 'Viseur caméra pour scanner le QR de la borne',
+    a11yStatus: (msg: string) => `Statut du pointage : ${msg}`,
   },
 
   // Leave
@@ -169,7 +221,7 @@ export const STRINGS = {
     fillAllFields: 'Veuillez remplir tous les champs requis',
     chooseDates: 'Choisir les dates',
     endDateBeforeStart: 'La date de fin doit être après la date de début',
-    invalidDate: 'Date invalide (format attendu : AAAA-MM-JJ)',
+    invalidDate: 'Date invalide',
     attachmentLabel: 'Justificatif (facultatif)',
     attachmentHint: 'Joindre un fichier PDF ou image',
   },
@@ -222,18 +274,22 @@ export const STRINGS = {
   // More / menu
   more: {
     title: 'Plus',
-    sectionPersonal: 'Personnel',
-    sectionSchedule: 'Planning',
+    sectionPersonal: 'Compte',
+    sectionActions: 'Pointage',
+    sectionSchedule: 'Organisation',
     profile: 'Profil',
-    profileDesc: 'Voir et modifier vos informations',
-    attendance: 'Pointage',
-    attendanceDesc: 'Pointages et historique',
-    planning: 'Planning',
-    planningDesc: 'Votre planning en un coup d\'œil',
-    leaveBalances: 'Solde de congés',
-    leaveBalancesDesc: 'Voir vos jours restants',
+    profileDesc: 'Coordonnées et sécurité',
+    attendance: 'Historique de pointage',
+    attendanceDesc: 'Événements et méthodes',
+    planning: 'Mon planning',
+    planningDesc: 'Shifts à venir',
+    leaveBalances: 'Soldes de congés',
+    leaveBalancesDesc: 'Jours restants',
     leaveTypes: 'Types de congé',
-    leaveTypesDesc: 'Catégories de congé disponibles',
+    leaveTypesDesc: 'Catégories disponibles',
+    breakResume: 'Reprise de pause',
+    breakResumeDesc: 'Pointer la fin de pause',
+    versionLabel: 'TimeGate Employé',
   },
 
   // Profile

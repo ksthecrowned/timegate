@@ -1,24 +1,20 @@
 import { useRouter, usePathname, useNavigation } from "expo-router";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useColorScheme } from "react-native";
-import { Colors } from "@/constants/theme";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Colors, MinTouchTarget, Spacing } from "@/constants/theme";
+import { STRINGS } from "@/constants/strings";
 import { ReactNode } from "react";
 
 type AppBarProps = {
   title?: string;
+  subtitle?: string;
   showSearch?: boolean;
   onSearchPress?: () => void;
   showNotifications?: boolean;
   onNotificationPress?: () => void;
   notificationCount?: number;
   rightAction?: ReactNode;
-  /**
-   * Override automatic back-button visibility. When undefined, the back
-   * button is shown iff the navigation stack can go back AND the current
-   * route is not one of the bottom-tab roots.
-   */
   showBack?: boolean;
 };
 
@@ -27,10 +23,37 @@ const TAB_ROOTS = new Set([
   "/leave",
   "/shift-swaps",
   "/notifications",
+  "/plus",
 ]);
+
+function IconButton({
+  onPress,
+  label,
+  hint,
+  children,
+}: {
+  onPress: () => void;
+  label: string;
+  hint?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={12}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityHint={hint}
+      style={({ pressed }) => [styles.iconBtn, { opacity: pressed ? 0.65 : 1 }]}
+    >
+      {children}
+    </Pressable>
+  );
+}
 
 export function AppBar({
   title,
+  subtitle,
   showSearch = false,
   onSearchPress,
   showNotifications = true,
@@ -39,15 +62,12 @@ export function AppBar({
   rightAction,
   showBack,
 }: AppBarProps) {
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
   const pathname = usePathname();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
 
-  // canGoBack() is the source of truth: on tab roots (no parent screen)
-  // it returns false. On pushed screens (profile/edit, attendance, etc.) true.
   const canGoBack =
     typeof navigation?.canGoBack === "function"
       ? navigation.canGoBack()
@@ -55,215 +75,124 @@ export function AppBar({
   const isTabRoot = TAB_ROOTS.has(pathname ?? "");
   const backVisible = showBack ?? (canGoBack && !isTabRoot);
 
-  const openDrawer = () => {
-    // Walk up the navigator tree to find the Drawer (its state.type === 'drawer')
-    // and dispatch the OPEN_DRAWER action. We dispatch the action object
-    // directly because DrawerActions isn't re-exported from expo-router.
-    let nav: any = navigation;
-    while (nav && typeof nav.getParent === "function") {
-      const parent = nav.getParent();
-      if (!parent) break;
-      const state = parent.getState?.();
-      if (state?.type === "drawer") {
-        parent.dispatch({ type: "OPEN_DRAWER", target: state.key });
-        return;
-      }
-      nav = parent;
-    }
-    // Fallback: try dispatching on the closest navigation directly.
-    try {
-      const state = (navigation as any)?.getState?.();
-      if (state?.type === "drawer") {
-        (navigation as any).dispatch({ type: "OPEN_DRAWER", target: state.key });
-      }
-    } catch {
-      /* not in a drawer */
-    }
-  };
-
   return (
     <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        backgroundColor: colors.surfaceCard,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        minHeight: 60,
-      }}
+      style={[
+        styles.bar,
+        {
+          backgroundColor: colors.surfaceCard,
+          borderBottomColor: colors.border,
+        },
+      ]}
+      accessibilityRole="header"
     >
-      {/* Back button OR logo + title */}
       {backVisible ? (
-        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-          <Pressable
+        <View style={styles.left}>
+          <IconButton
             onPress={() => router.back()}
-            hitSlop={12}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+            label={STRINGS.a11y.back}
           >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 8,
-              }}
+            <Ionicons name="chevron-back" size={26} color={colors.text} />
+          </IconButton>
+          <View style={styles.titleWrap}>
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              numberOfLines={1}
+              accessibilityRole="header"
             >
-              <Ionicons name="chevron-back" size={26} color={colors.text} />
-            </View>
-          </Pressable>
-
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "700",
-              color: colors.text,
-              flex: 1,
-            }}
-            numberOfLines={1}
-          >
-            {title || "TimeGate"}
-          </Text>
+              {title || STRINGS.app.name}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[styles.subtitle, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         </View>
       ) : (
-        <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-          <Pressable
-            onPress={openDrawer}
-            hitSlop={12}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        <View style={styles.left}>
+          <IconButton
+            onPress={() => router.push("/")}
+            label={STRINGS.a11y.home}
           >
             <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 8,
-              }}
+              style={[styles.logo, { backgroundColor: colors.primary }]}
             >
-              <Ionicons name="menu-outline" size={26} color={colors.text} />
+              <Ionicons name="time" size={20} color="#ffffff" />
             </View>
-          </Pressable>
-
-          <Pressable onPress={() => router.push("/")}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                backgroundColor: colors.primary,
-                alignItems: "center",
-                justifyContent: "center",
-                marginRight: 12,
-              }}
+          </IconButton>
+          <View style={styles.titleWrap}>
+            <Text
+              style={[styles.title, { color: colors.text }]}
+              numberOfLines={1}
+              accessibilityRole="header"
             >
-              <Ionicons name="time" size={22} color="#ffffff" />
-            </View>
-          </Pressable>
-
-          <Text
-            style={{
-              fontSize: 20,
-              fontWeight: "700",
-              color: colors.text,
-              flex: 1,
-            }}
-            numberOfLines={1}
-          >
-            {title || "TimeGate"}
-          </Text>
+              {title || STRINGS.app.name}
+            </Text>
+            {subtitle ? (
+              <Text
+                style={[styles.subtitle, { color: colors.textSecondary }]}
+                numberOfLines={1}
+              >
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
         </View>
       )}
 
-      {/* Right Actions */}
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
-        {showSearch && (
-          <Pressable onPress={onSearchPress}>
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Ionicons name="search-outline" size={22} color={colors.text} />
-            </View>
-          </Pressable>
-        )}
+      <View style={styles.right}>
+        {showSearch ? (
+          <IconButton
+            onPress={() => onSearchPress?.()}
+            label={STRINGS.a11y.search}
+          >
+            <Ionicons name="search-outline" size={22} color={colors.text} />
+          </IconButton>
+        ) : null}
 
-        {showNotifications && (
-          <Pressable
+        {showNotifications ? (
+          <IconButton
             onPress={
               onNotificationPress || (() => router.push("/notifications"))
             }
+            label={STRINGS.a11y.notificationsWithCount(notificationCount)}
           >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 20,
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-              }}
-            >
+            <View>
               <Ionicons
                 name="notifications-outline"
                 size={22}
                 color={colors.text}
               />
-              {notificationCount > 0 && (
+              {notificationCount > 0 ? (
                 <View
-                  style={{
-                    position: "absolute",
-                    top: 4,
-                    right: 4,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: "#ef4444",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    paddingHorizontal: 4,
-                  }}
+                  style={styles.badge}
+                  importantForAccessibility="no-hide-descendants"
                 >
-                  <Text
-                    style={{
-                      color: "#ffffff",
-                      fontSize: 10,
-                      fontWeight: "bold",
-                    }}
-                  >
+                  <Text style={styles.badgeText}>
                     {notificationCount > 9 ? "9+" : notificationCount}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </View>
-          </Pressable>
-        )}
+          </IconButton>
+        ) : null}
 
-        {/* Avatar */}
         {rightAction ? (
           <View style={{ marginLeft: 4 }}>{rightAction}</View>
         ) : !backVisible ? (
-          <Pressable onPress={() => router.push("/profile")}>
+          <IconButton
+            onPress={() => router.push("/profile")}
+            label={STRINGS.a11y.profile}
+          >
             <View
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 18,
-                backgroundColor: colors.primary + "20",
-                alignItems: "center",
-                justifyContent: "center",
-                marginLeft: 4,
-              }}
+              style={[
+                styles.avatar,
+                { backgroundColor: colors.primary + "22" },
+              ]}
             >
               <MaterialCommunityIcons
                 name="account"
@@ -271,9 +200,60 @@ export function AppBar({
                 color={colors.primary}
               />
             </View>
-          </Pressable>
+          </IconButton>
         ) : null}
       </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  bar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: Spacing[3],
+    paddingVertical: Spacing[2],
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    minHeight: 56,
+  },
+  left: { flexDirection: "row", alignItems: "center", flex: 1, minWidth: 0 },
+  right: { flexDirection: "row", alignItems: "center", gap: 2 },
+  iconBtn: {
+    minWidth: MinTouchTarget,
+    minHeight: MinTouchTarget,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: MinTouchTarget / 2,
+  },
+  logo: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  titleWrap: { flex: 1, minWidth: 0, marginLeft: Spacing[2] },
+  title: { fontSize: 18, fontWeight: "700" },
+  subtitle: { fontSize: 12, marginTop: 1 },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#ef4444",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+  },
+  badgeText: { color: "#fff", fontSize: 10, fontWeight: "700" },
+});

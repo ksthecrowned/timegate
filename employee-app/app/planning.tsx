@@ -10,9 +10,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import type { ShiftAssignment } from '@/lib/types';
 
@@ -56,6 +57,7 @@ function formatDateFr(d: Date): string {
 }
 
 export default function PlanningScreen() {
+  const theme = useTheme();
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
   const [days, setDays] = useState<PlanningDay[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,7 +111,7 @@ export default function PlanningScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
       >
@@ -121,8 +123,8 @@ export default function PlanningScreen() {
             style={({ pressed }) => [
               styles.weekBtn,
               {
-                backgroundColor: Colors.light.surfaceCard,
-                borderColor: Colors.light.border,
+                backgroundColor: theme.surfaceCard,
+                borderColor: theme.border,
                 opacity: pressed ? 0.6 : 1,
               },
             ]}
@@ -130,17 +132,17 @@ export default function PlanningScreen() {
             <Ionicons
               name="chevron-back"
               size={18}
-              color={Colors.light.text}
+              color={theme.text}
             />
           </Pressable>
           <View style={styles.weekLabel}>
-            <Text style={[styles.weekDate, { color: Colors.light.text }]}>
+            <Text style={[styles.weekDate, { color: theme.text }]}>
               {STRINGS.planning.weekOf(formatDateFr(weekStart))}
             </Text>
             <Text
               style={[
                 styles.weekSub,
-                { color: Colors.light.textSecondary },
+                { color: theme.textSecondary },
               ]}
             >
               {totalShifts}{' '}
@@ -153,8 +155,8 @@ export default function PlanningScreen() {
             style={({ pressed }) => [
               styles.weekBtn,
               {
-                backgroundColor: Colors.light.surfaceCard,
-                borderColor: Colors.light.border,
+                backgroundColor: theme.surfaceCard,
+                borderColor: theme.border,
                 opacity: pressed ? 0.6 : 1,
               },
             ]}
@@ -162,7 +164,7 @@ export default function PlanningScreen() {
             <Ionicons
               name="chevron-forward"
               size={18}
-              color={Colors.light.text}
+              color={theme.text}
             />
           </Pressable>
         </View>
@@ -176,16 +178,16 @@ export default function PlanningScreen() {
           <Ionicons
             name="today-outline"
             size={14}
-            color={Colors.light.primary}
+            color={theme.primary}
           />
-          <Text style={[styles.todayText, { color: Colors.light.primary }]}>
+          <Text style={[styles.todayText, { color: theme.primary }]}>
             {STRINGS.planning.thisWeek}
           </Text>
         </Pressable>
 
         {showSpinner ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : error ? (
           <View style={styles.errorBox}>
@@ -195,18 +197,18 @@ export default function PlanningScreen() {
           <View
             style={[
               styles.emptyCard,
-              { backgroundColor: Colors.light.surfaceCard },
+              { backgroundColor: theme.surfaceCard },
             ]}
           >
             <Ionicons
               name="calendar-outline"
               size={48}
-              color={Colors.light.textMuted}
+              color={theme.textMuted}
             />
             <Text
               style={[
                 styles.emptyText,
-                { color: Colors.light.textSecondary },
+                { color: theme.textSecondary },
               ]}
             >
               {STRINGS.planning.noData}
@@ -223,6 +225,7 @@ export default function PlanningScreen() {
 }
 
 function DayCard({ day }: { day: PlanningDay }) {
+  const theme = useTheme();
   const date = new Date(day.date);
   const isToday = isoDay(new Date()) === day.date;
   const dayLabel = date.toLocaleDateString('fr-FR', {
@@ -237,18 +240,19 @@ function DayCard({ day }: { day: PlanningDay }) {
       style={[
         styles.card,
         {
-          backgroundColor: Colors.light.surfaceCard,
-          borderLeftColor: isToday ? Colors.light.primary : 'transparent',
+          backgroundColor: theme.surfaceCard,
+          borderLeftColor: isToday ? theme.primary : 'transparent',
+          borderColor: theme.border,
         },
       ]}
     >
       <View style={styles.cardHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.dayDate, { color: Colors.light.text }]}>
+          <Text style={[styles.dayDate, { color: theme.text }]}>
             {dayLabel}
           </Text>
           {isToday && (
-            <Text style={[styles.todayBadge, { color: Colors.light.primary }]}>
+            <Text style={[styles.todayBadge, { color: theme.primary }]}>
               Aujourd'hui
             </Text>
           )}
@@ -257,7 +261,7 @@ function DayCard({ day }: { day: PlanningDay }) {
           <View
             style={[
               styles.holidayBadge,
-              { backgroundColor: Colors.light.primary },
+              { backgroundColor: theme.primary },
             ]}
           >
             <Text style={styles.badgeText}>Férié</Text>
@@ -269,7 +273,7 @@ function DayCard({ day }: { day: PlanningDay }) {
         <Text
           style={[
             styles.leaveHint,
-            { color: Colors.light.textSecondary },
+            { color: theme.textSecondary },
           ]}
         >
           En congé ce jour-là
@@ -277,7 +281,7 @@ function DayCard({ day }: { day: PlanningDay }) {
       )}
 
       {assignments.length === 0 ? (
-        <Text style={[styles.noShift, { color: Colors.light.textMuted }]}>
+        <Text style={[styles.noShift, { color: theme.textMuted }]}>
           Aucun shift
         </Text>
       ) : (
@@ -299,14 +303,14 @@ function DayCard({ day }: { day: PlanningDay }) {
               key={a.id}
               style={[
                 styles.assignment,
-                { borderColor: Colors.light.border },
+                { borderColor: theme.border },
               ]}
             >
               <View style={{ flex: 1 }}>
                 <Text
                   style={[
                     styles.assignmentName,
-                    { color: Colors.light.text },
+                    { color: theme.text },
                   ]}
                 >
                   {a.shiftName ?? 'Shift'}
@@ -315,7 +319,7 @@ function DayCard({ day }: { day: PlanningDay }) {
                   <Text
                     style={[
                       styles.assignmentLoc,
-                      { color: Colors.light.textSecondary },
+                      { color: theme.textSecondary },
                     ]}
                   >
                     {a.location}
@@ -323,7 +327,7 @@ function DayCard({ day }: { day: PlanningDay }) {
                 ) : null}
               </View>
               <Text
-                style={[styles.assignmentTime, { color: Colors.light.primary }]}
+                style={[styles.assignmentTime, { color: theme.primary }]}
               >
                 {start && end ? `${start} – ${end}` : '—'}
               </Text>
@@ -390,7 +394,6 @@ const styles = StyleSheet.create({
     marginBottom: S[3],
     borderLeftWidth: 4,
     borderWidth: 1,
-    borderColor: Colors.light.border,
   },
   cardHeader: {
     flexDirection: 'row',

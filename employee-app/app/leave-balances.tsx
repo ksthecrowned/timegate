@@ -8,15 +8,17 @@ import {
   View,
 } from 'react-native';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import type { LeaveBalance } from '@/lib/types';
 
 const S = Spacing;
 
 export default function LeaveBalancesScreen() {
+  const theme = useTheme();
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,14 +70,14 @@ export default function LeaveBalancesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
       >
         {showSpinner ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
-            <Text style={[styles.muted, { color: Colors.light.textSecondary }]}>
+            <ActivityIndicator size="large" color={theme.primary} />
+            <Text style={[styles.muted, { color: theme.textSecondary }]}>
               {STRINGS.leaveBalances.loading}
             </Text>
           </View>
@@ -87,10 +89,10 @@ export default function LeaveBalancesScreen() {
           <View
             style={[
               styles.emptyCard,
-              { backgroundColor: Colors.light.surfaceCard },
+              { backgroundColor: theme.surfaceCard },
             ]}
           >
-            <Text style={[styles.emptyText, { color: Colors.light.textSecondary }]}>
+            <Text style={[styles.emptyText, { color: theme.textSecondary }]}>
               {STRINGS.leaveBalances.noData}
             </Text>
           </View>
@@ -99,7 +101,7 @@ export default function LeaveBalancesScreen() {
             <View
               style={[
                 styles.summaryCard,
-                { backgroundColor: Colors.light.primary },
+                { backgroundColor: theme.primary },
               ]}
             >
               <Text style={styles.summaryLabel}>
@@ -132,20 +134,20 @@ export default function LeaveBalancesScreen() {
                   key={`${b.leaveTypeId}-${idx}`}
                   style={[
                     styles.card,
-                    { backgroundColor: Colors.light.surfaceCard },
+                    { backgroundColor: theme.surfaceCard },
                   ]}
                 >
                   <View style={styles.cardHeader}>
-                    <Text style={[styles.cardTitle, { color: Colors.light.text }]}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>
                       {b.leaveTypeName}
                     </Text>
-                    <Text style={[styles.remaining, { color: Colors.light.primary }]}>
+                    <Text style={[styles.remaining, { color: theme.primary }]}>
                       {b.unlimited ? '∞' : remaining}
                       {!b.unlimited && (
                         <Text
                           style={[
                             styles.remainingUnit,
-                            { color: Colors.light.textSecondary },
+                            { color: theme.textSecondary },
                           ]}
                         >
                           {' '}/ {allocated}
@@ -158,7 +160,7 @@ export default function LeaveBalancesScreen() {
                     <View
                       style={[
                         styles.progressTrack,
-                        { backgroundColor: Colors.light.surfaceMuted },
+                        { backgroundColor: theme.surfaceMuted },
                       ]}
                     >
                       <View
@@ -182,12 +184,12 @@ export default function LeaveBalancesScreen() {
                     <Stat
                       label={STRINGS.leaveBalances.allocated}
                       value={b.unlimited ? '∞' : allocated}
-                      color={Colors.light.text}
+                      color={theme.text}
                     />
                     <View
                       style={[
                         styles.divider,
-                        { backgroundColor: Colors.light.border },
+                        { backgroundColor: theme.border },
                       ]}
                     />
                     <Stat
@@ -198,7 +200,7 @@ export default function LeaveBalancesScreen() {
                     <View
                       style={[
                         styles.divider,
-                        { backgroundColor: Colors.light.border },
+                        { backgroundColor: theme.border },
                       ]}
                     />
                     <Stat
@@ -226,10 +228,11 @@ function Stat({
   value: number | string;
   color: string;
 }) {
+  const theme = useTheme();
   return (
     <View style={styles.statBlock}>
       <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={[styles.statLabel, { color: Colors.light.textSecondary }]}>
+      <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
         {label}
       </Text>
     </View>

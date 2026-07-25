@@ -13,7 +13,7 @@ export const Colors = {
     accent: '#14b8a6', // teal lighter
 
     // Surface colors
-    background: '#ffffff',
+    background: '#f8fafc',
     surface: '#eef2f7',
     surfaceCard: '#ffffff',
     surfaceMuted: '#e2e8f0',
@@ -23,36 +23,51 @@ export const Colors = {
 
     // Text colors
     text: '#0f172a', // dark slate
-    textSecondary: '#64748b', // slate
-    textMuted: '#94a3b8', // light slate
+    textSecondary: '#475569', // stronger for AA on white
+    textMuted: '#64748b',
 
     // Border
     border: '#e2e8f0',
     borderDark: '#2d3a52',
+
+    // Semantic
+    success: '#059669',
+    successSoft: 'rgba(5, 150, 105, 0.12)',
+    warning: '#d97706',
+    warningSoft: 'rgba(217, 119, 6, 0.12)',
+    danger: '#dc2626',
+    dangerSoft: 'rgba(220, 38, 38, 0.12)',
+    info: '#0284c7',
+    infoSoft: 'rgba(2, 132, 199, 0.12)',
   },
   dark: {
-    // Primary colors from dashboard (adjusted for dark mode)
-    primary: '#0d9488', // teal (keep same)
-    secondary: '#0284c7', // blue (keep same)
-    accent: '#14b8a6', // teal lighter (keep same)
+    primary: '#2dd4bf',
+    secondary: '#38bdf8',
+    accent: '#5eead4',
 
-    // Surface colors (dark mode)
-    background: '#0f172a', // very dark blue
-    surface: '#1e293b', // dark blue
+    background: '#0f172a',
+    surface: '#1e293b',
     surfaceCard: '#1e293b',
     surfaceMuted: '#334155',
     surfaceDark: '#0f172a',
     surfaceCardDark: '#0f172a',
     surfaceElevatedDark: '#1e293b',
 
-    // Text colors (dark mode)
-    text: '#f8fafc', // almost white
-    textSecondary: '#cbd5e1', // light slate
-    textMuted: '#94a3b8', // slate
+    text: '#f8fafc',
+    textSecondary: '#cbd5e1',
+    textMuted: '#94a3b8',
 
-    // Border (dark mode)
     border: '#334155',
     borderDark: '#475569',
+
+    success: '#34d399',
+    successSoft: 'rgba(52, 211, 153, 0.15)',
+    warning: '#fbbf24',
+    warningSoft: 'rgba(251, 191, 36, 0.15)',
+    danger: '#f87171',
+    dangerSoft: 'rgba(248, 113, 113, 0.15)',
+    info: '#38bdf8',
+    infoSoft: 'rgba(56, 189, 248, 0.15)',
   },
 } as const;
 
@@ -128,3 +143,14 @@ export const Spacing = {
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
 export const MaxContentWidth = 800;
+
+/** Touch target minimum (WCAG / Apple HIG). */
+export const MinTouchTarget = 44;
+
+export const Radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  full: 999,
+} as const;

@@ -161,6 +161,8 @@ export class NotificationsService {
           data: {
             companyId: input.companyId,
             notificationType: input.type,
+            type: input.type,
+            ...flattenPushMeta(input.meta),
           },
         })
         .catch((err) =>
@@ -990,4 +992,16 @@ export class NotificationsService {
       meta: notification.meta,
     };
   }
+}
+
+function flattenPushMeta(meta: Prisma.InputJsonValue | undefined): Record<string, string> {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return {};
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(meta as Record<string, unknown>)) {
+    if (value == null) continue;
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      out[key] = String(value);
+    }
+  }
+  return out;
 }

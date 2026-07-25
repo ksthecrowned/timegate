@@ -1,11 +1,12 @@
 {
-  "name": "employee-app",
+  "name": "timegate-employee",
   "main": "expo-router/entry",
   "version": "1.0.0",
   "dependencies": {
     "@expo-google-fonts/comfortaa": "^0.2.3",
     "@expo/ui": "~56.0.18",
     "@expo/vector-icons": "^15.0.3",
+    "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-firebase/app": "^25.1.0",
     "@react-native-firebase/messaging": "^25.1.0",
     "expo": "~56.0.12",

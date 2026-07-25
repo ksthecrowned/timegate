@@ -54,15 +54,14 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
 async function tryFcmToken(): Promise<string | null> {
   try {
+    // Dynamic require: Expo Go n'a pas le module natif RNFirebase.
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const messagingModule = require("@react-native-firebase/messaging");
-    const messaging = messagingModule.default as {
-      (): {
-        requestPermission: () => Promise<number>;
-        getToken: () => Promise<string>;
-        onMessage: (handler: (msg: { notification?: { title?: string; body?: string } }) => void) => () => void;
-      };
-    };
+    const {
+      getMessaging,
+      getToken,
+      requestPermission,
+      AuthorizationStatus,
+    } = require("@react-native-firebase/messaging") as typeof import("@react-native-firebase/messaging");
 
     if (Platform.OS === "android" && Platform.Version >= 33) {
       const granted = await PermissionsAndroid.request(
@@ -73,32 +72,49 @@ async function tryFcmToken(): Promise<string | null> {
       }
     }
 
-    const authStatus = await messaging().requestPermission();
+    const messaging = getMessaging();
+    // Don't block app startup / post-login on a slow FCM handshake.
+    const authStatus = await Promise.race([
+      requestPermission(messaging),
+      new Promise<number>((_, reject) =>
+        setTimeout(() => reject(new Error("FCM permission timeout")), 4000),
+      ),
+    ]);
     const enabled =
-      authStatus === messagingModule.AuthorizationStatus?.AUTHORIZED ||
-      authStatus === messagingModule.AuthorizationStatus?.PROVISIONAL ||
-      authStatus === 1 ||
-      authStatus === 2;
+      authStatus === AuthorizationStatus.AUTHORIZED ||
+      authStatus === AuthorizationStatus.PROVISIONAL;
     if (!enabled) {
       return null;
     }
-    return await messaging().getToken();
+    return await Promise.race([
+      getToken(messaging),
+      new Promise<string>((_, reject) =>
+        setTimeout(() => reject(new Error("FCM token timeout")), 5000),
+      ),
+    ]);
   } catch {
     return null;
   }
 }
 
 export async function listenFcmForeground(
-  handler: (payload: { title?: string; body?: string }) => void,
+  handler: (payload: {
+    title?: string;
+    body?: string;
+    data?: Record<string, unknown>;
+  }) => void,
 ): Promise<(() => void) | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const messagingModule = require("@react-native-firebase/messaging");
-    const messaging = messagingModule.default();
-    return messaging.onMessage((remoteMessage: { notification?: { title?: string; body?: string } }) => {
+    const { getMessaging, onMessage } =
+      require("@react-native-firebase/messaging") as typeof import("@react-native-firebase/messaging");
+
+    const messaging = getMessaging();
+    return onMessage(messaging, (remoteMessage) => {
       handler({
         title: remoteMessage.notification?.title,
         body: remoteMessage.notification?.body,
+        data: (remoteMessage.data ?? {}) as Record<string, unknown>,
       });
     });
   } catch {

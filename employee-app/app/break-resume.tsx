@@ -7,20 +7,19 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useColorScheme } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { PendingDeviceBlock } from '@/components/PendingDeviceBlock';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi, ApiError } from '@/lib/api';
 import type { BreakResumeStatus } from '@/lib/types';
 
 export default function BreakResumeScreen() {
-  const colorScheme = useColorScheme();
-  const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const theme = useTheme();
 
   const [status, setStatus] = useState<BreakResumeStatus | null>(null);
   const [loading, setLoading] = useState(true);
@@ -81,110 +80,139 @@ export default function BreakResumeScreen() {
 
   const eligible = status?.eligible === true;
   const branchLabel = status?.branch?.name ?? '—';
+  const statusText = eligible
+    ? STRINGS.breakResume.eligibleHint
+    : status?.reason ?? STRINGS.breakResume.notEligibleDefault;
 
   return (
     <ScreenLayout
       title={STRINGS.breakResume.title}
+      showBack
       showSearch={false}
       showNotifications
       refreshing={refreshing}
       onRefresh={() => loadStatus(true)}
     >
       <PendingDeviceBlock>
-      <View style={{ padding: Spacing[4], gap: Spacing[4] }}>
-        <View
-          style={{
-            padding: Spacing[5],
-            backgroundColor: colors.surfaceCard,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            gap: Spacing[3],
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-            <View
-              style={{
-                width: 48,
-                height: 48,
-                borderRadius: 24,
-                backgroundColor: colors.primary + '20',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Ionicons name="cafe-outline" size={24} color={colors.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
+        <View style={{ padding: Spacing[4], gap: Spacing[4] }}>
+          <View
+            style={{
+              padding: Spacing[5],
+              backgroundColor: theme.surfaceCard,
+              borderRadius: Radius.lg,
+              borderWidth: 1,
+              borderColor: theme.border,
+              gap: Spacing[3],
+            }}
+            accessibilityRole="summary"
+            accessibilityLabel={`${STRINGS.breakResume.headline}. ${STRINGS.breakResume.siteLabel} ${branchLabel}. ${statusText}`}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <View
                 style={{
-                  fontSize: 18,
-                  fontWeight: '700',
-                  color: colors.text,
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: theme.primary + '20',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
+                importantForAccessibility="no"
               >
-                {STRINGS.breakResume.headline}
-              </Text>
-              <Text style={{ fontSize: 13, color: colors.textSecondary, marginTop: 4 }}>
-                {STRINGS.breakResume.siteLabel}: {branchLabel}
-              </Text>
+                <Ionicons name="cafe-outline" size={24} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    fontSize: 18,
+                    fontWeight: '700',
+                    color: theme.text,
+                  }}
+                  accessibilityRole="header"
+                >
+                  {STRINGS.breakResume.headline}
+                </Text>
+                <Text
+                  style={{ fontSize: 13, color: theme.textSecondary, marginTop: 4 }}
+                >
+                  {STRINGS.breakResume.siteLabel}: {branchLabel}
+                </Text>
+              </View>
             </View>
+
+            {loading ? (
+              <ActivityIndicator
+                color={theme.primary}
+                accessibilityLabel={STRINGS.app.loading}
+              />
+            ) : (
+              <>
+                <Text
+                  style={{ fontSize: 14, color: theme.textSecondary, lineHeight: 20 }}
+                  accessibilityLiveRegion="polite"
+                >
+                  {statusText}
+                </Text>
+
+                {status?.requiresGeo && status.branch ? (
+                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                    {STRINGS.breakResume.geoRadius(
+                      status.branch.checkinRadiusMeters,
+                    )}
+                  </Text>
+                ) : null}
+
+                {locationHint ? (
+                  <Text
+                    style={{ fontSize: 13, color: theme.warning }}
+                    accessibilityRole="alert"
+                  >
+                    {locationHint}
+                  </Text>
+                ) : null}
+
+                <Pressable
+                  onPress={handleResume}
+                  disabled={!eligible || submitting}
+                  accessibilityRole="button"
+                  accessibilityLabel={STRINGS.breakResume.action}
+                  accessibilityState={{
+                    disabled: !eligible || submitting,
+                    busy: submitting,
+                  }}
+                  style={{
+                    marginTop: Spacing[2],
+                    minHeight: MinTouchTarget + 4,
+                    paddingVertical: 14,
+                    borderRadius: Radius.md,
+                    backgroundColor: eligible ? theme.primary : theme.border,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: submitting ? 0.7 : 1,
+                  }}
+                >
+                  {submitting ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
+                      {STRINGS.breakResume.action}
+                    </Text>
+                  )}
+                </Pressable>
+
+                {Platform.OS === 'web' ? (
+                  <Text style={{ fontSize: 12, color: theme.textSecondary }}>
+                    {STRINGS.breakResume.webGeoNote}
+                  </Text>
+                ) : null}
+              </>
+            )}
           </View>
 
-          {loading ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <>
-              <Text style={{ fontSize: 14, color: colors.textSecondary, lineHeight: 20 }}>
-                {eligible
-                  ? STRINGS.breakResume.eligibleHint
-                  : status?.reason ?? STRINGS.breakResume.notEligibleDefault}
-              </Text>
-
-              {status?.requiresGeo && status.branch && (
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {STRINGS.breakResume.geoRadius(status.branch.checkinRadiusMeters)}
-                </Text>
-              )}
-
-              {locationHint && (
-                <Text style={{ fontSize: 13, color: '#b45309' }}>{locationHint}</Text>
-              )}
-
-              <Pressable
-                onPress={handleResume}
-                disabled={!eligible || submitting}
-                style={{
-                  marginTop: Spacing[2],
-                  paddingVertical: 14,
-                  borderRadius: 12,
-                  backgroundColor: eligible ? colors.primary : colors.border,
-                  alignItems: 'center',
-                  opacity: submitting ? 0.7 : 1,
-                }}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>
-                    {STRINGS.breakResume.action}
-                  </Text>
-                )}
-              </Pressable>
-
-              {Platform.OS === 'web' && (
-                <Text style={{ fontSize: 12, color: colors.textSecondary }}>
-                  {STRINGS.breakResume.webGeoNote}
-                </Text>
-              )}
-            </>
-          )}
+          <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20 }}>
+            {STRINGS.breakResume.kioskFallback}
+          </Text>
         </View>
-
-        <Text style={{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 }}>
-          {STRINGS.breakResume.kioskFallback}
-        </Text>
-      </View>
       </PendingDeviceBlock>
     </ScreenLayout>
   );

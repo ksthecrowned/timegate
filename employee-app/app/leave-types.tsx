@@ -9,15 +9,17 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ScreenLayout } from '@/components/ScreenLayout';
+import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import type { LeaveType } from '@/lib/types';
 
 const S = Spacing;
 
 export default function LeaveTypesScreen() {
+  const theme = useTheme();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,13 +63,13 @@ export default function LeaveTypesScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            tintColor={Colors.light.primary}
+            tintColor={theme.primary}
           />
         }
       >
         {showSpinner ? (
           <View style={styles.centered}>
-            <ActivityIndicator size="large" color={Colors.light.primary} />
+            <ActivityIndicator size="large" color={theme.primary} />
           </View>
         ) : error ? (
           <View style={styles.errorBox}>
@@ -76,13 +78,13 @@ export default function LeaveTypesScreen() {
         ) : (
           <>
             <View style={styles.header}>
-              <Text style={[styles.title, { color: Colors.light.text }]}>
+              <Text style={[styles.title, { color: theme.text }]}>
                 {STRINGS.leaveTypes.title}
               </Text>
               <Text
                 style={[
                   styles.subtitle,
-                  { color: Colors.light.textSecondary },
+                  { color: theme.textSecondary },
                 ]}
               >
                 {leaveTypes.length}{' '}
@@ -94,13 +96,13 @@ export default function LeaveTypesScreen() {
               <View
                 style={[
                   styles.emptyCard,
-                  { backgroundColor: Colors.light.surfaceCard },
+                  { backgroundColor: theme.surfaceCard },
                 ]}
               >
                 <Text
                   style={[
                     styles.emptyText,
-                    { color: Colors.light.textSecondary },
+                    { color: theme.textSecondary },
                   ]}
                 >
                   {STRINGS.leaveTypes.noData}
@@ -112,31 +114,31 @@ export default function LeaveTypesScreen() {
                   key={lt.id}
                   style={[
                     styles.card,
-                    { backgroundColor: Colors.light.surfaceCard },
+                    { backgroundColor: theme.surfaceCard },
                   ]}
                 >
                   <View style={styles.cardLeft}>
                     <View
                       style={[
                         styles.iconCircle,
-                        { backgroundColor: Colors.light.primary + '20' },
+                        { backgroundColor: theme.primary + '20' },
                       ]}
                     >
                       <Ionicons
                         name="calendar-outline"
                         size={22}
-                        color={Colors.light.primary}
+                        color={theme.primary}
                       />
                     </View>
                   </View>
                   <View style={styles.cardContent}>
-                    <Text style={[styles.cardTitle, { color: Colors.light.text }]}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>
                       {lt.name}
                     </Text>
                     <Text
                       style={[
                         styles.cardDetail,
-                        { color: Colors.light.textSecondary },
+                        { color: theme.textSecondary },
                       ]}
                     >
                       {lt.maxDaysPerYear != null
@@ -145,13 +147,13 @@ export default function LeaveTypesScreen() {
                     </Text>
                   </View>
                   <View style={styles.cardRight}>
-                    <Text style={[styles.daysValue, { color: Colors.light.primary }]}>
+                    <Text style={[styles.daysValue, { color: theme.primary }]}>
                       {lt.maxDaysPerYear ?? '∞'}
                     </Text>
                     <Text
                       style={[
                         styles.daysUnit,
-                        { color: Colors.light.textSecondary },
+                        { color: theme.textSecondary },
                       ]}
                     >
                       j / an

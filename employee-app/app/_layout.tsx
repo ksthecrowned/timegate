@@ -70,11 +70,12 @@ export default function RootLayout() {
       <Drawer
         screenOptions={{
           headerShown: false,
+          overlayColor: 'rgba(15, 23, 42, 0.4)',
           drawerStyle: {
             backgroundColor: colors.background,
-            width: 320,
+            width: 300,
           },
-          drawerType: 'slide',
+          drawerType: 'front',
         }}
         drawerContent={(props: DrawerContentComponentProps) => (
           <DrawerMenu onNavigate={() => props.navigation.closeDrawer()} />
@@ -105,6 +106,11 @@ export default function RootLayout() {
         />
         <Drawer.Screen name="qr-punch" options={{ headerShown: false }} />
         <Drawer.Screen name="break-resume" options={{ headerShown: false }} />
+        <Drawer.Screen name="contracts" options={{ headerShown: false }} />
+        <Drawer.Screen
+          name="punch-claim-request"
+          options={{ headerShown: false }}
+        />
       </Drawer>
     </ThemeProvider>
   );

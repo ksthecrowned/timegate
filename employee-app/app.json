@@ -1,21 +1,23 @@
 {
   "expo": {
-    "name": "employee-app",
-    "slug": "employee-app",
+    "name": "TimeGate",
+    "slug": "timegate-employee",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "employeeapp",
+    "scheme": "timegate",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.timegate.employeeapp",
       "infoPlist": {
-        "NSCameraUsageDescription": "Autorisez TimeGate à utiliser la caméra pour scanner le QR de pointage de la borne."
+        "NSCameraUsageDescription": "Autorisez TimeGate à utiliser la caméra pour scanner le QR de pointage de la borne.",
+        "CFBundleDisplayName": "TimeGate"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#0d9488",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -23,7 +25,10 @@
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
       "package": "com.timegate.employeeapp",
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "CAMERA"
+      ],
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "output": "static",
@@ -49,14 +54,15 @@
           "cameraPermission": "Autorisez TimeGate à utiliser la caméra pour scanner le QR de pointage de la borne.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://192.168.148.97:4001/api/v1"
+      "apiUrl": "http://192.168.1.65:4001/api/v1"
     }
   }
 }
