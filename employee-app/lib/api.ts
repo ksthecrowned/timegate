@@ -1,6 +1,6 @@
-import { Platform } from "react-native";
-import * as SecureStore from "expo-secure-store";
 import Constants from "expo-constants";
+import * as SecureStore from "expo-secure-store";
+import { Platform } from "react-native";
 
 import { dispatchLogout } from "./authEvents";
 import { getDeviceInstallId, setDeviceTrust } from "./deviceInstallId";
@@ -12,15 +12,13 @@ import type {
   Colleague,
   EmployeeContractRow,
   LeaveApplication,
-  LeaveBalance,
   LeaveBalancesResponse,
   LeaveType,
   PaginatedResponse,
-  PunchClaimRow,
   Profile,
+  PunchClaimRow,
   ShiftAssignment,
-  ShiftSwapRequest,
-  BreakResumeStatus,
+  ShiftSwapRequest
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -392,14 +390,31 @@ export const employeeApi = {
   markAllNotificationsRead: () =>
     fetchApi("/notifications/read-all", { method: "PATCH" }),
 
-  // ----- QR punch -----
-  getQrPunchCurrent: () =>
+  // ----- QR punch (employee scans kiosk challenge) -----
+  scanQrPunch: (payload: string) =>
     fetchApi<{
-      id: string;
-      qrPayload: string;
-      slot: number;
-      expiresAt: string;
-    }>("/employee/qr-punch/current"),
+      ok: true;
+      message: string;
+      eventType: string;
+      employee: { id: string; firstName: string; lastName: string };
+      challengeId: string;
+    }>("/employee/qr-punch/scan", {
+      method: "POST",
+      body: JSON.stringify({ payload }),
+    }),
+
+  syncQrPunches: (
+    items: Array<{ clientId: string; payload: string; scannedAt: string }>,
+  ) =>
+    fetchApi<{
+      results: Array<
+        | { clientId: string; ok: true; message: string; eventType?: string }
+        | { clientId: string; ok: false; errorCode: string; message: string }
+      >;
+    }>("/employee/qr-punch/sync", {
+      method: "POST",
+      body: JSON.stringify({ items }),
+    }),
 
   getBreakResumeStatus: () =>
     fetchApi<BreakResumeStatus>("/employee/break-resume/status"),

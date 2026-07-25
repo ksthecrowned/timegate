@@ -8,7 +8,10 @@
     "scheme": "employeeapp",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Autorisez TimeGate à utiliser la caméra pour scanner le QR de pointage de la borne."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +22,8 @@
       },
       "googleServicesFile": "./google-services.json",
       "predictiveBackGestureEnabled": false,
-      "package": "com.timegate.employeeapp"
+      "package": "com.timegate.employeeapp",
+      "permissions": ["CAMERA"]
     },
     "web": {
       "output": "static",
@@ -37,6 +41,13 @@
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Autorisez TimeGate à utiliser la caméra pour scanner le QR de pointage de la borne.",
+          "recordAudioAndroid": false
         }
       ]
     ],
