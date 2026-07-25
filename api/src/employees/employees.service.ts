@@ -5,10 +5,6 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { generateDocId } from '../common/utils/doc-id.util';
-import {
-  buildQrPunchPayload,
-  generateQrPunchSecret,
-} from '../common/utils/qr-punch-token.util';
 import { BulkImportResultDto, BulkEmployeeRowDto } from './dto/bulk-create-employees.dto';
 import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
@@ -225,9 +221,7 @@ export class EmployeesService {
       hasFaceEmbedding: Array.isArray(employee.faceEmbedding),
       hasKioskPin: Boolean(employee.kioskPinHash),
       hasNfcBadge: Boolean(employee.nfcBadgeUid),
-      hasQrPunchToken: Boolean(employee.qrPunchSecret),
       nfcBadgeUid: employee.nfcBadgeUid,
-      qrPunchSecretIssuedAt: employee.qrPunchSecretIssuedAt,
       userId: employee.userId,
       linkedUser: employee.user
         ? { id: employee.user.id, email: employee.user.email }
@@ -259,52 +253,6 @@ export class EmployeesService {
       data: { nfcBadgeUid: normalized },
     });
     return { id, hasNfcBadge: Boolean(normalized), nfcBadgeUid: normalized };
-  }
-
-  async regenerateQrPunchToken(id: string, user: JwtUser) {
-    await this.findOne(id, user);
-    const secret = generateQrPunchSecret();
-    const issuedAt = new Date();
-    await this.prisma.employee.update({
-      where: { id },
-      data: { qrPunchSecret: secret, qrPunchSecretIssuedAt: issuedAt },
-    });
-    const current = buildQrPunchPayload(id, secret);
-    return {
-      id,
-      qrPayload: current.payload,
-      slot: current.slot,
-      expiresAt: current.expiresAt,
-      issuedAt,
-    };
-  }
-
-  async getCurrentQrPunchPayload(id: string, user: JwtUser) {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id },
-      select: { id: true, companyId: true, qrPunchSecret: true },
-    });
-    if (!employee) throw new NotFoundException('Employee not found');
-    this.assertCompanyAccess(user, employee.companyId);
-    if (!employee.qrPunchSecret) {
-      throw new BadRequestException('QR de pointage non active pour cet employe');
-    }
-    const current = buildQrPunchPayload(employee.id, employee.qrPunchSecret);
-    return {
-      id: employee.id,
-      qrPayload: current.payload,
-      slot: current.slot,
-      expiresAt: current.expiresAt,
-    };
-  }
-
-  async clearQrPunchToken(id: string, user: JwtUser) {
-    await this.findOne(id, user);
-    await this.prisma.employee.update({
-      where: { id },
-      data: { qrPunchSecret: null, qrPunchSecretIssuedAt: null },
-    });
-    return { id, hasQrPunchToken: false };
   }
 
   async setKioskPin(id: string, dto: SetKioskPinDto, user: JwtUser) {

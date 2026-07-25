@@ -29,7 +29,6 @@ import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
 import { MobileVerifyNfcDto } from './dto/mobile-verify-nfc.dto';
-import { MobileVerifyQrDto } from './dto/mobile-verify-qr.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
@@ -287,27 +286,6 @@ export class AuthController {
   ) {
     const token = this.extractBearerToken(authorization);
     return this.auth.getQrChallengeResult(token, challengeId);
-  }
-
-  @Public()
-  @Post('mobile/verify-qr')
-  verifyMobileQr(
-    @Headers('authorization') authorization: string | undefined,
-    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
-    @Headers('x-request-id') requestId: string | undefined,
-    @Body() dto: MobileVerifyQrDto,
-    @Body('offlineSync') offlineSyncRaw?: string,
-    @Body('capturedAt') capturedAtRaw?: string,
-  ) {
-    const token = this.extractBearerToken(authorization);
-    const offlineSync = `${offlineSyncRaw ?? ''}`.trim().toLowerCase() === '1';
-    const capturedAt = capturedAtRaw?.trim() ? new Date(capturedAtRaw) : undefined;
-    return this.auth.verifyMobileQr(token, dto, {
-      idempotencyKey: idempotencyKey?.trim() || undefined,
-      requestId: requestId?.trim() || undefined,
-      offlineSync,
-      capturedAt: capturedAt && !Number.isNaN(capturedAt.getTime()) ? capturedAt : undefined,
-    });
   }
 
   private extractBearerToken(authorization: string | undefined): string {

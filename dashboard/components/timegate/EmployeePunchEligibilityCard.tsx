@@ -11,7 +11,7 @@ function punchMethods(employee: Employee): string[] {
   const methods: string[] = []
   if (employee.hasFaceEmbedding) methods.push('Visage')
   if (employee.hasNfcBadge) methods.push('NFC')
-  if (employee.hasQrPunchToken) methods.push('QR')
+  if (employee.linkedUser || employee.userId) methods.push('QR (app)')
   if (employee.hasKioskPin) methods.push('PIN')
   return methods
 }

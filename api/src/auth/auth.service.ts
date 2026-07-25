@@ -36,7 +36,6 @@ import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
 import { MobileVerifyNfcDto } from './dto/mobile-verify-nfc.dto';
-import { MobileVerifyQrDto } from './dto/mobile-verify-qr.dto';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { SignupDto } from './dto/signup.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
@@ -60,10 +59,6 @@ import {
   PunchWindowService,
 } from '../attendance/punch-window.service';
 import { dateToMinutes } from '../common/utils/punch-time.util';
-import {
-  parseQrPunchPayload,
-  verifyQrPunchPayload,
-} from '../common/utils/qr-punch-token.util';
 import {
   buildKioskQrChallengePayload,
   generateKioskQrChallengeSecret,
@@ -1741,83 +1736,6 @@ export class AuthService {
       idempotencyCacheKey,
       offlineSync: options?.offlineSync,
       capturedAt: options?.capturedAt,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-    });
-  }
-
-  async verifyMobileQr(
-    token: string,
-    dto: MobileVerifyQrDto,
-    options?: { idempotencyKey?: string; requestId?: string; offlineSync?: boolean; capturedAt?: Date },
-  ) {
-    if (options?.offlineSync) {
-      throw new BadRequestException('Le pointage QR necessite une connexion en ligne');
-    }
-    const parsed = parseQrPunchPayload(dto.qrPayload.trim());
-    if (!parsed) {
-      throw new BadRequestException('QR code invalide');
-    }
-
-    const payload = await this.verifyMobileToken(token);
-    this.compactVerifyIdempotencyCache();
-    const idempotencyKey = options?.idempotencyKey?.trim();
-    const idempotencyCacheKey = idempotencyKey ? `${payload.kioskId}:qr:${idempotencyKey}` : null;
-    if (idempotencyCacheKey) {
-      const cached = this.verifyIdempotencyCache.get(idempotencyCacheKey);
-      if (cached && cached.expiresAt > Date.now()) {
-        return cached.response;
-      }
-    }
-
-    const kiosk = await this.prisma.timeGateKiosk.findUnique({
-      where: { id: payload.kioskId },
-      select: { id: true, companyId: true, branchId: true, qrEnabled: true },
-    });
-    if (!kiosk) throw new NotFoundException('Kiosk not found');
-    if (!kiosk.qrEnabled) {
-      throw new ForbiddenException('Pointage QR desactive sur cette borne');
-    }
-
-    await this.prisma.timeGateKiosk.update({
-      where: { id: kiosk.id },
-      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
-    });
-
-    const employee = await this.prisma.employee.findFirst({
-      where: {
-        id: parsed.employeeId,
-        status: EmployeeStatus.ACTIVE,
-        companyId: kiosk.companyId,
-        qrPunchSecret: { not: null },
-      },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        employeeName: true,
-        qrPunchSecret: true,
-      },
-    });
-    if (!employee?.qrPunchSecret) {
-      throw new UnauthorizedException('QR code non reconnu');
-    }
-
-    const referenceAt = new Date();
-    const valid = verifyQrPunchPayload(parsed, employee.qrPunchSecret, referenceAt);
-    if (!valid) {
-      throw new UnauthorizedException('QR code expire ou invalide');
-    }
-
-    return this.finalizeCredentialVerification({
-      kiosk,
-      employee,
-      authMethod: TimeGateAttendanceAuthMethod.QR,
-      logMessage: `QR punch slot ${parsed.slot}`,
-      idempotencyKey,
-      idempotencyCacheKey,
-      offlineSync: false,
-      capturedAt: undefined,
       latitude: dto.latitude,
       longitude: dto.longitude,
     });

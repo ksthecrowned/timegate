@@ -452,8 +452,6 @@ model Employee {
   faceEmbedding       Json?     @map("face_embedding")
   kioskPinHash        String?   @map("kiosk_pin_hash") @db.VarChar(255)
   nfcBadgeUid         String?   @map("nfc_badge_uid") @db.VarChar(64)
-  qrPunchSecret       String?   @map("qr_punch_secret") @db.VarChar(88)
-  qrPunchSecretIssuedAt DateTime? @map("qr_punch_secret_issued_at")
 
   checkins                 EmployeeCheckin[]
   attendances              Attendance[]
