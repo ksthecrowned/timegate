@@ -199,7 +199,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 | Kiosk autre site | Pointage accepté → **`REVIEW_REQUIRED`** |
 | Congé demi-journée | Pointage pendant plage couverte par congé approuvé → **`REVIEW_REQUIRED`** (fiche jour + calendrier) |
 | « Pas pris ma pause » | **Réclamation** employé → ajustement admin (Lot F) |
-| Offline (visage / NFC) | Résolution sur **`capturedAt`**, pas l'heure de sync — **PIN et QR exclus** (online only) |
+| Offline (visage / NFC) | Résolution sur **`capturedAt`**, pas l'heure de sync — **PIN exclus** (online only) ; **QR** : challenge kiosk + file employee-app (sync TRUSTED) |
 | Shift chevauche minuit | **Hors scope v1** — contrôles dédiés à ajouter plus tard |
 
 ### Cas limites — notes d'implémentation
@@ -221,7 +221,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 8. [x] Employee-app : bouton reprise **actif dans périmètre** site uniquement (géoloc — voir Lot E)
 9. [x] **Horaire fallback tenant** — si employé sans shift résolu (`TimeGateSystemSettings.defaultShiftType`)
 10. [x] **Kiosk autre site** — flag `REVIEW_REQUIRED` sur l'événement
-11. [x] **Offline** — machine à états sur `capturedAt` (file visage / NFC ; QR et PIN online only)
+11. [x] **Offline** — machine à états sur `capturedAt` (file visage / NFC ; QR = file employee-app ; PIN online only)
 
 ### Schéma `ShiftType`
 
@@ -257,9 +257,9 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 ### QR-code
 
-3. [x] **Pointage QR** — employé présente son QR au kiosk
-4. [x] **QR rotatif (1 min)** — secret employé + slot HMAC `TGQR:v2:…` ; refresh auto côté admin / app
-5. [x] **Pointage QR** — **online only** (codes rotatifs 1 min, pas de file offline)
+3. [x] **Pointage QR inversé** — kiosk affiche challenge `TGQR:v3` ; employee-app scanne (`POST /employee/qr-punch/scan`)
+4. [x] **Challenge kiosk** — secret borne + slot HMAC 45 s ; poll résultat kiosk
+5. [x] **QR offline** — file employee-app + `POST /employee/qr-punch/sync` (TRUSTED au sync)
 
 ### NFC
 
@@ -267,7 +267,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 7. [x] **Enregistrement carte NFC** — UID ↔ employé (`PATCH /employees/:id/nfc-badge`)
 8. [x] **Pointage NFC offline** — résolution sur `capturedAt` (comme visage)
 9. [x] **PIN kiosk** — **online uniquement** (pas de file offline)
-10. [x] **QR kiosk** — **online uniquement** (pas de file offline)
+10. [x] **QR kiosk** — affichage challenge (mode Pointage QR) ; offline via employee-app
 
 ---
 
@@ -277,7 +277,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 Écran unifié `/employees/:id` :
 
-1. [x] **QR personnel** — affichage, PDF, renouvellement
+1. [x] **Identité QR** — plus de secret QR personnel ; pointage via scan challenge kiosk (Lot B)
 2. [x] **Carte NFC** — UID, émission, révocation
 3. [x] **Profil facial** — enroll, re-enrôlement
 4. [x] **PIN kiosk** — regrouper (`EmployeeKioskPinCard`)
@@ -371,7 +371,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 1. [x] **Upload justificatif congé** — multipart `POST /employee/leaves` + R2
 2. [x] **Push notifications** — pointage v1 OK (Lot D) ; congés approuvé/refusé + demande manager
-3. [x] **Mon QR de pointage** (lien Lot C) — `GET /employee/qr-punch/current`, écran `/qr-punch`
+3. [x] **Pointer par QR** — scan challenge kiosk (`/qr-punch`), offline queue + sync TRUSTED
 4. [x] **Voir ses contrats** + PDF — `GET /employee/contracts`, écran `/contracts`
 5. [x] **Historique pointages** — `GET /employee/attendance-events` (méthode, kiosk, statut)
 6. [x] **Réclamation pointage** — types + motif ; inbox manager + fiche `/punch-claims/:id`

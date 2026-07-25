@@ -142,24 +142,6 @@ export class EmployeesController {
     return this.employees.setNfcBadge(id, dto, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
-  @Post(':id/qr-punch-token/regenerate')
-  regenerateQrPunchToken(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
-    return this.employees.regenerateQrPunchToken(id, user);
-  }
-
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
-  @Get(':id/qr-punch/current')
-  getCurrentQrPunch(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
-    return this.employees.getCurrentQrPunchPayload(id, user);
-  }
-
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
-  @Delete(':id/qr-punch-token')
-  clearQrPunchToken(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
-    return this.employees.clearQrPunchToken(id, user);
-  }
-
   @Get(':id')
   findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.employees.findOne(id, user);

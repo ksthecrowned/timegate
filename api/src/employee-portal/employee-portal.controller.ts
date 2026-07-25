@@ -10,10 +10,13 @@ import { CreateSelfLeaveDto } from './dto/create-self-leave.dto';
 import { CreateSelfShiftSwapDto } from './dto/create-self-shift-swap.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { EmployeeBreakPunchService } from '../attendance/employee-break-punch.service';
+import { KioskQrPunchService } from '../attendance/kiosk-qr-punch.service';
 import { BreakResumeDto } from './dto/break-resume.dto';
 import { TrustedDeviceGuard } from '../trusted-devices/trusted-devices.guard';
 import { RequireTrustedDevice } from '../trusted-devices/require-trusted-device.decorator';
 import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
+import { ScanQrChallengeDto } from './dto/scan-qr-challenge.dto';
+import { SyncQrChallengesDto } from './dto/sync-qr-challenges.dto';
 
 @Controller('employee')
 @UseGuards(JwtAuthGuard, EmployeePortalGuard, TrustedDeviceGuard)
@@ -21,6 +24,7 @@ export class EmployeePortalController {
   constructor(
     private readonly portal: EmployeePortalService,
     private readonly breakPunch: EmployeeBreakPunchService,
+    private readonly kioskQrPunch: KioskQrPunchService,
   ) {}
 
   @Get('me')
@@ -49,7 +53,6 @@ export class EmployeePortalController {
   }
 
   @Post('punch-claims')
-  @RequireTrustedDevice()
   createPunchClaim(@CurrentUser() user: JwtUser, @Body() dto: CreatePunchClaimDto) {
     return this.portal.createPunchClaim(user, dto);
   }
@@ -89,10 +92,16 @@ export class EmployeePortalController {
     return this.portal.createShiftSwap(user, dto);
   }
 
-  @Get('qr-punch/current')
+  @Post('qr-punch/scan')
   @RequireTrustedDevice()
-  getCurrentQrPunch(@CurrentUser() user: JwtUser) {
-    return this.portal.getCurrentQrPunchPayload(user);
+  scanQrPunch(@CurrentUser() user: JwtUser, @Body() dto: ScanQrChallengeDto) {
+    return this.kioskQrPunch.scan(user, dto.payload);
+  }
+
+  @Post('qr-punch/sync')
+  @RequireTrustedDevice()
+  syncQrPunch(@CurrentUser() user: JwtUser, @Body() dto: SyncQrChallengesDto) {
+    return this.kioskQrPunch.sync(user, dto.items);
   }
 
   @Get('break-resume/status')

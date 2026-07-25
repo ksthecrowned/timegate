@@ -12,7 +12,8 @@ import {
  *  - "face"  → a captured photo on disk, retried via verifyFacePhoto
  *  - "nfc"   → a badge UID string, retried via verifyNfcBadge
  *
- * QR pointage is online-only (rotating 1 min codes).
+ * QR pointage is not queued here: the kiosk displays a challenge QR;
+ * the employee app scans and syncs offline punches itself.
  */
 type PendingVerifyItem = {
   id: string;

@@ -14,7 +14,6 @@ import { CreateSelfShiftSwapDto } from './dto/create-self-shift-swap.dto';
 import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 import { ShiftSwapsService } from '../shift-swaps/shift-swaps.service';
 import { generateDocId } from '../common/utils/doc-id.util';
-import { buildQrPunchPayload } from '../common/utils/qr-punch-token.util';
 import { FindAttendanceEventsQueryDto } from '../attendance/dto/find-attendance-events-query.dto';
 import { PunchClaimsService } from '../punch-claims/punch-claims.service';
 import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
@@ -249,33 +248,5 @@ export class EmployeePortalService {
       },
       user,
     );
-  }
-
-  async getCurrentQrPunchPayload(user: JwtUser) {
-    const employeeId = user.employeeId;
-    if (!employeeId) throw new ForbiddenException('No employee profile linked');
-
-    const employee = await this.prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: { id: true, companyId: true, qrPunchSecret: true, status: true },
-    });
-    if (!employee) throw new NotFoundException('Employee not found');
-    if (employee.companyId !== user.companyId) {
-      throw new ForbiddenException('Access denied');
-    }
-    if (employee.status !== EmployeeStatus.ACTIVE) {
-      throw new BadRequestException('Compte employe inactif');
-    }
-    if (!employee.qrPunchSecret) {
-      throw new BadRequestException('QR de pointage non active. Contactez votre administrateur.');
-    }
-
-    const current = buildQrPunchPayload(employee.id, employee.qrPunchSecret);
-    return {
-      id: employee.id,
-      qrPayload: current.payload,
-      slot: current.slot,
-      expiresAt: current.expiresAt.toISOString(),
-    };
   }
 }

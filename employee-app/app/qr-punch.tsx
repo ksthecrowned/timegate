@@ -1,239 +1,319 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
+  Linking,
+  Platform,
+  Pressable,
+  StyleSheet,
   Text,
   View,
   useColorScheme,
 } from 'react-native';
-import QRCode from 'react-native-qrcode-svg';
+import {
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+} from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 import { ScreenLayout } from '@/components/ScreenLayout';
 import { PendingDeviceBlock } from '@/components/PendingDeviceBlock';
 import { Colors, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { ApiError, employeeApi } from '@/lib/api';
+import {
+  enqueueQrOfflineScan,
+  getQrOfflineQueueCount,
+  isNetworkishError,
+  syncQrOfflineQueue,
+} from '@/lib/qr-offline-queue';
 
-function formatCountdown(expiresAt: string | null): string {
-  if (!expiresAt) return '—';
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  if (ms <= 0) return '0 s';
-  const seconds = Math.ceil(ms / 1000);
-  if (seconds >= 60) {
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${String(s).padStart(2, '0')}`;
-  }
-  return `${seconds} s`;
-}
+const KIOSK_QR_PREFIX = 'TGQR:v3:';
+const SCAN_COOLDOWN_MS = 2500;
+
+type ScanPhase = 'ready' | 'processing' | 'success' | 'queued' | 'error';
 
 export default function QrPunchScreen() {
+  const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
+  const [permission, requestPermission] = useCameraPermissions();
 
-  const [qrPayload, setQrPayload] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [inactive, setInactive] = useState(false);
-  const [error, setError] = useState('');
-  const [countdown, setCountdown] = useState('—');
-  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const loadQrRef = useRef<(() => Promise<void>) | null>(null);
+  const [phase, setPhase] = useState<ScanPhase>('ready');
+  const [message, setMessage] = useState(STRINGS.qrPunch.subtitle);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showClaimCta, setShowClaimCta] = useState(false);
+  const scanningEnabled = useRef(true);
+  const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearRefreshTimer = () => {
-    if (refreshTimerRef.current) {
-      clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = null;
-    }
-  };
-
-  const clearCountdownTimer = () => {
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-  };
-
-  const scheduleRefresh = (nextExpiresAt: string) => {
-    clearRefreshTimer();
-    const ms = new Date(nextExpiresAt).getTime() - Date.now() + 500;
-    refreshTimerRef.current = setTimeout(() => {
-      void loadQrRef.current?.();
-    }, Math.max(ms, 5000));
-  };
-
-  const loadQr = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    setInactive(false);
-    try {
-      const res = await employeeApi.getQrPunchCurrent();
-      setQrPayload(res.qrPayload);
-      setExpiresAt(res.expiresAt);
-      scheduleRefresh(res.expiresAt);
-    } catch (err) {
-      setQrPayload(null);
-      setExpiresAt(null);
-      if (err instanceof ApiError && err.status === 400) {
-        setInactive(true);
-        setError(
-          err.message ||
-            STRINGS.qrPunch.inactiveHint,
-        );
-      } else {
-        setError(
-          err instanceof ApiError
-            ? err.message
-            : STRINGS.qrPunch.loadError,
-        );
-      }
-    } finally {
-      setLoading(false);
-    }
+  const refreshPending = useCallback(async () => {
+    setPendingCount(await getQrOfflineQueueCount());
   }, []);
 
-  loadQrRef.current = loadQr;
-
-  useEffect(() => {
-    void loadQr();
-    return () => {
-      clearRefreshTimer();
-      clearCountdownTimer();
-    };
-  }, [loadQr]);
-
-  useEffect(() => {
-    clearCountdownTimer();
-    if (!expiresAt) {
-      setCountdown('—');
-      return;
+  const runSync = useCallback(async () => {
+    const summary = await syncQrOfflineQueue();
+    await refreshPending();
+    if (summary.synced > 0) {
+      setPhase('success');
+      setMessage(
+        summary.lastMessage ??
+          STRINGS.qrPunch.syncSuccess(summary.synced),
+      );
+      setShowClaimCta(false);
+    } else if (summary.lastErrorCode === 'FORBIDDEN') {
+      setShowClaimCta(true);
+      setPhase('error');
+      setMessage(summary.lastMessage ?? STRINGS.qrPunch.deviceNotTrusted);
+    } else if (summary.failed > 0 && summary.pending === 0) {
+      setShowClaimCta(true);
+      setPhase('error');
+      setMessage(summary.lastMessage ?? STRINGS.qrPunch.syncFailed);
     }
-    const tick = () => setCountdown(formatCountdown(expiresAt));
-    tick();
-    countdownTimerRef.current = setInterval(tick, 1000);
-    return clearCountdownTimer;
-  }, [expiresAt]);
+    return summary;
+  }, [refreshPending]);
+
+  useEffect(() => {
+    void refreshPending();
+    void runSync();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void runSync();
+      }
+    });
+    return () => {
+      sub.remove();
+      if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    };
+  }, [refreshPending, runSync]);
+
+  const reenableScan = useCallback((delayMs = SCAN_COOLDOWN_MS) => {
+    if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
+    cooldownTimer.current = setTimeout(() => {
+      scanningEnabled.current = true;
+      setPhase((p) => (p === 'processing' ? 'ready' : p));
+    }, delayMs);
+  }, []);
+
+  const handleBarcode = useCallback(
+    async (result: BarcodeScanningResult) => {
+      if (!scanningEnabled.current) return;
+      const data = (result.data ?? '').trim();
+      if (!data.startsWith(KIOSK_QR_PREFIX)) return;
+
+      scanningEnabled.current = false;
+      setPhase('processing');
+      setShowClaimCta(false);
+      setMessage(STRINGS.qrPunch.processing);
+
+      try {
+        const res = await employeeApi.scanQrPunch(data);
+        setPhase('success');
+        setMessage(res.message || STRINGS.qrPunch.successDefault);
+        reenableScan(3500);
+      } catch (err) {
+        if (isNetworkishError(err)) {
+          await enqueueQrOfflineScan(data);
+          await refreshPending();
+          setPhase('queued');
+          setMessage(STRINGS.qrPunch.queuedOffline);
+          setShowClaimCta(true);
+          reenableScan(3000);
+          return;
+        }
+        if (err instanceof ApiError && err.status === 403) {
+          setPhase('error');
+          setMessage(err.message || STRINGS.qrPunch.deviceNotTrusted);
+          setShowClaimCta(true);
+          reenableScan(4000);
+          return;
+        }
+        setPhase('error');
+        setMessage(
+          err instanceof ApiError
+            ? err.message
+            : STRINGS.qrPunch.scanError,
+        );
+        setShowClaimCta(true);
+        reenableScan(3000);
+      }
+    },
+    [reenableScan, refreshPending],
+  );
+
+  const permissionBody = !permission ? (
+    <View style={styles.center}>
+      <ActivityIndicator color={colors.primary} />
+    </View>
+  ) : !permission.granted ? (
+    <View style={styles.center}>
+      <Ionicons name="camera-outline" size={48} color={colors.textSecondary} />
+      <Text style={[styles.message, { color: colors.text }]}>
+        {STRINGS.qrPunch.cameraPermission}
+      </Text>
+      <Pressable
+        style={[styles.btn, { backgroundColor: colors.primary }]}
+        onPress={() => void requestPermission()}
+      >
+        <Text style={styles.btnText}>{STRINGS.qrPunch.grantCamera}</Text>
+      </Pressable>
+      {Platform.OS !== 'web' && (
+        <Pressable onPress={() => void Linking.openSettings()} style={{ marginTop: Spacing[3] }}>
+          <Text style={{ color: colors.primary, fontWeight: '600' }}>
+            {STRINGS.qrPunch.openSettings}
+          </Text>
+        </Pressable>
+      )}
+    </View>
+  ) : null;
 
   return (
     <ScreenLayout
       title={STRINGS.qrPunch.title}
       showSearch={false}
-      refreshing={loading}
-      onRefresh={() => void loadQr()}
+      refreshing={false}
+      onRefresh={() => void runSync()}
     >
       <PendingDeviceBlock>
-      <View style={{ padding: Spacing[4], alignItems: 'center' }}>
-        <Text
-          style={{
-            fontSize: 15,
-            color: colors.textSecondary,
-            textAlign: 'center',
-            marginBottom: Spacing[4],
-            lineHeight: 22,
-          }}
-        >
-          {STRINGS.qrPunch.subtitle}
-        </Text>
+        <View style={{ padding: Spacing[4], gap: Spacing[4] }}>
+          <Text
+            style={{
+              fontSize: 15,
+              color: colors.textSecondary,
+              textAlign: 'center',
+              lineHeight: 22,
+            }}
+          >
+            {STRINGS.qrPunch.subtitle}
+          </Text>
 
-        <View
-          style={{
-            backgroundColor: colors.surfaceCard,
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: colors.border,
-            padding: Spacing[5],
-            alignItems: 'center',
-            width: '100%',
-            maxWidth: 320,
-          }}
-        >
-          {loading && !qrPayload ? (
-            <View style={{ paddingVertical: Spacing[8] }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-            </View>
-          ) : inactive ? (
-            <View style={{ alignItems: 'center', paddingVertical: Spacing[6] }}>
-              <Ionicons
-                name="qr-code-outline"
-                size={56}
-                color={colors.textSecondary}
+          <View
+            style={[
+              styles.statusCard,
+              {
+                backgroundColor: colors.surfaceCard,
+                borderColor: colors.border,
+              },
+            ]}
+          >
+            <Ionicons
+              name={
+                phase === 'success'
+                  ? 'checkmark-circle'
+                  : phase === 'queued'
+                    ? 'cloud-upload-outline'
+                    : phase === 'error'
+                      ? 'alert-circle'
+                      : phase === 'processing'
+                        ? 'hourglass-outline'
+                        : 'scan-outline'
+              }
+              size={28}
+              color={
+                phase === 'success'
+                  ? '#10b981'
+                  : phase === 'error'
+                    ? '#ef4444'
+                    : colors.primary
+              }
+            />
+            <Text style={{ flex: 1, color: colors.text, lineHeight: 20 }}>
+              {message}
+            </Text>
+          </View>
+
+          {permissionBody ?? (
+            <View style={styles.cameraWrap}>
+              <CameraView
+                style={StyleSheet.absoluteFill}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                onBarcodeScanned={
+                  phase === 'processing' ? undefined : handleBarcode
+                }
               />
-              <Text
-                style={{
-                  marginTop: Spacing[4],
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: colors.text,
-                  textAlign: 'center',
-                }}
-              >
-                {STRINGS.qrPunch.inactiveTitle}
-              </Text>
-              <Text
-                style={{
-                  marginTop: Spacing[2],
-                  fontSize: 14,
-                  color: colors.textSecondary,
-                  textAlign: 'center',
-                  lineHeight: 20,
-                }}
-              >
-                {error || STRINGS.qrPunch.inactiveHint}
-              </Text>
-            </View>
-          ) : qrPayload ? (
-            <>
-              <View
-                style={{
-                  backgroundColor: '#ffffff',
-                  padding: Spacing[3],
-                  borderRadius: 12,
-                }}
-              >
-                <QRCode value={qrPayload} size={220} />
-              </View>
-              <Text
-                style={{
-                  marginTop: Spacing[4],
-                  fontSize: 13,
-                  color: colors.textSecondary,
-                }}
-              >
-                {STRINGS.qrPunch.refreshIn(countdown)}
-              </Text>
-            </>
-          ) : (
-            <View style={{ alignItems: 'center', paddingVertical: Spacing[6] }}>
-              <Text style={{ color: colors.textSecondary, textAlign: 'center' }}>
-                {error || STRINGS.qrPunch.loadError}
-              </Text>
+              <View style={styles.frame} pointerEvents="none" />
             </View>
           )}
-        </View>
 
-        <View
-          style={{
-            marginTop: Spacing[5],
-            padding: Spacing[4],
-            backgroundColor: colors.primary + '12',
-            borderRadius: 12,
-            width: '100%',
-            maxWidth: 320,
-          }}
-        >
+          {pendingCount > 0 && (
+            <Pressable
+              style={[styles.btn, { backgroundColor: colors.primary }]}
+              onPress={() => void runSync()}
+            >
+              <Text style={styles.btnText}>
+                {STRINGS.qrPunch.syncPending(pendingCount)}
+              </Text>
+            </Pressable>
+          )}
+
+          {showClaimCta && (
+            <Pressable
+              style={styles.linkBtn}
+              onPress={() => router.push('/punch-claim-request' as never)}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '600' }}>
+                {STRINGS.qrPunch.claimCta}
+              </Text>
+            </Pressable>
+          )}
+
           <Text
             style={{
               fontSize: 13,
-              color: colors.text,
+              color: colors.textSecondary,
+              textAlign: 'center',
               lineHeight: 20,
             }}
           >
             {STRINGS.qrPunch.hint}
           </Text>
         </View>
-      </View>
       </PendingDeviceBlock>
     </ScreenLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  center: {
+    alignItems: 'center',
+    paddingVertical: Spacing[8],
+    gap: Spacing[3],
+  },
+  message: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    paddingHorizontal: Spacing[4],
+  },
+  statusCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing[3],
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: Spacing[4],
+  },
+  cameraWrap: {
+    height: 320,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#000',
+  },
+  frame: {
+    ...StyleSheet.absoluteFill,
+    margin: 48,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.85)',
+    borderRadius: 12,
+  },
+  btn: {
+    paddingVertical: Spacing[3],
+    paddingHorizontal: Spacing[5],
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  btnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  linkBtn: { alignItems: 'center', paddingVertical: Spacing[2] },
+});

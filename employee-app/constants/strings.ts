@@ -93,7 +93,7 @@ export const STRINGS = {
     actionSwapShift: 'Échanger un shift',
     actionMyPlanning: 'Mon planning',
     actionAttendance: 'Pointage',
-    actionMyQr: 'Mon QR',
+    actionMyQr: 'Pointer par QR',
     actionBreakResume: 'Reprendre la pause',
   },
 
@@ -116,15 +116,30 @@ export const STRINGS = {
   },
 
   qrPunch: {
-    title: 'Mon QR de pointage',
-    subtitle: 'Présentez ce code à la borne TimeGate pour pointer.',
-    inactiveTitle: 'QR non activé',
-    inactiveHint:
-      'Votre administrateur doit activer le QR de pointage depuis votre fiche employé.',
-    loadError: 'Impossible de charger le QR. Vérifiez votre connexion.',
-    refreshIn: (countdown: string) => `Renouvellement dans ${countdown}`,
+    title: 'Pointer par QR',
+    subtitle: 'Scannez le QR affiché sur la borne TimeGate pour pointer.',
+    cameraPermission: 'Autorisez la caméra pour scanner le QR de la borne.',
+    grantCamera: 'Autoriser la caméra',
+    openSettings: 'Ouvrir les réglages',
+    processing: 'Pointage en cours…',
+    successDefault: 'Pointage enregistré',
+    queuedOffline:
+      'Hors ligne — pointage enregistré localement. Il sera synchronisé dès que la connexion revient.',
+    scanError: 'Impossible de valider ce QR. Réessayez.',
+    deviceNotTrusted:
+      'Cet appareil n’est pas approuvé pour le pointage QR. Demandez une validation ou créez une réclamation.',
+    syncSuccess: (n: number) =>
+      n === 1
+        ? '1 pointage hors ligne synchronisé'
+        : `${n} pointages hors ligne synchronisés`,
+    syncFailed: 'Certains pointages n’ont pas pu être synchronisés.',
+    syncPending: (n: number) =>
+      n === 1
+        ? 'Synchroniser 1 pointage en attente'
+        : `Synchroniser ${n} pointages en attente`,
+    claimCta: 'Créer une réclamation de pointage',
     hint:
-      'Le code se renouvelle automatiquement chaque minute. Gardez l’écran allumé et la connexion active au moment du scan.',
+      'Placez le QR de la borne dans le cadre. En cas de problème réseau, le scan est mis en file et synchronisé plus tard (appareil approuvé requis).',
   },
 
   // Leave

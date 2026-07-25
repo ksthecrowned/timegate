@@ -136,9 +136,7 @@ export type Employee = {
   hasFaceEmbedding?: boolean
   hasKioskPin?: boolean
   hasNfcBadge?: boolean
-  hasQrPunchToken?: boolean
   nfcBadgeUid?: string | null
-  qrPunchSecretIssuedAt?: string | null
   userId?: string | null
   linkedUser?: { id: string; email: string } | null
   createdAt: string

@@ -7,6 +7,7 @@ import { AttendanceEventStatusService } from './attendance-event-status.service'
 import { AttendancePunchRecorderService } from './attendance-punch-recorder.service';
 import { AttendanceService } from './attendance.service';
 import { EmployeeBreakPunchService } from './employee-break-punch.service';
+import { KioskQrPunchService } from './kiosk-qr-punch.service';
 import { PunchAttemptLogService } from './punch-attempt-log.service';
 import { PunchCronService } from './punch-cron.service';
 import { PunchWindowService } from './punch-window.service';
@@ -21,6 +22,7 @@ import { PunchWindowService } from './punch-window.service';
     AttendancePunchRecorderService,
     PunchAttemptLogService,
     EmployeeBreakPunchService,
+    KioskQrPunchService,
     PunchWindowService,
     PunchCronService,
   ],
@@ -31,6 +33,7 @@ import { PunchWindowService } from './punch-window.service';
     AttendancePunchRecorderService,
     PunchAttemptLogService,
     EmployeeBreakPunchService,
+    KioskQrPunchService,
     PunchWindowService,
   ],
 })
