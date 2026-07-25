@@ -19,10 +19,19 @@ import {
 import type {
   AttendanceEventRow,
   Profile,
-  ShiftAssignment,
 } from '@/lib/types';
 
-type DayStatus = 'not_started' | 'on_site' | 'on_break' | 'done' | 'unknown';
+type DayStatus =
+  | 'not_started'
+  | 'on_site'
+  | 'on_break'
+  | 'done'
+  | 'off'
+  | 'leave'
+  | 'holiday'
+  | 'unknown';
+
+type TodaySchedule = Awaited<ReturnType<typeof employeeApi.getTodaySchedule>>;
 
 type PrimaryAction = {
   label: string;
@@ -60,14 +69,13 @@ function isoDay(d = new Date()): string {
 
 function formatTime(iso?: string | null): string {
   if (!iso) return '';
-  // HH:mm already or full ISO
   if (/^\d{2}:\d{2}/.test(iso)) return iso.slice(0, 5);
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-function deriveDayStatus(events: AttendanceEventRow[]): DayStatus {
+function derivePunchStatus(events: AttendanceEventRow[]): DayStatus {
   if (events.length === 0) return 'not_started';
   const sorted = [...events].sort(
     (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
@@ -79,7 +87,7 @@ function deriveDayStatus(events: AttendanceEventRow[]): DayStatus {
   return 'unknown';
 }
 
-function statusLabel(status: DayStatus): string {
+function statusLabel(status: DayStatus, schedule: TodaySchedule | null): string {
   switch (status) {
     case 'not_started':
       return STRINGS.home.statusNotStarted;
@@ -89,6 +97,16 @@ function statusLabel(status: DayStatus): string {
       return STRINGS.home.statusOnBreak;
     case 'done':
       return STRINGS.home.statusDone;
+    case 'off':
+      return STRINGS.home.statusOff;
+    case 'leave':
+      return schedule?.leaveType
+        ? `${STRINGS.home.statusLeave} · ${schedule.leaveType}`
+        : STRINGS.home.statusLeave;
+    case 'holiday':
+      return schedule?.holidayName
+        ? `${STRINGS.home.statusHoliday} · ${schedule.holidayName}`
+        : STRINGS.home.statusHoliday;
     default:
       return STRINGS.home.statusUnknown;
   }
@@ -103,7 +121,7 @@ export default function HomeScreen() {
   const [leaveDays, setLeaveDays] = useState<number | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [pendingSwaps, setPendingSwaps] = useState(0);
-  const [todayShift, setTodayShift] = useState<ShiftAssignment | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState<TodaySchedule | null>(null);
   const [dayEvents, setDayEvents] = useState<AttendanceEventRow[]>([]);
   const [breakEligible, setBreakEligible] = useState(false);
   const [offlinePending, setOfflinePending] = useState(0);
@@ -120,7 +138,7 @@ export default function HomeScreen() {
         balances,
         leaves,
         swaps,
-        shifts,
+        schedule,
         events,
         breakStatus,
         offlineCount,
@@ -135,7 +153,7 @@ export default function HomeScreen() {
         employeeApi
           .getShiftSwaps({ status: 'pending', limit: 100 })
           .catch(() => null),
-        employeeApi.getMyShifts({ from: today, to: today }).catch(() => []),
+        employeeApi.getTodaySchedule().catch(() => null),
         employeeApi
           .getAttendanceEvents({
             page: 1,
@@ -155,7 +173,7 @@ export default function HomeScreen() {
       setLeaveDays(totalRemaining);
       setPendingLeaves(leaves?.meta?.total ?? leaves?.data?.length ?? 0);
       setPendingSwaps(swaps?.meta?.total ?? swaps?.data?.length ?? 0);
-      setTodayShift((shifts ?? [])[0] ?? null);
+      setTodaySchedule(schedule);
       setDayEvents(events?.data ?? []);
       setBreakEligible(Boolean(breakStatus?.eligible));
       setOfflinePending(offlineCount);
@@ -171,10 +189,18 @@ export default function HomeScreen() {
     void loadData();
   }, [loadData]);
 
-  const dayStatus = useMemo(() => {
-    if (breakEligible) return 'on_break' as DayStatus;
-    return deriveDayStatus(dayEvents);
-  }, [breakEligible, dayEvents]);
+  const dayStatus = useMemo((): DayStatus => {
+    if (breakEligible) return 'on_break';
+    // Si l'employé a déjà pointé, le pointage prime même hors planning.
+    const punchStatus = derivePunchStatus(dayEvents);
+    if (punchStatus !== 'not_started') return punchStatus;
+
+    if (!todaySchedule) return 'unknown';
+    if (todaySchedule.kind === 'leave') return 'leave';
+    if (todaySchedule.kind === 'holiday') return 'holiday';
+    if (!todaySchedule.isWorkDay || todaySchedule.kind === 'off') return 'off';
+    return 'not_started';
+  }, [breakEligible, dayEvents, todaySchedule]);
 
   const primaryAction: PrimaryAction = useMemo(() => {
     if (breakEligible) {
@@ -183,6 +209,13 @@ export default function HomeScreen() {
         href: '/break-resume',
         icon: 'cafe-outline',
         sensitive: true,
+      };
+    }
+    if (dayStatus === 'leave' || dayStatus === 'holiday' || dayStatus === 'off') {
+      return {
+        label: STRINGS.home.primaryPlanning,
+        href: '/planning',
+        icon: 'calendar-number-outline',
       };
     }
     if (dayStatus === 'not_started' || dayStatus === 'on_site' || dayStatus === 'done') {
@@ -240,16 +273,26 @@ export default function HomeScreen() {
     : STRINGS.home.welcomeBack;
 
   const shiftWindow =
-    todayShift?.startTime || todayShift?.endTime
-      ? `${formatTime(todayShift?.startTime)} – ${formatTime(todayShift?.endTime)}`
+    todaySchedule?.shift?.startTime || todaySchedule?.shift?.endTime
+      ? `${formatTime(todaySchedule.shift?.startTime)} – ${formatTime(todaySchedule.shift?.endTime)}`
       : '';
 
-  const shiftLine = todayShift
-    ? STRINGS.home.shiftToday(
-        todayShift.shiftName || profile?.defaultShiftName || 'Shift',
-        shiftWindow,
-      )
-    : STRINGS.home.noShiftToday;
+  const shiftLine = (() => {
+    if (todaySchedule?.kind === 'leave') {
+      return todaySchedule.leaveType
+        ? `${STRINGS.home.statusLeave} · ${todaySchedule.leaveType}`
+        : STRINGS.home.statusLeave;
+    }
+    if (todaySchedule?.kind === 'holiday') {
+      return todaySchedule.holidayName
+        ? `${STRINGS.home.statusHoliday} · ${todaySchedule.holidayName}`
+        : STRINGS.home.statusHoliday;
+    }
+    if (todaySchedule?.isWorkDay && todaySchedule.shift) {
+      return STRINGS.home.shiftToday(todaySchedule.shift.name, shiftWindow);
+    }
+    return STRINGS.home.noShiftToday;
+  })();
 
   const primaryBlocked = Boolean(devicePending && primaryAction.sensitive);
 
@@ -261,6 +304,7 @@ export default function HomeScreen() {
       refreshing={refreshing}
       onRefresh={() => void loadData(true)}
     >
+      <View testID="home_screen" accessibilityLabel={STRINGS.a11y.home}>
       <TrustedDeviceBanner />
 
       <View
@@ -313,19 +357,26 @@ export default function HomeScreen() {
 
       <Card
         style={styles.todayCard}
-        accessibilityLabel={`${STRINGS.home.todayTitle}. ${statusLabel(dayStatus)}. ${shiftLine}`}
+        accessibilityLabel={`${STRINGS.home.todayTitle}. ${statusLabel(dayStatus, todaySchedule)}. ${shiftLine}`}
       >
         <Text style={[styles.todayEyebrow, { color: theme.textSecondary }]}>
           {STRINGS.home.todayTitle}
         </Text>
         <Text style={[styles.todayStatus, { color: theme.text }]}>
-          {loading ? '…' : statusLabel(dayStatus)}
+          {loading ? '…' : statusLabel(dayStatus, todaySchedule)}
         </Text>
         <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
           {loading ? '…' : shiftLine}
         </Text>
 
         <Pressable
+          testID={
+            primaryAction.href === '/qr-punch'
+              ? 'home_qr_punch_cta'
+              : primaryAction.href === '/break-resume'
+                ? 'home_break_resume_cta'
+                : 'home_primary_cta'
+          }
           onPress={() => handleNavigate(primaryAction.href, primaryAction.sensitive)}
           accessibilityRole="button"
           accessibilityLabel={primaryAction.label}
@@ -424,6 +475,7 @@ export default function HomeScreen() {
             </Card>
           ))}
         </View>
+      </View>
       </View>
     </ScreenLayout>
   );

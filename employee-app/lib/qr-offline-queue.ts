@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 
 import { ApiError, employeeApi } from './api';
 
+export { isNetworkishError } from './networkError';
+
 const QUEUE_KEY = 'timegate_qr_offline_queue';
 
 export type QrOfflineItem = {
@@ -125,18 +127,4 @@ export async function syncQrOfflineQueue(): Promise<QrSyncSummary> {
   } finally {
     syncInFlight = null;
   }
-}
-
-export function isNetworkishError(err: unknown): boolean {
-  if (err instanceof TypeError) return true;
-  if (err instanceof ApiError && (err.status === 0 || err.status >= 500)) return true;
-  if (err instanceof Error) {
-    const msg = err.message.toLowerCase();
-    return (
-      msg.includes('network') ||
-      msg.includes('failed to fetch') ||
-      msg.includes('network request failed')
-    );
-  }
-  return false;
 }

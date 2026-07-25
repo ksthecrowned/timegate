@@ -40,6 +40,8 @@ export const timegateNavSections: NavSection[] = [
     items: [
       { label: 'Équipe du jour', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
       { label: 'Boîte de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
+      { label: 'Messages', href: '/messages', faIcon: 'fa-solid fa-comments' },
+      { label: 'Analytics produit', href: '/organization/analytics', faIcon: 'fa-solid fa-chart-line' },
       { label: 'Calendrier congés', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
     ],
   },
@@ -210,6 +212,12 @@ export const timegateNavSections: NavSection[] = [
             label: 'Consommation IA',
             href: '/organization/ai-usage',
             faIcon: 'fa-solid fa-wand-magic-sparkles',
+            roles: ['ADMIN'],
+          },
+          {
+            label: 'Analytics produit',
+            href: '/organization/analytics',
+            faIcon: 'fa-solid fa-chart-line',
             roles: ['ADMIN'],
           },
           {

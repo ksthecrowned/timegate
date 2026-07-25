@@ -23,6 +23,8 @@ import { MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { useTheme } from '@/hooks/use-theme';
 import { ApiError, employeeApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
+import { isKioskQrPayload } from '@/lib/qrPunch';
 import {
   enqueueQrOfflineScan,
   getQrOfflineQueueCount,
@@ -30,7 +32,6 @@ import {
   syncQrOfflineQueue,
 } from '@/lib/qr-offline-queue';
 
-const KIOSK_QR_PREFIX = 'TGQR:v3:';
 const SCAN_COOLDOWN_MS = 2500;
 
 type ScanPhase = 'ready' | 'processing' | 'success' | 'queued' | 'error';
@@ -141,7 +142,7 @@ export default function QrPunchScreen() {
     async (result: BarcodeScanningResult) => {
       if (!scanningEnabled.current) return;
       const data = (result.data ?? '').trim();
-      if (!data.startsWith(KIOSK_QR_PREFIX)) return;
+      if (!isKioskQrPayload(data)) return;
 
       scanningEnabled.current = false;
       setPhase('processing');
@@ -161,6 +162,7 @@ export default function QrPunchScreen() {
         setSuccess(details);
         setPhase('success');
         setMessage(details.message);
+        trackEvent('employee.qr_punch_success');
         // Keep success visible; user dismisses or navigates away.
         scanningEnabled.current = false;
       } catch (err) {
@@ -233,7 +235,7 @@ export default function QrPunchScreen() {
       onRefresh={() => void runSync()}
     >
       <PendingDeviceBlock>
-        <View style={{ padding: Spacing[4], gap: Spacing[4] }}>
+        <View testID="qr_punch_screen" style={{ padding: Spacing[4], gap: Spacing[4] }}>
           <Text
             style={{
               fontSize: 15,

@@ -91,3 +91,20 @@ jobs:
       - name: Typecheck
         working-directory: ${{ matrix.app }}
         run: bunx tsc --noEmit
+
+  employee-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.0"
+
+      - name: Install dependencies
+        working-directory: employee-app
+        run: bun install --frozen-lockfile
+
+      - name: Unit tests (sensitive flows)
+        working-directory: employee-app
+        run: bun run test

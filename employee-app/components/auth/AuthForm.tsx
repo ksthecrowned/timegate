@@ -87,9 +87,10 @@ export function AuthCard({ children }: { children: ReactNode }) {
 type FieldProps = TextInputProps & {
   label: string;
   rightSlot?: ReactNode;
+  testID?: string;
 };
 
-export function AuthField({ label, rightSlot, style, ...props }: FieldProps) {
+export function AuthField({ label, rightSlot, style, testID, ...props }: FieldProps) {
   const theme = useTheme();
   return (
     <View style={styles.field}>
@@ -101,6 +102,7 @@ export function AuthField({ label, rightSlot, style, ...props }: FieldProps) {
       </Text>
       <View style={styles.fieldRow}>
         <TextInput
+          testID={testID}
           accessibilityLabel={label}
           placeholderTextColor={theme.textMuted}
           style={[
@@ -126,16 +128,19 @@ export function AuthPrimaryButton({
   onPress,
   loading,
   disabled,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   loading?: boolean;
   disabled?: boolean;
+  testID?: string;
 }) {
   const theme = useTheme();
   const inactive = Boolean(loading || disabled);
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       disabled={inactive}
       accessibilityRole="button"

@@ -19,6 +19,7 @@ import { STRINGS } from '@/constants/strings';
 import { DateField } from '@/components/ui/DateField';
 import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
+import { trackEvent } from '@/lib/analytics';
 import type { LeaveType } from '@/lib/types';
 
 const S = Spacing;
@@ -107,6 +108,7 @@ export default function LeaveRequestScreen() {
         });
       }
       setSuccess(true);
+      trackEvent('employee.leave_request_submitted');
     } catch (err: any) {
       setError(err?.message ?? STRINGS.leave.submitError);
     } finally {

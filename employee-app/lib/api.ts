@@ -10,6 +10,9 @@ import type {
   BreakResumeStatus,
   CheckinRow,
   Colleague,
+  ConversationDetail,
+  ConversationMessage,
+  ConversationSummary,
   EmployeeContractRow,
   LeaveApplication,
   LeaveBalancesResponse,
@@ -461,9 +464,55 @@ export const employeeApi = {
   getBreakResumeStatus: () =>
     fetchApi<BreakResumeStatus>("/employee/break-resume/status"),
 
+  getTodaySchedule: () =>
+    fetchApi<{
+      date: string;
+      kind: "scheduled" | "off" | "leave" | "holiday";
+      isWorkDay: boolean;
+      leaveType: string | null;
+      holidayName: string | null;
+      shift: {
+        name: string;
+        startTime: string | null;
+        endTime: string | null;
+        source: "assignment" | "employee_default" | "company_default" | null;
+      } | null;
+      scheduleSource: "assignment" | "employee_default" | "company_default" | null;
+    }>("/employee/today-schedule"),
+
   resumeBreak: (data: { latitude: number; longitude: number }) =>
     fetchApi<{ message: string }>("/employee/break-resume", {
       method: "POST",
       body: JSON.stringify(data),
+    }),
+
+  trackAnalyticsEvent: (data: {
+    event: string;
+    platform?: "ios" | "android" | "web";
+  }) =>
+    fetchApi<{ ok: boolean; stored: boolean }>("/analytics/events", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  // ----- Messages -----
+  getConversations: (query: Record<string, unknown> = {}) =>
+    fetchApi<PaginatedResponse<ConversationSummary>>(
+      `/employee/messages${qs(query)}`,
+    ),
+
+  getConversation: (id: string) =>
+    fetchApi<ConversationDetail>(`/employee/messages/${id}`),
+
+  createConversation: (data: { subject: string; body: string }) =>
+    fetchApi<ConversationDetail>("/employee/messages", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  replyToConversation: (id: string, body: string) =>
+    fetchApi<ConversationMessage>(`/employee/messages/${id}/messages`, {
+      method: "POST",
+      body: JSON.stringify({ body }),
     }),
 };

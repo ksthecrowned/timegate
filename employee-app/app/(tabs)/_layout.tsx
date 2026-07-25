@@ -84,12 +84,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
-      {/* Hidden routes that live under (tabs) but are not bottom tabs */}
-      <Tabs.Screen
-        name="notifications"
-        options={{ href: null }}
-      />
     </Tabs>
   );
 }

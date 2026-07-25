@@ -23,6 +23,7 @@ export type Profile = {
   organizationName: string | null;
   organizationSku: string | null;
   language: string | null;
+  deviceTrust?: 'TRUSTED' | 'PENDING' | null;
 };
 
 export type LeaveBalance = {
@@ -147,6 +148,48 @@ export type Colleague = {
 export type PaginatedResponse<T> = {
   data: T[];
   meta: { page: number; limit: number; total: number };
+};
+
+export type ConversationSummary = {
+  id: string;
+  subject: string;
+  lastMessageAt: string;
+  lastMessagePreview: string | null;
+  createdAt: string;
+  unread: boolean;
+  employee: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+};
+
+export type ConversationMessage = {
+  id: string;
+  body: string;
+  createdAt: string;
+  senderUserId: string;
+  sender: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string | null;
+  };
+};
+
+export type ConversationDetail = {
+  id: string;
+  subject: string;
+  lastMessageAt: string;
+  lastMessagePreview: string | null;
+  createdAt: string;
+  employee: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
+  messages: ConversationMessage[];
+  viewerUserId: string;
 };
 
 export type LeaveBalancesResponse = {

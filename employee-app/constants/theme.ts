@@ -139,6 +139,12 @@ export const Spacing = {
   72: 288,
   80: 320,
   96: 384,
+  /** Semantic aliases (Tailwind-like). */
+  xs: 4,
+  sm: 8,
+  md: 16,
+  lg: 24,
+  xl: 32,
 } as const;
 
 export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;

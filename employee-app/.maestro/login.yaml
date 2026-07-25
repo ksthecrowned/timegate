@@ -1,0 +1,29 @@
+appId: com.timegate.employeeapp
+tags:
+  - login
+  - smoke
+---
+# Requires a debug/release build installed + API reachable from the device.
+# Demo seed: patrick.mukendi@sotrafer.cg / ChangeMe123!
+- launchApp:
+    clearState: true
+- assertVisible:
+    id: "login_email_input"
+- tapOn:
+    id: "login_email_input"
+- inputText: ${EMPLOYEE_EMAIL}
+- tapOn:
+    id: "login_continue_button"
+- extendedWaitUntil:
+    visible:
+      id: "login_password_input"
+    timeout: 15000
+- tapOn:
+    id: "login_password_input"
+- inputText: ${EMPLOYEE_PASSWORD}
+- tapOn:
+    id: "login_submit_button"
+- extendedWaitUntil:
+    visible:
+      id: "home_screen"
+    timeout: 20000

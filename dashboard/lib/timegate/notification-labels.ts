@@ -26,6 +26,7 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   HR_CONTRACT_EXPIRING: 'RH — contrat bientôt expiré',
   HR_DOCUMENT_MISSING: 'RH — document manquant',
   OVERTIME_THRESHOLD: 'Heures supplémentaires — seuil',
+  MESSAGE_RECEIVED: 'Message reçu',
 }
 
 export function notificationTypeLabel(type: string): string {

@@ -40,6 +40,8 @@ import { ManagerModule } from './manager/manager.module';
 import { PunchClaimsModule } from './punch-claims/punch-claims.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { AiModule } from './ai/ai.module';
+import { MessagingModule } from './messaging/messaging.module';
+import { AnalyticsModule } from './analytics/analytics.module';
 
 @Module({
   imports: [
@@ -84,6 +86,8 @@ import { AiModule } from './ai/ai.module';
     PunchClaimsModule,
     WebhooksModule,
     AiModule,
+    MessagingModule,
+    AnalyticsModule,
   ],
 })
 export class AppModule {}

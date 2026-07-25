@@ -109,6 +109,11 @@ export class EmployeePortalController {
     return this.breakPunch.getBreakResumeStatus(user);
   }
 
+  @Get('today-schedule')
+  getTodaySchedule(@CurrentUser() user: JwtUser) {
+    return this.portal.getTodaySchedule(user);
+  }
+
   @Post('break-resume')
   @RequireTrustedDevice()
   resumeBreak(@CurrentUser() user: JwtUser, @Body() dto: BreakResumeDto) {

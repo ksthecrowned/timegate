@@ -5,7 +5,7 @@ import {
   useRouter,
   useRootNavigationState,
 } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { AppState, useColorScheme } from 'react-native';
 import { useEffect, useState } from 'react';
 import { Drawer } from 'expo-router/drawer';
 import type { DrawerContentComponentProps } from 'expo-router/drawer';
@@ -17,6 +17,8 @@ import { onLogout } from '@/lib/authEvents';
 import { getMeCached, invalidateMeCache } from '@/lib/meCache';
 import { DrawerMenu } from '@/components/DrawerMenu';
 import { PushNotificationSetup } from '@/components/PushNotificationSetup';
+import { QuickActionsSetup } from '@/components/QuickActionsSetup';
+import { DeviceTrustOnboarding } from '@/components/DeviceTrustOnboarding';
 import { Colors } from '@/constants/theme';
 
 export default function RootLayout() {
@@ -59,6 +61,23 @@ export default function RootLayout() {
     });
   }, [router]);
 
+  // Refresh device trust when app returns to foreground (admin may have approved).
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') return;
+      void (async () => {
+        const token = await SecureStore.getItemAsync(TOKEN_KEY);
+        if (!token) return;
+        try {
+          await getMeCached({ force: true });
+        } catch {
+          // ignore — banner will stay until next success
+        }
+      })();
+    });
+    return () => sub.remove();
+  }, []);
+
   if (loading) return <AnimatedSplashOverlay />;
 
   const colors = Colors[colorScheme === 'dark' ? 'dark' : 'light'];
@@ -67,6 +86,8 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <AnimatedSplashOverlay />
       <PushNotificationSetup />
+      <QuickActionsSetup />
+      <DeviceTrustOnboarding />
       <Drawer
         screenOptions={{
           headerShown: false,
@@ -107,6 +128,7 @@ export default function RootLayout() {
         <Drawer.Screen name="qr-punch" options={{ headerShown: false }} />
         <Drawer.Screen name="break-resume" options={{ headerShown: false }} />
         <Drawer.Screen name="contracts" options={{ headerShown: false }} />
+        <Drawer.Screen name="messages" options={{ headerShown: false }} />
         <Drawer.Screen
           name="punch-claim-request"
           options={{ headerShown: false }}

@@ -68,6 +68,11 @@ const menuSections: { title: string; items: MenuItem[] }[] = [
         icon: 'document-text-outline',
         href: '/contracts',
       },
+      {
+        label: STRINGS.messages.title,
+        icon: 'chatbubbles-outline',
+        href: '/messages',
+      },
     ],
   },
   {

@@ -85,17 +85,17 @@ Ce n’est **pas** une suite RH complète type Factorial/Lucca, ni un outil de t
 
 ### P2 — Peut attendre (différenciation / maturité)
 
-- [ ] Documents RH / contrats (aperçu PDF fluide, téléchargement fiable)
-- [ ] Messagerie légère manager ↔ employé
-- [ ] Widgets / raccourcis Android (pointer, solde)
-- [ ] Onboarding in-app (1ʳᵉ connexion + appareil de confiance)
-- [ ] Analytics produit (funnels : login → QR → demande congé)
+- [x] Documents RH / contrats (aperçu PDF + partager/enregistrer)
+- [x] Messagerie légère manager ↔ employé
+- [x] Widgets / raccourcis Android (quick actions : QR, solde, pause, pointage)
+- [x] Onboarding in-app (1ʳᵉ connexion appareil de confiance)
+- [x] Analytics produit (funnels : login → QR → demande congé)
 
 ### P3 — Technique (qualité durable)
 
 - [ ] Unifier le thème via `useTheme()` partout
-- [ ] Kit formulaires partagé (champ, erreur, bouton, empty state)
-- [ ] Tests e2e sur parcours sensibles (login, scan QR, reprise pause)
+- [x] Kit formulaires partagé (champ, erreur, bouton, empty state)
+- [x] Tests e2e sur parcours sensibles (login, scan QR, reprise pause)
 - [ ] Harmoniser labels a11y FR (`STRINGS.a11y`) sur tous les écrans restants
 
 ---
@@ -106,7 +106,7 @@ Ce n’est **pas** une suite RH complète type Factorial/Lucca, ni un outil de t
 ~~2. Branding + dark mode cohérent~~ ✅  
 ~~3. Date pickers + empty states~~ ✅  
 
-**Suite utile :** onboarding appareil de confiance · widgets Android · docs/contrats · analytics · a11y tailles de texte dynamiques.
+**Suite utile :** a11y FR · thème `useTheme()` restants.
 
 > Le moteur (kiosk, confiance appareil, QR) est déjà un atout.  
 > Le levier restant : **clarté et confiance perçue** côté employé.

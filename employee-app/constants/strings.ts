@@ -61,6 +61,19 @@ export const STRINGS = {
     devicePendingTitle: 'Appareil en attente',
     devicePendingBody:
       'Votre appareil doit être approuvé par un administrateur avant le pointage (QR, reprise pause).',
+    deviceOnboardingTitle: 'Sécurisez votre appareil',
+    deviceOnboardingSubtitle:
+      'Pour éviter les usurpations, TimeGate n’autorise le pointage que sur un téléphone validé.',
+    deviceOnboardingStep1Title: 'Cet appareil est enregistré',
+    deviceOnboardingStep1Body:
+      'Il est en attente d’approbation par votre administrateur RH.',
+    deviceOnboardingStep2Title: 'Vous pouvez déjà consulter',
+    deviceOnboardingStep2Body:
+      'Planning, congés et profil restent disponibles pendant l’attente.',
+    deviceOnboardingStep3Title: 'Pointage après validation',
+    deviceOnboardingStep3Body:
+      'QR et reprise de pause se débloquent dès que l’appareil est approuvé.',
+    deviceOnboardingCta: 'J’ai compris',
     welcomeBack: 'Bon retour',
     welcomeMessage: 'Connectez-vous à votre espace TimeGate',
     invalidCredentials: 'Identifiants invalides',
@@ -122,9 +135,13 @@ export const STRINGS = {
     statusOnBreak: 'En pause',
     statusDone: 'Journée terminée',
     statusUnknown: 'Statut du jour',
+    statusOff: 'Jour de repos',
+    statusLeave: 'En congé',
+    statusHoliday: 'Jour férié',
     primaryPunch: 'Pointer par QR',
     primaryBreak: 'Reprendre la pause',
     primaryAttendance: 'Voir mon pointage',
+    primaryPlanning: 'Voir mon planning',
     offlinePending: (n: number) =>
       n === 1
         ? '1 pointage en attente de sync'
@@ -361,13 +378,39 @@ export const STRINGS = {
     title: 'Mes contrats',
     menuDesc: 'Contrats de travail et documents PDF',
     noContracts: 'Aucun contrat disponible',
+    noContractsHint: 'Vos contrats apparaîtront ici dès qu’ils seront publiés.',
     currentContract: 'Contrat en cours',
     pastContract: 'Ancien contrat',
     active: 'Actif',
     signedAt: 'Signé le',
     expiresAt: 'Expire le',
     viewPdf: 'Voir le PDF',
+    sharePdf: 'Partager / enregistrer',
+    openingPdf: 'Ouverture…',
+    sharingPdf: 'Préparation…',
+    shareError: 'Impossible de partager ce document',
     noPdf: 'Document non disponible',
+  },
+
+  messages: {
+    title: 'Messages',
+    menuDesc: 'Échanger avec votre manager',
+    empty: 'Aucun message',
+    emptyHint: 'Écrivez à votre manager pour une question RH ou opérationnelle.',
+    new: 'Nouveau message',
+    subject: 'Sujet',
+    subjectPlaceholder: 'Ex. Question sur mon planning',
+    body: 'Message',
+    bodyPlaceholder: 'Décrivez votre demande…',
+    send: 'Envoyer',
+    reply: 'Répondre',
+    replyPlaceholder: 'Votre réponse…',
+    sending: 'Envoi…',
+    you: 'Vous',
+    manager: 'Manager',
+    fillAll: 'Renseignez le sujet et le message',
+    loadError: 'Impossible de charger les messages',
+    sendError: 'Envoi impossible',
   },
 
   // Planning

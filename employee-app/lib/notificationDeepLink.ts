@@ -42,6 +42,11 @@ export function resolveNotificationHref(input: NotificationNavInput): string {
     case 'HR_CONTRACT_EXPIRING':
     case 'HR_DOCUMENT_MISSING':
       return '/contracts';
+    case 'MESSAGE_RECEIVED': {
+      const conversationId =
+        typeof data.conversationId === 'string' ? data.conversationId : null;
+      return conversationId ? `/messages/${conversationId}` : '/messages';
+    }
     case 'OVERTIME_THRESHOLD':
       return '/planning';
     default:

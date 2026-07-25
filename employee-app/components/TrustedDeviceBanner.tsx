@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { AppState, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 import { STRINGS } from '@/constants/strings';
@@ -12,7 +12,14 @@ export function TrustedDeviceBanner() {
   const [trust, setTrust] = useState<'TRUSTED' | 'PENDING' | null>(null);
 
   useEffect(() => {
-    void getDeviceTrust().then(setTrust);
+    const refresh = () => {
+      void getDeviceTrust().then(setTrust);
+    };
+    refresh();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => sub.remove();
   }, []);
 
   if (trust !== 'PENDING') return null;
@@ -24,20 +31,22 @@ export function TrustedDeviceBanner() {
         marginBottom: Spacing[3],
         padding: Spacing[3],
         borderRadius: 12,
-        backgroundColor: '#fef3c7',
+        backgroundColor: theme.warningSoft,
         borderWidth: 1,
-        borderColor: '#fcd34d',
+        borderColor: theme.warning,
         flexDirection: 'row',
         gap: 10,
         alignItems: 'flex-start',
       }}
+      accessibilityRole="summary"
+      accessibilityLabel={`${STRINGS.auth.devicePendingTitle}. ${STRINGS.auth.devicePendingBody}`}
     >
-      <Ionicons name="phone-portrait-outline" size={20} color="#b45309" />
+      <Ionicons name="phone-portrait-outline" size={20} color={theme.warning} />
       <View style={{ flex: 1 }}>
-        <Text style={{ fontWeight: '700', color: '#92400e', marginBottom: 4 }}>
+        <Text style={{ fontWeight: '700', color: theme.warning, marginBottom: 4 }}>
           {STRINGS.auth.devicePendingTitle}
         </Text>
-        <Text style={{ fontSize: 13, color: '#92400e', lineHeight: 18 }}>
+        <Text style={{ fontSize: 13, color: theme.warning, lineHeight: 18 }}>
           {STRINGS.auth.devicePendingBody}
         </Text>
       </View>

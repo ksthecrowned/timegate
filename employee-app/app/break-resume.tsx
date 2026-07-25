@@ -93,6 +93,7 @@ export default function BreakResumeScreen() {
       refreshing={refreshing}
       onRefresh={() => loadStatus(true)}
     >
+      <View testID="break_resume_screen">
       <PendingDeviceBlock>
         <View style={{ padding: Spacing[4], gap: Spacing[4] }}>
           <View
@@ -214,6 +215,7 @@ export default function BreakResumeScreen() {
           </Text>
         </View>
       </PendingDeviceBlock>
+      </View>
     </ScreenLayout>
   );
 }

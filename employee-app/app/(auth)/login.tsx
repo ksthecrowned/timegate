@@ -27,8 +27,8 @@ import {
   saveBiometricCredentials,
 } from "@/lib/biometricAuth";
 import { invalidateMeCache } from "@/lib/meCache";
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+import { trackEvent } from "@/lib/analytics";
+import { isValidEmail, normalizeEmail } from "@/lib/authValidation";
 
 type Step = "email" | "password";
 
@@ -47,7 +47,7 @@ export default function LoginScreen() {
     useState(false);
   const [rememberBiometric, setRememberBiometric] = useState(false);
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
 
   useEffect(() => {
     void (async () => {
@@ -64,7 +64,7 @@ export default function LoginScreen() {
   const handleContinue = async () => {
     setError(null);
     setInfo(null);
-    if (!normalizedEmail || !EMAIL_REGEX.test(normalizedEmail)) {
+    if (!normalizedEmail || !isValidEmail(normalizedEmail)) {
       setError(STRINGS.errors.invalidEmail);
       return;
     }
@@ -104,6 +104,7 @@ export default function LoginScreen() {
     try {
       invalidateMeCache();
       await employeeApi.login({ email: normalizedEmail, password });
+      trackEvent("employee.login_success");
       if (rememberBiometric && biometricAvailable) {
         await saveBiometricCredentials({
           email: normalizedEmail,
@@ -146,6 +147,7 @@ export default function LoginScreen() {
         email: stored.email,
         password: stored.password,
       });
+      trackEvent("employee.login_success");
       router.replace("/");
     } catch (err: unknown) {
       setError(
@@ -199,6 +201,7 @@ export default function LoginScreen() {
         ) : null}
 
         <AuthField
+          testID="login_email_input"
           label={STRINGS.auth.email}
           placeholder="vous@entreprise.com"
           value={email}
@@ -235,6 +238,7 @@ export default function LoginScreen() {
         {step === "password" ? (
           <>
             <AuthField
+              testID="login_password_input"
               label={STRINGS.auth.password}
               placeholder="••••••••"
               value={password}
@@ -294,6 +298,9 @@ export default function LoginScreen() {
         ) : null}
 
         <AuthPrimaryButton
+          testID={
+            step === "email" ? "login_continue_button" : "login_submit_button"
+          }
           label={
             step === "email" ? STRINGS.auth.continue : STRINGS.auth.signIn
           }

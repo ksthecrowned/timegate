@@ -1,0 +1,14 @@
+appId: com.timegate.employeeapp
+tags:
+  - break
+  - smoke
+---
+# Opens break resume via deep link. Requires prior login session.
+- launchApp
+- openLink: timegate://break-resume
+- extendedWaitUntil:
+    visible:
+      id: "break_resume_screen"
+    timeout: 15000
+- assertVisible:
+    id: "break_resume_screen"

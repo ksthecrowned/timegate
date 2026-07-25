@@ -1,10 +1,11 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
-import { EmployeeStatus } from '@prisma/client';
+import { EmployeeStatus, LeaveApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { LeaveBalanceQueryDto } from '../leaves/dto/leave-balance-query.dto';
 import { AttendanceService } from '../attendance/attendance.service';
+import { PunchWindowService } from '../attendance/punch-window.service';
 import { LeavesService } from '../leaves/leaves.service';
 import { LeaveBalancesService } from '../leaves/leave-balances.service';
 import { LeaveTypesService } from '../leave-types/leave-types.service';
@@ -18,12 +19,14 @@ import { FindAttendanceEventsQueryDto } from '../attendance/dto/find-attendance-
 import { PunchClaimsService } from '../punch-claims/punch-claims.service';
 import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
+import { holidayDateKey } from '../common/utils/holiday-calendar.util';
 
 @Injectable()
 export class EmployeePortalService {
   constructor(
     private prisma: PrismaService,
     private attendance: AttendanceService,
+    private punchWindows: PunchWindowService,
     private leaves: LeavesService,
     private leaveBalances: LeaveBalancesService,
     private leaveTypes: LeaveTypesService,
@@ -248,5 +251,119 @@ export class EmployeePortalService {
       },
       user,
     );
+  }
+
+  /**
+   * Statut planning du jour : affectation employé → horaire défaut employé →
+   * défaut entreprise, plus congé / férié. Aligné sur PunchWindowService.
+   */
+  async getTodaySchedule(user: JwtUser) {
+    const employeeId = user.employeeId;
+    if (!employeeId) throw new ForbiddenException('No employee profile linked');
+
+    const now = new Date();
+    const date = holidayDateKey(now);
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, companyId: true, holidayListId: true },
+    });
+    if (!employee?.companyId) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const leave = await this.prisma.leaveApplication.findFirst({
+      where: {
+        employeeId,
+        status: LeaveApplicationStatus.APPROVED,
+        fromDate: { lte: dayStart },
+        toDate: { gte: dayStart },
+      },
+      include: { leaveType: { select: { leaveTypeName: true } } },
+      orderBy: { fromDate: 'desc' },
+    });
+
+    let holidayName: string | null = null;
+    const listId =
+      employee.holidayListId ??
+      (
+        await this.prisma.holidayList.findFirst({
+          where: { companyId: employee.companyId },
+          select: { id: true },
+        })
+      )?.id;
+    if (listId) {
+      const holiday = await this.prisma.holiday.findFirst({
+        where: { parentId: listId, holidayDate: dayStart },
+        select: { description: true },
+      });
+      if (holiday) {
+        holidayName = holiday.description?.trim() || 'Férié';
+      }
+    }
+
+    const schedule = await this.punchWindows.resolveScheduleForEmployee(
+      employeeId,
+      now,
+    );
+
+    if (leave) {
+      return {
+        date,
+        kind: 'leave' as const,
+        isWorkDay: false,
+        leaveType: leave.leaveType?.leaveTypeName ?? 'Congé',
+        holidayName: null,
+        shift: null,
+        scheduleSource: schedule.source,
+      };
+    }
+
+    if (holidayName) {
+      return {
+        date,
+        kind: 'holiday' as const,
+        isWorkDay: false,
+        leaveType: null,
+        holidayName,
+        shift: null,
+        scheduleSource: schedule.source,
+      };
+    }
+
+    if (!schedule.isWorkDay) {
+      return {
+        date,
+        kind: 'off' as const,
+        isWorkDay: false,
+        leaveType: null,
+        holidayName: null,
+        shift: schedule.shiftName
+          ? {
+              name: schedule.shiftName,
+              startTime: null,
+              endTime: null,
+              source: schedule.source,
+            }
+          : null,
+        scheduleSource: schedule.source,
+      };
+    }
+
+    return {
+      date,
+      kind: 'scheduled' as const,
+      isWorkDay: true,
+      leaveType: null,
+      holidayName: null,
+      shift: {
+        name: schedule.shiftName ?? 'Shift',
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        source: schedule.source,
+      },
+      scheduleSource: schedule.source,
+    };
   }
 }
