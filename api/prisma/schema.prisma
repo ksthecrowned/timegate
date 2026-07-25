@@ -505,11 +505,32 @@ model TimeGateKiosk {
   faceEnabled     Boolean     @default(true) @map("face_enabled")
   nfcEnabled      Boolean     @default(false) @map("nfc_enabled")
   qrEnabled       Boolean     @default(false) @map("qr_enabled")
+  qrChallengeSecret String?   @map("qr_challenge_secret") @db.VarChar(88)
 
   faceLogs                 FaceRecognitionLog[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
+  qrChallenges             TimeGateQrChallenge[]
 
   @@map("tabTimeGate Kiosk")
+}
+
+model TimeGateQrChallenge {
+  id          String    @id @db.VarChar(140)
+  createdAt   DateTime  @default(now())
+  kioskId     String    @map("kiosk") @db.VarChar(140)
+  kiosk       TimeGateKiosk @relation(fields: [kioskId], references: [id], onDelete: Cascade)
+  nonce       String    @db.VarChar(32)
+  slot        Int
+  payloadHash String    @map("payload_hash") @db.VarChar(64)
+  expiresAt   DateTime  @map("expires_at")
+  redeemedAt  DateTime? @map("redeemed_at")
+  employeeId  String?   @map("employee") @db.VarChar(140)
+  clientId    String?   @unique @map("client_id") @db.VarChar(140)
+  resultJson  Json?     @map("result_json")
+
+  @@unique([kioskId, nonce])
+  @@index([kioskId, expiresAt])
+  @@map("timegate_qr_challenge")
 }
 
 model FaceRecognitionLog {
