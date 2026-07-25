@@ -11,6 +11,7 @@ function resolveApiBase(): string {
 }
 
 const API_BASE = resolveApiBase();
+export { API_BASE };
 const LIFETIME_TOKEN_KEY = "timegate_mobile_lifetime_token";
 const DEVICE_ID_KEY = "timegate_mobile_device_id";
 const DEVICE_NAME_KEY = "timegate_mobile_device_name";
@@ -281,7 +282,7 @@ export async function fetchKiosksForBranch(
   return Array.isArray(json.data) ? json.data : [];
 }
 
-async function getLifetimeToken(): Promise<string | null> {
+export async function getLifetimeToken(): Promise<string | null> {
   return SecureStore.getItemAsync(LIFETIME_TOKEN_KEY);
 }
 
@@ -290,6 +291,8 @@ export async function clearProvisioning(): Promise<void> {
   await SecureStore.deleteItemAsync(DEVICE_ID_KEY);
   await SecureStore.deleteItemAsync(DEVICE_NAME_KEY);
   await SecureStore.deleteItemAsync(KIOSK_FEATURES_KEY);
+  const { clearQrChallengeSecret } = await import("./qr-challenge");
+  await clearQrChallengeSecret();
 }
 
 export async function getProvisionState(): Promise<ProvisionState> {
@@ -326,6 +329,7 @@ export async function provisionKiosk(
     lifetime_token: string;
     kiosk?: { id?: string; name?: string };
     features?: KioskFeatures;
+    qrChallengeSecret?: string;
   };
   if (!json.lifetime_token) {
     throw new Error("Token lifetime manquant dans la reponse de provision.");
@@ -337,6 +341,10 @@ export async function provisionKiosk(
   if (deviceName) await SecureStore.setItemAsync(DEVICE_NAME_KEY, deviceName);
   if (json.features) {
     await setKioskFeatures({ ...DEFAULT_FEATURES, ...json.features });
+  }
+  if (json.qrChallengeSecret) {
+    const { storeQrChallengeSecret } = await import("./qr-challenge");
+    await storeQrChallengeSecret(json.qrChallengeSecret);
   }
   return { hasToken: true, deviceName };
 }
@@ -789,68 +797,3 @@ export async function readNfcBadge(timeoutMs = 10_000): Promise<string> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// QR code verification
-// ---------------------------------------------------------------------------
-
-export type QrVerifyResult = {
-  success: boolean;
-  qrPayload: string;
-  message: string;
-  employeeName: string | null;
-};
-
-type QrVerifyOptions = {
-  idempotencyKey?: string;
-};
-
-export async function verifyQrCode(
-  qrPayload: string,
-  options?: QrVerifyOptions,
-): Promise<QrVerifyResult> {
-  const token = await getLifetimeToken();
-  if (!token) {
-    throw new Error(
-      "Appareil non provisionné. Configurez l'app au premier lancement.",
-    );
-  }
-  const res = await fetch(`${API_BASE}/auth/mobile/verify-qr`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...(options?.idempotencyKey
-        ? { "X-Idempotency-Key": options.idempotencyKey }
-        : {}),
-    },
-    body: JSON.stringify({ qrPayload: qrPayload.trim() }),
-  });
-  if (res.status === 401) await clearProvisioning();
-  if (!res.ok) {
-    const message = await parseErrorBody(res);
-    throw new MobileApiError(
-      getVerificationUserMessage(new MobileApiError(message, res.status)),
-      res.status,
-    );
-  }
-  const json = (await res.json()) as {
-    success: boolean;
-    message?: string;
-    employee?: { firstName?: string; lastName?: string };
-  };
-  const employeeName =
-    `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
-    null;
-  return {
-    success: Boolean(json.success),
-    qrPayload: qrPayload.trim(),
-    message:
-      json.message ??
-      (json.success
-        ? employeeName
-          ? `Bienvenue ${employeeName}`
-          : "Pointage enregistré"
-        : "QR code non reconnu. Réessayez."),
-    employeeName,
-  };
-}

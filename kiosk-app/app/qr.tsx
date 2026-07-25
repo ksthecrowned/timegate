@@ -1,5 +1,4 @@
 import { Ionicons } from "@expo/vector-icons";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -10,27 +9,22 @@ import {
   Text,
   View,
 } from "react-native";
+import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageBox } from "../components/shared/MessageBox";
 import {
-  classifyError,
-  createMobileIdempotencyKey,
-  getCooldownState,
-  getProvisionState,
-  getVerificationUserMessage,
-  recordFailure,
-  recordSuccess,
-  verifyQrCode,
-  VERIFY_FAILURE_LIMIT,
-  type ErrorCategory,
-} from "../lib/timegate";
+  createQrChallenge,
+  pollQrChallengeResult,
+  type QrChallenge,
+} from "../lib/qr-challenge";
+import { getProvisionState } from "../lib/timegate";
 import { colors, Radius, Spacing } from "../theme/colors";
 
-type QrState = "idle" | "verifying" | "success" | "error";
+type QrState = "loading" | "showing" | "success" | "error";
+type StatusVariant = "error" | "success" | "warn" | "info";
 
-const SUCCESS_REDIRECT_SECONDS = 2;
-const RETRY_DELAY_MS = 1500;
-const SCAN_COOLDOWN_MS = 2500;
+const POLL_MS = 1500;
+const SUCCESS_REDIRECT_MS = 3000;
 
 function speakMessage(message: string, useFallback = false) {
   const text = message.trim();
@@ -48,31 +42,102 @@ function speakMessage(message: string, useFallback = false) {
 
 export default function QrScreen() {
   const router = useRouter();
-  const [permission, requestPermission] = useCameraPermissions();
-  const [qrState, setQrState] = useState<QrState>("idle");
+  const [qrState, setQrState] = useState<QrState>("loading");
+  const [challenge, setChallenge] = useState<QrChallenge | null>(null);
+  const [countdown, setCountdown] = useState(0);
   const [statusMessage, setStatusMessage] = useState(
-    "Présentez votre QR code devant la caméra",
+    "Scannez ce QR avec l'application employé",
   );
-  const [statusVariant, setStatusVariant] =
-    useState<ErrorCategory | "success" | "info">("info");
-  const [attempts, setAttempts] = useState(0);
+  const [statusVariant, setStatusVariant] = useState<StatusVariant>("info");
   const [provisioned, setProvisioned] = useState(true);
-  const [scanEnabled, setScanEnabled] = useState(true);
-  const verifyInFlight = useRef(false);
-  const retryTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const lastScanAt = useRef(0);
+  const refreshing = useRef(false);
+  const refreshChallengeRef = useRef<() => Promise<void>>(async () => {});
 
   const clearTimers = useCallback(() => {
-    if (retryTimer.current) {
-      clearTimeout(retryTimer.current);
-      retryTimer.current = null;
+    if (pollTimer.current) {
+      clearInterval(pollTimer.current);
+      pollTimer.current = null;
+    }
+    if (tickTimer.current) {
+      clearInterval(tickTimer.current);
+      tickTimer.current = null;
     }
     if (redirectTimer.current) {
       clearTimeout(redirectTimer.current);
       redirectTimer.current = null;
     }
   }, []);
+
+  const refreshChallenge = useCallback(async () => {
+    if (refreshing.current) return;
+    refreshing.current = true;
+    clearTimers();
+    setQrState("loading");
+    try {
+      const next = await createQrChallenge();
+      setChallenge(next);
+      setQrState("showing");
+      setStatusVariant("info");
+      setStatusMessage(
+        next.offline
+          ? "Mode hors ligne — scannez avec l'app employé"
+          : "Scannez ce QR avec l'application employé",
+      );
+      const updateCountdown = () => {
+        const secs = Math.max(
+          0,
+          Math.ceil((next.expiresAt.getTime() - Date.now()) / 1000),
+        );
+        setCountdown(secs);
+        if (secs <= 0) {
+          void refreshChallengeRef.current();
+        }
+      };
+      updateCountdown();
+      tickTimer.current = setInterval(updateCountdown, 500);
+
+      if (next.id) {
+        const challengeId = next.id;
+        pollTimer.current = setInterval(() => {
+          void (async () => {
+            const poll = await pollQrChallengeResult(challengeId);
+            if (poll.status === "REDEEMED") {
+              clearTimers();
+              const name = poll.result?.employee
+                ? `${poll.result.employee.firstName} ${poll.result.employee.lastName}`.trim()
+                : "";
+              const msg =
+                poll.result?.message ??
+                (name ? `Pointage enregistré — ${name}` : "Pointage enregistré");
+              setQrState("success");
+              setStatusVariant("success");
+              setStatusMessage(msg);
+              speakMessage(msg);
+              redirectTimer.current = setTimeout(() => {
+                router.replace("/");
+              }, SUCCESS_REDIRECT_MS);
+            } else if (poll.status === "EXPIRED") {
+              void refreshChallengeRef.current();
+            }
+          })();
+        }, POLL_MS);
+      }
+    } catch (err) {
+      clearTimers();
+      setQrState("error");
+      setStatusVariant("error");
+      setStatusMessage(
+        err instanceof Error ? err.message : "Erreur challenge QR",
+      );
+    } finally {
+      refreshing.current = false;
+    }
+  }, [clearTimers, router]);
+
+  refreshChallengeRef.current = refreshChallenge;
 
   useEffect(() => {
     return () => clearTimers();
@@ -90,274 +155,125 @@ export default function QrScreen() {
         );
         return;
       }
-      const cooldown = getCooldownState();
-      if (cooldown.active) {
-        router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-      }
+      await refreshChallenge();
     })();
-  }, [router]);
-
-  useEffect(() => {
-    if (!permission?.granted && permission?.canAskAgain) {
-      void requestPermission();
-    }
-  }, [permission, requestPermission]);
-
-  const runVerify = useCallback(
-    async (qrPayload: string) => {
-      if (verifyInFlight.current) return;
-      verifyInFlight.current = true;
-      setScanEnabled(false);
-      setQrState("verifying");
-      setStatusVariant("info");
-      setStatusMessage("Vérification du QR code...");
-      try {
-        const result = await verifyQrCode(qrPayload, {
-          idempotencyKey: createMobileIdempotencyKey("verify-qr"),
-        });
-        if (result.success) {
-          recordSuccess();
-          setAttempts(0);
-          setQrState("success");
-          setStatusVariant("success");
-          const message = result.message?.trim() || "Pointage enregistré";
-          setStatusMessage(message);
-          speakMessage(message);
-          redirectTimer.current = setTimeout(() => {
-            router.replace("/");
-          }, SUCCESS_REDIRECT_SECONDS * 1000);
-        } else {
-          const verdict = recordFailure("qr");
-          const newCount = verdict.locked ? VERIFY_FAILURE_LIMIT : attempts + 1;
-          setAttempts(newCount);
-          if (verdict.locked) {
-            setQrState("error");
-            setStatusVariant("error");
-            setStatusMessage(
-              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
-            );
-            redirectTimer.current = setTimeout(() => {
-              router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-            }, 1500);
-          } else {
-            setQrState("error");
-            setStatusVariant("error");
-            setStatusMessage(
-              `QR non reconnu (${newCount}/${VERIFY_FAILURE_LIMIT}). Réessayez.`,
-            );
-            speakMessage("QR code non reconnu.");
-            retryTimer.current = setTimeout(() => {
-              setQrState("idle");
-              setScanEnabled(true);
-            }, RETRY_DELAY_MS);
-          }
-        }
-      } catch (error) {
-        const verdict = recordFailure("qr");
-        const newCount = verdict.locked ? VERIFY_FAILURE_LIMIT : attempts + 1;
-        setAttempts(newCount);
-        if (verdict.locked) {
-          setQrState("error");
-          setStatusVariant("error");
-          setStatusMessage(
-            `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
-          );
-          redirectTimer.current = setTimeout(() => {
-            router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-          }, 1500);
-        } else {
-          setQrState("error");
-          setStatusVariant(classifyError(error));
-          setStatusMessage(getVerificationUserMessage(error));
-          retryTimer.current = setTimeout(() => {
-            setQrState("idle");
-            setScanEnabled(true);
-          }, RETRY_DELAY_MS);
-        }
-      } finally {
-        verifyInFlight.current = false;
-      }
-    },
-    [attempts, router],
-  );
-
-  const handleBarcodeScanned = useCallback(
-    ({ data }: { data: string }) => {
-      if (!scanEnabled || qrState !== "idle") return;
-      const now = Date.now();
-      if (now - lastScanAt.current < SCAN_COOLDOWN_MS) return;
-      lastScanAt.current = now;
-      const payload = data?.trim();
-      if (!payload || payload.length < 8) return;
-      void runVerify(payload);
-    },
-    [qrState, runVerify, scanEnabled],
-  );
-
-  const handleCancel = useCallback(() => {
-    clearTimers();
-    if (router.canGoBack()) router.back();
-    else router.replace("/");
-  }, [clearTimers, router]);
-
-  const handleUsePin = useCallback(() => {
-    clearTimers();
-    router.push("/pin");
-  }, [clearTimers, router]);
+  }, [refreshChallenge]);
 
   if (!provisioned) {
     return (
-      <SafeAreaView style={styles.root}>
-        <View style={styles.center}>
-          <Ionicons name="alert-circle" size={56} color={colors.error} />
-          <Text style={styles.title}>Appareil non configuré</Text>
-          <Text style={styles.sub}>{statusMessage}</Text>
-          <Pressable style={styles.actionBtn} onPress={handleCancel}>
-            <Text style={styles.actionBtnText}>Retour à l'accueil</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  if (!permission?.granted) {
-    return (
-      <SafeAreaView style={styles.root}>
-        <View style={styles.center}>
-          <Ionicons name="camera-outline" size={56} color={colors.accent} />
-          <Text style={styles.title}>Accès caméra requis</Text>
-          <Text style={styles.sub}>
-            Autorisez la caméra pour scanner les QR codes de pointage.
-          </Text>
-          <Pressable style={styles.actionBtn} onPress={() => void requestPermission()}>
-            <Text style={styles.actionBtnText}>Autoriser la caméra</Text>
-          </Pressable>
-          <Pressable style={[styles.actionBtn, styles.secondaryBtn]} onPress={handleCancel}>
-            <Text style={styles.secondaryBtnText}>Retour</Text>
-          </Pressable>
-        </View>
+      <SafeAreaView style={styles.safe}>
+        <MessageBox variant="error" message={statusMessage} />
+        <Pressable style={styles.secondaryBtn} onPress={() => router.replace("/")}>
+          <Text style={styles.secondaryBtnText}>Retour</Text>
+        </Pressable>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.root}>
+    <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
-        <Pressable onPress={handleCancel} style={styles.headerBtn}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+        <Pressable onPress={() => router.replace("/")} hitSlop={12}>
+          <Ionicons name="arrow-back" size={28} color={colors.text} />
         </Pressable>
         <Text style={styles.headerTitle}>Pointage QR</Text>
-        <Pressable onPress={handleUsePin} style={styles.headerBtn}>
-          <Ionicons name="keypad-outline" size={22} color={colors.text} />
-        </Pressable>
+        <View style={{ width: 28 }} />
       </View>
 
-      <View style={styles.cameraWrap}>
-        <CameraView
-          style={StyleSheet.absoluteFillObject}
-          facing="back"
-          barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
-          onBarcodeScanned={
-            scanEnabled && qrState === "idle" ? handleBarcodeScanned : undefined
-          }
-        />
-        <View style={styles.scanFrame} pointerEvents="none" />
-        {qrState === "verifying" && (
-          <View style={styles.overlay}>
-            <ActivityIndicator size="large" color={colors.accent} />
+      <View style={styles.body}>
+        <MessageBox variant={statusVariant} message={statusMessage} />
+
+        {qrState === "loading" && (
+          <ActivityIndicator
+            size="large"
+            color={colors.accent}
+            style={{ marginTop: Spacing[10] }}
+          />
+        )}
+
+        {qrState === "showing" && challenge && (
+          <View style={styles.qrWrap}>
+            <View style={styles.qrCard}>
+              <QRCode value={challenge.payload} size={260} />
+            </View>
+            <Text style={styles.countdown}>Nouveau code dans {countdown}s</Text>
+            <Pressable
+              style={styles.secondaryBtn}
+              onPress={() => void refreshChallenge()}
+            >
+              <Text style={styles.secondaryBtnText}>Actualiser</Text>
+            </Pressable>
           </View>
         )}
-      </View>
 
-      <View style={styles.footer}>
-        <MessageBox variant={statusVariant} message={statusMessage} />
+        {qrState === "success" && (
+          <Ionicons
+            name="checkmark-circle"
+            size={88}
+            color={colors.success}
+            style={{ marginTop: Spacing[8] }}
+          />
+        )}
+
+        {qrState === "error" && (
+          <Pressable
+            style={styles.primaryBtn}
+            onPress={() => void refreshChallenge()}
+          >
+            <Text style={styles.primaryBtnText}>Réessayer</Text>
+          </Pressable>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bgDeep,
-  },
+  safe: { flex: 1, backgroundColor: colors.bg },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
-  },
-  headerBtn: {
-    width: 44,
-    height: 44,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: Spacing[6],
+    paddingVertical: Spacing[4],
   },
   headerTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  cameraWrap: {
-    flex: 1,
-    marginHorizontal: Spacing.md,
-    borderRadius: Radius.lg,
-    overflow: "hidden",
-    backgroundColor: "#000",
-  },
-  scanFrame: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.35)",
-    margin: 48,
-    borderRadius: Radius.md,
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  footer: {
-    padding: Spacing.md,
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: Spacing.lg,
-    gap: Spacing.md,
-  },
-  title: {
-    color: colors.text,
     fontSize: 20,
     fontWeight: "700",
-    textAlign: "center",
+    color: colors.text,
   },
-  sub: {
+  body: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: Spacing[6],
+  },
+  qrWrap: {
+    alignItems: "center",
+    marginTop: Spacing[8],
+    gap: Spacing[4],
+  },
+  qrCard: {
+    padding: Spacing[6],
+    backgroundColor: "#fff",
+    borderRadius: Radius.lg,
+  },
+  countdown: {
     color: colors.textSecondary,
-    fontSize: 15,
-    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "600",
   },
-  actionBtn: {
-    marginTop: Spacing.sm,
+  primaryBtn: {
+    marginTop: Spacing[8],
     backgroundColor: colors.accent,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing[8],
+    paddingVertical: Spacing[4],
     borderRadius: Radius.md,
   },
-  actionBtnText: {
-    color: "#fff",
-    fontWeight: "600",
-  },
+  primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
   secondaryBtn: {
-    backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: colors.border,
+    marginTop: Spacing[4],
+    paddingHorizontal: Spacing[6],
+    paddingVertical: Spacing[2],
   },
-  secondaryBtnText: {
-    color: colors.text,
-    fontWeight: "600",
-  },
+  secondaryBtnText: { color: colors.accent, fontWeight: "600" },
 });
