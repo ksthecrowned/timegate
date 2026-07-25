@@ -64,6 +64,10 @@ import {
   parseQrPunchPayload,
   verifyQrPunchPayload,
 } from '../common/utils/qr-punch-token.util';
+import {
+  buildKioskQrChallengePayload,
+  generateKioskQrChallengeSecret,
+} from '../common/utils/kiosk-qr-challenge.util';
 import { isWithinBranchRadius } from '../common/utils/geo.util';
 
 type MobileTokenPayload = {
@@ -1182,9 +1186,16 @@ export class AuthService {
     );
 
     const deviceTokenHash = createHash('sha256').update(lifetime_token).digest('hex');
+    const existingSecret = kiosk.qrChallengeSecret;
+    const qrChallengeSecret = existingSecret ?? generateKioskQrChallengeSecret();
     const updatedKiosk = await this.prisma.timeGateKiosk.update({
       where: { id: kiosk.id },
-      data: { deviceToken: deviceTokenHash, status: KioskStatus.ONLINE, lastSeenAt: new Date() },
+      data: {
+        deviceToken: deviceTokenHash,
+        status: KioskStatus.ONLINE,
+        lastSeenAt: new Date(),
+        ...(!existingSecret ? { qrChallengeSecret } : {}),
+      },
       select: {
         id: true,
         kioskName: true,
@@ -1193,6 +1204,7 @@ export class AuthService {
         nfcEnabled: true,
         qrEnabled: true,
         companyId: true,
+        qrChallengeSecret: true,
       },
     });
 
@@ -1214,7 +1226,77 @@ export class AuthService {
         branchId: updatedKiosk.branchId,
       },
       features: this.buildKioskFeatures(updatedKiosk, pinSettings),
+      // Returned on every provision so the device can (re)store offline signing material.
+      qrChallengeSecret: updatedKiosk.qrChallengeSecret ?? qrChallengeSecret,
     };
+  }
+
+  async createQrChallenge(token: string) {
+    const payload = await this.verifyMobileToken(token);
+    const kiosk = await this.prisma.timeGateKiosk.findUnique({
+      where: { id: payload.kioskId },
+      select: {
+        id: true,
+        qrEnabled: true,
+        qrChallengeSecret: true,
+        isActive: true,
+      },
+    });
+    if (!kiosk) throw new NotFoundException('Kiosk not found');
+    if (!kiosk.isActive || !kiosk.qrEnabled) {
+      throw new ForbiddenException('Pointage QR desactive sur cette borne');
+    }
+    if (!kiosk.qrChallengeSecret) {
+      throw new BadRequestException('Secret QR manquant — re-provisionnez la borne');
+    }
+
+    const built = buildKioskQrChallengePayload(kiosk.id, kiosk.qrChallengeSecret);
+    const id = generateDocId('QRC');
+    const payloadHash = createHash('sha256').update(built.payload).digest('hex');
+    await this.prisma.timeGateQrChallenge.create({
+      data: {
+        id,
+        kioskId: kiosk.id,
+        nonce: built.nonce,
+        slot: built.slot,
+        payloadHash,
+        expiresAt: built.expiresAt,
+      },
+    });
+    await this.prisma.timeGateKiosk.update({
+      where: { id: kiosk.id },
+      data: { lastSeenAt: new Date(), status: KioskStatus.ONLINE },
+    });
+    return {
+      id,
+      payload: built.payload,
+      expiresAt: built.expiresAt,
+      nonce: built.nonce,
+    };
+  }
+
+  async getQrChallengeResult(token: string, challengeId: string) {
+    const payload = await this.verifyMobileToken(token);
+    const row = await this.prisma.timeGateQrChallenge.findFirst({
+      where: { id: challengeId, kioskId: payload.kioskId },
+      select: {
+        id: true,
+        expiresAt: true,
+        redeemedAt: true,
+        resultJson: true,
+      },
+    });
+    if (!row) throw new NotFoundException('Challenge not found');
+    if (row.redeemedAt) {
+      return {
+        status: 'REDEEMED' as const,
+        result: row.resultJson ?? null,
+      };
+    }
+    if (row.expiresAt.getTime() <= Date.now()) {
+      return { status: 'EXPIRED' as const, result: null };
+    }
+    return { status: 'PENDING' as const, result: null };
   }
 
   async getMobileConfig(token: string) {

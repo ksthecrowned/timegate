@@ -273,6 +273,23 @@ export class AuthController {
   }
 
   @Public()
+  @Post('mobile/qr-challenge')
+  createQrChallenge(@Headers('authorization') authorization: string | undefined) {
+    const token = this.extractBearerToken(authorization);
+    return this.auth.createQrChallenge(token);
+  }
+
+  @Public()
+  @Get('mobile/qr-challenge/:challengeId/result')
+  getQrChallengeResult(
+    @Param('challengeId', DocIdPipe) challengeId: string,
+    @Headers('authorization') authorization: string | undefined,
+  ) {
+    const token = this.extractBearerToken(authorization);
+    return this.auth.getQrChallengeResult(token, challengeId);
+  }
+
+  @Public()
   @Post('mobile/verify-qr')
   verifyMobileQr(
     @Headers('authorization') authorization: string | undefined,
