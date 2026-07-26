@@ -3,8 +3,6 @@
  * Based on dashboard design system with teal primary color.
  */
 
-import { Platform } from 'react-native';
-
 export const Colors = {
   light: {
     // Primary colors from dashboard
@@ -153,7 +151,7 @@ export const Spacing = {
   five: 20,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+export const BottomTabInset = 16;
 export const MaxContentWidth = 800;
 
 /** Touch target minimum (WCAG / Apple HIG). */

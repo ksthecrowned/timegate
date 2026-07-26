@@ -13,12 +13,13 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 
-import { BottomTabInset, MinTouchTarget, Radius, Spacing } from "@/constants/theme";
+import { MinTouchTarget, Radius, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { DateField } from "@/components/ui/DateField";
 import { useTheme } from "@/hooks/use-theme";
 import { employeeApi } from "@/lib/api";
 import type { PunchClaimType } from "@/lib/types";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const S = Spacing;
 
@@ -36,6 +37,7 @@ function todayIso(): string {
 export default function PunchClaimRequestScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [workDate, setWorkDate] = useState(todayIso());
   const [claimType, setClaimType] = useState<PunchClaimType>("MISSED_CHECKOUT");
   const [reason, setReason] = useState("");
@@ -108,7 +110,7 @@ export default function PunchClaimRequestScreen() {
       <ScrollView
         contentContainerStyle={[
           styles.scroll,
-          { paddingBottom: BottomTabInset + S[6] },
+          { paddingBottom: insets.bottom + S[6] },
         ]}
         keyboardShouldPersistTaps="handled"
       >

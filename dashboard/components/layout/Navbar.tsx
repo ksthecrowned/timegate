@@ -384,6 +384,7 @@
 
 import OrgLogo from '@/components/brand/OrgLogo'
 import CopilotNavButton from '@/components/ai/CopilotNavButton'
+import StartTourButton from '@/components/tour/StartTourButton'
 import GlobalSearchBox from '@/components/layout/GlobalSearchBox'
 import NotificationBell from '@/components/layout/NotificationBell'
 import { useClickOutside } from '@/lib/hooks/use-click-outside'
@@ -444,6 +445,8 @@ export default function Navbar() {
 
             {/* Actions */}
             <div className="flex flex-row items-center justify-end gap-1 gap-x-2">
+
+              <StartTourButton variant="navbar" />
 
               <CopilotNavButton />
 

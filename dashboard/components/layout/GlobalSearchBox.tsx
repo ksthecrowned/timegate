@@ -51,7 +51,7 @@ export default function GlobalSearchBox() {
     Object.values(data.results).some((section) => section.length > 0)
 
   return (
-    <div className="relative hidden md:block w-full max-w-md" ref={rootRef}>
+    <div className="relative hidden md:block w-full max-w-md" ref={rootRef} data-tour="search">
       <input
         type="search"
         value={q}

@@ -387,3 +387,68 @@
 }
 
 @import 'react-day-picker/style.css';
+
+/* Driver.js — TimeGate teal/slate tour */
+.tg-driver-popover.driver-popover {
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.18);
+  max-width: 320px;
+}
+
+.tg-driver-popover .driver-popover-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.tg-driver-popover .driver-popover-description {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #475569;
+}
+
+.tg-driver-popover .driver-popover-progress-text {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.tg-driver-popover .driver-popover-next-btn,
+.tg-driver-popover .driver-popover-done-btn {
+  background: #0d9488 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  text-shadow: none !important;
+}
+
+.tg-driver-popover .driver-popover-prev-btn {
+  background: transparent !important;
+  color: #0d9488 !important;
+  border: 1px solid #99f6e4 !important;
+  border-radius: 8px !important;
+  text-shadow: none !important;
+}
+
+.tg-driver-popover .driver-popover-close-btn {
+  color: #64748b;
+}
+
+.dark .tg-driver-popover.driver-popover {
+  background: #141c2e;
+  color: #e2e8f0;
+}
+
+.dark .tg-driver-popover .driver-popover-title {
+  color: #f8fafc;
+}
+
+.dark .tg-driver-popover .driver-popover-description {
+  color: #94a3b8;
+}
+
+.dark .tg-driver-popover .driver-popover-prev-btn {
+  color: #5eead4 !important;
+  border-color: #134e4a !important;
+}

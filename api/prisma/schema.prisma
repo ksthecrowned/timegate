@@ -230,6 +230,8 @@ model Company {
   email    String? @db.VarChar(140)
   website  String? @db.VarChar(500)
   address  String? @db.VarChar(500)
+  /** Self-signup company size band, e.g. "1-10", "11-50". */
+  organizationSize String? @map("organization_size") @db.VarChar(40)
   suspendedAt DateTime? @map("suspended_at")
 
   defaultPayrollPayableAccountId String? @map("default_payroll_payable_account") @db.VarChar(140)
@@ -981,6 +983,8 @@ model User {
   email        String  @db.VarChar(140)
   firstName    String? @map("first_name") @db.VarChar(140)
   lastName     String? @map("last_name") @db.VarChar(140)
+  /** Job function at signup (ex. DRH, Dirigeant) — not TimeGate role. */
+  jobTitle     String? @map("job_title") @db.VarChar(140)
   enabled      Boolean @default(true)
   language     String? @db.VarChar(140)
   passwordHash String? @map("password_hash") @db.VarChar(255)

@@ -136,6 +136,8 @@ export class AuthService {
           id: generateDocId('CO'),
           name: dto.organizationName.trim(),
           sku,
+          organizationSize: dto.organizationSize,
+          email: email,
         },
       });
 
@@ -161,6 +163,9 @@ export class AuthService {
           id: generateDocId('USR'),
           email,
           passwordHash,
+          firstName: dto.adminFirstName.trim(),
+          lastName: dto.adminLastName.trim(),
+          jobTitle: dto.contactRole,
           timeGateRole: TimeGateUserRole.ADMIN,
           companyId: company.id,
         },

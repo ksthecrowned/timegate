@@ -22,12 +22,15 @@ function formatWhen(iso: string): string {
     d.getMonth() === now.getMonth() &&
     d.getDate() === now.getDate();
   if (sameDay) {
-    return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+    return d.toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
 }
 
-export default function MessagesScreen() {
+export default function MessagesTabScreen() {
   const theme = useTheme();
   const router = useRouter();
   const [rows, setRows] = useState<ConversationSummary[]>([]);
@@ -63,7 +66,7 @@ export default function MessagesScreen() {
   return (
     <ScreenLayout
       title={STRINGS.messages.title}
-      showBack
+      showBack={false}
       refreshing={refreshing}
       onRefresh={onRefresh}
       rightAction={
@@ -105,7 +108,7 @@ export default function MessagesScreen() {
           style={({ pressed }) => [
             styles.row,
             {
-              backgroundColor: theme.surface,
+              backgroundColor: theme.surfaceCard,
               borderColor: theme.border,
               opacity: pressed ? 0.9 : 1,
             },

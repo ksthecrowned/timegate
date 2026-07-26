@@ -1,6 +1,7 @@
 import { View, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useColorScheme } from "react-native";
-import { BottomTabInset, Colors } from "@/constants/theme";
+import { useSegments } from "expo-router";
+import { Colors, Spacing } from "@/constants/theme";
 import { AppBar } from "@/components/AppBar";
 import {
   SafeAreaView,
@@ -40,8 +41,16 @@ export function ScreenLayout({
   contentStyle,
 }: ScreenLayoutProps) {
   const insets = useSafeAreaInsets();
+  const segments = useSegments();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme === "dark" ? "dark" : "light"];
+
+  // Tab scenes already sit above the tab bar (which includes the home
+  // indicator). Stack screens need the safe-area inset themselves.
+  const inTabs = segments[0] === "(tabs)";
+  const paddingBottom = inTabs
+    ? Spacing[4]
+    : insets.bottom + Spacing[4];
 
   return (
     <SafeAreaView
@@ -64,12 +73,7 @@ export function ScreenLayout({
       {showScroll ? (
         <ScrollView
           style={styles.flex}
-          contentContainerStyle={[
-            {
-              paddingBottom: insets.bottom + BottomTabInset + 16,
-            },
-            contentStyle,
-          ]}
+          contentContainerStyle={[{ paddingBottom }, contentStyle]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           refreshControl={

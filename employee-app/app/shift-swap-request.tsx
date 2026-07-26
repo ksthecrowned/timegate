@@ -13,13 +13,14 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { DateField } from '@/components/ui/DateField';
 import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import { getMeCached } from '@/lib/meCache';
 import type { Colleague, Profile } from '@/lib/types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const S = Spacing;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -51,6 +52,7 @@ type ShiftOption = {
 export default function ShiftSwapRequestScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [shifts, setShifts] = useState<ShiftOption[]>([]);
   const [selectedShift, setSelectedShift] = useState<ShiftOption | null>(null);
@@ -209,7 +211,7 @@ export default function ShiftSwapRequestScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.contentContainer,
-          { paddingBottom: BottomTabInset + S[6] },
+          { paddingBottom: insets.bottom + S[6] },
         ]}
         keyboardShouldPersistTaps="handled"
       >

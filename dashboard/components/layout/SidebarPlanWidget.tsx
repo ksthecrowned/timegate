@@ -69,7 +69,7 @@ export default function SidebarPlanWidget() {
   const showDays = Boolean(daysLeft && (isTrial || status.readOnly || isActive || status.blocked))
 
   return (
-    <div className={`rounded-xl border px-3 py-3 ${tone}`}>
+    <div data-tour="plan-widget" className={`rounded-xl border px-3 py-3 ${tone}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-1.5">

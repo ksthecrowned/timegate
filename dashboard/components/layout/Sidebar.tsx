@@ -114,6 +114,7 @@ export default function Sidebar() {
   return (
     <div
       id="hs-application-sidebar"
+      data-tour="sidebar"
       className="hs-overlay [--auto-close:lg] hs-overlay-open:translate-x-0 -translate-x-full transition-all duration-300 transform w-[260px] h-full hidden fixed inset-y-0 start-0 z-60 bg-surface-card border-e border-slate-200/80 lg:block lg:translate-x-0 lg:end-auto lg:bottom-0 dark:bg-surface-card-dark dark:border-border-dark"
       role="dialog"
       tabIndex={-1}

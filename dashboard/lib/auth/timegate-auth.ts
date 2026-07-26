@@ -9,11 +9,13 @@ import type {
 
 export type SignupPayload = {
   organizationName: string
+  organizationSize: '1-10' | '11-50' | '51-200' | '201-500' | '500+'
+  contactRole: 'founder' | 'executive' | 'hr' | 'manager' | 'operations' | 'other'
   sku?: string
   adminEmail: string
   adminPassword: string
-  adminFirstName?: string
-  adminLastName?: string
+  adminFirstName: string
+  adminLastName: string
 }
 
 export type LoginPayload = {

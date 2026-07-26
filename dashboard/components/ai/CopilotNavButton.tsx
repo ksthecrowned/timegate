@@ -9,6 +9,7 @@ export default function CopilotNavButton() {
   return (
     <button
       type="button"
+      data-tour="copilot"
       onClick={toggle}
       title="TimeGate Copilot"
       className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-1.5 text-xs font-medium text-violet-800 hover:bg-violet-200 dark:bg-violet-950 dark:text-violet-200 dark:hover:bg-violet-900"

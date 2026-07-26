@@ -427,6 +427,9 @@ export const employeeApi = {
       meta: { unreadCount: number };
     }>(`/notifications${qs(query)}`),
 
+  getUnreadNotificationCount: () =>
+    fetchApi<{ count: number }>("/notifications/unread-count"),
+
   markNotificationRead: (id: string) =>
     fetchApi(`/notifications/${id}/read`, { method: "PATCH" }),
 

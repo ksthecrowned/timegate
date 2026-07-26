@@ -128,7 +128,8 @@ export default function RootLayout() {
         <Drawer.Screen name="qr-punch" options={{ headerShown: false }} />
         <Drawer.Screen name="break-resume" options={{ headerShown: false }} />
         <Drawer.Screen name="contracts" options={{ headerShown: false }} />
-        <Drawer.Screen name="messages" options={{ headerShown: false }} />
+        <Drawer.Screen name="messages/new" options={{ headerShown: false }} />
+        <Drawer.Screen name="messages/[id]" options={{ headerShown: false }} />
         <Drawer.Screen
           name="punch-claim-request"
           options={{ headerShown: false }}

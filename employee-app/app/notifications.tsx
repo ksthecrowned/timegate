@@ -202,7 +202,7 @@ export default function NotificationsScreen() {
       <ScrollView
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingBottom: Spacing[10] }}
+        contentContainerStyle={{ paddingBottom: Spacing[4] }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

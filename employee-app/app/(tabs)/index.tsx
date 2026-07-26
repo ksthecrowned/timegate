@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, Alert, Pressable, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Alert,
+  Pressable,
+  ActivityIndicator,
+} from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,10 +23,7 @@ import {
   getQrOfflineQueueCount,
   syncQrOfflineQueue,
 } from '@/lib/qr-offline-queue';
-import type {
-  AttendanceEventRow,
-  Profile,
-} from '@/lib/types';
+import type { AttendanceEventRow, Profile } from '@/lib/types';
 
 type DayStatus =
   | 'not_started'
@@ -40,26 +44,33 @@ type PrimaryAction = {
   sensitive?: boolean;
 };
 
-const secondaryActions = [
+type Shortcut = {
+  label: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  href: string;
+  sensitive?: boolean;
+};
+
+const shortcuts: Shortcut[] = [
   {
     label: STRINGS.home.actionRequestLeave,
-    icon: 'calendar-outline' as const,
+    icon: 'calendar-outline',
     href: '/leave-request',
   },
   {
-    label: STRINGS.home.actionSwapShift,
-    icon: 'swap-horizontal-outline' as const,
-    href: '/shift-swap-request',
-  },
-  {
     label: STRINGS.home.actionMyPlanning,
-    icon: 'calendar-number-outline' as const,
+    icon: 'calendar-number-outline',
     href: '/planning',
   },
   {
     label: STRINGS.home.actionAttendance,
-    icon: 'time-outline' as const,
+    icon: 'time-outline',
     href: '/attendance',
+  },
+  {
+    label: STRINGS.more.leaveBalances,
+    icon: 'pie-chart-outline',
+    href: '/leave-balances',
   },
 ];
 
@@ -78,7 +89,8 @@ function formatTime(iso?: string | null): string {
 function derivePunchStatus(events: AttendanceEventRow[]): DayStatus {
   if (events.length === 0) return 'not_started';
   const sorted = [...events].sort(
-    (a, b) => new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
+    (a, b) =>
+      new Date(a.occurredAt).getTime() - new Date(b.occurredAt).getTime(),
   );
   const last = sorted[sorted.length - 1];
   if (last.type === 'CHECK_OUT') return 'done';
@@ -118,10 +130,10 @@ export default function HomeScreen() {
   const devicePending = useDeviceTrustPending();
 
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [leaveDays, setLeaveDays] = useState<number | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState(0);
-  const [pendingSwaps, setPendingSwaps] = useState(0);
-  const [todaySchedule, setTodaySchedule] = useState<TodaySchedule | null>(null);
+  const [todaySchedule, setTodaySchedule] = useState<TodaySchedule | null>(
+    null,
+  );
   const [dayEvents, setDayEvents] = useState<AttendanceEventRow[]>([]);
   const [breakEligible, setBreakEligible] = useState(false);
   const [offlinePending, setOfflinePending] = useState(0);
@@ -133,46 +145,27 @@ export default function HomeScreen() {
     try {
       if (isRefresh) setRefreshing(true);
       const today = isoDay();
-      const [
-        me,
-        balances,
-        leaves,
-        swaps,
-        schedule,
-        events,
-        breakStatus,
-        offlineCount,
-      ] = await Promise.all([
-        getMeCached().catch(() => null),
-        employeeApi
-          .getLeaveBalances({ year: new Date().getFullYear() })
-          .catch(() => null),
-        employeeApi
-          .getLeaves({ status: 'pending', limit: 100 })
-          .catch(() => null),
-        employeeApi
-          .getShiftSwaps({ status: 'pending', limit: 100 })
-          .catch(() => null),
-        employeeApi.getTodaySchedule().catch(() => null),
-        employeeApi
-          .getAttendanceEvents({
-            page: 1,
-            limit: 50,
-            from: `${today}T00:00:00.000Z`,
-            to: `${today}T23:59:59.999Z`,
-          })
-          .catch(() => null),
-        employeeApi.getBreakResumeStatus().catch(() => null),
-        getQrOfflineQueueCount().catch(() => 0),
-      ]);
+      const [me, leaves, schedule, events, breakStatus, offlineCount] =
+        await Promise.all([
+          getMeCached().catch(() => null),
+          employeeApi
+            .getLeaves({ status: 'pending', limit: 100 })
+            .catch(() => null),
+          employeeApi.getTodaySchedule().catch(() => null),
+          employeeApi
+            .getAttendanceEvents({
+              page: 1,
+              limit: 50,
+              from: `${today}T00:00:00.000Z`,
+              to: `${today}T23:59:59.999Z`,
+            })
+            .catch(() => null),
+          employeeApi.getBreakResumeStatus().catch(() => null),
+          getQrOfflineQueueCount().catch(() => 0),
+        ]);
 
       setProfile(me);
-      const totalRemaining = (balances?.balances ?? [])
-        .filter((b) => !b.unlimited)
-        .reduce((sum, b) => sum + (b.remaining ?? 0), 0);
-      setLeaveDays(totalRemaining);
       setPendingLeaves(leaves?.meta?.total ?? leaves?.data?.length ?? 0);
-      setPendingSwaps(swaps?.meta?.total ?? swaps?.data?.length ?? 0);
       setTodaySchedule(schedule);
       setDayEvents(events?.data ?? []);
       setBreakEligible(Boolean(breakStatus?.eligible));
@@ -191,7 +184,6 @@ export default function HomeScreen() {
 
   const dayStatus = useMemo((): DayStatus => {
     if (breakEligible) return 'on_break';
-    // Si l'employé a déjà pointé, le pointage prime même hors planning.
     const punchStatus = derivePunchStatus(dayEvents);
     if (punchStatus !== 'not_started') return punchStatus;
 
@@ -211,14 +203,22 @@ export default function HomeScreen() {
         sensitive: true,
       };
     }
-    if (dayStatus === 'leave' || dayStatus === 'holiday' || dayStatus === 'off') {
+    if (
+      dayStatus === 'leave' ||
+      dayStatus === 'holiday' ||
+      dayStatus === 'off'
+    ) {
       return {
         label: STRINGS.home.primaryPlanning,
         href: '/planning',
         icon: 'calendar-number-outline',
       };
     }
-    if (dayStatus === 'not_started' || dayStatus === 'on_site' || dayStatus === 'done') {
+    if (
+      dayStatus === 'not_started' ||
+      dayStatus === 'on_site' ||
+      dayStatus === 'done'
+    ) {
       return {
         label: STRINGS.home.primaryPunch,
         href: '/qr-punch',
@@ -235,7 +235,10 @@ export default function HomeScreen() {
 
   const handleNavigate = (href: string, sensitive?: boolean) => {
     if (devicePending && sensitive) {
-      Alert.alert(STRINGS.auth.devicePendingTitle, STRINGS.auth.devicePendingBody);
+      Alert.alert(
+        STRINGS.auth.devicePendingTitle,
+        STRINGS.auth.devicePendingBody,
+      );
       return;
     }
     router.push(href as never);
@@ -243,7 +246,10 @@ export default function HomeScreen() {
 
   const handleSyncOffline = async () => {
     if (devicePending) {
-      Alert.alert(STRINGS.auth.devicePendingTitle, STRINGS.auth.devicePendingBody);
+      Alert.alert(
+        STRINGS.auth.devicePendingTitle,
+        STRINGS.auth.devicePendingBody,
+      );
       return;
     }
     setSyncing(true);
@@ -251,10 +257,16 @@ export default function HomeScreen() {
       const summary = await syncQrOfflineQueue();
       setOfflinePending(summary.pending);
       if (summary.synced > 0) {
-        Alert.alert(STRINGS.app.name, STRINGS.qrPunch.syncSuccess(summary.synced));
+        Alert.alert(
+          STRINGS.app.name,
+          STRINGS.qrPunch.syncSuccess(summary.synced),
+        );
         void loadData(true);
       } else if (summary.failed > 0) {
-        Alert.alert(STRINGS.app.name, summary.lastMessage ?? STRINGS.qrPunch.syncFailed);
+        Alert.alert(
+          STRINGS.app.name,
+          summary.lastMessage ?? STRINGS.qrPunch.syncFailed,
+        );
       }
     } finally {
       setSyncing(false);
@@ -299,183 +311,185 @@ export default function HomeScreen() {
   return (
     <ScreenLayout
       title={STRINGS.app.name}
+      subtitle={STRINGS.home.appBarSubtitle}
       showSearch={false}
       showNotifications
       refreshing={refreshing}
       onRefresh={() => void loadData(true)}
     >
       <View testID="home_screen" accessibilityLabel={STRINGS.a11y.home}>
-      <TrustedDeviceBanner />
+        <TrustedDeviceBanner />
 
-      <View
-        style={[styles.hero, { backgroundColor: theme.primary }]}
-        accessibilityRole="summary"
-        accessibilityLabel={`${greeting()} ${displayName}`}
-      >
-        <Text style={styles.heroGreeting}>{greeting()},</Text>
-        <Text style={styles.heroName}>{displayName}</Text>
-        {profile?.position || profile?.branchName ? (
-          <View style={styles.heroChip}>
-            <Ionicons name="briefcase-outline" size={12} color="#fff" />
-            <Text style={styles.heroChipText}>
-              {[profile.position, profile.branchName].filter(Boolean).join(' · ')}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      {offlinePending > 0 ? (
-        <Pressable
-          onPress={() => void handleSyncOffline()}
-          accessibilityRole="button"
-          accessibilityLabel={STRINGS.home.offlinePending(offlinePending)}
-          style={({ pressed }) => [
-            styles.offlineBanner,
-            {
-              backgroundColor: theme.warningSoft,
-              borderColor: theme.warning,
-              opacity: pressed || syncing ? 0.85 : 1,
-            },
-          ]}
+        <View
+          style={[styles.hero, { backgroundColor: theme.primary }]}
+          accessibilityRole="summary"
+          accessibilityLabel={`${greeting()} ${displayName}`}
         >
-          {syncing ? (
-            <ActivityIndicator color={theme.warning} />
-          ) : (
-            <Ionicons name="cloud-upload-outline" size={20} color={theme.warning} />
-          )}
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.offlineTitle, { color: theme.warning }]}>
-              {STRINGS.home.offlinePending(offlinePending)}
-            </Text>
-            <Text style={[styles.offlineHint, { color: theme.textSecondary }]}>
-              {STRINGS.home.offlineSyncNow}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={theme.warning} />
-        </Pressable>
-      ) : null}
-
-      <Card
-        style={styles.todayCard}
-        accessibilityLabel={`${STRINGS.home.todayTitle}. ${statusLabel(dayStatus, todaySchedule)}. ${shiftLine}`}
-      >
-        <Text style={[styles.todayEyebrow, { color: theme.textSecondary }]}>
-          {STRINGS.home.todayTitle}
-        </Text>
-        <Text style={[styles.todayStatus, { color: theme.text }]}>
-          {loading ? '…' : statusLabel(dayStatus, todaySchedule)}
-        </Text>
-        <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
-          {loading ? '…' : shiftLine}
-        </Text>
-
-        <Pressable
-          testID={
-            primaryAction.href === '/qr-punch'
-              ? 'home_qr_punch_cta'
-              : primaryAction.href === '/break-resume'
-                ? 'home_break_resume_cta'
-                : 'home_primary_cta'
-          }
-          onPress={() => handleNavigate(primaryAction.href, primaryAction.sensitive)}
-          accessibilityRole="button"
-          accessibilityLabel={primaryAction.label}
-          accessibilityHint={
-            primaryBlocked ? STRINGS.a11y.actionBlocked : undefined
-          }
-          disabled={primaryBlocked}
-          style={({ pressed }) => [
-            styles.primaryCta,
-            {
-              backgroundColor: theme.primary,
-              opacity: pressed || primaryBlocked ? 0.7 : 1,
-            },
-          ]}
-        >
-          <Ionicons name={primaryAction.icon} size={22} color="#fff" />
-          <Text style={styles.primaryCtaText}>{primaryAction.label}</Text>
-          <Ionicons name="arrow-forward" size={18} color="#fff" />
-        </Pressable>
-      </Card>
-
-      <View style={styles.statsRow}>
-        {[
-          {
-            label: STRINGS.home.leaveDays,
-            value: leaveDays == null ? '—' : String(leaveDays),
-            icon: 'calendar' as const,
-            color: theme.primary,
-            href: '/leave-balances',
-          },
-          {
-            label: STRINGS.home.pending,
-            value: String(pendingLeaves),
-            icon: 'hourglass-outline' as const,
-            color: theme.secondary,
-            href: '/leave',
-          },
-          {
-            label: STRINGS.home.swaps,
-            value: String(pendingSwaps),
-            icon: 'swap-horizontal' as const,
-            color: theme.accent,
-            href: '/shift-swaps',
-          },
-        ].map((stat) => (
-          <Card
-            key={stat.label}
-            style={styles.statCard}
-            onPress={() => router.push(stat.href as never)}
-            accessibilityLabel={STRINGS.a11y.stat(
-              stat.label,
-              loading ? '…' : stat.value,
-            )}
-          >
-            <View
-              style={[styles.statIcon, { backgroundColor: `${stat.color}20` }]}
-            >
-              <Ionicons name={stat.icon} size={18} color={stat.color} />
+          <Text style={styles.heroGreeting}>{greeting()},</Text>
+          <Text style={styles.heroName}>{displayName}</Text>
+          {profile?.position || profile?.branchName ? (
+            <View style={styles.heroChip}>
+              <Ionicons name="briefcase-outline" size={12} color="#fff" />
+              <Text style={styles.heroChipText}>
+                {[profile.position, profile.branchName]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </Text>
             </View>
-            <Text style={[styles.statValue, { color: theme.text }]}>
-              {loading ? '…' : stat.value}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.textSecondary }]}>
-              {stat.label}
-            </Text>
-          </Card>
-        ))}
-      </View>
+          ) : null}
+        </View>
 
-      <View style={styles.section}>
-        <Text
-          style={[styles.sectionTitle, { color: theme.textSecondary }]}
-          accessibilityRole="header"
+        {offlinePending > 0 ? (
+          <Pressable
+            onPress={() => void handleSyncOffline()}
+            accessibilityRole="button"
+            accessibilityLabel={STRINGS.home.offlinePending(offlinePending)}
+            style={({ pressed }) => [
+              styles.offlineBanner,
+              {
+                backgroundColor: theme.warningSoft,
+                borderColor: theme.warning,
+                opacity: pressed || syncing ? 0.85 : 1,
+              },
+            ]}
+          >
+            {syncing ? (
+              <ActivityIndicator color={theme.warning} />
+            ) : (
+              <Ionicons
+                name="cloud-upload-outline"
+                size={20}
+                color={theme.warning}
+              />
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.offlineTitle, { color: theme.warning }]}>
+                {STRINGS.home.offlinePending(offlinePending)}
+              </Text>
+              <Text style={[styles.offlineHint, { color: theme.textSecondary }]}>
+                {STRINGS.home.offlineSyncNow}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={theme.warning} />
+          </Pressable>
+        ) : null}
+
+        <Card
+          style={styles.todayCard}
+          accessibilityLabel={`${STRINGS.home.todayTitle}. ${statusLabel(dayStatus, todaySchedule)}. ${shiftLine}`}
         >
-          {STRINGS.home.quickActions}
-        </Text>
-        <View style={styles.actionsGrid}>
-          {secondaryActions.map((action) => (
-            <Card
-              key={action.label}
-              style={styles.actionCard}
-              onPress={() => handleNavigate(action.href)}
+          <Text style={[styles.todayEyebrow, { color: theme.textSecondary }]}>
+            {STRINGS.home.todayTitle}
+          </Text>
+          <Text style={[styles.todayStatus, { color: theme.text }]}>
+            {loading ? '…' : statusLabel(dayStatus, todaySchedule)}
+          </Text>
+          <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
+            {loading ? '…' : shiftLine}
+          </Text>
+
+          <Pressable
+            testID={
+              primaryAction.href === '/qr-punch'
+                ? 'home_qr_punch_cta'
+                : primaryAction.href === '/break-resume'
+                  ? 'home_break_resume_cta'
+                  : 'home_primary_cta'
+            }
+            onPress={() =>
+              handleNavigate(primaryAction.href, primaryAction.sensitive)
+            }
+            accessibilityRole="button"
+            accessibilityLabel={primaryAction.label}
+            accessibilityHint={
+              primaryBlocked ? STRINGS.a11y.actionBlocked : undefined
+            }
+            disabled={primaryBlocked}
+            style={({ pressed }) => [
+              styles.primaryCta,
+              {
+                backgroundColor: theme.primary,
+                opacity: pressed || primaryBlocked ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Ionicons name={primaryAction.icon} size={22} color="#fff" />
+            <Text style={styles.primaryCtaText}>{primaryAction.label}</Text>
+            <Ionicons name="arrow-forward" size={18} color="#fff" />
+          </Pressable>
+        </Card>
+
+        {pendingLeaves > 0 ? (
+          <Pressable
+            onPress={() => router.push('/leave' as never)}
+            accessibilityRole="button"
+            accessibilityLabel={`${pendingLeaves} ${STRINGS.home.pending}`}
+            style={({ pressed }) => [
+              styles.noticeRow,
+              {
+                borderBottomColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Ionicons
+              name="hourglass-outline"
+              size={18}
+              color={theme.secondary}
+            />
+            <Text style={[styles.noticeText, { color: theme.text }]}>
+              {pendingLeaves === 1
+                ? STRINGS.home.pendingLeaveOne
+                : STRINGS.home.pendingLeaveMany(pendingLeaves)}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={16}
+              color={theme.textMuted}
+            />
+          </Pressable>
+        ) : null}
+
+        <View style={styles.shortcuts}>
+          <Text
+            style={[styles.sectionTitle, { color: theme.textSecondary }]}
+            accessibilityRole="header"
+          >
+            {STRINGS.home.quickActions}
+          </Text>
+          {shortcuts.map((action, index) => (
+            <Pressable
+              key={action.href}
+              onPress={() => handleNavigate(action.href, action.sensitive)}
+              accessibilityRole="button"
               accessibilityLabel={action.label}
+              style={({ pressed }) => [
+                styles.shortcutRow,
+                {
+                  borderBottomColor: theme.border,
+                  borderBottomWidth:
+                    index === shortcuts.length - 1 ? 0 : StyleSheet.hairlineWidth,
+                  opacity: pressed ? 0.7 : 1,
+                },
+              ]}
             >
-              <View
-                style={[
-                  styles.actionIcon,
-                  { backgroundColor: `${theme.primary}20` },
-                ]}
-              >
-                <Ionicons name={action.icon} size={20} color={theme.primary} />
-              </View>
-              <Text style={[styles.actionLabel, { color: theme.text }]}>
+              <Ionicons
+                name={action.icon}
+                size={20}
+                color={theme.primary}
+                style={styles.shortcutIcon}
+              />
+              <Text style={[styles.shortcutLabel, { color: theme.text }]}>
                 {action.label}
               </Text>
-            </Card>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={theme.textMuted}
+              />
+            </Pressable>
           ))}
         </View>
-      </View>
       </View>
     </ScreenLayout>
   );
@@ -527,7 +541,7 @@ const styles = StyleSheet.create({
   offlineHint: { fontSize: 12, marginTop: 2 },
   todayCard: {
     marginHorizontal: Spacing[4],
-    marginBottom: Spacing[4],
+    marginBottom: Spacing[2],
   },
   todayEyebrow: {
     fontSize: 11,
@@ -559,48 +573,44 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  statsRow: {
+  noticeRow: {
+    marginHorizontal: Spacing[4],
+    paddingVertical: Spacing[3],
     flexDirection: 'row',
-    paddingHorizontal: Spacing[4],
-    gap: Spacing[3],
-    marginBottom: Spacing[5],
-  },
-  statCard: { flex: 1, minHeight: 96, padding: Spacing[3] },
-  statIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
+    gap: Spacing[3],
+    minHeight: MinTouchTarget,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  statValue: { fontSize: 22, fontWeight: '700' },
-  statLabel: { fontSize: 12, marginTop: 2, fontWeight: '500' },
-  section: { paddingHorizontal: Spacing[4], paddingBottom: Spacing[8] },
+  noticeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  shortcuts: {
+    marginTop: Spacing[4],
+    paddingHorizontal: Spacing[4],
+    paddingBottom: Spacing[2],
+  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
-    marginBottom: Spacing[3],
+    marginBottom: Spacing[1],
   },
-  actionsGrid: {
+  shortcutRow: {
+    minHeight: MinTouchTarget + 4,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing[3],
-  },
-  actionCard: {
-    width: '47.5%',
-    flexGrow: 1,
-    minHeight: 96,
-  },
-  actionIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
+    paddingVertical: Spacing[3],
   },
-  actionLabel: { fontSize: 14, fontWeight: '600' },
+  shortcutIcon: {
+    width: 28,
+  },
+  shortcutLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

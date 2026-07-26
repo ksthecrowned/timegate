@@ -248,7 +248,7 @@ export default function ContractsScreen() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: S[4], paddingBottom: S[10] },
+  content: { padding: S[4] },
   centered: { padding: S[8], alignItems: "center" },
   card: {
     borderRadius: Radius.md,

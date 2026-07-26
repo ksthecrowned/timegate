@@ -151,7 +151,7 @@ export default function ShiftSwapsScreen() {
         scrollEventThrottle={400}
         showsVerticalScrollIndicator={false}
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: Spacing[10] }}
+        contentContainerStyle={{ paddingBottom: Spacing[4] }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}

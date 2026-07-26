@@ -57,6 +57,17 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="messages"
+        options={{
+          title: STRINGS.messages.title,
+          tabBarAccessibilityLabel: STRINGS.messages.title,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="chatbubbles-outline" size={size} color={color} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="shift-swaps"
         options={{
           title: 'Échanges',

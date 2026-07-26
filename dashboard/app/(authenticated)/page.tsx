@@ -1,5 +1,6 @@
 'use client'
 
+import StartTourButton from '@/components/tour/StartTourButton'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import { ApiErrorBanner } from '@/components/timegate/ui'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
@@ -162,15 +163,18 @@ export default function DashboardPage() {
             </p>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="inline-flex items-center gap-2 rounded-lg border border-slate-200/80 bg-surface px-3 py-2 text-sm text-slate-700 hover:border-primary/40 disabled:opacity-50 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
-        >
-          <i className={`fa-solid fa-rotate-right ${loading ? 'animate-spin' : ''}`} />
-          Actualiser
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <StartTourButton />
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-200/80 bg-surface px-3 py-2 text-sm text-slate-700 hover:border-primary/40 disabled:opacity-50 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
+          >
+            <i className={`fa-solid fa-rotate-right ${loading ? 'animate-spin' : ''}`} />
+            Actualiser
+          </button>
+        </div>
       </div>
 
       <ApiErrorBanner message={error} />
@@ -179,7 +183,10 @@ export default function DashboardPage() {
         <SkeletonDashboard />
       ) : home ? (
         <>
-          <section className={`tg-card space-y-4 p-4 md:p-5 ${loading ? 'opacity-60' : ''}`}>
+          <section
+            data-tour="home-today"
+            className={`tg-card space-y-4 p-4 md:p-5 ${loading ? 'opacity-60' : ''}`}
+          >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Aujourd&apos;hui
@@ -306,7 +313,7 @@ export default function DashboardPage() {
         </>
       ) : null}
 
-      <div className="tg-card p-5 shadow-2xs">
+      <div data-tour="home-quick" className="tg-card p-5 shadow-2xs">
         <h3 className="mb-4 text-sm font-semibold text-slate-800 dark:text-white">Accès rapide</h3>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           {quickLinks.map((item) => (

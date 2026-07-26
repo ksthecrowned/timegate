@@ -87,7 +87,7 @@ export default function NotificationBell() {
   }
 
   return (
-    <div className="relative" ref={rootRef}>
+    <div className="relative" ref={rootRef} data-tour="notifications">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}

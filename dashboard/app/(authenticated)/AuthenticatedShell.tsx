@@ -2,6 +2,7 @@
 
 import CopilotPanel from '@/components/ai/CopilotPanel'
 import { CopilotProvider } from '@/components/ai/CopilotProvider'
+import ProductTourBootstrap from '@/components/tour/ProductTourBootstrap'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
 import SubscriptionBanner from '@/components/layout/SubscriptionBanner'
@@ -29,6 +30,7 @@ export default function AuthenticatedShell({ children }: { children: React.React
           <ToastProvider>
             <CopilotProvider>
               <WebPushSetup />
+              <ProductTourBootstrap />
               <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
                 <Sidebar />
                 <Navbar />

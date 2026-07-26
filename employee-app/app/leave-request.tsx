@@ -14,13 +14,14 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
 
-import { BottomTabInset, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { STRINGS } from '@/constants/strings';
 import { DateField } from '@/components/ui/DateField';
 import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import type { LeaveType } from '@/lib/types';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const S = Spacing;
 const DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -39,6 +40,7 @@ function todayIso(): string {
 export default function LeaveRequestScreen() {
   const router = useRouter();
   const theme = useTheme();
+  const insets = useSafeAreaInsets();
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [selectedLeaveType, setSelectedLeaveType] = useState<string | null>(
     null,
@@ -168,7 +170,7 @@ export default function LeaveRequestScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.contentContainer,
-          { paddingBottom: BottomTabInset + S[6] },
+          { paddingBottom: insets.bottom + S[6] },
         ]}
         keyboardShouldPersistTaps="handled"
       >
