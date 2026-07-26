@@ -21,7 +21,7 @@ export default function TourResumeModal() {
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[1000000002] flex items-center justify-center bg-slate-900/50 p-4">
+    <div className="fixed inset-0 z-1000000002 flex items-center justify-center bg-slate-900/50 p-4">
       <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-surface-card p-6 shadow-xl dark:border-border-dark dark:bg-surface-card-dark">
         <h2 className="text-lg font-bold text-slate-900 dark:text-white">
           Reprendre la visite guidée ?

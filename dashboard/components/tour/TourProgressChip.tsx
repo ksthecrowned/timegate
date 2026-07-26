@@ -7,7 +7,7 @@ export default function TourProgressChip() {
   if (!progress.running || !progress.label) return null
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[1000000001] flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-1000000001 flex justify-center px-4">
       <div className="pointer-events-auto flex items-center gap-3 rounded-full border border-slate-200/80 bg-surface-card px-4 py-2.5 shadow-lg dark:border-border-dark dark:bg-surface-card-dark">
         <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
           {progress.label}

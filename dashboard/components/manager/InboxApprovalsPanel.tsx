@@ -198,7 +198,7 @@ export default function InboxApprovalsPanel() {
               type="button"
               disabled={submitting || selectedEvents.size === 0}
               onClick={() => void bulkAccept()}
-              className={`${primaryBtnClass} !py-1.5 !px-3 text-xs`}
+              className={`${primaryBtnClass} py-1.5! px-3! text-xs`}
             >
               {submitting ? 'Validation…' : `Accepter (${selectedEvents.size})`}
             </button>
@@ -206,7 +206,7 @@ export default function InboxApprovalsPanel() {
           </>
         ) : null}
 
-        <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+        <div className="min-w-48 flex-1 sm:max-w-xs">
           <SelectSearch
             instanceId="inbox-branch"
             variant="toolbar"
@@ -265,7 +265,7 @@ export default function InboxApprovalsPanel() {
         </nav>
       </div>
 
-      <div role="tabpanel" className="min-h-[28rem]">
+      <div role="tabpanel" className="min-h-112">
         {loading ? (
           <div className="space-y-0 divide-y divide-slate-100 dark:divide-border-dark">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -280,7 +280,7 @@ export default function InboxApprovalsPanel() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex min-h-[28rem] flex-col items-center justify-center gap-2 px-6 text-center">
+          <div className="flex min-h-112 flex-col items-center justify-center gap-2 px-6 text-center">
             <div className="mb-2 flex size-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-white/10">
               <i className="fa-regular fa-envelope-open text-2xl" />
             </div>
@@ -303,7 +303,7 @@ export default function InboxApprovalsPanel() {
                     className={`group flex cursor-pointer items-stretch gap-2 px-2 transition-colors sm:px-3 ${
                       selected
                         ? 'bg-primary/10'
-                        : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                        : 'hover:bg-slate-50 dark:hover:bg-white/4'
                     }`}
                     onClick={() => router.push(item.href)}
                     onKeyDown={(e) => {

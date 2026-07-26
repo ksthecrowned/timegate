@@ -231,7 +231,7 @@ export default function NotificationBell() {
                                 ? 'bg-primary/10'
                                 : !item.readAt
                                   ? 'bg-primary/5 hover:bg-primary/10'
-                                  : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                                  : 'hover:bg-slate-50 dark:hover:bg-white/4'
                             }`}
                           >
                             <p
@@ -544,8 +544,8 @@ function TopbarMessagesPane({
                       active
                         ? 'bg-primary/10'
                         : row.unread
-                          ? 'bg-primary/[0.04] hover:bg-primary/[0.08]'
-                          : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                          ? 'bg-primary/4 hover:bg-primary/8'
+                          : 'hover:bg-slate-50 dark:hover:bg-white/4'
                     }`}
                   >
                     <div className="flex items-center gap-2">
@@ -616,7 +616,7 @@ function TopbarMessagesPane({
                 rows={2}
                 maxLength={4000}
                 placeholder="Répondre…"
-                className="min-h-[2.5rem] flex-1 resize-none !py-2 text-sm"
+                className="min-h-10 flex-1 resize-none py-2! text-sm"
                 required
               />
               <button
