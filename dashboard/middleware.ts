@@ -81,6 +81,8 @@ export const config = {
     '/departments/:path*',
     '/designations',
     '/designations/:path*',
+    '/employment-types',
+    '/employment-types/:path*',
     '/shift-types',
     '/shift-types/:path*',
     '/shift-assignments',

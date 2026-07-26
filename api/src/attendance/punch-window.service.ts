@@ -16,10 +16,10 @@ type ShiftTypeWithWeekDays = ShiftType & {
 
 export type ResolvedEmployeeSchedule = {
   isWorkDay: boolean;
-  source: 'assignment' | 'employee_default' | 'company_default' | null;
+  /** assignment = règle récurrente ; day_exception = override date sur l'horaire */
+  source: 'assignment' | 'day_exception' | 'employee_default' | 'company_default' | null;
   shiftTypeId: string | null;
   shiftName: string | null;
-  /** Local HH:mm when scheduled */
   startTime: string | null;
   endTime: string | null;
 };
@@ -30,57 +30,24 @@ function minutesToHm(total: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
+function toUtcDay(at: Date): Date {
+  return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
+}
+
 @Injectable()
 export class PunchWindowService {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Résout le planning applicable (affectation → horaire employé → défaut entreprise)
-   * et indique si `at` est un jour travaillé selon les jours ouvrés.
+   * Résolution : exception de l'horaire (date) > jours ouvrés de l'affectation.
    */
   async resolveScheduleForEmployee(
     employeeId: string,
     at: Date,
   ): Promise<ResolvedEmployeeSchedule> {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: {
-        companyId: true,
-        defaultShiftId: true,
-        defaultShift: { include: { weekDays: true } },
-      },
-    });
-    if (!employee) {
-      return {
-        isWorkDay: false,
-        source: null,
-        shiftTypeId: null,
-        shiftName: null,
-        startTime: null,
-        endTime: null,
-      };
-    }
-
-    const assignment = await this.findActiveAssignment(employeeId, at);
-    let source: ResolvedEmployeeSchedule['source'] = null;
-    let shiftType: ShiftTypeWithWeekDays | null = null;
-
-    if (assignment?.shiftType) {
-      shiftType = assignment.shiftType as ShiftTypeWithWeekDays;
-      source = 'assignment';
-    } else if (employee.defaultShift) {
-      shiftType = employee.defaultShift as ShiftTypeWithWeekDays;
-      source = 'employee_default';
-    } else if (employee.companyId) {
-      const settings = await this.prisma.timeGateSystemSettings.findUnique({
-        where: { companyId: employee.companyId },
-        include: { defaultShiftType: { include: { weekDays: true } } },
-      });
-      if (settings?.defaultShiftType) {
-        shiftType = settings.defaultShiftType as ShiftTypeWithWeekDays;
-        source = 'company_default';
-      }
-    }
+    const day = toUtcDay(at);
+    const assignment = await this.findActiveAssignment(employeeId, day);
+    const shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
 
     if (!shiftType) {
       return {
@@ -93,24 +60,48 @@ export class PunchWindowService {
       };
     }
 
-    let weekDays = shiftType.weekDays;
-    if (weekDays.length === 0 && employee.companyId) {
-      const settings = await this.prisma.timeGateSystemSettings.findUnique({
-        where: { companyId: employee.companyId },
-        include: { defaultShiftType: { include: { weekDays: true } } },
-      });
-      const companyWeekDays = settings?.defaultShiftType?.weekDays;
-      if (companyWeekDays && companyWeekDays.length > 0) {
-        weekDays = companyWeekDays;
+    const exception = await this.findDayException(shiftType.id, day);
+
+    if (exception) {
+      if (exception.isOff) {
+        return {
+          isWorkDay: false,
+          source: 'day_exception',
+          shiftTypeId: shiftType.id,
+          shiftName: shiftType.shiftName ?? null,
+          startTime: null,
+          endTime: null,
+        };
       }
+      const startMin = timeDateToMinutes(exception.startTime);
+      const endMin = timeDateToMinutes(exception.endTime);
+      if (startMin == null || endMin == null) {
+        return {
+          isWorkDay: false,
+          source: 'day_exception',
+          shiftTypeId: shiftType.id,
+          shiftName: shiftType.shiftName ?? null,
+          startTime: null,
+          endTime: null,
+        };
+      }
+      return {
+        isWorkDay: true,
+        source: 'day_exception',
+        shiftTypeId: shiftType.id,
+        shiftName: shiftType.shiftName ?? null,
+        startTime: minutesToHm(startMin),
+        endTime: minutesToHm(endMin),
+      };
     }
 
-    const weekDay = toWeekDay(at);
+    const weekDays = shiftType.weekDays;
+    const weekDay = toWeekDay(day);
     const weekDayRow = weekDays.find((row) => row.day === weekDay);
-    if (weekDays.length > 0 && !weekDayRow) {
+    if (weekDays.length === 0 || !weekDayRow) {
       return {
         isWorkDay: false,
-        source,
+        source: 'assignment',
         shiftTypeId: shiftType.id,
         shiftName: shiftType.shiftName ?? null,
         startTime: null,
@@ -121,13 +112,13 @@ export class PunchWindowService {
     const { startMin, endMin } = resolveShiftBounds(
       shiftType.startTime,
       shiftType.endTime,
-      weekDayRow?.startTime,
-      weekDayRow?.endTime,
+      weekDayRow.startTime,
+      weekDayRow.endTime,
     );
 
     return {
       isWorkDay: true,
-      source,
+      source: 'assignment',
       shiftTypeId: shiftType.id,
       shiftName: shiftType.shiftName ?? null,
       startTime: minutesToHm(startMin),
@@ -139,57 +130,31 @@ export class PunchWindowService {
     employeeId: string,
     at: Date,
   ): Promise<ResolvedPunchWindows | null> {
-    const employee = await this.prisma.employee.findUnique({
-      where: { id: employeeId },
-      select: {
-        companyId: true,
-        defaultShiftId: true,
-        defaultShift: { include: { weekDays: true } },
-      },
-    });
-    if (!employee) return null;
-
-    const assignment = await this.findActiveAssignment(employeeId, at);
-    let shiftType: ShiftTypeWithWeekDays | null =
-      assignment?.shiftType ??
-      (employee.defaultShift as ShiftTypeWithWeekDays | null) ??
-      null;
-
-    if (!shiftType && employee.companyId) {
-      const settings = await this.prisma.timeGateSystemSettings.findUnique({
-        where: { companyId: employee.companyId },
-        include: { defaultShiftType: { include: { weekDays: true } } },
-      });
-      shiftType = (settings?.defaultShiftType as ShiftTypeWithWeekDays | null) ?? null;
-    }
-
+    const day = toUtcDay(at);
+    const assignment = await this.findActiveAssignment(employeeId, day);
+    const shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
     if (!shiftType) return null;
 
-    // Jours ouvrés : ceux de l'horaire résolu ; si non configurés, ceux du défaut entreprise.
-    let weekDays = shiftType.weekDays;
-    if (weekDays.length === 0 && employee.companyId) {
-      const settings = await this.prisma.timeGateSystemSettings.findUnique({
-        where: { companyId: employee.companyId },
-        include: { defaultShiftType: { include: { weekDays: true } } },
-      });
-      const companyWeekDays = settings?.defaultShiftType?.weekDays;
-      if (companyWeekDays && companyWeekDays.length > 0) {
-        weekDays = companyWeekDays;
-      }
+    const exception = await this.findDayException(shiftType.id, day);
+    if (exception?.isOff) return null;
+
+    if (exception && !exception.isOff) {
+      const startMin = timeDateToMinutes(exception.startTime);
+      const endMin = timeDateToMinutes(exception.endTime);
+      if (startMin == null || endMin == null) return null;
+      return this.buildWindows(shiftType, startMin, endMin);
     }
 
-    // Pas de règle weekend : un jour est travaillé ssi le planning résolu le prévoit.
-    const weekDay = toWeekDay(at);
+    const weekDays = shiftType.weekDays;
+    const weekDay = toWeekDay(day);
     const weekDayRow = weekDays.find((row) => row.day === weekDay);
-    if (weekDays.length > 0 && !weekDayRow) {
-      return null;
-    }
+    if (weekDays.length === 0 || !weekDayRow) return null;
 
     const { startMin, endMin } = resolveShiftBounds(
       shiftType.startTime,
       shiftType.endTime,
-      weekDayRow?.startTime,
-      weekDayRow?.endTime,
+      weekDayRow.startTime,
+      weekDayRow.endTime,
     );
 
     return this.buildWindows(shiftType, startMin, endMin);
@@ -227,8 +192,18 @@ export class PunchWindowService {
     };
   }
 
-  private async findActiveAssignment(employeeId: string, at: Date) {
-    const day = new Date(Date.UTC(at.getFullYear(), at.getMonth(), at.getDate()));
+  private async findDayException(shiftTypeId: string, day: Date) {
+    return this.prisma.timeGateScheduleDayException.findUnique({
+      where: {
+        shiftTypeId_workDate: {
+          shiftTypeId,
+          workDate: day,
+        },
+      },
+    });
+  }
+
+  private async findActiveAssignment(employeeId: string, day: Date) {
     const rows = await this.prisma.shiftAssignment.findMany({
       where: { employeeId },
       include: {
@@ -237,9 +212,7 @@ export class PunchWindowService {
       orderBy: { startDate: 'desc' },
     });
 
-    return (
-      rows.find((row) => this.coversDate(row.startDate, row.endDate, day)) ?? null
-    );
+    return rows.find((row) => this.coversDate(row.startDate, row.endDate, day)) ?? null;
   }
 
   private coversDate(start: Date | null, end: Date | null, day: Date): boolean {

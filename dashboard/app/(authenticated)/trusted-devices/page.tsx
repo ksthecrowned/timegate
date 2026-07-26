@@ -49,12 +49,16 @@ export default function TrustedDevicesPage() {
       <PageHeader
         breadcrumbs={[
           { label: 'Administration' },
-          { label: 'Appareils en attente' },
+          { label: 'Téléphones employés' },
         ]}
       />
 
       <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Approuvez les téléphones employés avant le pointage mobile.
+        Approuvez les téléphones pour le pointage mobile. Les bornes physiques sont dans{' '}
+        <a href="/kiosks" className="text-primary hover:underline">
+          Bornes / kiosques
+        </a>
+        .
       </p>
 
       <ApiErrorBanner message={error} />

@@ -63,7 +63,11 @@ export class SubscriptionStateService {
 
     const now = Date.now();
     const expiryMs = subscription.expiresAt?.getTime() ?? null;
-    const graceMs = subscription.graceEndsAt?.getTime() ?? null;
+    const graceEndMs =
+      subscription.graceEndsAt?.getTime() ??
+      (expiryMs != null
+        ? expiryMs + settings.gracePeriodDays * 24 * 60 * 60 * 1000
+        : null);
 
     return {
       subscription,
@@ -78,7 +82,9 @@ export class SubscriptionStateService {
       daysUntilExpiry:
         expiryMs != null ? Math.ceil((expiryMs - now) / (1000 * 60 * 60 * 24)) : null,
       daysUntilGraceEnd:
-        graceMs != null ? Math.ceil((graceMs - now) / (1000 * 60 * 60 * 24)) : null,
+        graceEndMs != null
+          ? Math.ceil((graceEndMs - now) / (1000 * 60 * 60 * 24))
+          : null,
     };
   }
 

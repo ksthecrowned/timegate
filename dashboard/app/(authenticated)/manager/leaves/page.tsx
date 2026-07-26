@@ -105,13 +105,16 @@ export default function ManagerLeavesCalendarPage() {
   return (
     <div className="space-y-4" data-tour="manager-leaves">
       <PageHeader
-        breadcrumbs={[{ label: 'Manager', href: '/' }, { label: 'Calendrier congés' }]}
+        breadcrumbs={[{ label: 'Manager', href: '/' }, { label: 'Absences équipe' }]}
         action={
           <Link href="/manager/inbox" className={secondaryBtnClass}>
-            Boîte de réception
+            Boite de réception
           </Link>
         }
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Vue mensuelle des congés de l&apos;équipe. Validation dans l&apos;inbox.
+      </p>
 
       <ApiErrorBanner message={error} />
 

@@ -1,4 +1,15 @@
-import { IsBoolean, IsInt, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class UpdateSystemConfigDto {
   @IsOptional()
@@ -104,4 +115,21 @@ export class UpdateSystemConfigDto {
   @IsString()
   @MaxLength(255)
   webhookSecret?: string | null;
+
+  /** Prefill pause pour nouveaux horaires types (HH:mm) */
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  defaultBreakWindowStart?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{1,2}:\d{2}$/)
+  defaultBreakWindowEnd?: string | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(24 * 60)
+  defaultBreakDurationMinutes?: number;
 }

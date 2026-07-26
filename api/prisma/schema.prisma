@@ -264,12 +264,14 @@ model Company {
   timeGatePayrollRuns      TimeGatePayrollRun[]
   timeGateEmployeeContracts TimeGateEmployeeContract[]
   designations              Designation[]
+  employmentTypes           EmploymentType[]
   shiftSwapRequests         TimeGateShiftSwapRequest[]
   timeGateNotifications     TimeGateNotification[]
   timeGateNotificationRules TimeGateNotificationRule[]
   timeGatePunchAttemptLogs  TimeGatePunchAttemptLog[]
   timeGatePunchClaims       TimeGatePunchClaim[]
   timeGateConversations     TimeGateConversation[]
+  scheduleDayExceptions     TimeGateScheduleDayException[]
 
   @@map("tabCompany")
 }
@@ -387,11 +389,18 @@ model Designation {
 }
 
 model EmploymentType {
-  id               String @id @db.VarChar(140)
-  employeeTypeName String @map("employee_type_name") @db.VarChar(140)
+  id        String    @id @db.VarChar(140)
+  createdAt DateTime  @default(now()) @map("creation")
+  updatedAt DateTime  @updatedAt @map("modified")
+  docStatus DocStatus @default(DRAFT) @map("docstatus")
+
+  employeeTypeName String  @map("employee_type_name") @db.VarChar(140)
+  companyId        String  @map("company") @db.VarChar(140)
+  company          Company @relation(fields: [companyId], references: [id])
 
   employees Employee[]
 
+  @@unique([companyId, employeeTypeName])
   @@map("tabEmployment Type")
 }
 
@@ -643,6 +652,7 @@ model ShiftType {
   checkins    EmployeeCheckin[]
   attendances Attendance[]
   companyDefaultShifts TimeGateSystemSettings[]
+  scheduleDayExceptions TimeGateScheduleDayException[]
 
   @@index([companyId])
   @@index([branchId])
@@ -703,6 +713,29 @@ model ShiftAssignment {
   shiftSwapRequests TimeGateShiftSwapRequest[]
 
   @@map("tabShift Assignment")
+}
+
+/// Exception ponctuelle sur un horaire type : remplace les heures du jour (ou jour off)
+/// pour tous les employés affectés à cet horaire.
+model TimeGateScheduleDayException {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  companyId   String    @map("company") @db.VarChar(140)
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  shiftTypeId String    @map("shift_type") @db.VarChar(140)
+  shiftType   ShiftType @relation(fields: [shiftTypeId], references: [id], onDelete: Cascade)
+  workDate    DateTime  @map("work_date") @db.Date
+  /// Si true : ce jour n'est pas travaillé pour cet horaire.
+  isOff       Boolean   @default(false) @map("is_off")
+  startTime   DateTime? @map("start_time") @db.Time
+  endTime     DateTime? @map("end_time") @db.Time
+  note        String?   @db.VarChar(255)
+
+  @@unique([shiftTypeId, workDate])
+  @@index([companyId, workDate])
+  @@map("timegate_schedule_day_exception")
 }
 
 model HolidayList {
@@ -1162,6 +1195,10 @@ model TimeGateSystemSettings {
   webhookSecret String? @map("webhook_secret") @db.VarChar(255)
   defaultShiftTypeId String? @map("default_shift_type") @db.VarChar(140)
   defaultShiftType   ShiftType? @relation(fields: [defaultShiftTypeId], references: [id], onDelete: SetNull)
+  /// Prefill for new shift types (HH:mm)
+  defaultBreakWindowStart String? @default("12:00") @map("default_break_window_start") @db.VarChar(5)
+  defaultBreakWindowEnd   String? @default("13:00") @map("default_break_window_end") @db.VarChar(5)
+  defaultBreakDurationMinutes Int @default(60) @map("default_break_duration_minutes")
 
   @@map("timegate_system_settings")
 }

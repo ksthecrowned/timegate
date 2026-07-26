@@ -89,7 +89,7 @@ export default function AbsencesPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Absences' }]}
+        breadcrumbs={[{ label: 'Absences non justifiées' }]}
         action={
           <div className="flex gap-2">
             <button
@@ -104,6 +104,13 @@ export default function AbsencesPage() {
           </div>
         }
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        No-shows dérivés des journées ABSENT — pas les demandes de congé (
+        <a href="/leaves" className="text-primary hover:underline">
+          Demandes de congé
+        </a>
+        ).
+      </p>
       <ApiErrorBanner message={error} />
       {syncMessage && (
         <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">

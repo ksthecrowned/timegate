@@ -62,9 +62,9 @@ export default function EditEmployeePage() {
             hireDate: normalizeApiDate(employee.hireDate),
             birthDate: normalizeApiDate(employee.birthDate),
             branchId: employee.branchId ?? '',
-            defaultShiftId: employee.defaultShiftId ?? employee.defaultShift?.id ?? '',
             departmentId: employee.departmentId ?? '',
             designationId: employee.designationId ?? '',
+            employmentTypeId: employee.employmentTypeId ?? '',
             holidayListId: employee.holidayListId ?? '',
             isActive: employee.isActive,
           }}

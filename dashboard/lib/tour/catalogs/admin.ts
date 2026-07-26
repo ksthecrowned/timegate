@@ -118,7 +118,7 @@ export const adminTourSteps: TourStep[] = [
     element: '[data-tour="manager-inbox"]',
     title: 'Zéro dossier qui traîne',
     description:
-      'L’inbox rassemble congés, échanges de shifts et claims en attente. Traitez-les ici pour tenir les délais RH sans chercher dans cinq menus. Un inbox vide en fin de journée, c’est une organisation sous contrôle.',
+      'L’inbox rassemble congés, échanges, claims et la messagerie. Traitez les validations ici, puis passez à Messagerie si besoin — sans chercher dans cinq menus. Un inbox vide en fin de journée, c’est une organisation sous contrôle.',
     side: 'bottom',
     align: 'start',
   },

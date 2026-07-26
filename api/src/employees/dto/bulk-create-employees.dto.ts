@@ -138,6 +138,11 @@ export class BulkEmployeeRowDto {
   @IsOptional()
   @IsString()
   @MaxLength(140)
+  employmentTypeId?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
   holidayListId?: string;
 
   @IsOptional()

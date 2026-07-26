@@ -53,9 +53,16 @@ export default function LeavesPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Congés' }]}
+        breadcrumbs={[{ label: 'Demandes de congé' }]}
         action={<AddPageLink href="/leaves/new" label="Ajouter un congé" />}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Demandes RH (congés payés, maladie…). Les no-shows sans demande sont dans{' '}
+        <a href="/absences" className="text-primary hover:underline">
+          Absences non justifiées
+        </a>
+        .
+      </p>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}

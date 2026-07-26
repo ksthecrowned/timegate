@@ -25,6 +25,8 @@ import { ShiftLocationsModule } from './shift-locations/shift-locations.module';
 import { ShiftAssignmentsModule } from './shift-assignments/shift-assignments.module';
 import { DepartmentsModule } from './departments/departments.module';
 import { DesignationsModule } from './designations/designations.module';
+import { EmploymentTypesModule } from './employment-types/employment-types.module';
+import { ScheduleDayExceptionsModule } from './schedule-day-exceptions/schedule-day-exceptions.module';
 import { LeaveTypesModule } from './leave-types/leave-types.module';
 import { CountriesModule } from './countries/countries.module';
 import { CitiesModule } from './cities/cities.module';
@@ -71,6 +73,8 @@ import { AnalyticsModule } from './analytics/analytics.module';
     ShiftAssignmentsModule,
     DepartmentsModule,
     DesignationsModule,
+    EmploymentTypesModule,
+    ScheduleDayExceptionsModule,
     LeaveTypesModule,
     CountriesModule,
     CitiesModule,

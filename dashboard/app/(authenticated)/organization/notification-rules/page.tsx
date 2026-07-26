@@ -56,14 +56,18 @@ export default function NotificationRulesPage() {
       <PageHeader
         breadcrumbs={[
           { label: 'Configuration organisation', href: '/organization' },
-          { label: 'Règles notifications' },
+          { label: 'Règles d’alertes' },
         ]}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Canaux d&apos;alerte (in-app, push, e-mail) par type d&apos;événement — distinct de
+        l&apos;inbox manager « Boite de réception ».
+      </p>
       <ApiErrorBanner message={error} />
 
       <FormCard
-        title="Règles de notification"
-        hint="Activez ou désactivez chaque canal (boîte de réception, push, e-mail) par type d’événement."
+        title="Règles d’alertes"
+        hint="Activez ou désactivez chaque canal (alertes in-app, push, e-mail) par type d’événement."
       >
         {loading ? (
           <p className="text-sm text-slate-500">Chargement…</p>
@@ -76,7 +80,7 @@ export default function NotificationRulesPage() {
                     Événement
                   </th>
                   <th className="py-2.5 pr-4 font-semibold text-slate-700 dark:text-slate-200">
-                    Boîte de réception
+                    Alertes in-app
                   </th>
                   <th className="py-2.5 pr-4 font-semibold text-slate-700 dark:text-slate-200">
                     Push
@@ -106,7 +110,7 @@ export default function NotificationRulesPage() {
                         checked={rule.inAppEnabled}
                         disabled={savingType === rule.type}
                         onCheckedChange={() => void toggle(rule, 'inAppEnabled')}
-                        aria-label={`Boîte de réception — ${notificationTypeLabel(rule.type)}`}
+                        aria-label={`Alertes in-app — ${notificationTypeLabel(rule.type)}`}
                       />
                     </td>
                     <td className="py-3 pr-4">

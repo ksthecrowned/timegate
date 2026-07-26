@@ -64,9 +64,16 @@ export default function PayrollRunsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Paies' }]}
-        action={<AddPageLink href="/payroll-runs/new" label="Nouvelle paie" />}
+        breadcrumbs={[{ label: 'Cycles de paie' }]}
+        action={<AddPageLink href="/payroll-runs/new" label="Nouveau cycle" />}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Calcul mensuel à partir des rémunérations de base et du temps travaillé. Saisie des bases :{' '}
+        <a href="/salaries" className="text-primary hover:underline">
+          Rémunérations de base
+        </a>
+        .
+      </p>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}

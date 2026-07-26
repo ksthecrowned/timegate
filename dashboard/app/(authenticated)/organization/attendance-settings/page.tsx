@@ -7,8 +7,6 @@ import { HintTooltip } from '@/components/ui/HintTooltip'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
 import { HttpError } from '@/lib/http'
-import { findOption, toSelectOptions } from '@/lib/select-options'
-import { listShiftTypes } from '@/lib/timegate/shift-types'
 import {
   getTenantAttendanceSettings,
   updateTenantAttendanceSettings,
@@ -46,8 +44,6 @@ export default function TenantAttendanceSettingsPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [shiftOptions, setShiftOptions] = useState<SelectOption[]>([])
-  const [defaultShiftTypeId, setDefaultShiftTypeId] = useState('')
   const [pinFailureThreshold, setPinFailureThreshold] = useState(3)
   const [pinFailureCooldownSeconds, setPinFailureCooldownSeconds] = useState(30)
   const [timesheetRoundingMinutes, setTimesheetRoundingMinutes] = useState(0)
@@ -66,17 +62,18 @@ export default function TenantAttendanceSettingsPage() {
   const [webhookEnabled, setWebhookEnabled] = useState(false)
   const [webhookUrl, setWebhookUrl] = useState('')
   const [webhookSecret, setWebhookSecret] = useState('')
+  const [defaultBreakWindowStart, setDefaultBreakWindowStart] = useState('12:00')
+  const [defaultBreakWindowEnd, setDefaultBreakWindowEnd] = useState('13:00')
+  const [defaultBreakDurationMinutes, setDefaultBreakDurationMinutes] = useState(60)
+  const [minConfidence, setMinConfidence] = useState(0.75)
+  const [lateThreshold, setLateThreshold] = useState(10)
+  const [veryLateThreshold, setVeryLateThreshold] = useState(30)
 
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [settings, shifts] = await Promise.all([
-        getTenantAttendanceSettings(),
-        listShiftTypes({ page: 1, limit: 100 }),
-      ])
-      setShiftOptions(toSelectOptions(shifts.data))
-      setDefaultShiftTypeId(settings.defaultShiftTypeId ?? '')
+      const settings = await getTenantAttendanceSettings()
       setPinFailureThreshold(settings.pinFailureThreshold ?? 3)
       setPinFailureCooldownSeconds(settings.pinFailureCooldownSeconds ?? 30)
       setTimesheetRoundingMinutes(settings.timesheetRoundingMinutes ?? 0)
@@ -97,6 +94,12 @@ export default function TenantAttendanceSettingsPage() {
       setWebhookEnabled(settings.webhookEnabled ?? false)
       setWebhookUrl(settings.webhookUrl ?? '')
       setWebhookSecret(settings.webhookSecret ?? '')
+      setDefaultBreakWindowStart(settings.defaultBreakWindowStart ?? '12:00')
+      setDefaultBreakWindowEnd(settings.defaultBreakWindowEnd ?? '13:00')
+      setDefaultBreakDurationMinutes(settings.defaultBreakDurationMinutes ?? 60)
+      setMinConfidence(settings.minConfidence ?? 0.75)
+      setLateThreshold(settings.lateThreshold ?? 10)
+      setVeryLateThreshold(settings.veryLateThreshold ?? 30)
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Erreur de chargement')
     } finally {
@@ -115,7 +118,6 @@ export default function TenantAttendanceSettingsPage() {
     setSuccess('')
     try {
       await updateTenantAttendanceSettings({
-        defaultShiftTypeId: defaultShiftTypeId.trim() || null,
         pinFailureThreshold,
         pinFailureCooldownSeconds,
         timesheetRoundingMinutes,
@@ -132,6 +134,12 @@ export default function TenantAttendanceSettingsPage() {
         webhookEnabled,
         webhookUrl: webhookUrl.trim() || null,
         webhookSecret: webhookSecret.trim() || null,
+        defaultBreakWindowStart: defaultBreakWindowStart.trim() || null,
+        defaultBreakWindowEnd: defaultBreakWindowEnd.trim() || null,
+        defaultBreakDurationMinutes,
+        minConfidence,
+        lateThreshold,
+        veryLateThreshold,
       })
       setSuccess('Paramètres enregistrés.')
       await load()
@@ -147,7 +155,7 @@ export default function TenantAttendanceSettingsPage() {
       <PageHeader
         breadcrumbs={[
           { label: 'Configuration organisation', href: '/organization' },
-          { label: 'Paramètres pointage' },
+          { label: 'Paramètres de pointage' },
         ]}
       />
 
@@ -163,7 +171,7 @@ export default function TenantAttendanceSettingsPage() {
       ) : (
         <form onSubmit={handleSave}>
           <FormCard
-            title="Paramètres pointage"
+            title="Paramètres de pointage"
             hint="Ces réglages s'appliquent à tous les kiosques de votre organisation. Les méthodes (visage, NFC, QR) se configurent par kiosque."
             footer={
               <button type="submit" disabled={saving} className={primaryBtnClass}>
@@ -172,19 +180,44 @@ export default function TenantAttendanceSettingsPage() {
             }
           >
             <div className="grid max-w-3xl gap-6 md:grid-cols-2">
-              <FormField
-                label="Horaire fallback"
-                hint="Utilisé pour les fenêtres de pointage si l'employé n'a ni affectation du jour ni horaire par défaut."
+              <Section
+                title="Reconnaissance & retards"
+                hint="Seuils faciaux et de retard pour le calcul des journées."
               >
-                <SelectSearch
-                  instanceId="tenant-default-shift"
-                  options={shiftOptions}
-                  value={findOption(shiftOptions, defaultShiftTypeId)}
-                  isClearable
-                  onChange={(opt) => setDefaultShiftTypeId(opt?.value ?? '')}
-                  placeholder="Aucun — employé sans horaire assigné"
-                />
-              </FormField>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField
+                    label="Confiance faciale min."
+                    hint="0 à 1 — seuil pour accepter une reconnaissance."
+                  >
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min={0}
+                      max={1}
+                      value={minConfidence}
+                      onChange={(e) => setMinConfidence(Number(e.target.value))}
+                    />
+                  </FormField>
+                  <FormField label="Seuil retard (min)">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={lateThreshold}
+                      onChange={(e) => setLateThreshold(Math.max(0, Number(e.target.value) || 0))}
+                    />
+                  </FormField>
+                  <FormField label="Seuil retard majeur (min)">
+                    <Input
+                      type="number"
+                      min={0}
+                      value={veryLateThreshold}
+                      onChange={(e) =>
+                        setVeryLateThreshold(Math.max(0, Number(e.target.value) || 0))
+                      }
+                    />
+                  </FormField>
+                </div>
+              </Section>
 
               <Section
                 title="Fallback PIN (kiosque)"
@@ -247,7 +280,7 @@ export default function TenantAttendanceSettingsPage() {
 
               <Section
                 title="Politique timesheet"
-                hint="Appliquée lors du recalcul des journées. Les retards utilisent aussi le seuil tenant (page Reconnaissance & retards) ou la tolérance de l'horaire type."
+                hint="Appliquée lors du recalcul des journées. Les seuils de retard sont ci-dessus (Reconnaissance & retards) ; la tolérance peut aussi venir de l'horaire type."
               >
                 <div className="grid gap-4 md:grid-cols-3">
                   <FormField label="Arrondi (minutes)" hint="0 = aucun, 5 ou 15 min au plus proche.">
@@ -289,6 +322,39 @@ export default function TenantAttendanceSettingsPage() {
                       value={minMinutesBetweenShifts}
                       onChange={(e) =>
                         setMinMinutesBetweenShifts(Math.max(0, Number(e.target.value) || 0))
+                      }
+                    />
+                  </FormField>
+                </div>
+              </Section>
+
+              <Section
+                title="Pause (défaut)"
+                hint="Valeurs préremplies à la création d'un nouvel horaire type. Chaque horaire peut ensuite les modifier."
+              >
+                <div className="grid gap-4 md:grid-cols-3">
+                  <FormField label="Début fenêtre pause">
+                    <Input
+                      type="time"
+                      value={defaultBreakWindowStart}
+                      onChange={(e) => setDefaultBreakWindowStart(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Fin fenêtre pause">
+                    <Input
+                      type="time"
+                      value={defaultBreakWindowEnd}
+                      onChange={(e) => setDefaultBreakWindowEnd(e.target.value)}
+                    />
+                  </FormField>
+                  <FormField label="Durée pause (min)" hint="Durée attendue de la pause.">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={480}
+                      value={defaultBreakDurationMinutes}
+                      onChange={(e) =>
+                        setDefaultBreakDurationMinutes(Math.max(0, Number(e.target.value) || 0))
                       }
                     />
                   </FormField>

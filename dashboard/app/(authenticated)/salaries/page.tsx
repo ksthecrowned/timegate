@@ -73,9 +73,17 @@ export default function SalariesPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Salaires' }]}
-        action={<AddPageLink href="/salaries/new" label="Ajouter un salaire" />}
+        breadcrumbs={[{ label: 'Rémunérations de base' }]}
+        action={<AddPageLink href="/salaries/new" label="Ajouter une rémunération" />}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Base / primes / retenues saisies pour le mois. Le calcul du cycle (HS, absences…) se fait
+        dans{' '}
+        <a href="/payroll-runs" className="text-primary hover:underline">
+          Cycles de paie
+        </a>
+        .
+      </p>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}

@@ -1,6 +1,12 @@
 import { http } from '@/lib/http'
 import type { PaginatedResponse } from '@/lib/http/types'
-import type { ShiftType } from '@/lib/timegate/types'
+import type { ShiftType, WeekDayName } from '@/lib/timegate/types'
+
+export type ShiftWeekDayPayload = {
+  day: WeekDayName
+  startTime: string
+  endTime: string
+}
 
 export type ShiftTypePayload = {
   branchId: string
@@ -15,6 +21,7 @@ export type ShiftTypePayload = {
   breakWindowStart?: string
   breakWindowEnd?: string
   breakDurationMinutes?: number
+  weekDays?: ShiftWeekDayPayload[]
 }
 
 export function listShiftTypes(params?: { page?: number; limit?: number; branchId?: string }) {

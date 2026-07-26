@@ -18,6 +18,12 @@ export function listDesignations(params?: { page?: number; limit?: number }) {
   })
 }
 
+export function listEmploymentTypes(params?: { page?: number; limit?: number }) {
+  return http.get<PaginatedResponse<NamedEntity>>('/employment-types', {
+    params: { page: 1, limit: 100, ...params },
+  })
+}
+
 export function listShiftTypes(params?: { page?: number; limit?: number; branchId?: string }) {
   return http.get<PaginatedResponse<NamedEntity & { branchId?: string | null }>>('/shift-types', {
     params: { page: 1, limit: 100, ...params },

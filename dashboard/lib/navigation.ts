@@ -38,11 +38,9 @@ export const timegateNavSections: NavSection[] = [
     title: 'Manager',
     roles: ['ADMIN', 'MANAGER'],
     items: [
-      { label: 'Équipe du jour', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
-      { label: 'Boîte de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
-      { label: 'Messages', href: '/messages', faIcon: 'fa-solid fa-comments' },
-      { label: 'Analytics produit', href: '/organization/analytics', faIcon: 'fa-solid fa-chart-line' },
-      { label: 'Calendrier congés', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
+      { label: 'Équipe du jour (suivi live)', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
+      { label: 'Boite de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
+      { label: 'Absences équipe', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
     ],
   },
   {
@@ -54,7 +52,7 @@ export const timegateNavSections: NavSection[] = [
         faIcon: 'fa-solid fa-map-location-dot',
         children: [
           { label: 'Branches', href: '/branches', faIcon: 'fa-solid fa-code-branch' },
-          { label: 'Kiosques', href: '/kiosks', faIcon: 'fa-solid fa-tablet-screen-button' },
+          { label: 'Bornes / kiosques', href: '/kiosks', faIcon: 'fa-solid fa-tablet-screen-button' },
         ],
       },
       {
@@ -74,6 +72,12 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-id-badge',
             roles: ['ADMIN'],
           },
+          {
+            label: 'Types de contrat',
+            href: '/employment-types',
+            faIcon: 'fa-solid fa-file-signature',
+            roles: ['ADMIN'],
+          },
         ],
       },
       {
@@ -87,18 +91,31 @@ export const timegateNavSections: NavSection[] = [
             roles: ['ADMIN'],
           },
           {
-            label: 'Jours ouvrés',
-            href: '/work-days',
-            faIcon: 'fa-solid fa-calendar-week',
-            roles: ['ADMIN'],
-          },
-          {
             label: 'Affectations',
             href: '/shift-assignments',
             faIcon: 'fa-solid fa-user-clock',
           },
-          { label: 'Planning équipe', href: '/planning', faIcon: 'fa-solid fa-calendar-days' },
-          { label: 'Échanges shifts', href: '/shift-swaps', faIcon: 'fa-solid fa-right-left' },
+          {
+            label: 'Exceptions (date)',
+            href: '/schedule-day-exceptions',
+            faIcon: 'fa-solid fa-calendar-day',
+          },
+          {
+            label: 'Planning prévu',
+            href: '/planning',
+            faIcon: 'fa-solid fa-calendar-days',
+          },
+          {
+            label: 'Échanges de poste',
+            href: '/shift-swaps',
+            faIcon: 'fa-solid fa-right-left',
+          },
+          {
+            label: 'Jours fériés',
+            href: '/holidays',
+            faIcon: 'fa-solid fa-calendar-xmark',
+            roles: ['ADMIN'],
+          },
         ],
       },
     ],
@@ -109,12 +126,12 @@ export const timegateNavSections: NavSection[] = [
     items: [
       { label: 'Employés', href: '/employees', faIcon: 'fa-solid fa-users' },
       {
-        label: 'Congés & calendrier',
+        label: 'Congés',
         faIcon: 'fa-solid fa-umbrella-beach',
         roles: ['ADMIN'],
         children: [
           {
-            label: 'Congés',
+            label: 'Demandes de congé',
             href: '/leaves',
             faIcon: 'fa-solid fa-umbrella-beach',
             roles: ['ADMIN'],
@@ -125,16 +142,18 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-list',
             roles: ['ADMIN'],
           },
-          {
-            label: 'Jours fériés',
-            href: '/holidays',
-            faIcon: 'fa-solid fa-calendar-day',
-            roles: ['ADMIN'],
-          },
         ],
       },
-      { label: 'Absences', href: '/absences', faIcon: 'fa-solid fa-user-xmark' },
-      { label: 'Retards', href: '/late-records', faIcon: 'fa-solid fa-hourglass-half' },
+      {
+        label: 'Absences non justifiées',
+        href: '/absences',
+        faIcon: 'fa-solid fa-user-xmark',
+      },
+      {
+        label: 'Retards à justifier',
+        href: '/late-records',
+        faIcon: 'fa-solid fa-hourglass-half',
+      },
     ],
   },
   {
@@ -146,26 +165,27 @@ export const timegateNavSections: NavSection[] = [
         faIcon: 'fa-solid fa-clock',
         children: [
           {
-            label: 'Jours de présence',
+            label: 'Registre de présence',
             href: '/attendance/days',
             faIcon: 'fa-solid fa-calendar-day',
           },
           {
-            label: 'Événements',
+            label: 'Événements de pointage',
             href: '/attendance/events',
             faIcon: 'fa-solid fa-list-check',
           },
           {
-            label: 'Feuilles de temps',
+            label: 'Temps travaillé',
             href: '/timesheets',
             faIcon: 'fa-solid fa-file-lines',
           },
         ],
       },
       {
-        label: 'Journaux de reconnaissance',
+        label: 'Logs biométriques',
         href: '/face-recognition-logs',
         faIcon: 'fa-solid fa-face-smile',
+        roles: ['ADMIN'],
       },
     ],
   },
@@ -174,11 +194,15 @@ export const timegateNavSections: NavSection[] = [
     roles: ['ADMIN'],
     items: [
       {
-        label: 'Paies',
+        label: 'Cycles de paie',
         href: '/payroll-runs',
         faIcon: 'fa-solid fa-file-invoice-dollar',
       },
-      { label: 'Salaires', href: '/salaries', faIcon: 'fa-solid fa-money-bill-wave' },
+      {
+        label: 'Rémunérations de base',
+        href: '/salaries',
+        faIcon: 'fa-solid fa-money-bill-wave',
+      },
     ],
   },
   {
@@ -197,13 +221,13 @@ export const timegateNavSections: NavSection[] = [
             roles: ['ADMIN'],
           },
           {
-            label: 'Paramètres pointage',
+            label: 'Paramètres de pointage',
             href: '/organization/attendance-settings',
             faIcon: 'fa-solid fa-sliders',
             roles: ['ADMIN'],
           },
           {
-            label: 'Règles notifications',
+            label: 'Règles d’alertes',
             href: '/organization/notification-rules',
             faIcon: 'fa-solid fa-bell',
             roles: ['ADMIN'],
@@ -220,12 +244,6 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-chart-line',
             roles: ['ADMIN'],
           },
-          {
-            label: 'Reconnaissance & retards',
-            href: '/system-config',
-            faIcon: 'fa-solid fa-face-smile',
-            roles: ['ADMIN'],
-          },
         ],
       },
       {
@@ -239,7 +257,7 @@ export const timegateNavSections: NavSection[] = [
             roles: ['ADMIN'],
           },
           {
-            label: 'Appareils en attente',
+            label: 'Téléphones employés',
             href: '/trusted-devices',
             faIcon: 'fa-solid fa-mobile-screen',
             roles: ['ADMIN', 'MANAGER'],

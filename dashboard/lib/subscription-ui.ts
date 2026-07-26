@@ -13,9 +13,20 @@ const UPGRADE_TARGET: Record<string, string> = {
   PRO: 'Enterprise',
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  SELF_SIGNUP: 'Inscription',
+  ACTIVATION_KEY: 'Clé d’activation',
+  MANUAL: 'Manuel',
+}
+
 export function planLabel(plan?: string | null): string {
   if (!plan) return 'Abonnement'
   return PLAN_LABELS[plan.toUpperCase()] ?? plan
+}
+
+export function subscriptionSourceLabel(source?: string | null): string {
+  if (!source) return '—'
+  return SOURCE_LABELS[source.toUpperCase()] ?? source
 }
 
 export function upgradeTargetPlan(plan?: string | null): string | null {
@@ -57,4 +68,11 @@ export function subscriptionStatusShortLabel(status: SubscriptionStatus['status'
     default:
       return 'Abo'
   }
+}
+
+export function formatDaysRemaining(days: number | null | undefined): string {
+  if (days == null) return '—'
+  if (days < 0) return 'Échu'
+  if (days === 0) return "Aujourd'hui"
+  return `${days} jour${days > 1 ? 's' : ''}`
 }

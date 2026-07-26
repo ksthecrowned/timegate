@@ -88,6 +88,9 @@ export class EmployeesService {
     if (dto.designationId) {
       await this.ensureDesignation(dto.designationId, branch.companyId);
     }
+    if (dto.employmentTypeId) {
+      await this.ensureEmploymentType(dto.employmentTypeId, branch.companyId);
+    }
     if (dto.holidayListId) {
       await this.ensureHolidayList(dto.holidayListId, branch.companyId);
     }
@@ -130,6 +133,7 @@ export class EmployeesService {
         defaultShiftId: dto.defaultShiftId,
         departmentId: dto.departmentId,
         designationId: dto.designationId,
+        employmentTypeId: dto.employmentTypeId,
         holidayListId: dto.holidayListId,
         status: dto.isActive === false ? EmployeeStatus.INACTIVE : EmployeeStatus.ACTIVE,
         faceEmbedding: dto.faceEmbedding as Prisma.InputJsonValue | undefined,
@@ -297,6 +301,9 @@ export class EmployeesService {
     if (dto.designationId) {
       await this.ensureDesignation(dto.designationId, companyId);
     }
+    if (dto.employmentTypeId) {
+      await this.ensureEmploymentType(dto.employmentTypeId, companyId);
+    }
     if (dto.holidayListId) {
       await this.ensureHolidayList(dto.holidayListId, companyId);
     }
@@ -343,6 +350,9 @@ export class EmployeesService {
         ...(dto.defaultShiftId !== undefined ? { defaultShiftId: dto.defaultShiftId } : {}),
         ...(dto.departmentId !== undefined ? { departmentId: dto.departmentId } : {}),
         ...(dto.designationId !== undefined ? { designationId: dto.designationId } : {}),
+        ...(dto.employmentTypeId !== undefined
+          ? { employmentTypeId: dto.employmentTypeId || null }
+          : {}),
         ...(dto.holidayListId !== undefined ? { holidayListId: dto.holidayListId } : {}),
         ...(dto.isActive !== undefined
           ? { status: dto.isActive ? EmployeeStatus.ACTIVE : EmployeeStatus.INACTIVE }
@@ -588,6 +598,7 @@ export class EmployeesService {
       defaultShift: { select: { id: true, shiftName: true, branchId: true } },
       department: { select: { id: true, departmentName: true } },
       designation: { select: { id: true, designationName: true } },
+      employmentType: { select: { id: true, employeeTypeName: true } },
       holidayList: { select: { id: true, holidayListName: true } },
       city: { select: { id: true, name: true } },
       country: { select: { id: true, name: true, isoCode: true } },
@@ -606,6 +617,14 @@ export class EmployeesService {
     const row = await this.prisma.designation.findUnique({ where: { id: designationId } });
     if (!row || row.companyId !== companyId) {
       throw new NotFoundException('Designation not found');
+    }
+    return row;
+  }
+
+  private async ensureEmploymentType(employmentTypeId: string, companyId: string) {
+    const row = await this.prisma.employmentType.findUnique({ where: { id: employmentTypeId } });
+    if (!row || row.companyId !== companyId) {
+      throw new NotFoundException('Employment type not found');
     }
     return row;
   }
@@ -670,6 +689,7 @@ export class EmployeesService {
     defaultShiftId: string | null;
     departmentId: string | null;
     designationId: string | null;
+    employmentTypeId: string | null;
     holidayListId: string | null;
     status: EmployeeStatus;
     faceEmbedding: unknown;
@@ -681,6 +701,7 @@ export class EmployeesService {
     defaultShift?: { id: string; shiftName: string; branchId: string | null } | null;
     department?: { id: string; departmentName: string } | null;
     designation?: { id: string; designationName: string } | null;
+    employmentType?: { id: string; employeeTypeName: string } | null;
     holidayList?: { id: string; holidayListName: string } | null;
     city?: { id: string; name: string } | null;
     country?: { id: string; name: string; isoCode: string } | null;
@@ -718,9 +739,11 @@ export class EmployeesService {
       defaultShiftId: employee.defaultShiftId,
       departmentId: employee.departmentId,
       designationId: employee.designationId,
+      employmentTypeId: employee.employmentTypeId,
       holidayListId: employee.holidayListId,
       department: employee.department?.departmentName ?? null,
       designation: employee.designation?.designationName ?? null,
+      employmentType: employee.employmentType?.employeeTypeName ?? null,
       defaultShift: employee.defaultShift
         ? {
             id: employee.defaultShift.id,

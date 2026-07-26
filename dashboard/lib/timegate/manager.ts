@@ -9,6 +9,7 @@ export type TeamMemberStatus =
   | 'ON_LEAVE'
   | 'REVIEW_REQUIRED'
   | 'OFF'
+  | 'EXPECTED'
 
 export type TeamTodayMember = {
   employeeId: string
@@ -36,6 +37,7 @@ export type TeamTodayResponse = {
     onLeave: number
     reviewRequired: number
     off: number
+    expected: number
   }
   members: TeamTodayMember[]
 }
@@ -99,6 +101,7 @@ export const TEAM_STATUS_LABELS: Record<TeamMemberStatus, string> = {
   ON_LEAVE: 'Congé',
   REVIEW_REQUIRED: 'À valider',
   OFF: 'Repos / férié',
+  EXPECTED: 'Prévu',
 }
 
 export const INBOX_TYPE_LABELS: Record<InboxItemType, string> = {

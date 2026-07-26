@@ -8,8 +8,6 @@ import { HttpError } from '@/lib/http'
 import { deleteShiftType, getShiftType } from '@/lib/timegate/shift-types'
 import type { ShiftType, WorkDay } from '@/lib/timegate/types'
 import { WEEK_DAY_LABELS } from '@/lib/timegate/work-days'
-import { Calendar } from 'lucide-react'
-import Link from 'next/link'
 import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -106,23 +104,24 @@ export default function ShiftTypeDetailPage() {
           />
         </DetailCard>
       ) : null}
-      {row?.weekDays && row.weekDays.length > 0 && (
-        <DetailCard
-          title="Jours de la semaine"
-          actions={
-            <Link
-              className="flex items-center gap-2 text-sm text-primary hover:underline"
-              href={`/work-days?scheduleId=${row?.id}`}
-            >
-             <Calendar className="size-6" /> Gérer les jours
-            </Link>
-          }
-        >
+      {row?.weekDays && row.weekDays.length > 0 ? (
+        <DetailCard title="Jours travaillés">
           {row.weekDays.map((wd: WorkDay) => (
-            <DetailRow key={wd.id} label={WEEK_DAY_LABELS[wd.day] ?? wd.day} value={`${formatTime(wd.startTime)} — ${formatTime(wd.endTime)}`} />
+            <DetailRow
+              key={wd.id}
+              label={WEEK_DAY_LABELS[wd.day] ?? wd.day}
+              value={`${formatTime(wd.startTime)} — ${formatTime(wd.endTime)}`}
+            />
           ))}
         </DetailCard>
-      )}
+      ) : row ? (
+        <DetailCard title="Jours travaillés">
+          <p className="px-4 py-3 text-sm text-amber-700 dark:text-amber-300">
+            Aucun jour configuré — cet horaire ne planifie personne. Modifiez l&apos;horaire pour
+            cocher les jours.
+          </p>
+        </DetailCard>
+      ) : null}
     </div>
   )
 }

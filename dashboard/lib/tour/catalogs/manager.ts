@@ -31,7 +31,7 @@ export const managerTourSteps: TourStep[] = [
     element: '[data-tour="manager-inbox"]',
     title: 'Validez sans perdre le fil',
     description:
-      'L’inbox concentre les demandes qui attendent votre décision. Ouvrez un élément ou explorez la liste — l’objectif est de traiter vite ce qui bloque un collègue. Moins de mails, plus de décisions tracées.',
+      'L’inbox concentre validations et messagerie au même endroit. Onglet « Boite de réception » pour pointages, congés et claims ; onglet « Messagerie » pour écrire à un collaborateur. Moins de menus, plus de décisions tracées.',
     side: 'bottom',
     align: 'start',
   },

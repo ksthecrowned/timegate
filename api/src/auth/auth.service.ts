@@ -1036,6 +1036,20 @@ export class AuthService {
     const usage = await this.subscriptionQuota.getUsage(user.companyId);
     const { subscription, effectiveStatus } = resolved;
 
+    const graceEndsAt =
+      subscription.graceEndsAt ??
+      (effectiveStatus === TimeGateSubscriptionStatus.GRACE_READ_ONLY &&
+      subscription.expiresAt
+        ? new Date(
+            subscription.expiresAt.getTime() +
+              (await this.subscriptionState.getPlatformSettings()).gracePeriodDays *
+                24 *
+                60 *
+                60 *
+                1000,
+          )
+        : null);
+
     return {
       active: resolved.isOperational,
       readOnly: resolved.isReadOnly,
@@ -1053,7 +1067,7 @@ export class AuthService {
         storedStatus: subscription.status,
         source: subscription.source,
         trialEndsAt: subscription.trialEndsAt,
-        graceEndsAt: subscription.graceEndsAt,
+        graceEndsAt,
         expiresAt: subscription.expiresAt,
         daysUntilExpiry: resolved.daysUntilExpiry,
         daysUntilGraceEnd: resolved.daysUntilGraceEnd,

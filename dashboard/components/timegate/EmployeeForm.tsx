@@ -22,8 +22,8 @@ import type { EmployeePayload } from '@/lib/timegate/employees'
 import {
     listDepartments,
     listDesignations,
+    listEmploymentTypes,
     listHolidayLists,
-    listShiftTypes,
 } from '@/lib/timegate/refs'
 import { useEffect, useState } from 'react'
 
@@ -93,17 +93,17 @@ export default function EmployeeForm({
     nationalIdNumber: initial?.nationalIdNumber ?? '',
     passportNumber: initial?.passportNumber ?? '',
     branchId: initial?.branchId ?? '',
-    defaultShiftId: initial?.defaultShiftId ?? '',
     departmentId: initial?.departmentId ?? '',
     designationId: initial?.designationId ?? '',
+    employmentTypeId: initial?.employmentTypeId ?? '',
     holidayListId: initial?.holidayListId ?? '',
     isActive: initial?.isActive ?? true,
   })
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
   const [departmentOptions, setDepartmentOptions] = useState<SelectOption[]>([])
   const [designationOptions, setDesignationOptions] = useState<SelectOption[]>([])
+  const [employmentTypeOptions, setEmploymentTypeOptions] = useState<SelectOption[]>([])
   const [holidayListOptions, setHolidayListOptions] = useState<SelectOption[]>([])
-  const [shiftOptions, setShiftOptions] = useState<SelectOption[]>([])
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([])
   const [countryMetaById, setCountryMetaById] = useState<Record<string, CountryMeta>>({})
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([])
@@ -115,12 +115,14 @@ export default function EmployeeForm({
       listBranches({ limit: 100 }),
       listDepartments(),
       listDesignations(),
+      listEmploymentTypes(),
       listHolidayLists(),
       listCountries({ limit: 100 }),
-    ]).then(([branches, departments, designations, holidayLists, countries]) => {
+    ]).then(([branches, departments, designations, employmentTypes, holidayLists, countries]) => {
       setBranchOptions(toSelectOptions(branches.data))
       setDepartmentOptions(toSelectOptions(departments.data))
       setDesignationOptions(toSelectOptions(designations.data))
+      setEmploymentTypeOptions(toSelectOptions(employmentTypes.data))
       setHolidayListOptions(toSelectOptions(holidayLists.data))
       setCountryOptions(countries.data.map((c) => ({ value: c.id, label: c.name })))
       setCountryMetaById(
@@ -140,16 +142,6 @@ export default function EmployeeForm({
       setCityOptions(res.data.map((c) => ({ value: c.id, label: c.name }))),
     )
   }, [form.countryId])
-
-  useEffect(() => {
-    if (!form.branchId) {
-      setShiftOptions([])
-      return
-    }
-    void listShiftTypes({ branchId: form.branchId }).then((res) => {
-      setShiftOptions(toSelectOptions(res.data))
-    })
-  }, [form.branchId])
 
   const set = <K extends keyof EmployeeFormValues>(key: K, value: EmployeeFormValues[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -189,9 +181,9 @@ export default function EmployeeForm({
         nationalIdNumber: form.nationalIdNumber?.trim() || undefined,
         passportNumber: form.passportNumber?.trim() || undefined,
         branchId: form.branchId || undefined,
-        defaultShiftId: form.defaultShiftId || undefined,
         departmentId: form.departmentId || undefined,
         designationId: form.designationId || undefined,
+        employmentTypeId: form.employmentTypeId || undefined,
         holidayListId: form.holidayListId || null,
       })
     } catch (err) {
@@ -353,7 +345,6 @@ export default function EmployeeForm({
               value={findOption(branchOptions, form.branchId ?? '')}
               onChange={(opt) => {
                 set('branchId', opt?.value ?? '')
-                set('defaultShiftId', '')
               }}
               placeholder="Sélectionner une branche…"
             />
@@ -381,17 +372,23 @@ export default function EmployeeForm({
               isClearable
             />
           </FormField>
-          <FormField label="Horaire par défaut">
+          <FormField label="Type de contrat">
             <SelectSearch
-              instanceId="employee-shift"
-              options={shiftOptions}
-              value={findOption(shiftOptions, form.defaultShiftId ?? '')}
-              onChange={(opt) => set('defaultShiftId', opt?.value ?? '')}
-              placeholder={form.branchId ? 'Optionnel' : 'Choisir une branche d’abord'}
-              isDisabled={!form.branchId}
+              instanceId="employee-employment-type"
+              options={employmentTypeOptions}
+              value={findOption(employmentTypeOptions, form.employmentTypeId ?? '')}
+              onChange={(opt) => set('employmentTypeId', opt?.value ?? '')}
+              placeholder="CDI, CDD, stage…"
               isClearable
             />
           </FormField>
+          <div className="md:col-span-2 rounded-lg border border-slate-200/80 bg-slate-50 p-3 text-sm text-slate-600 dark:border-border-dark dark:bg-white/5 dark:text-neutral-300">
+            Pour le planning et le pointage, créez une{' '}
+            <a href="/shift-assignments/new" className="font-medium text-primary hover:underline">
+              affectation
+            </a>{' '}
+            (employé → horaire). Les jours et heures viennent de l’horaire.
+          </div>
           <FormField label="Liste de jours fériés">
             <SelectSearch
               instanceId="employee-holiday-list"

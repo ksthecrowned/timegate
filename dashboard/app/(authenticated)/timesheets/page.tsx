@@ -75,7 +75,15 @@ export default function TimesheetsPage() {
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: "Feuilles de temps" }]} />
+      <PageHeader breadcrumbs={[{ label: 'Présence' }, { label: 'Temps travaillé' }]} />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Minutes travaillées, pause, retard et heures supp. par journée. Le statut (présent /
+        absent) est dans le{' '}
+        <a href="/attendance/days" className="text-primary hover:underline">
+          registre de présence
+        </a>
+        .
+      </p>
 
       <PeriodRecalculateButton
         label="Recalculer les feuilles de temps"

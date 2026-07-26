@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Prisma, WeekDay } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { formatTimeAsIso, toTimeOnlyDate } from '../common/utils/time.util';
-import { CreateWorkScheduleDto } from './dto/create-work-schedule.dto';
+import { CreateWorkScheduleDto, ShiftWeekDayInputDto } from './dto/create-work-schedule.dto';
 import { UpdateWorkScheduleDto } from './dto/update-work-schedule.dto';
 import { formatPunchWindows, mapPunchWindowFields } from './punch-window.mapper';
 
@@ -17,18 +17,39 @@ export class WorkSchedulesService {
     const branch = await this.prisma.branch.findUnique({ where: { id: branchId } });
     if (!branch) throw new NotFoundException('Branch not found');
 
-    const created = await this.prisma.shiftType.create({
-      data: {
-        id: generateDocId('SHIFT'),
-        shiftName: dto.name.trim(),
-        companyId: branch.companyId,
-        branchId: branch.id,
-        startTime: toTimeOnlyDate(dto.startTime),
-        endTime: toTimeOnlyDate(dto.endTime),
-        lateGraceMinutes: dto.lateGraceMinutes ?? 5,
-        ...mapPunchWindowFields(dto),
-      },
-      include: { branch: { select: { id: true, branchName: true } } },
+    const weekDays = this.normalizeWeekDays(dto.weekDays);
+
+    const created = await this.prisma.$transaction(async (tx) => {
+      const shift = await tx.shiftType.create({
+        data: {
+          id: generateDocId('SHIFT'),
+          shiftName: dto.name.trim(),
+          companyId: branch.companyId,
+          branchId: branch.id,
+          startTime: toTimeOnlyDate(dto.startTime),
+          endTime: toTimeOnlyDate(dto.endTime),
+          lateGraceMinutes: dto.lateGraceMinutes ?? 5,
+          ...mapPunchWindowFields(dto),
+        },
+      });
+      if (weekDays.length > 0) {
+        await tx.shiftTypeWeekDay.createMany({
+          data: weekDays.map((wd) => ({
+            id: generateDocId('SWD'),
+            shiftTypeId: shift.id,
+            day: wd.day,
+            startTime: wd.startTime,
+            endTime: wd.endTime,
+          })),
+        });
+      }
+      return tx.shiftType.findUniqueOrThrow({
+        where: { id: shift.id },
+        include: {
+          branch: { select: { id: true, branchName: true } },
+          weekDays: { orderBy: { day: 'asc' } },
+        },
+      });
     });
 
     return this.toApiShape(created);
@@ -57,7 +78,10 @@ export class WorkSchedulesService {
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,
-        include: { branch: { select: { id: true, branchName: true } } },
+        include: {
+          branch: { select: { id: true, branchName: true } },
+          weekDays: { orderBy: { day: 'asc' } },
+        },
       }),
       this.prisma.shiftType.count({ where }),
     ]);
@@ -94,18 +118,45 @@ export class WorkSchedulesService {
       branchId = branch.id;
     }
 
-    const updated = await this.prisma.shiftType.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { shiftName: dto.name.trim() } : {}),
-        ...(companyId !== undefined ? { companyId } : {}),
-        ...(branchId !== undefined ? { branchId } : {}),
-        ...(dto.startTime !== undefined ? { startTime: toTimeOnlyDate(dto.startTime) } : {}),
-        ...(dto.endTime !== undefined ? { endTime: toTimeOnlyDate(dto.endTime) } : {}),
-        ...(dto.lateGraceMinutes !== undefined ? { lateGraceMinutes: dto.lateGraceMinutes } : {}),
-        ...mapPunchWindowFields(dto),
-      },
-      include: { branch: { select: { id: true, branchName: true } } },
+    const weekDays =
+      dto.weekDays !== undefined ? this.normalizeWeekDays(dto.weekDays) : undefined;
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.shiftType.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined ? { shiftName: dto.name.trim() } : {}),
+          ...(companyId !== undefined ? { companyId } : {}),
+          ...(branchId !== undefined ? { branchId } : {}),
+          ...(dto.startTime !== undefined ? { startTime: toTimeOnlyDate(dto.startTime) } : {}),
+          ...(dto.endTime !== undefined ? { endTime: toTimeOnlyDate(dto.endTime) } : {}),
+          ...(dto.lateGraceMinutes !== undefined ? { lateGraceMinutes: dto.lateGraceMinutes } : {}),
+          ...mapPunchWindowFields(dto),
+        },
+      });
+
+      if (weekDays !== undefined) {
+        await tx.shiftTypeWeekDay.deleteMany({ where: { shiftTypeId: id } });
+        if (weekDays.length > 0) {
+          await tx.shiftTypeWeekDay.createMany({
+            data: weekDays.map((wd) => ({
+              id: generateDocId('SWD'),
+              shiftTypeId: id,
+              day: wd.day,
+              startTime: wd.startTime,
+              endTime: wd.endTime,
+            })),
+          });
+        }
+      }
+
+      return tx.shiftType.findUniqueOrThrow({
+        where: { id },
+        include: {
+          branch: { select: { id: true, branchName: true } },
+          weekDays: { orderBy: { day: 'asc' } },
+        },
+      });
     });
 
     return this.toApiShape(updated);
@@ -144,6 +195,36 @@ export class WorkSchedulesService {
     return { id, deleted: true };
   }
 
+  private normalizeWeekDays(weekDays?: ShiftWeekDayInputDto[]): Array<{
+    day: WeekDay;
+    startTime: string;
+    endTime: string;
+  }> {
+    if (!weekDays) return [];
+    const seen = new Set<WeekDay>();
+    const normalized: Array<{ day: WeekDay; startTime: string; endTime: string }> = [];
+    for (const row of weekDays) {
+      if (seen.has(row.day)) {
+        throw new BadRequestException(`Duplicate weekday: ${row.day}`);
+      }
+      seen.add(row.day);
+      normalized.push({
+        day: row.day,
+        startTime: this.normalizeHhMm(row.startTime),
+        endTime: this.normalizeHhMm(row.endTime),
+      });
+    }
+    return normalized;
+  }
+
+  private normalizeHhMm(value: string): string {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+    if (!match) return value.slice(0, 5);
+    const h = Math.min(23, Math.max(0, Number(match[1])));
+    const m = Math.min(59, Math.max(0, Number(match[2])));
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  }
+
   private toApiShape(row: {
     id: string;
     shiftName: string;
@@ -174,7 +255,13 @@ export class WorkSchedulesService {
       ...formatPunchWindows(row),
       createdAt: row.createdAt.toISOString(),
       branch: row.branch ? { id: row.branch.id, name: row.branch.branchName } : undefined,
-      weekDays: row.weekDays,
+      weekDays: (row.weekDays ?? []).map((wd) => ({
+        id: wd.id,
+        day: wd.day,
+        startTime: wd.startTime,
+        endTime: wd.endTime,
+        shiftTypeId: row.id,
+      })),
     };
   }
 }

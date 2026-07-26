@@ -322,6 +322,15 @@ export class AdminSaasService {
       ...(dto.webhookSecret !== undefined
         ? { webhookSecret: dto.webhookSecret?.trim() || null }
         : {}),
+      ...(dto.defaultBreakWindowStart !== undefined
+        ? { defaultBreakWindowStart: normalizeHhMm(dto.defaultBreakWindowStart) }
+        : {}),
+      ...(dto.defaultBreakWindowEnd !== undefined
+        ? { defaultBreakWindowEnd: normalizeHhMm(dto.defaultBreakWindowEnd) }
+        : {}),
+      ...(dto.defaultBreakDurationMinutes !== undefined
+        ? { defaultBreakDurationMinutes: dto.defaultBreakDurationMinutes }
+        : {}),
     };
   }
 
@@ -348,6 +357,9 @@ export class AdminSaasService {
     webhookUrl?: string | null;
     webhookSecret?: string | null;
     defaultShiftTypeId: string | null;
+    defaultBreakWindowStart?: string | null;
+    defaultBreakWindowEnd?: string | null;
+    defaultBreakDurationMinutes?: number;
     company?: { id: string; name: string | null; sku: string | null } | null;
     defaultShiftType?: { id: string; shiftName: string } | null;
   }) {
@@ -374,6 +386,9 @@ export class AdminSaasService {
       webhookUrl: row.webhookUrl ?? null,
       webhookSecret: row.webhookSecret ?? null,
       defaultShiftTypeId: row.defaultShiftTypeId,
+      defaultBreakWindowStart: row.defaultBreakWindowStart ?? '12:00',
+      defaultBreakWindowEnd: row.defaultBreakWindowEnd ?? '13:00',
+      defaultBreakDurationMinutes: row.defaultBreakDurationMinutes ?? 60,
       defaultShiftType: row.defaultShiftType
         ? { id: row.defaultShiftType.id, name: row.defaultShiftType.shiftName }
         : null,
@@ -398,4 +413,16 @@ export class AdminSaasService {
       throw new ForbiddenException('Access denied for this company');
     }
   }
+}
+
+/** Normalize "9:00" / "09:00" → "09:00"; empty/null → null. */
+function normalizeHhMm(value: string | null | undefined): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const match = /^(\d{1,2}):(\d{2})$/.exec(trimmed);
+  if (!match) return trimmed.slice(0, 5);
+  const h = Math.min(23, Math.max(0, Number(match[1])));
+  const m = Math.min(59, Math.max(0, Number(match[2])));
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }

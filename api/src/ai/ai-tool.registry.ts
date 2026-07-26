@@ -48,7 +48,7 @@ export class AiToolRegistry {
             branchId: { type: 'string' },
             statusFilter: {
               type: 'string',
-              enum: ['PRESENT', 'ABSENT', 'LATE', 'ON_BREAK', 'ON_LEAVE', 'REVIEW_REQUIRED', 'ALL'],
+              enum: ['PRESENT', 'ABSENT', 'LATE', 'ON_BREAK', 'ON_LEAVE', 'REVIEW_REQUIRED', 'OFF', 'EXPECTED', 'ALL'],
             },
           },
         },

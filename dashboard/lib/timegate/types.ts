@@ -108,9 +108,11 @@ export type Employee = {
   branchId?: string | null
   department?: string | null
   designation?: string | null
+  employmentType?: string | null
   branch?: { id: string; name: string; address?: string | null } | null
   departmentId?: string | null
   designationId?: string | null
+  employmentTypeId?: string | null
   defaultShiftId?: string | null
   holidayListId?: string | null
   birthDate?: string | null
@@ -245,6 +247,13 @@ export type Department = NamedEntity & {
   updatedAt: string
 }
 export type Designation = Department
+export type EmploymentType = {
+  id: string
+  name: string
+  companyId: string
+  createdAt: string
+  updatedAt: string
+}
 
 export type LeaveType = {
   id: string
@@ -528,6 +537,10 @@ export type SystemConfig = {
   webhookSecret?: string | null
   defaultShiftTypeId?: string | null
   defaultShiftType?: { id: string; name: string } | null
+  /** Prefill nouveaux horaires (HH:mm) */
+  defaultBreakWindowStart?: string | null
+  defaultBreakWindowEnd?: string | null
+  defaultBreakDurationMinutes?: number
   company?: { id: string; name: string; sku?: string } | null
 }
 
@@ -554,4 +567,10 @@ export type TenantAttendanceSettings = Pick<
   | 'webhookSecret'
   | 'defaultShiftTypeId'
   | 'defaultShiftType'
+  | 'defaultBreakWindowStart'
+  | 'defaultBreakWindowEnd'
+  | 'defaultBreakDurationMinutes'
+  | 'minConfidence'
+  | 'lateThreshold'
+  | 'veryLateThreshold'
 >

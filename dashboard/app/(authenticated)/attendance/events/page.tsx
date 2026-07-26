@@ -85,10 +85,13 @@ export default function AttendanceEventsPage() {
     <div data-tour="attendance-events">
       <PageHeader
         breadcrumbs={[
-          { label: "Présence", href: '/attendance/events' },
-          { label: "Événements" }
+          { label: "Présence" },
+          { label: "Événements de pointage" }
       ]}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Arrivées / départs acceptés ou à revoir. Les logs biométriques (debug) sont séparés.
+      </p>
 
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">

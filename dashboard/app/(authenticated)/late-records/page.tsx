@@ -94,7 +94,7 @@ export default function LateRecordsPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Retards' }]}
+        breadcrumbs={[{ label: 'Retards à justifier' }]}
         action={
           <div className="flex gap-2">
             <button
@@ -109,6 +109,13 @@ export default function LateRecordsPage() {
           </div>
         }
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Dossier RH pour justifier un retard. Les minutes de retard brutes sont aussi sur{' '}
+        <a href="/timesheets" className="text-primary hover:underline">
+          Temps travaillé
+        </a>
+        .
+      </p>
       <ApiErrorBanner message={error} />
       {syncMessage && (
         <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">

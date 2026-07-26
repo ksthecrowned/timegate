@@ -1,41 +1,52 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import AddPageLink from '@/components/timegate/AddPageLink'
+import { ApiErrorBanner, secondaryBtnClass } from '@/components/timegate/ui'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { type Column } from '@/components/ui/DataTable'
 import PageHeader from '@/components/ui/PageHeader'
-import { FormField, Input, SelectSearch } from '@/components/ui/FormField'
-import DataTable from '@/components/ui/DataTable'
-import { listEmployees } from '@/lib/timegate/employees'
-import { listShiftAssignments } from '@/lib/timegate/shift-assignments'
+import StatusBadge from '@/components/ui/StatusBadge'
+import { REVIEW_STATUS } from '@/constants'
+import { HttpError } from '@/lib/http'
+import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import {
-  createShiftSwap,
   listShiftSwaps,
   reviewShiftSwap,
   type ShiftSwapRequest,
 } from '@/lib/timegate/shift-swaps'
-import { HttpError } from '@/lib/http'
-import { findOption } from '@/lib/select-options'
-import ActionButtons from '@/components/ui/ActionButtons'
-import { REVIEW_STATUS } from '@/constants'
+import Link from 'next/link'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-const statusLabel: Record<ShiftSwapRequest['status'], string> = {
-  PENDING: 'En attente',
-  APPROVED: 'Approuvé',
-  REJECTED: 'Refusé',
-  CANCELLED: 'Annulé',
+type StatusFilter = ShiftSwapRequest['status'] | 'ALL'
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
+  { key: 'ALL', label: 'Tous' },
+  { key: 'PENDING', label: 'En attente' },
+  { key: 'APPROVED', label: 'Approuvés' },
+  { key: 'REJECTED', label: 'Refusés' },
+  { key: 'CANCELLED', label: 'Annulés' },
+]
+
+function formatSwapDate(iso: string): string {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('fr-FR', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+function statusBadgeKey(status: ShiftSwapRequest['status']): string {
+  return status.toLowerCase()
 }
 
 export default function ShiftSwapsPage() {
   const [rows, setRows] = useState<ShiftSwapRequest[]>([])
-  const [employees, setEmployees] = useState<Array<{ value: string; label: string }>>([])
-  const [assignments, setAssignments] = useState<Array<{ value: string; label: string }>>([])
-  const [requesterEmployeeId, setRequesterEmployeeId] = useState('')
-  const [targetEmployeeId, setTargetEmployeeId] = useState('')
-  const [shiftAssignmentId, setShiftAssignmentId] = useState('')
-  const [swapDate, setSwapDate] = useState(new Date().toISOString().slice(0, 10))
-  const [reason, setReason] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
-  const [creating, setCreating] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -52,44 +63,24 @@ export default function ShiftSwapsPage() {
 
   useEffect(() => {
     void load()
-    void listEmployees({ page: 1, limit: 100 }).then((res) =>
-      setEmployees(
-        res.data.map((e) => ({
-          value: e.id,
-          label: `${e.firstName} ${e.lastName}`.trim(),
-        })),
-      ),
-    )
-    void listShiftAssignments({ page: 1, limit: 100 }).then((res) =>
-      setAssignments(
-        res.data.map((a) => ({
-          value: a.id,
-          label: `${a.employee?.firstName ?? ''} ${a.employee?.lastName ?? ''} — ${a.shiftType?.name ?? 'Horaire'}`.trim(),
-        })),
-      ),
-    )
   }, [load])
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
-    setCreating(true)
-    try {
-      await createShiftSwap({
-        requesterEmployeeId,
-        targetEmployeeId,
-        shiftAssignmentId: shiftAssignmentId || undefined,
-        swapDate,
-        reason: reason || undefined,
-      })
-      setReason('')
-      await load()
-    } catch (err) {
-      setError(err instanceof HttpError ? err.message : 'Création impossible')
-    } finally {
-      setCreating(false)
+  const filtered = useMemo(
+    () => (statusFilter === 'ALL' ? rows : rows.filter((r) => r.status === statusFilter)),
+    [rows, statusFilter],
+  )
+
+  const counts = useMemo(() => {
+    const base: Record<StatusFilter, number> = {
+      ALL: rows.length,
+      PENDING: 0,
+      APPROVED: 0,
+      REJECTED: 0,
+      CANCELLED: 0,
     }
-  }
+    for (const row of rows) base[row.status] += 1
+    return base
+  }, [rows])
 
   async function handleReview(id: string, status: 'APPROVED' | 'REJECTED') {
     setError('')
@@ -101,89 +92,105 @@ export default function ShiftSwapsPage() {
     }
   }
 
+  const columns: Column<ShiftSwapRequest>[] = [
+    {
+      key: 'swapDate',
+      label: 'Date',
+      sortable: true,
+      render: (_v, row) => (
+        <span className="font-medium text-slate-900 dark:text-slate-100">
+          {formatSwapDate(row.swapDate)}
+        </span>
+      ),
+    },
+    {
+      key: 'requester',
+      label: 'Demandeur',
+      render: (_v, row) => employeeDisplayName(row.requester),
+    },
+    {
+      key: 'target',
+      label: 'Cible',
+      render: (_v, row) => (row.target ? employeeDisplayName(row.target) : '—'),
+    },
+    {
+      key: 'shiftAssignment',
+      label: 'Horaire',
+      render: (_v, row) => row.shiftAssignment?.shiftTypeName ?? '—',
+    },
+    {
+      key: 'status',
+      label: 'Statut',
+      render: (_v, row) => <StatusBadge status={statusBadgeKey(row.status)} />,
+    },
+    {
+      key: 'reason',
+      label: 'Motif',
+      render: (_v, row) => (
+        <span className="line-clamp-2 max-w-[14rem] text-slate-600 dark:text-slate-300">
+          {row.reason?.trim() || '—'}
+        </span>
+      ),
+    },
+  ]
+
   return (
-    <div className="space-y-6">
-      <PageHeader breadcrumbs={[{ label: 'Échanges de shifts' }]} />
-      <p className="text-sm text-gray-500 dark:text-neutral-400">
-        Demandes d&apos;échange entre employés — à l&apos;approbation, les affectations requester ↔ cible sont permutées.
-      </p>
+    <div className="space-y-4">
+      <PageHeader
+        breadcrumbs={[{ label: 'Échanges de poste' }]}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/manager/inbox" className={secondaryBtnClass}>
+              <i className="fa-solid fa-inbox" />
+              Boite de réception
+            </Link>
+            <AddPageLink href="/shift-swaps/new" label="Nouvelle demande" />
+          </div>
+        }
+      />
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      <ApiErrorBanner message={error} />
 
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="rounded-xl border p-4 grid md:grid-cols-2 gap-4 dark:border-neutral-700"
-      >
-        <FormField label="Demandeur">
-          <SelectSearch
-            instanceId="shift-swap-requester"
-            options={employees}
-            value={findOption(employees, requesterEmployeeId)}
-            required
-            onChange={(opt) => setRequesterEmployeeId(opt?.value ?? '')}
-          />
-        </FormField>
-        <FormField label="Collègue cible">
-          <SelectSearch
-            instanceId="shift-swap-target"
-            options={employees}
-            value={findOption(employees, targetEmployeeId)}
-            required
-            onChange={(opt) => setTargetEmployeeId(opt?.value ?? '')}
-          />
-        </FormField>
-        <FormField label="Affectation (optionnel)">
-          <SelectSearch
-            instanceId="shift-swap-assignment"
-            options={assignments}
-            value={findOption(assignments, shiftAssignmentId)}
-            onChange={(opt) => setShiftAssignmentId(opt?.value ?? '')}
-            isClearable
-          />
-        </FormField>
-        <FormField label="Date">
-          <Input type="date" value={swapDate} onChange={(e) => setSwapDate(e.target.value)} required />
-        </FormField>
-        <FormField label="Motif">
-          <Input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Optionnel" />
-        </FormField>
-        <div className="md:col-span-2">
-          <button
-            type="submit"
-            disabled={creating}
-            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            {creating ? 'Création…' : 'Créer la demande'}
-          </button>
-        </div>
-      </form>
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((f) => {
+          const active = statusFilter === f.key
+          return (
+            <button
+              key={f.key}
+              type="button"
+              onClick={() => setStatusFilter(f.key)}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                active
+                  ? 'bg-primary text-white'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15'
+              }`}
+            >
+              {f.label}
+              <span
+                className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                  active
+                    ? 'bg-white/20 text-white'
+                    : 'bg-white text-slate-500 dark:bg-black/20 dark:text-slate-300'
+                }`}
+              >
+                {counts[f.key]}
+              </span>
+            </button>
+          )
+        })}
+      </div>
 
       <DataTable<ShiftSwapRequest>
-        data={rows}
+        data={filtered}
         loading={loading}
-        columns={[
-          { key: 'swapDate', label: 'Date', render: (_v, row) => row.swapDate },
-          {
-            key: 'requester',
-            label: 'Demandeur',
-            render: (_v, row) => `${row.requester.firstName} ${row.requester.lastName}`,
-          },
-          {
-            key: 'target',
-            label: 'Cible',
-            render: (_v, row) =>
-              row.target ? `${row.target.firstName} ${row.target.lastName}` : '—',
-          },
-          {
-            key: 'status',
-            label: 'Statut',
-            render: (_v, row) => statusLabel[row.status],
-          },
-        ]}
+        columns={columns}
+        entityLabel="échanges"
+        tableId="hs-shift-swaps-table"
+        emptyMessage="Aucune demande d’échange pour ce filtre."
         actions={(row) => (
           <ActionButtons
             handleReview={(status: REVIEW_STATUS) => {
-              void handleReview(row.id, status).then(load)
+              void handleReview(row.id, status)
             }}
             reviewActions={
               row.status === 'PENDING'
@@ -193,19 +200,18 @@ export default function ShiftSwapsPage() {
                           {
                             label: 'Approuver',
                             actionStatus: 'APPROVED' as const,
-                            cls: 'focus:outline-none text-green-200 bg-green-700',
+                            cls: 'focus:outline-none bg-emerald-600 text-white hover:bg-emerald-700',
                           },
                         ]
                       : []),
                     {
                       label: 'Refuser',
                       actionStatus: 'REJECTED' as const,
-                      cls: 'focus:outline-none text-red-200 bg-red-700',
+                      cls: 'focus:outline-none bg-red-600 text-white hover:bg-red-700',
                     },
                   ]
                 : []
             }
-            deleteMessage="Cette branche sera définitivement supprimée."
           />
         )}
       />

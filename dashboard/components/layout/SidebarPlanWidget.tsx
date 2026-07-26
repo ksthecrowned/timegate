@@ -10,9 +10,17 @@ import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
 function daysLeftLabel(days: number | null | undefined): string | null {
-  if (days == null || days < 0) return null
+  if (days == null) return null
+  if (days < 0) return null
   if (days === 0) return "Expire aujourd'hui"
   return `${days} jour${days > 1 ? 's' : ''} restant${days > 1 ? 's' : ''}`
+}
+
+function graceDaysLabel(days: number | null | undefined): string | null {
+  if (days == null) return null
+  if (days < 0) return 'Grâce échue'
+  if (days === 0) return 'Grâce jusqu’à aujourd’hui'
+  return `${days} j de grâce restant${days > 1 ? 's' : ''}`
 }
 
 export default function SidebarPlanWidget() {
@@ -34,11 +42,16 @@ export default function SidebarPlanWidget() {
 
   const sub = status.subscription
   const plan = sub.plan
-  const label = planLabel(plan)
+  const label =
+    status.status === 'GRACE_READ_ONLY'
+      ? 'Période de grâce'
+      : status.status === 'BLOCKED'
+        ? 'Abonnement expiré'
+        : planLabel(plan)
   const upgradeTarget = upgradeTargetPlan(plan)
-  const daysLeft = daysLeftLabel(sub.daysUntilExpiry)
   const isTrial = status.status === 'TRIAL'
   const isActive = status.status === 'ACTIVE'
+  const isGrace = status.status === 'GRACE_READ_ONLY'
   const needsActivation = status.readOnly || status.blocked || isTrial
   const statusShort = subscriptionStatusShortLabel(status.status)
   const showStatusBadge = !(isTrial && plan?.toUpperCase() === 'TRIAL')
@@ -66,7 +79,12 @@ export default function SidebarPlanWidget() {
     ? `${sub.usage.employees}/${sub.usage.maxEmployees} employés · ${sub.usage.kiosks}/${sub.usage.maxKiosks} kiosks`
     : null
 
-  const showDays = Boolean(daysLeft && (isTrial || status.readOnly || isActive || status.blocked))
+  const countdown = isGrace
+    ? graceDaysLabel(sub.daysUntilGraceEnd)
+    : daysLeftLabel(sub.daysUntilExpiry)
+  const showDays = Boolean(
+    countdown && (isTrial || isGrace || isActive || status.blocked),
+  )
 
   return (
     <div data-tour="plan-widget" className={`rounded-xl border px-3 py-3 ${tone}`}>
@@ -88,7 +106,7 @@ export default function SidebarPlanWidget() {
           ) : null}
 
           {showDays ? (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{daysLeft}</p>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{countdown}</p>
           ) : null}
         </div>
 

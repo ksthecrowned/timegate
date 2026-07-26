@@ -9,6 +9,7 @@ const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
   { prefix: '/holidays', roles: ['ADMIN'] },
   { prefix: '/departments', roles: ['ADMIN'] },
   { prefix: '/designations', roles: ['ADMIN'] },
+  { prefix: '/employment-types', roles: ['ADMIN'] },
   { prefix: '/users', roles: ['ADMIN'] },
   { prefix: '/organization', roles: ['ADMIN'] },
 ]
@@ -23,6 +24,7 @@ export const protectedPathPrefixes = [
   '/kiosks',
   '/departments',
   '/designations',
+  '/employment-types',
   '/shift-types',
   '/shift-assignments',
   '/planning',

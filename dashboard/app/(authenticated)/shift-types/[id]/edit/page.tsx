@@ -53,6 +53,11 @@ export default function EditShiftTypePage() {
             breakWindowStart: row.breakWindowStart ?? undefined,
             breakWindowEnd: row.breakWindowEnd ?? undefined,
             breakDurationMinutes: row.breakDurationMinutes ?? undefined,
+            weekDays: (row.weekDays ?? []).map((wd) => ({
+              day: wd.day,
+              startTime: wd.startTime,
+              endTime: wd.endTime,
+            })),
           }}
           onCancel={() => router.push(`/shift-types/${id}`)}
           onSubmit={async (values) => {

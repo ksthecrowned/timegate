@@ -372,7 +372,6 @@ async function purgeCompany(company: { id: string }) {
   await prisma.salaryStructure.deleteMany({ where: { companyId: company.id } });
   await prisma.salaryComponent.deleteMany({ where: { companyId: company.id } });
   await prisma.account.deleteMany({ where: { companyId: company.id } });
-  await prisma.designation.deleteMany({ where: { companyId: company.id } });
   await prisma.department.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateShiftSwapRequest.deleteMany({ where: { companyId: company.id } });
   await prisma.shiftAssignment.deleteMany({ where: { companyId: company.id } });
@@ -381,6 +380,8 @@ async function purgeCompany(company: { id: string }) {
   await prisma.shiftLocation.deleteMany({ where: { branch: { companyId: company.id } } });
   await prisma.employeeCheckin.deleteMany({ where: { employee: { companyId: company.id } } });
   await prisma.employee.deleteMany({ where: { companyId: company.id } });
+  await prisma.designation.deleteMany({ where: { companyId: company.id } });
+  await prisma.employmentType.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateKiosk.deleteMany({ where: { companyId: company.id } });
   await prisma.branch.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateActivationKey.deleteMany({ where: { companyId: company.id } });
@@ -667,6 +668,28 @@ async function main() {
     },
   });
 
+  const cdiType = await prisma.employmentType.create({
+    data: {
+      id: generateDocId('EMPT'),
+      employeeTypeName: 'CDI',
+      companyId: company.id,
+    },
+  });
+  await prisma.employmentType.create({
+    data: {
+      id: generateDocId('EMPT'),
+      employeeTypeName: 'CDD',
+      companyId: company.id,
+    },
+  });
+  await prisma.employmentType.create({
+    data: {
+      id: generateDocId('EMPT'),
+      employeeTypeName: 'Stage',
+      companyId: company.id,
+    },
+  });
+
   const hrDept = await prisma.department.create({
     data: {
       id: generateDocId('DEPT'),
@@ -729,6 +752,7 @@ async function main() {
       defaultShiftId: hqSchedule.id,
       departmentId: engineeringDept.id,
       designationId: developerDesignation.id,
+      employmentTypeId: cdiType.id,
       userId: employeeUser.id,
       status: EmployeeStatus.ACTIVE,
       faceEmbedding: [0.01, 0.02, 0.03],

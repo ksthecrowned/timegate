@@ -122,13 +122,19 @@ export default function EmployeeDetailPage() {
               { label: 'Département', value: employee.department },
               { label: 'Poste', value: employee.designation },
               { label: 'Date d’embauche', value: formatApiDate(employee.hireDate) },
-              { label: 'Horaire par défaut', value: employee.defaultShift?.name },
               {
                 label: 'Jours fériés',
                 value: employee.holidayList?.name ?? 'Par défaut (entreprise)',
               },
             ]}
           />
+          <div className="tg-card p-4 text-sm text-slate-600 dark:text-neutral-300">
+            Planning / pointage : via une{' '}
+            <a href="/shift-assignments" className="font-medium text-primary hover:underline">
+              affectation
+            </a>
+            , pas un horaire sur la fiche.
+          </div>
 
           <EmployeeLeaveBalancesCard employeeId={employee.id} />
 

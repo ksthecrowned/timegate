@@ -43,9 +43,13 @@ export default function HolidaysPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Jours fériés' }]}
+        breadcrumbs={[{ label: 'Temps' }, { label: 'Jours fériés' }]}
         action={<AddPageLink href="/holidays/new" label="Ajouter un jour férié" />}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Calendrier légal / entreprise. Distinct des congés individuels et des exceptions
+        d&apos;horaire.
+      </p>
 
       <ApiErrorBanner message={error} />
 

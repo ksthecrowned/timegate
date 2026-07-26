@@ -1,6 +1,5 @@
 'use client'
 
-import ProductTourBootstrap from '@/components/tour/ProductTourBootstrap'
 import TourProgressChip from '@/components/tour/TourProgressChip'
 import { TourProvider } from '@/components/tour/TourProvider'
 import TourResumeModal from '@/components/tour/TourResumeModal'
@@ -35,7 +34,6 @@ export default function AuthenticatedShell({ children }: { children: React.React
               <TourProvider>
                 <WebPushSetup />
                 <TourResumeModal />
-                <ProductTourBootstrap />
                 <TourProgressChip />
                 <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
                   <Sidebar />

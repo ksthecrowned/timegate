@@ -19,6 +19,12 @@ export type TenantAttendanceSettingsPayload = {
   webhookEnabled?: boolean
   webhookUrl?: string | null
   webhookSecret?: string | null
+  defaultBreakWindowStart?: string | null
+  defaultBreakWindowEnd?: string | null
+  defaultBreakDurationMinutes?: number
+  minConfidence?: number
+  lateThreshold?: number
+  veryLateThreshold?: number
 }
 
 export type TenantSystemConfigPayload = Pick<

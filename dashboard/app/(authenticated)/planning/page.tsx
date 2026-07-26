@@ -78,9 +78,10 @@ export default function PlanningPage() {
 
   return (
     <div className="space-y-4" data-tour="planning">
-      <PageHeader breadcrumbs={[{ label: 'Planning équipe' }]} />
+      <PageHeader breadcrumbs={[{ label: 'Planning prévu' }]} />
       <p className="text-sm text-gray-500 dark:text-neutral-400 mb-2">
-        Affectations horaires, congés approuvés et jours fériés.
+        Qui est prévu (affectation → jours de l&apos;horaire + exceptions date). Pour la présence
+        réelle du jour : Équipe du jour.
       </p>
 
       <div className="flex flex-wrap gap-3 items-end">
@@ -166,6 +167,9 @@ export default function PlanningPage() {
                 ? day?.assignments.slice(0, 2).map((row) => (
                     <p key={row.id} className="truncate text-[11px] text-gray-600 dark:text-neutral-400">
                       {row.employee.firstName} {row.employee.lastName}
+                      {row.exception?.startTime && row.exception?.endTime
+                        ? ` (${row.exception.startTime}–${row.exception.endTime})`
+                        : ''}
                     </p>
                   ))
                 : null}

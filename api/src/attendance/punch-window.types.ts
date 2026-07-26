@@ -1,5 +1,5 @@
 export type ResolvedPunchWindows = {
-  shiftTypeId: string;
+  shiftTypeId: string | null;
   shiftStartMin: number;
   shiftEndMin: number;
   checkInStartMin: number;

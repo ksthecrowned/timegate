@@ -90,7 +90,7 @@ export default function TimesheetDetailPage() {
     <div>
       <PageHeader
         breadcrumbs={[
-          { label: 'Feuilles de temps', href: '/timesheets' },
+          { label: 'Temps travaillé', href: '/timesheets' },
           { label: row ? formatApiDate(row.date) : 'Détail' },
         ]}
       />

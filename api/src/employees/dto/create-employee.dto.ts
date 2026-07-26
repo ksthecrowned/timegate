@@ -128,6 +128,11 @@ export class CreateEmployeeDto {
   @MaxLength(140)
   designationId?: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  employmentTypeId?: string;
+
   /** Liste fériés Frappe (`HolidayList`) ; sinon liste company par défaut. */
   @IsOptional()
   @IsString()

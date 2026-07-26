@@ -17,7 +17,10 @@ export type TourProgress = {
 }
 
 export type TourController = {
-  start: (opts?: { force?: boolean; resumeFromStepId?: string }) => Promise<void>
+  start: (opts?: {
+    force?: boolean
+    resumeFromStepId?: string
+  }) => Promise<void>
   stop: (reason: 'completed' | 'dismissed') => void
   getProgress: () => TourProgress
   subscribe: (listener: () => void) => () => void
@@ -43,11 +46,16 @@ export function createTourController(opts: ControllerOpts): TourController {
     listeners.forEach((l) => l())
   }
 
-  function persist(partial: Partial<TourPersistedState> & Pick<TourPersistedState, 'status'>) {
+  function persist(
+    partial: Partial<TourPersistedState> & Pick<TourPersistedState, 'status'>,
+  ) {
     const prev = loadTourState(userId, role)
     saveTourState(userId, role, {
       status: partial.status,
-      stepId: partial.stepId !== undefined ? partial.stepId : (queue[index]?.id ?? null),
+      stepId:
+        partial.stepId !== undefined
+          ? partial.stepId
+          : (queue[index]?.id ?? null),
       orgSetupSkipped: partial.orgSetupSkipped ?? prev?.orgSetupSkipped,
       orgReminderShown: partial.orgReminderShown ?? prev?.orgReminderShown,
       updatedAt: new Date().toISOString(),
@@ -107,14 +115,13 @@ export function createTourController(opts: ControllerOpts): TourController {
       onNext?: () => void
       showNext?: boolean
       nextLabel?: string
-      /** Allow clicks inside the highlighted element (forms / CTAs). */
       allowTargetInteraction?: boolean
       onPopoverRender?: (popover: {
         wrapper: HTMLElement
         footerButtons: HTMLElement
       }) => void
     },
-  ) {
+  ): Promise<void> {
     return new Promise<void>((resolve) => {
       let settled = false
       const finish = (fn?: () => void) => {
@@ -127,27 +134,27 @@ export function createTourController(opts: ControllerOpts): TourController {
       const buttons: Array<'next' | 'previous' | 'close'> =
         options.showNext === false ? ['close'] : ['next', 'close']
 
-      // Resolve + auto-scroll into view so the stage cutout is visible
       let target: Element | string | undefined = step.element
       if (typeof step.element === 'string' && typeof document !== 'undefined') {
         const el = document.querySelector(step.element)
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest',
+          })
           target = el
         }
       }
 
-      // Let smooth scroll settle before cutting the stage
-      window.setTimeout(() => {
+      const launch = () => {
         if (settled) return
         active = driver({
           animate: true,
           allowClose: false,
           allowScroll: false,
           smoothScroll: true,
-          overlayClickBehavior: () => {
-            // no-op: never dismiss / advance on overlay click
-          },
+          overlayClickBehavior: () => undefined,
           overlayOpacity: 0.6,
           overlayColor: '#0b1120',
           stagePadding: 10,
@@ -186,7 +193,13 @@ export function createTourController(opts: ControllerOpts): TourController {
           ],
         })
         active.drive()
-      }, target instanceof Element ? 280 : 0)
+      }
+
+      if (target instanceof Element) {
+        window.setTimeout(launch, 280)
+      } else {
+        launch()
+      }
     })
   }
 
@@ -209,7 +222,6 @@ export function createTourController(opts: ControllerOpts): TourController {
         const el = await waitForSelector(step.element, 4000)
         if (!el) {
           if (step.required) {
-            // stay — show celebrate-like message without element
             await showDriver(
               { ...step, element: undefined },
               {
@@ -225,12 +237,22 @@ export function createTourController(opts: ControllerOpts): TourController {
       }
     }
 
-    if (step.type === 'celebrate' || step.type === 'spotlight' || step.type === 'navigate') {
+    if (
+      step.type === 'celebrate' ||
+      step.type === 'spotlight' ||
+      step.type === 'navigate'
+    ) {
       if (step.element) {
         const el =
-          typeof document !== 'undefined' ? document.querySelector(step.element) : null
+          typeof document !== 'undefined'
+            ? document.querySelector(step.element)
+            : null
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+          el.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center',
+            inline: 'nearest',
+          })
         } else if (!step.required) {
           await softSkip()
           return
@@ -258,7 +280,8 @@ export function createTourController(opts: ControllerOpts): TourController {
             void advance()
           }
           document.addEventListener('click', handler, true)
-          unsubAction = () => document.removeEventListener('click', handler, true)
+          unsubAction = () =>
+            document.removeEventListener('click', handler, true)
         },
       })
       return
@@ -299,11 +322,15 @@ export function createTourController(opts: ControllerOpts): TourController {
     }
   }
 
-  async function start(startOpts?: { force?: boolean; resumeFromStepId?: string }) {
+  async function start(startOpts?: {
+    force?: boolean
+    resumeFromStepId?: string
+  }) {
     if (typeof window === 'undefined') return
     const existing = loadTourState(userId, role)
     if (!startOpts?.force && !startOpts?.resumeFromStepId) {
-      if (existing?.status === 'completed' || existing?.status === 'dismissed') return
+      if (existing?.status === 'completed' || existing?.status === 'dismissed')
+        return
       if (existing?.status === 'running') return
     }
 
@@ -315,13 +342,11 @@ export function createTourController(opts: ControllerOpts): TourController {
       if (i >= 0) index = i
     }
     if (startOpts?.force) {
-      // keep org flags if any
-      const prev = loadTourState(userId, role)
       saveTourState(userId, role, {
         status: 'running',
         stepId: queue[index]?.id ?? null,
-        orgSetupSkipped: startOpts.force ? false : prev?.orgSetupSkipped,
-        orgReminderShown: startOpts.force ? false : prev?.orgReminderShown,
+        orgSetupSkipped: false,
+        orgReminderShown: false,
         updatedAt: new Date().toISOString(),
       })
     }

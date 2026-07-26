@@ -478,9 +478,9 @@ export const employeeApi = {
         name: string;
         startTime: string | null;
         endTime: string | null;
-        source: "assignment" | "employee_default" | "company_default" | null;
+        source: "assignment" | "day_exception" | "employee_default" | "company_default" | null;
       } | null;
-      scheduleSource: "assignment" | "employee_default" | "company_default" | null;
+      scheduleSource: "assignment" | "day_exception" | "employee_default" | "company_default" | null;
     }>("/employee/today-schedule"),
 
   resumeBreak: (data: { latitude: number; longitude: number }) =>

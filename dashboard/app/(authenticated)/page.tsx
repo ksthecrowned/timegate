@@ -134,23 +134,23 @@ export default function DashboardPage() {
   const quickLinks = isAdmin
     ? [
         { href: '/employees', label: 'Employés', icon: 'fa-users' },
-        { href: '/manager/inbox', label: 'Inbox', icon: 'fa-inbox' },
-        { href: '/attendance/events', label: 'Événements', icon: 'fa-clock' },
-        { href: '/timesheets', label: 'Timesheets', icon: 'fa-file-lines' },
-        { href: '/payroll-runs', label: 'Paie', icon: 'fa-money-bill-wave' },
-        { href: '/leaves', label: 'Congés', icon: 'fa-plane-departure' },
+        { href: '/manager/inbox', label: 'À traiter', icon: 'fa-inbox' },
+        { href: '/attendance/days', label: 'Registre présence', icon: 'fa-calendar-day' },
+        { href: '/timesheets', label: 'Temps travaillé', icon: 'fa-file-lines' },
+        { href: '/payroll-runs', label: 'Cycles de paie', icon: 'fa-money-bill-wave' },
+        { href: '/leaves', label: 'Demandes congé', icon: 'fa-plane-departure' },
         { href: '/branches', label: 'Branches', icon: 'fa-building' },
-        { href: '/kiosks', label: 'Kiosques', icon: 'fa-tablet-screen-button' },
+        { href: '/kiosks', label: 'Bornes', icon: 'fa-tablet-screen-button' },
       ]
     : [
-        { href: '/manager/team', label: 'Équipe du jour', icon: 'fa-users' },
-        { href: '/manager/inbox', label: 'Inbox', icon: 'fa-inbox' },
-        { href: '/manager/leaves', label: 'Congés', icon: 'fa-calendar-days' },
-        { href: '/attendance/events', label: 'Événements', icon: 'fa-clock' },
-        { href: '/timesheets', label: 'Timesheets', icon: 'fa-file-lines' },
-        { href: '/planning', label: 'Planning', icon: 'fa-calendar-week' },
+        { href: '/manager/team', label: 'Équipe du jour (live)', icon: 'fa-users' },
+        { href: '/manager/inbox', label: 'À traiter', icon: 'fa-inbox' },
+        { href: '/manager/leaves', label: 'Absences équipe', icon: 'fa-calendar-days' },
+        { href: '/attendance/events', label: 'Pointages', icon: 'fa-clock' },
+        { href: '/timesheets', label: 'Temps travaillé', icon: 'fa-file-lines' },
+        { href: '/planning', label: 'Planning prévu', icon: 'fa-calendar-week' },
         { href: '/late-records', label: 'Retards', icon: 'fa-clock' },
-        { href: '/trusted-devices', label: 'Appareils', icon: 'fa-mobile-screen' },
+        { href: '/trusted-devices', label: 'Téléphones', icon: 'fa-mobile-screen' },
       ]
 
   return (
@@ -275,14 +275,14 @@ export default function DashboardPage() {
               </>
             ) : null}
             <StatCard
-              label="Absences (30 j)"
+              label="Absences non just. (30 j)"
               value={home.kpis.absences30}
               href="/absences"
               icon="fa-solid fa-user-xmark"
               accent="text-red-500"
             />
             <StatCard
-              label="Retards (30 j)"
+              label="Retards à justifier (30 j)"
               value={home.kpis.late30}
               href="/late-records"
               icon="fa-solid fa-clock"
@@ -296,7 +296,7 @@ export default function DashboardPage() {
               accent="text-sky-500"
             />
             <StatCard
-              label="Feuilles de temps (30 j)"
+              label="Temps travaillé (30 j)"
               value={home.kpis.timesheets30}
               href="/timesheets"
               icon="fa-solid fa-file-lines"

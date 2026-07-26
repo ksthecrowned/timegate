@@ -28,7 +28,8 @@ export type TeamMemberStatus =
   | 'ON_BREAK'
   | 'ON_LEAVE'
   | 'REVIEW_REQUIRED'
-  | 'OFF';
+  | 'OFF'
+  | 'EXPECTED';
 
 type DayEvent = {
   type: TimeGateAttendanceEventType;
@@ -97,6 +98,9 @@ export class ManagerService {
   async teamToday(query: ManagerTeamTodayQueryDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
     const workDate = query.date ? toDateOnly(query.date) : toDateOnly(new Date().toISOString().slice(0, 10));
+    const workDateIso = workDate.toISOString().slice(0, 10);
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const isFuture = workDateIso > todayIso;
     const { start, end } = dayBounds(workDate);
     const branchId = query.resolvedBranchId();
 
@@ -197,6 +201,7 @@ export class ManagerService {
       onLeave: 0,
       reviewRequired: 0,
       off: 0,
+      expected: 0,
     };
 
     const members = await Promise.all(
@@ -223,6 +228,9 @@ export class ManagerService {
         status = 'LATE';
       } else if (hasCheckIn(employeeEvents)) {
         status = 'PRESENT';
+      } else if (isFuture) {
+        // Future workday: not yet worked — never mark as absent
+        status = 'EXPECTED';
       } else {
         status = 'ABSENT';
       }
@@ -236,6 +244,7 @@ export class ManagerService {
           LATE: 'late',
           PRESENT: 'present',
           ABSENT: 'absent',
+          EXPECTED: 'expected',
         }[status] as keyof typeof summary
       ] += 1;
 

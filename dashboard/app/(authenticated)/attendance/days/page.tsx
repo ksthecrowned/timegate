@@ -128,9 +128,21 @@ export default function AttendanceDaysPage() {
     <div>
       <PageHeader
         breadcrumbs={[
-          { label: 'Présence', href: '/attendance/events' },
-          { label: 'Jours' }]}
+          { label: 'Présence' },
+          { label: 'Registre de présence' },
+        ]}
       />
+      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
+        Statut journalier (présent, absent, congé…). Pour les minutes travaillées / retards :{' '}
+        <a href="/timesheets" className="text-primary hover:underline">
+          Temps travaillé
+        </a>
+        . Suivi live :{' '}
+        <a href="/manager/team" className="text-primary hover:underline">
+          Équipe du jour
+        </a>
+        .
+      </p>
 
       <FormCard title="Période">
         <div className="flex flex-wrap items-end gap-3">
