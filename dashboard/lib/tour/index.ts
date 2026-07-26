@@ -19,3 +19,14 @@ export {
   type TourRouter,
 } from './controller'
 export { filterAvailableSteps, progressLabel } from './helpers'
+export { dashboardTourSteps } from './catalogs/dashboard'
+export { adminTourSteps } from './catalogs/admin'
+export { managerTourSteps } from './catalogs/manager'
+
+import type { TourRole, TourStep } from './types'
+import { adminTourSteps } from './catalogs/admin'
+import { managerTourSteps } from './catalogs/manager'
+
+export function getTourStepsForRole(role: TourRole): TourStep[] {
+  return role === 'ADMIN' ? adminTourSteps : managerTourSteps
+}
