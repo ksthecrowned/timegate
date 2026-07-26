@@ -127,7 +127,7 @@ export default function ShiftSwapsPage() {
       key: 'reason',
       label: 'Motif',
       render: (_v, row) => (
-        <span className="line-clamp-2 max-w-[14rem] text-slate-600 dark:text-slate-300">
+        <span className="line-clamp-2 max-w-56 text-slate-600 dark:text-slate-300">
           {row.reason?.trim() || '—'}
         </span>
       ),

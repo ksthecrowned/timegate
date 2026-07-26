@@ -4,7 +4,7 @@ import { isRoleAllowedForPathname } from '@/lib/auth/route-guard'
 import { isDashboardRole } from '@/lib/timegate/roles'
 import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
-import AuthenticatedShell from './AuthenticatedShell'
+import AuthenticatedShell from '@/components/layout/AuthenticatedShell'
 
 export default async function AuthenticatedLayout({
   children,

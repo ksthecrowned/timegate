@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
 import { FormField, Input, SelectSearch, SwitcherField } from '@/components/ui/FormField'
-import { HintTooltip } from '@/components/ui/HintTooltip'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
+import { SettingsFormSection } from '@/components/organization/SettingsFormSection'
 import { HttpError } from '@/lib/http'
 import {
   getTenantAttendanceSettings,
@@ -18,26 +18,6 @@ const ROUNDING_OPTIONS: SelectOption[] = [
   { value: '5', label: '5 minutes' },
   { value: '15', label: '15 minutes' },
 ]
-
-function Section({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint?: string
-  children: React.ReactNode
-}) {
-  return (
-    <div className="md:col-span-2 border-t border-slate-200/80 pt-5 dark:border-border-dark">
-      <h3 className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800 dark:text-neutral-200">
-        {title}
-        {hint ? <HintTooltip text={hint} /> : null}
-      </h3>
-      {children}
-    </div>
-  )
-}
 
 export default function TenantAttendanceSettingsPage() {
   const [loading, setLoading] = useState(true)
@@ -180,7 +160,7 @@ export default function TenantAttendanceSettingsPage() {
             }
           >
             <div className="grid max-w-3xl gap-6 md:grid-cols-2">
-              <Section
+              <SettingsFormSection
                 title="Reconnaissance & retards"
                 hint="Seuils faciaux et de retard pour le calcul des journées."
               >
@@ -217,9 +197,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Fallback PIN (kiosque)"
                 hint="Après le seuil d'échecs sur visage ou NFC, le kiosque propose le PIN puis impose ce délai avant de réessayer le mode principal."
               >
@@ -247,9 +227,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Méthodes kiosque par défaut"
                 hint="Appliquées automatiquement à la création d’un nouveau kiosque. Modifiables ensuite au cas par cas."
               >
@@ -276,9 +256,9 @@ export default function TenantAttendanceSettingsPage() {
                     onCheckedChange={setDefaultQrEnabled}
                   />
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Politique timesheet"
                 hint="Appliquée lors du recalcul des journées. Les seuils de retard sont ci-dessus (Reconnaissance & retards) ; la tolérance peut aussi venir de l'horaire type."
               >
@@ -326,9 +306,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Pause (défaut)"
                 hint="Valeurs préremplies à la création d'un nouvel horaire type. Chaque horaire peut ensuite les modifier."
               >
@@ -359,9 +339,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Délais notifications"
                 hint="Contrôle les relances automatiques pour validations manager et check-out oublié."
               >
@@ -399,9 +379,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Politique offline (kiosk)"
                 hint="Détermine si la borne peut synchroniser des événements capturés hors ligne (visage/NFC)."
               >
@@ -430,9 +410,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="RGPD photos faciales"
                 hint="Conserve les logs de reconnaissance, mais supprime automatiquement l’image après ce délai."
               >
@@ -452,9 +432,9 @@ export default function TenantAttendanceSettingsPage() {
                     />
                   </FormField>
                 </div>
-              </Section>
+              </SettingsFormSection>
 
-              <Section
+              <SettingsFormSection
                 title="Webhooks"
                 hint="Émet des événements signés HMAC SHA-256 vers votre endpoint."
               >
@@ -490,7 +470,7 @@ export default function TenantAttendanceSettingsPage() {
                     </FormField>
                   </div>
                 </div>
-              </Section>
+              </SettingsFormSection>
             </div>
           </FormCard>
         </form>

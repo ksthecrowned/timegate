@@ -1,5 +1,9 @@
 'use client'
 
+import {
+  TEAM_STATUS_STYLES,
+  TeamSummaryCard,
+} from '@/components/manager/TeamSummaryCard'
 import { ApiErrorBanner, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import PageHeader from '@/components/ui/PageHeader'
 import { HttpError } from '@/lib/http'
@@ -13,55 +17,6 @@ import {
 import { formatMinutes } from '@/lib/timegate/timesheets'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-const STATUS_STYLES: Record<
-  TeamMemberStatus,
-  { badge: string; dot: string; icon: string }
-> = {
-  PRESENT: {
-    badge:
-      'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300',
-    dot: 'bg-emerald-500',
-    icon: 'fa-circle-check',
-  },
-  ABSENT: {
-    badge: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-    dot: 'bg-red-500',
-    icon: 'fa-user-xmark',
-  },
-  LATE: {
-    badge: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-    dot: 'bg-amber-500',
-    icon: 'fa-clock',
-  },
-  ON_BREAK: {
-    badge: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-300',
-    dot: 'bg-sky-500',
-    icon: 'fa-mug-saucer',
-  },
-  ON_LEAVE: {
-    badge:
-      'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300',
-    dot: 'bg-violet-500',
-    icon: 'fa-umbrella-beach',
-  },
-  REVIEW_REQUIRED: {
-    badge:
-      'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300',
-    dot: 'bg-orange-500',
-    icon: 'fa-triangle-exclamation',
-  },
-  OFF: {
-    badge: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
-    dot: 'bg-slate-400',
-    icon: 'fa-moon',
-  },
-  EXPECTED: {
-    badge: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300',
-    dot: 'bg-indigo-500',
-    icon: 'fa-calendar-day',
-  },
-}
 
 function isoTodayLocal(): string {
   const d = new Date()
@@ -114,49 +69,6 @@ type SummaryCardDef = {
   value: number
   icon: string
   accent: string
-}
-
-function SummaryCard({
-  label,
-  value,
-  icon,
-  accent,
-  active,
-  onClick,
-}: {
-  label: string
-  value: number
-  icon: string
-  accent: string
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`group relative overflow-hidden rounded-xl border bg-surface-card p-3.5 text-left shadow-sm transition-all dark:bg-surface-card-dark ${
-        active
-          ? 'border-primary/40 ring-2 ring-primary/25'
-          : 'border-slate-200/80 hover:border-primary/25 dark:border-border-dark'
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div
-          className={`flex size-8 items-center justify-center rounded-lg ${accent}`}
-          aria-hidden
-        >
-          <i className={`fa-solid ${icon} text-xs`} />
-        </div>
-        <p className="text-2xl font-semibold tabular-nums text-slate-900 dark:text-white">
-          {value}
-        </p>
-      </div>
-      <p className="mt-2 text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-    </button>
-  )
 }
 
 export default function ManagerTeamPage() {
@@ -324,7 +236,7 @@ export default function ManagerTeamPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
         {summaryCards.map((card) => (
-          <SummaryCard
+          <TeamSummaryCard
             key={card.key}
             label={card.label}
             value={card.value}
@@ -338,7 +250,7 @@ export default function ManagerTeamPage() {
 
       <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-surface-card shadow-sm dark:border-border-dark dark:bg-surface-card-dark">
         <div className="flex flex-wrap items-end gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-border-dark">
-          <div className="min-w-[10rem]">
+          <div className="min-w-40">
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Date
             </label>
@@ -350,7 +262,7 @@ export default function ManagerTeamPage() {
             />
           </div>
 
-          <div className="min-w-[12rem] flex-1 sm:max-w-xs">
+          <div className="min-w-48 flex-1 sm:max-w-xs">
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Branche
             </label>
@@ -368,7 +280,7 @@ export default function ManagerTeamPage() {
             </select>
           </div>
 
-          <div className="min-w-[12rem] flex-1 sm:max-w-sm">
+          <div className="min-w-48 flex-1 sm:max-w-sm">
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Recherche
             </label>
@@ -402,7 +314,7 @@ export default function ManagerTeamPage() {
             <button
               type="button"
               onClick={() => void load()}
-              className={`${primaryBtnClass} !px-3 !py-2 text-xs`}
+              className={`${primaryBtnClass} px-3! py-2! text-xs`}
               title="Actualiser"
             >
               <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`} />
@@ -432,7 +344,7 @@ export default function ManagerTeamPage() {
           ) : null}
         </div>
 
-        <div className="min-h-[24rem]">
+        <div className="min-h-96">
           {loading ? (
             <div className="divide-y divide-slate-100 dark:divide-border-dark">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -447,7 +359,7 @@ export default function ManagerTeamPage() {
               ))}
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex min-h-[24rem] flex-col items-center justify-center gap-2 px-6 text-center">
+            <div className="flex min-h-96 flex-col items-center justify-center gap-2 px-6 text-center">
               <div className="mb-2 flex size-14 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-white/10">
                 <i className="fa-solid fa-users text-2xl" />
               </div>
@@ -473,12 +385,12 @@ export default function ManagerTeamPage() {
           ) : (
             <ul className="divide-y divide-slate-100 dark:divide-border-dark">
               {filtered.map((member) => {
-                const style = STATUS_STYLES[member.status]
+                const style = TEAM_STATUS_STYLES[member.status]
                 const lastAt = formatLastEvent(member.lastEventAt)
                 return (
                   <li
                     key={member.employeeId}
-                    className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"
+                    className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-slate-50/80 dark:hover:bg-white/3"
                   >
                     <div className="relative shrink-0">
                       <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary dark:bg-primary/20 dark:text-accent">

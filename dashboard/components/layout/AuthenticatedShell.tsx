@@ -21,7 +21,7 @@ export default function AuthenticatedShell({ children }: { children: React.React
   const pathname = usePathname()
   useEffect(() => {
     if (typeof window !== 'undefined' && (window as any).HSStaticMethods) {
-      (window as any).HSStaticMethods.autoInit()
+      ;(window as any).HSStaticMethods.autoInit()
     }
   }, [pathname])
 

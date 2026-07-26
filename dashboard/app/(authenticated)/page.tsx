@@ -3,6 +3,10 @@
 import StartTourButton from '@/components/tour/StartTourButton'
 import OrgSetupReminderBanner from '@/components/tour/OrgSetupReminderBanner'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
+import {
+  DashboardStatCard,
+  DashboardTodayMetric,
+} from '@/components/dashboard/DashboardStatCards'
 import { ApiErrorBanner } from '@/components/timegate/ui'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
@@ -14,77 +18,6 @@ import { loadDashboardData, type DashboardChartData } from '@/lib/timegate/dashb
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-
-function StatCard({
-  label,
-  value,
-  href,
-  icon,
-  accent,
-  hint,
-}: {
-  label: string
-  value: number
-  href: string
-  icon: string
-  accent?: string
-  hint?: string
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col tg-card shadow-2xs transition-colors hover:border-primary/40"
-    >
-      <div className="p-4 md:px-5 md:py-5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
-          <i className={`${icon} ${accent ?? 'text-primary'}`} />
-        </div>
-        <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-          {value.toLocaleString('fr-FR')}
-        </h3>
-        {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
-      </div>
-    </Link>
-  )
-}
-
-function TodayMetric({
-  label,
-  value,
-  href,
-  tone,
-}: {
-  label: string
-  value: number
-  href?: string
-  tone?: 'default' | 'warn' | 'danger' | 'ok'
-}) {
-  const toneClass =
-    tone === 'warn'
-      ? 'text-amber-700 dark:text-amber-300'
-      : tone === 'danger'
-        ? 'text-red-700 dark:text-red-300'
-        : tone === 'ok'
-          ? 'text-emerald-700 dark:text-emerald-300'
-          : 'text-slate-900 dark:text-slate-100'
-
-  const content = (
-    <div className="rounded-lg border border-slate-200/80 bg-surface px-3 py-2.5 dark:border-border-dark dark:bg-surface-dark">
-      <p className="text-[11px] uppercase tracking-wide text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      <p className={`mt-1 text-xl font-semibold ${toneClass}`}>{value.toLocaleString('fr-FR')}</p>
-    </div>
-  )
-
-  if (!href) return content
-  return (
-    <Link href={href} className="block transition-opacity hover:opacity-90">
-      {content}
-    </Link>
-  )
-}
 
 export default function DashboardPage() {
   const { data: session } = useSession()
@@ -201,17 +134,17 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <TodayMetric label="Présents" value={home.today.present} href="/manager/team" tone="ok" />
-              <TodayMetric label="Absents" value={home.today.absent} href="/absences" tone="danger" />
-              <TodayMetric label="En congé" value={home.today.onLeave} href="/manager/leaves" />
-              <TodayMetric label="Retards" value={home.today.late} href="/late-records" tone="warn" />
-              <TodayMetric
+              <DashboardTodayMetric label="Présents" value={home.today.present} href="/manager/team" tone="ok" />
+              <DashboardTodayMetric label="Absents" value={home.today.absent} href="/absences" tone="danger" />
+              <DashboardTodayMetric label="En congé" value={home.today.onLeave} href="/manager/leaves" />
+              <DashboardTodayMetric label="Retards" value={home.today.late} href="/late-records" tone="warn" />
+              <DashboardTodayMetric
                 label="À valider"
                 value={home.today.reviewEventsToday + home.today.reviewRequired}
                 href="/manager/inbox"
                 tone="warn"
               />
-              <TodayMetric
+              <DashboardTodayMetric
                 label="Inbox"
                 value={home.today.inboxTotal}
                 href="/manager/inbox"
@@ -243,25 +176,25 @@ export default function DashboardPage() {
           >
             {isAdmin ? (
               <>
-                <StatCard
+                <DashboardStatCard
                   label="Employés"
                   value={home.kpis.employees}
                   href="/employees"
                   icon="fa-solid fa-users"
                 />
-                <StatCard
+                <DashboardStatCard
                   label="Branches"
                   value={home.kpis.branches}
                   href="/branches"
                   icon="fa-solid fa-building"
                 />
-                <StatCard
+                <DashboardStatCard
                   label="Kiosques"
                   value={home.kpis.kiosks}
                   href="/kiosks"
                   icon="fa-solid fa-tablet-screen-button"
                 />
-                <StatCard
+                <DashboardStatCard
                   label="Couverture (30 j)"
                   value={home.kpis.coveragePercent ?? 0}
                   href="/planning"
@@ -274,28 +207,28 @@ export default function DashboardPage() {
                 />
               </>
             ) : null}
-            <StatCard
+            <DashboardStatCard
               label="Absences non just. (30 j)"
               value={home.kpis.absences30}
               href="/absences"
               icon="fa-solid fa-user-xmark"
               accent="text-red-500"
             />
-            <StatCard
+            <DashboardStatCard
               label="Retards à justifier (30 j)"
               value={home.kpis.late30}
               href="/late-records"
               icon="fa-solid fa-clock"
               accent="text-amber-500"
             />
-            <StatCard
+            <DashboardStatCard
               label="Congés en attente"
               value={home.kpis.pendingLeaves}
               href={isAdmin ? '/leaves' : '/manager/inbox'}
               icon="fa-solid fa-plane-departure"
               accent="text-sky-500"
             />
-            <StatCard
+            <DashboardStatCard
               label="Temps travaillé (30 j)"
               value={home.kpis.timesheets30}
               href="/timesheets"
