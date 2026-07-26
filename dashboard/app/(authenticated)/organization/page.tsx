@@ -11,6 +11,7 @@ import {
   uploadCompanyLogo,
   type CompanyProfilePayload,
 } from '@/lib/timegate/company'
+import { emitOrgSaved } from '@/lib/tour/events'
 import { timezoneOptions } from '@/lib/timezones'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
@@ -46,6 +47,7 @@ export default function OrganizationSettingsPage() {
       await updateMyCompany(form)
       await reload()
       setSuccess('Configuration enregistrée.')
+      emitOrgSaved()
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible')
     } finally {
@@ -84,7 +86,7 @@ export default function OrganizationSettingsPage() {
       )}
 
       <FormCard title="Identité de l'organisation">
-        <form onSubmit={handleSave} className="space-y-6">
+        <form data-tour="org-form" onSubmit={handleSave} className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">
             <div className="shrink-0">
               <p className="text-sm font-medium text-gray-700 dark:text-neutral-300 mb-2">Logo</p>
