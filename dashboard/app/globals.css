@@ -465,3 +465,17 @@
   color: #5eead4 !important;
   border-color: #134e4a !important;
 }
+
+/* Tour: lock user scroll; only driver auto-scroll moves the page */
+body.driver-no-scroll,
+body.driver-no-scroll .driver-active-element-parent-no-scroll {
+  overflow: hidden !important;
+}
+
+/* Clear cutout ring on the explained zone */
+.driver-active-element {
+  box-shadow:
+    0 0 0 3px #0d9488,
+    0 0 0 6px rgb(13 148 136 / 0.25) !important;
+  border-radius: 8px;
+}

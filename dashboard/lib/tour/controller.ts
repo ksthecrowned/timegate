@@ -1,6 +1,6 @@
 import { driver, type Driver } from 'driver.js'
 
-import { isElementVisible, waitForSelector } from './dom'
+import { waitForSelector } from './dom'
 import { onOrgSaved } from './events'
 import { progressLabel } from './helpers'
 import { loadTourState, saveTourState } from './storage'
@@ -107,6 +107,8 @@ export function createTourController(opts: ControllerOpts): TourController {
       onNext?: () => void
       showNext?: boolean
       nextLabel?: string
+      /** Allow clicks inside the highlighted element (forms / CTAs). */
+      allowTargetInteraction?: boolean
       onPopoverRender?: (popover: {
         wrapper: HTMLElement
         footerButtons: HTMLElement
@@ -122,56 +124,69 @@ export function createTourController(opts: ControllerOpts): TourController {
         resolve()
       }
 
-      const buttons: Array<'next' | 'previous' | 'close'> = options.showNext === false
-        ? ['close']
-        : ['next', 'close']
+      const buttons: Array<'next' | 'previous' | 'close'> =
+        options.showNext === false ? ['close'] : ['next', 'close']
 
-      active = driver({
-        animate: true,
-        allowClose: true,
-        overlayOpacity: 0.55,
-        overlayColor: '#0b1120',
-        stagePadding: 8,
-        stageRadius: 12,
-        popoverClass: 'tg-driver-popover',
-        showProgress: false,
-        nextBtnText: options.nextLabel ?? 'Continuer',
-        doneBtnText: options.nextLabel ?? 'Continuer',
-        progressText: '{{current}} / {{total}}',
-        showButtons: buttons,
-        steps: [
-          {
-            element: step.element,
-            popover: {
-              title: step.title,
-              description: step.description,
-              side: step.side,
-              align: step.align,
-              showButtons: buttons,
-              nextBtnText: options.nextLabel ?? 'Continuer',
-              doneBtnText: options.nextLabel ?? 'Continuer',
-              onNextClick: (_el, _s, { driver: d }) => {
-                d.destroy()
-                finish(() => options.onNext?.())
-              },
-              onCloseClick: (_el, _s, { driver: d }) => {
-                d.destroy()
-                finish(() => stop('dismissed'))
-              },
-              onPopoverRender: (popover) => {
-                options.onPopoverRender?.(popover)
+      // Resolve + auto-scroll into view so the stage cutout is visible
+      let target: Element | string | undefined = step.element
+      if (typeof step.element === 'string' && typeof document !== 'undefined') {
+        const el = document.querySelector(step.element)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+          target = el
+        }
+      }
+
+      // Let smooth scroll settle before cutting the stage
+      window.setTimeout(() => {
+        if (settled) return
+        active = driver({
+          animate: true,
+          allowClose: false,
+          allowScroll: false,
+          smoothScroll: true,
+          overlayClickBehavior: () => {
+            // no-op: never dismiss / advance on overlay click
+          },
+          overlayOpacity: 0.6,
+          overlayColor: '#0b1120',
+          stagePadding: 10,
+          stageRadius: 12,
+          disableActiveInteraction: !options.allowTargetInteraction,
+          popoverClass: 'tg-driver-popover',
+          showProgress: false,
+          nextBtnText: options.nextLabel ?? 'Continuer',
+          doneBtnText: options.nextLabel ?? 'Continuer',
+          progressText: '{{current}} / {{total}}',
+          showButtons: buttons,
+          steps: [
+            {
+              element: target,
+              popover: {
+                title: step.title,
+                description: step.description,
+                side: step.side,
+                align: step.align,
+                showButtons: buttons,
+                nextBtnText: options.nextLabel ?? 'Continuer',
+                doneBtnText: options.nextLabel ?? 'Continuer',
+                onNextClick: (_el, _s, { driver: d }) => {
+                  d.destroy()
+                  finish(() => options.onNext?.())
+                },
+                onCloseClick: (_el, _s, { driver: d }) => {
+                  d.destroy()
+                  finish(() => stop('dismissed'))
+                },
+                onPopoverRender: (popover) => {
+                  options.onPopoverRender?.(popover)
+                },
               },
             },
-          },
-        ],
-        onDestroyed: () => {
-          // If user closed via overlay without our handlers settling
-          if (!settled && running) {
-            // leave decision to explicit handlers; do nothing
-          }
-        },
-      })
-      active.drive()
+          ],
+        })
+        active.drive()
+      }, target instanceof Element ? 280 : 0)
     })
   }
 
@@ -211,20 +226,20 @@ export function createTourController(opts: ControllerOpts): TourController {
     }
 
     if (step.type === 'celebrate' || step.type === 'spotlight' || step.type === 'navigate') {
-      // navigate already waited; now spotlight
       if (step.element) {
         const el =
           typeof document !== 'undefined' ? document.querySelector(step.element) : null
-        if (!el || (el && !isElementVisible(el))) {
-          if (!step.required) {
-            await softSkip()
-            return
-          }
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' })
+        } else if (!step.required) {
+          await softSkip()
+          return
         }
       }
       await showDriver(step, {
         onNext: () => void advance(),
         nextLabel: index === queue.length - 1 ? 'Terminer' : 'Continuer',
+        allowTargetInteraction: false,
       })
       return
     }
@@ -232,6 +247,7 @@ export function createTourController(opts: ControllerOpts): TourController {
     if (step.type === 'awaitAction') {
       await showDriver(step, {
         showNext: false,
+        allowTargetInteraction: true,
         onPopoverRender: () => {
           const selector = step.actionSelector
           if (!selector) return
@@ -258,6 +274,7 @@ export function createTourController(opts: ControllerOpts): TourController {
       unsubAction = onOrgSaved(go)
       await showDriver(step, {
         showNext: false,
+        allowTargetInteraction: true,
         onPopoverRender: (popover) => {
           const btn = document.createElement('button')
           btn.type = 'button'
