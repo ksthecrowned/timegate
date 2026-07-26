@@ -175,7 +175,7 @@ export default function ManagerInboxPage() {
     (tab === 'ALL' || tab === 'ATTENDANCE_EVENT') && eventItems.length > 0
 
   return (
-    <div>
+    <div data-tour="manager-inbox">
       <PageHeader
         breadcrumbs={[
           { label: 'Manager', href: '/' },

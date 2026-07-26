@@ -1,8 +1,11 @@
-"use client"
+'use client'
 
+import ProductTourBootstrap from '@/components/tour/ProductTourBootstrap'
+import TourProgressChip from '@/components/tour/TourProgressChip'
+import { TourProvider } from '@/components/tour/TourProvider'
+import TourResumeModal from '@/components/tour/TourResumeModal'
 import CopilotPanel from '@/components/ai/CopilotPanel'
 import { CopilotProvider } from '@/components/ai/CopilotProvider'
-import ProductTourBootstrap from '@/components/tour/ProductTourBootstrap'
 import Navbar from '@/components/layout/Navbar'
 import Sidebar from '@/components/layout/Sidebar'
 import SubscriptionBanner from '@/components/layout/SubscriptionBanner'
@@ -29,19 +32,23 @@ export default function AuthenticatedShell({ children }: { children: React.React
         <OrganizationProvider>
           <ToastProvider>
             <CopilotProvider>
-              <WebPushSetup />
-              <ProductTourBootstrap />
-              <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
-                <Sidebar />
-                <Navbar />
-                <CopilotPanel />
-                <main className="w-full lg:ps-[260px] mt-16">
-                  <SubscriptionBanner />
-                  <div className="px-4 py-6 sm:py-4 space-y-6 page-enter">
-                    <SubscriptionWritePageGuard>{children}</SubscriptionWritePageGuard>
-                  </div>
-                </main>
-              </div>
+              <TourProvider>
+                <WebPushSetup />
+                <TourResumeModal />
+                <ProductTourBootstrap />
+                <TourProgressChip />
+                <div className="w-full min-h-screen bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
+                  <Sidebar />
+                  <Navbar />
+                  <CopilotPanel />
+                  <main className="w-full lg:ps-[260px] mt-16">
+                    <SubscriptionBanner />
+                    <div className="px-4 py-6 sm:py-4 space-y-6 page-enter">
+                      <SubscriptionWritePageGuard>{children}</SubscriptionWritePageGuard>
+                    </div>
+                  </main>
+                </div>
+              </TourProvider>
             </CopilotProvider>
           </ToastProvider>
         </OrganizationProvider>

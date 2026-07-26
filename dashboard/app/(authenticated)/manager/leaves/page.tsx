@@ -103,7 +103,7 @@ export default function ManagerLeavesCalendarPage() {
   }, [days])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="manager-leaves">
       <PageHeader
         breadcrumbs={[{ label: 'Manager', href: '/' }, { label: 'Calendrier congés' }]}
         action={

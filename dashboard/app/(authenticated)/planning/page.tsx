@@ -77,7 +77,7 @@ export default function PlanningPage() {
   }, [days, gridStart, bounds.from, bounds.to])
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-tour="planning">
       <PageHeader breadcrumbs={[{ label: 'Planning équipe' }]} />
       <p className="text-sm text-gray-500 dark:text-neutral-400 mb-2">
         Affectations horaires, congés approuvés et jours fériés.

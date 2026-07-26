@@ -1,6 +1,7 @@
 'use client'
 
 import StartTourButton from '@/components/tour/StartTourButton'
+import OrgSetupReminderBanner from '@/components/tour/OrgSetupReminderBanner'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import { ApiErrorBanner } from '@/components/timegate/ui'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
@@ -154,7 +155,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <OrgSetupReminderBanner />
+      <div className="flex flex-wrap items-center justify-between gap-4" data-tour="home-header">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Tableau de bord</h1>
           {todayLabel ? (
@@ -236,6 +238,7 @@ export default function DashboardPage() {
           </section>
 
           <div
+            data-tour="home-kpis"
             className={`grid gap-4 sm:grid-cols-2 lg:grid-cols-4 sm:gap-6 transition-opacity ${loading ? 'opacity-60' : ''}`}
           >
             {isAdmin ? (
@@ -302,13 +305,15 @@ export default function DashboardPage() {
           </div>
 
           {loading && chartData ? (
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+            <div data-tour="home-analytics" className="grid gap-4 sm:gap-6 lg:grid-cols-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <SkeletonChartCard key={i} />
               ))}
             </div>
           ) : chartData ? (
-            <DashboardAnalytics data={chartData} />
+            <div data-tour="home-analytics">
+              <DashboardAnalytics data={chartData} />
+            </div>
           ) : null}
         </>
       ) : null}

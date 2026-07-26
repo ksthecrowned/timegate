@@ -69,7 +69,7 @@ export default function EmployeesPage() {
   }, [load])
 
   return (
-    <div>
+    <div data-tour="employees-list">
       <PageHeader
         breadcrumbs={[{ label: 'Employés' }]}
         action={
@@ -77,7 +77,11 @@ export default function EmployeesPage() {
             <Link href="/employees/import" className={secondaryBtnClass}>
               Importer CSV
             </Link>
-            <AddPageLink href="/employees/new" label="Ajouter un employé" />
+            <AddPageLink
+              href="/employees/new"
+              label="Ajouter un employé"
+              tourAction="employees-new"
+            />
           </div>
         }
       />

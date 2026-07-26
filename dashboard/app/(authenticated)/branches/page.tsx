@@ -43,10 +43,16 @@ export default function BranchesPage() {
   }, [load])
 
   return (
-    <div>
+    <div data-tour="branches-list">
       <PageHeader
         breadcrumbs={[{ label: 'Branches' }]}
-        action={<AddPageLink href="/branches/new" label="Ajouter une branche" />}
+        action={
+          <AddPageLink
+            href="/branches/new"
+            label="Ajouter une branche"
+            tourAction="branches-new"
+          />
+        }
       />
 
       {error && (

@@ -1,12 +1,10 @@
 import { driver, type Driver } from 'driver.js'
 
 import { isElementVisible, waitForSelector } from './dom'
-import { ORG_SAVED_EVENT, onOrgSaved } from './events'
-import { filterAvailableSteps, progressLabel } from './helpers'
+import { onOrgSaved } from './events'
+import { progressLabel } from './helpers'
 import { loadTourState, saveTourState } from './storage'
 import type { TourPersistedState, TourRole, TourStep } from './types'
-
-export { filterAvailableSteps, progressLabel } from './helpers'
 
 export type TourRouter = { push: (href: string) => void }
 
@@ -23,31 +21,6 @@ export type TourController = {
   stop: (reason: 'completed' | 'dismissed') => void
   getProgress: () => TourProgress
   subscribe: (listener: () => void) => () => void
-}
-
-export function filterAvailableSteps(
-  steps: TourStep[],
-  queryFn: (selector: string) => Element | null = (s) =>
-    typeof document !== 'undefined' ? document.querySelector(s) : null,
-): TourStep[] {
-  return steps.filter((step) => {
-    if (!step.element) return true
-    // navigate / requireSave targets may not be on the current page yet
-    if (step.type === 'navigate' || (step.type === 'requireSave' && step.path)) {
-      return true
-    }
-    const el = queryFn(step.element)
-    if (!el) {
-      // Soft-missing targets are dropped; required ones stay for runtime handling
-      return Boolean(step.required)
-    }
-    if (typeof window === 'undefined') return true
-    return isElementVisible(el) || Boolean(step.required)
-  })
-}
-
-export function progressLabel(step: TourStep, index: number, total: number): string {
-  return `${step.module} · ${index + 1}/${total}`
 }
 
 type ControllerOpts = {
@@ -305,8 +278,6 @@ export function createTourController(opts: ControllerOpts): TourController {
           popover.footerButtons.prepend(btn)
         },
       })
-      // Also listen in case event fires while popover open
-      void ORG_SAVED_EVENT
       return
     }
   }

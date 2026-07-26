@@ -57,10 +57,12 @@ export default function KiosksPage() {
   }, [load])
 
   return (
-    <div>
+    <div data-tour="kiosks-list">
       <PageHeader
         breadcrumbs={[{ label: 'Kiosques' }]}
-        action={<AddPageLink href="/kiosks/new" label="Ajouter un kiosque" />}
+        action={
+          <AddPageLink href="/kiosks/new" label="Ajouter un kiosque" tourAction="kiosks-new" />
+        }
       />
 
       {error && (

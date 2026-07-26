@@ -105,7 +105,7 @@ export default function ManagerTeamPage() {
   ]
 
   return (
-    <div>
+    <div data-tour="manager-team">
       <PageHeader
         breadcrumbs={[
           { label: 'Manager', href: '/' },

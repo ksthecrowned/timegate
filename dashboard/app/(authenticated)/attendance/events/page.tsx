@@ -82,7 +82,7 @@ export default function AttendanceEventsPage() {
   }, [load]);
 
   return (
-    <div>
+    <div data-tour="attendance-events">
       <PageHeader
         breadcrumbs={[
           { label: "Présence", href: '/attendance/events' },
