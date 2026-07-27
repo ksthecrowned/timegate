@@ -1221,59 +1221,58 @@ export class AuthService {
 
   private async validateCredentials(dto: LoginDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
+    const sku = dto.sku?.trim();
 
-    // Platform Admin entity (console) — no organization SKU.
-    const admin = await this.prisma.admin.findUnique({
-      where: { email: normalizedEmail },
-    });
-    if (admin) {
-      if (!admin.enabled || !admin.passwordHash) {
+    // Tenant login (dashboard / mobile bootstrap): SKU selects the organization User.
+    // Never short-circuit to platform Admin when a SKU is present — same email may exist in both tables.
+    if (sku) {
+      const company = await this.prisma.company.findFirst({
+        where: { sku: sku.toUpperCase() },
+        select: { id: true },
+      });
+      if (!company) {
+        throw new UnauthorizedException('Invalid organization SKU');
+      }
+
+      const user = await this.prisma.user.findFirst({
+        where: { email: normalizedEmail, companyId: company.id },
+      });
+      if (!user || !user.timeGateRole) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      const ok = await bcrypt.compare(dto.password, admin.passwordHash);
+      if (!user.passwordHash) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const ok = await bcrypt.compare(dto.password, user.passwordHash);
       if (!ok) {
         throw new UnauthorizedException('Invalid credentials');
       }
       return {
-        kind: 'admin' as const,
-        id: admin.id,
-        email: admin.email,
-        role: PLATFORM_ADMIN,
-        companyId: null as string | null,
+        kind: 'user' as const,
+        id: user.id,
+        email: user.email,
+        role: user.timeGateRole,
+        companyId: user.companyId,
       };
     }
 
-    if (!dto.sku?.trim()) {
-      throw new UnauthorizedException('Organization SKU is required');
-    }
-
-    const company = await this.prisma.company.findFirst({
-      where: { sku: dto.sku.trim().toUpperCase() },
-      select: { id: true },
+    // Platform login (console): no SKU — Admin entity only.
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: normalizedEmail },
     });
-    if (!company) {
-      throw new UnauthorizedException('Invalid organization SKU');
-    }
-
-    const user = await this.prisma.user.findFirst({
-      where: { email: normalizedEmail, companyId: company.id },
-    });
-    if (!user || !user.timeGateRole) {
+    if (!admin || !admin.enabled || !admin.passwordHash) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    if (!user.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-    const ok = await bcrypt.compare(dto.password, user.passwordHash);
+    const ok = await bcrypt.compare(dto.password, admin.passwordHash);
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');
     }
     return {
-      kind: 'user' as const,
-      id: user.id,
-      email: user.email,
-      role: user.timeGateRole,
-      companyId: user.companyId,
+      kind: 'admin' as const,
+      id: admin.id,
+      email: admin.email,
+      role: PLATFORM_ADMIN,
+      companyId: null as string | null,
     };
   }
 
