@@ -1,5 +1,6 @@
 /**
- * Prépare le Postgres E2E (migrate + seed), démarre l'API dessus, lance test:use-cases, stoppe.
+ * Prépare le Postgres E2E (generate + migrate + seed), démarre l'API dessus,
+ * lance test:use-cases, stoppe.
  * Ne touche jamais DATABASE_URL AlwaysData — uniquement E2E_DATABASE_URL.
  */
 import { spawn } from 'child_process'
@@ -42,6 +43,9 @@ function startApi() {
     shell: true,
   })
 }
+
+let generate = await runWithE2eDb(['bunx', 'prisma', 'generate'])
+if (generate !== 0) process.exit(generate)
 
 let migrate = await runWithE2eDb(['bunx', 'prisma', 'migrate', 'deploy'])
 if (migrate !== 0) process.exit(migrate)

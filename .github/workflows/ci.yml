@@ -43,6 +43,10 @@ jobs:
         working-directory: api
         run: bun install --frozen-lockfile
 
+      - name: Prisma generate
+        working-directory: api
+        run: bunx prisma generate
+
       - name: Prisma migrate
         working-directory: api
         run: bunx prisma migrate deploy
@@ -53,7 +57,7 @@ jobs:
 
       - name: Build API
         working-directory: api
-        run: bun run build
+        run: bunx nest build
 
       - name: Start API
         working-directory: api
