@@ -10,7 +10,7 @@ export class SearchService {
   async search(query: SearchQueryDto, user: JwtUser) {
     const q = query.q.trim();
     const limit = query.limit ?? 5;
-    const companyId = user.role === 'SUPER_ADMIN' ? undefined : user.companyId ?? undefined;
+    const companyId = user.role === 'PLATFORM_ADMIN' ? undefined : user.companyId ?? undefined;
     const contains = { contains: q, mode: 'insensitive' as const };
 
     const employeeWhere = {

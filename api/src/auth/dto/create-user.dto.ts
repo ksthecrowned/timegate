@@ -1,5 +1,14 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
 import { TimeGateUserRole } from '@prisma/client';
+
+/** Roles a tenant ADMIN may assign when creating organization Users. */
+export const ORGANIZATION_ASSIGNABLE_ROLES = [
+  TimeGateUserRole.ADMIN,
+  TimeGateUserRole.MANAGER,
+  TimeGateUserRole.EMPLOYEE,
+] as const;
+
+export type OrganizationAssignableRole = (typeof ORGANIZATION_ASSIGNABLE_ROLES)[number];
 
 export class CreateUserDto {
   @IsEmail()
@@ -9,11 +18,6 @@ export class CreateUserDto {
   @MinLength(8)
   password!: string;
 
-  @IsEnum(TimeGateUserRole)
-  role!: TimeGateUserRole;
-
-  @IsOptional()
-  @IsString()
-  @MaxLength(140)
-  companyId?: string;
+  @IsIn([...ORGANIZATION_ASSIGNABLE_ROLES])
+  role!: OrganizationAssignableRole;
 }

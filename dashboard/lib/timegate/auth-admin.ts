@@ -5,7 +5,6 @@ export type CreateAdminUserPayload = {
   email: string
   password: string
   role: TimeGateRole
-  companyId?: string
 }
 
 export type AdminUserEmployee = {

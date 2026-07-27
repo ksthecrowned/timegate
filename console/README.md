@@ -3,7 +3,7 @@
 Application Next.js dédiée à la gestion **plateforme SaaS** TimeGate (organisations, plans, abonnements, référentiels).
 
 - Port dev : **3002** (`http://localhost:3002`)
-- Rôle requis : `SUPER_ADMIN` (connexion sans SKU organisation)
+- Rôle requis : administrateur plateforme (`Admin` / `PLATFORM_ADMIN`, connexion sans SKU)
 
 ## Démarrage
 

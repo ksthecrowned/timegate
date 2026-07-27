@@ -21,6 +21,7 @@ import {
   TimeGateSubscriptionStatus,
   TimeGateUserRole,
 } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomInt, timingSafeEqual } from 'crypto';
@@ -194,6 +195,7 @@ export class AuthService {
         created.user.email,
         created.user.timeGateRole!,
         created.company.id,
+        { kind: 'user' },
       ),
       organization: {
         id: created.company.id,
@@ -212,13 +214,14 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const user = await this.validateCredentials(dto);
+    const account = await this.validateCredentials(dto);
     return {
       access_token: await this.signToken(
-        user.id,
-        user.email,
-        user.timeGateRole!,
-        user.companyId ?? null,
+        account.id,
+        account.email,
+        account.role,
+        account.companyId,
+        { kind: account.kind },
       ),
     };
   }
@@ -300,28 +303,32 @@ export class AuthService {
   }
 
   async mobileBootstrap(dto: LoginDto) {
-    const user = await this.validateCredentials(dto);
-    if (user.timeGateRole !== TimeGateUserRole.ADMIN && user.timeGateRole !== TimeGateUserRole.MANAGER) {
+    const account = await this.validateCredentials(dto);
+    if (account.kind !== 'user') {
       throw new UnauthorizedException('Only ADMIN/MANAGER can provision kiosk devices');
     }
-    if (!user.companyId) {
+    if (account.role !== TimeGateUserRole.ADMIN && account.role !== TimeGateUserRole.MANAGER) {
+      throw new UnauthorizedException('Only ADMIN/MANAGER can provision kiosk devices');
+    }
+    if (!account.companyId) {
       throw new UnauthorizedException('Operator account must belong to a company');
     }
 
     const branches = await this.prisma.branch.findMany({
-      where: { companyId: user.companyId },
+      where: { companyId: account.companyId },
       select: { id: true, branchName: true, address: true, timeZone: true },
       orderBy: { branchName: 'asc' },
     });
 
     return {
       operator_token: await this.signToken(
-        user.id,
-        user.email,
-        user.timeGateRole!,
-        user.companyId ?? null,
+        account.id,
+        account.email,
+        account.role,
+        account.companyId,
+        { kind: 'user' },
       ),
-      operator: { id: user.id, email: user.email, role: user.timeGateRole },
+      operator: { id: account.id, email: account.email, role: account.role },
       branches: branches.map((b) => ({
         id: b.id,
         name: b.branchName,
@@ -331,15 +338,25 @@ export class AuthService {
     };
   }
 
-  async createUser(dto: CreateUserDto) {
-    if (dto.role !== TimeGateUserRole.SUPER_ADMIN && !dto.companyId) {
-      throw new BadRequestException('companyId is required for ADMIN/MANAGER users');
+  async createUser(actor: JwtUser, dto: CreateUserDto) {
+    if (actor.kind !== 'user' || actor.role !== TimeGateUserRole.ADMIN) {
+      throw new ForbiddenException('Only organization ADMIN users can create tenant accounts');
     }
+    if (!actor.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    if (
+      dto.role !== TimeGateUserRole.ADMIN &&
+      dto.role !== TimeGateUserRole.MANAGER &&
+      dto.role !== TimeGateUserRole.EMPLOYEE
+    ) {
+      throw new BadRequestException('Invalid organization role');
+    }
+
+    const companyId = actor.companyId;
+    const email = dto.email.trim().toLowerCase();
     const existing = await this.prisma.user.findFirst({
-      where: {
-        email: dto.email.trim().toLowerCase(),
-        companyId: dto.companyId ?? null,
-      },
+      where: { email, companyId },
     });
     if (existing) {
       throw new ConflictException('Email already registered');
@@ -348,10 +365,10 @@ export class AuthService {
     const user = await this.prisma.user.create({
       data: {
         id: generateDocId('USR'),
-        email: dto.email.trim().toLowerCase(),
+        email,
         passwordHash,
         timeGateRole: dto.role,
-        companyId: dto.companyId ?? null,
+        companyId,
       },
       select: { id: true, email: true, timeGateRole: true, createdAt: true },
     });
@@ -377,7 +394,7 @@ export class AuthService {
     if (activation.expiresAt <= now) {
       throw new ForbiddenException('Activation key expired');
     }
-    if (user.role !== TimeGateUserRole.SUPER_ADMIN && activation.companyId !== user.companyId) {
+    if (user.role !== PLATFORM_ADMIN && activation.companyId !== user.companyId) {
       throw new ForbiddenException('Activation key does not belong to your company');
     }
 
@@ -738,6 +755,24 @@ export class AuthService {
   }
 
   async getMe(user: JwtUser) {
+    if (user.kind === 'admin' || user.role === PLATFORM_ADMIN) {
+      const admin = await this.prisma.admin.findUnique({
+        where: { id: user.sub },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      });
+      if (!admin) throw new UnauthorizedException();
+      return {
+        id: admin.id,
+        email: admin.email,
+        firstName: admin.firstName,
+        lastName: admin.lastName,
+        kind: 'admin' as const,
+        role: PLATFORM_ADMIN,
+        companyId: null,
+        employeeId: null,
+      };
+    }
+
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
       select: {
@@ -758,6 +793,7 @@ export class AuthService {
       email: dbUser.email,
       firstName: dbUser.firstName,
       lastName: dbUser.lastName,
+      kind: 'user' as const,
       role: dbUser.timeGateRole,
       companyId: dbUser.companyId,
       employeeId: dbUser.employee?.id ?? null,
@@ -765,6 +801,26 @@ export class AuthService {
   }
 
   async updateMe(user: JwtUser, dto: UpdateMeDto) {
+    if (user.kind === 'admin' || user.role === PLATFORM_ADMIN) {
+      const data: { firstName?: string | null; lastName?: string | null } = {};
+      if (dto.firstName !== undefined) data.firstName = dto.firstName.trim() || null;
+      if (dto.lastName !== undefined) data.lastName = dto.lastName.trim() || null;
+      const updated = await this.prisma.admin.update({
+        where: { id: user.sub },
+        data,
+        select: { id: true, email: true, firstName: true, lastName: true },
+      });
+      return {
+        id: updated.id,
+        email: updated.email,
+        firstName: updated.firstName,
+        lastName: updated.lastName,
+        kind: 'admin' as const,
+        role: PLATFORM_ADMIN,
+        companyId: null,
+        employeeId: null,
+      };
+    }
     if (user.role === TimeGateUserRole.EMPLOYEE) {
       throw new ForbiddenException('Profil employé en lecture seule');
     }
@@ -793,6 +849,7 @@ export class AuthService {
       email: updated.email,
       firstName: updated.firstName,
       lastName: updated.lastName,
+      kind: 'user' as const,
       role: updated.timeGateRole,
       companyId: updated.companyId,
       employeeId: updated.employee?.id ?? null,
@@ -967,6 +1024,26 @@ export class AuthService {
     if (dto.currentPassword === dto.newPassword) {
       throw new BadRequestException('Le nouveau mot de passe doit être différent');
     }
+
+    if (user.kind === 'admin' || user.role === PLATFORM_ADMIN) {
+      const admin = await this.prisma.admin.findUnique({
+        where: { id: user.sub },
+        select: { id: true, passwordHash: true },
+      });
+      if (!admin?.passwordHash) {
+        throw new UnauthorizedException('Mot de passe actuel incorrect');
+      }
+      const okAdmin = await bcrypt.compare(dto.currentPassword, admin.passwordHash);
+      if (!okAdmin) {
+        throw new UnauthorizedException('Mot de passe actuel incorrect');
+      }
+      await this.prisma.admin.update({
+        where: { id: admin.id },
+        data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
+      });
+      return { ok: true as const };
+    }
+
     const dbUser = await this.prisma.user.findUnique({
       where: { id: user.sub },
       select: { id: true, passwordHash: true, companyId: true },
@@ -1000,7 +1077,7 @@ export class AuthService {
   }
 
   async getSubscriptionStatus(user: JwtUser) {
-    if (user.role === TimeGateUserRole.SUPER_ADMIN) {
+    if (user.role === PLATFORM_ADMIN) {
       return {
         active: true,
         readOnly: false,
@@ -1102,14 +1179,20 @@ export class AuthService {
   private signToken(
     userId: string,
     email: string,
-    role: TimeGateUserRole,
+    role: TimeGateUserRole | typeof PLATFORM_ADMIN,
     companyId: string | null,
-    extras?: { deviceInstallId?: string; deviceTrust?: 'TRUSTED' | 'PENDING' },
+    extras?: {
+      deviceInstallId?: string;
+      deviceTrust?: 'TRUSTED' | 'PENDING';
+      kind?: 'admin' | 'user';
+    },
   ) {
+    const kind = extras?.kind ?? (role === PLATFORM_ADMIN ? 'admin' : 'user');
     return this.jwt.signAsync({
       sub: userId,
       email,
       role,
+      kind,
       companyId,
       ...(extras?.deviceInstallId ? { deviceInstallId: extras.deviceInstallId } : {}),
       ...(extras?.deviceTrust ? { deviceTrust: extras.deviceTrust } : {}),
@@ -1138,18 +1221,26 @@ export class AuthService {
 
   private async validateCredentials(dto: LoginDto) {
     const normalizedEmail = dto.email.trim().toLowerCase();
-    const superAdmin = await this.prisma.user.findFirst({
-      where: { email: normalizedEmail, timeGateRole: TimeGateUserRole.SUPER_ADMIN, companyId: null },
+
+    // Platform Admin entity (console) — no organization SKU.
+    const admin = await this.prisma.admin.findUnique({
+      where: { email: normalizedEmail },
     });
-    if (superAdmin) {
-      if (!superAdmin.passwordHash) {
+    if (admin) {
+      if (!admin.enabled || !admin.passwordHash) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      const ok = await bcrypt.compare(dto.password, superAdmin.passwordHash);
+      const ok = await bcrypt.compare(dto.password, admin.passwordHash);
       if (!ok) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      return superAdmin;
+      return {
+        kind: 'admin' as const,
+        id: admin.id,
+        email: admin.email,
+        role: PLATFORM_ADMIN,
+        companyId: null as string | null,
+      };
     }
 
     if (!dto.sku?.trim()) {
@@ -1167,7 +1258,7 @@ export class AuthService {
     const user = await this.prisma.user.findFirst({
       where: { email: normalizedEmail, companyId: company.id },
     });
-    if (!user) {
+    if (!user || !user.timeGateRole) {
       throw new UnauthorizedException('Invalid credentials');
     }
     if (!user.passwordHash) {
@@ -1177,7 +1268,13 @@ export class AuthService {
     if (!ok) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return user;
+    return {
+      kind: 'user' as const,
+      id: user.id,
+      email: user.email,
+      role: user.timeGateRole,
+      companyId: user.companyId,
+    };
   }
 
   async provisionMobile(dto: MobileProvisionDto) {

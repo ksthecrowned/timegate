@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -28,7 +29,7 @@ export class DepartmentsController {
   @Get()
   findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
     const companyId =
-      user.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user.companyId ?? undefined;
+      user.role === PLATFORM_ADMIN ? undefined : user.companyId ?? undefined;
     return this.service.findAll(query, companyId);
   }
 

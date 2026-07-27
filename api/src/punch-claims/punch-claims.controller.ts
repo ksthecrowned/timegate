@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -17,7 +18,7 @@ import { PunchClaimsService } from './punch-claims.service';
 export class PunchClaimsController {
   constructor(private readonly service: PunchClaimsService) {}
 
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, TimeGateUserRole.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, PLATFORM_ADMIN)
   @Get()
   findAll(@Query() query: FindPunchClaimsQueryDto, @CurrentUser() user: JwtUser) {
     return this.service.findAll(query, user);
@@ -28,7 +29,7 @@ export class PunchClaimsController {
     return this.service.findOne(id, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, TimeGateUserRole.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, PLATFORM_ADMIN)
   @Patch(':id/review')
   review(
     @Param('id', DocIdPipe) id: string,

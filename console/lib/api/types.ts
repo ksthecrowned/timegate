@@ -1,4 +1,4 @@
-export type TimeGateRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
+export type TimeGateRole = 'PLATFORM_ADMIN' | 'ADMIN' | 'MANAGER' | 'EMPLOYEE'
 
 export type TimeGateUser = {
   id: string

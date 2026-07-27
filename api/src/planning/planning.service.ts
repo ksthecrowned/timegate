@@ -180,7 +180,7 @@ export class PlanningService {
   }
 
   private resolveCompanyFilter(user: JwtUser): string | null {
-    if (user.role === 'SUPER_ADMIN') return null;
+    if (user.role === 'PLATFORM_ADMIN') return null;
     return user.companyId ?? null;
   }
 

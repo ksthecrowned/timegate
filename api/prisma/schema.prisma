@@ -72,8 +72,8 @@ enum PaymentEntryType {
 // Enums — TimeGate platform
 // ---------------------------------------------------------------------------
 
+/// Tenant-scoped roles on `User` only. Platform operators use the `Admin` model.
 enum TimeGateUserRole {
-  SUPER_ADMIN
   ADMIN
   MANAGER
   EMPLOYEE
@@ -1007,6 +1007,22 @@ model SalarySlip {
 // Auth & files
 // ---------------------------------------------------------------------------
 
+/// Platform operator (console). Separate from tenant `User`.
+model Admin {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  email        String  @unique @db.VarChar(140)
+  firstName    String? @map("first_name") @db.VarChar(140)
+  lastName     String? @map("last_name") @db.VarChar(140)
+  enabled      Boolean @default(true)
+  passwordHash String? @map("password_hash") @db.VarChar(255)
+
+  @@map("tabAdmin")
+}
+
+/// Organization member (dashboard). Org owner/operator = role ADMIN.
 model User {
   id        String    @id @db.VarChar(140)
   createdAt DateTime  @default(now()) @map("creation")

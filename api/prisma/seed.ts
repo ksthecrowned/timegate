@@ -391,7 +391,11 @@ async function purgeCompany(company: { id: string }) {
   await prisma.company.delete({ where: { id: company.id } });
 }
 
-async function resetSuperAdminUser() {
+async function resetPlatformAdmin() {
+  await prisma.admin.deleteMany({
+    where: { email: 'superadmin@monorganisation.com' },
+  });
+  // Legacy: platform operators used to live on tabUser as SUPER_ADMIN.
   await prisma.user.deleteMany({
     where: { email: 'superadmin@monorganisation.com', companyId: null },
   });
@@ -399,7 +403,7 @@ async function resetSuperAdminUser() {
 
 async function main() {
   await resetDemoSeed();
-  await resetSuperAdminUser();
+  await resetPlatformAdmin();
 
   const passwordHash = await bcrypt.hash('ChangeMe123!', 10);
   const demoKioskPinHash = await bcrypt.hash(DEMO_KIOSK_PIN, 10);
@@ -514,25 +518,16 @@ async function main() {
     },
   });
 
-  const existingSuperAdmin = await prisma.user.findFirst({
-    where: { email: 'superadmin@monorganisation.com', companyId: null },
+  await prisma.admin.upsert({
+    where: { email: 'superadmin@monorganisation.com' },
+    update: { passwordHash, enabled: true },
+    create: {
+      id: generateDocId('ADM'),
+      email: 'superadmin@monorganisation.com',
+      passwordHash,
+      enabled: true,
+    },
   });
-  if (existingSuperAdmin) {
-    await prisma.user.update({
-      where: { id: existingSuperAdmin.id },
-      data: { passwordHash, timeGateRole: TimeGateUserRole.SUPER_ADMIN },
-    });
-  } else {
-    await prisma.user.create({
-      data: {
-        id: generateDocId('USR'),
-        email: 'superadmin@monorganisation.com',
-        passwordHash,
-        timeGateRole: TimeGateUserRole.SUPER_ADMIN,
-        companyId: null,
-      },
-    });
-  }
 
   const hq = await prisma.branch.create({
     data: {

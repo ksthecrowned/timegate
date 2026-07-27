@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
@@ -15,7 +16,7 @@ export class HolidayListsController {
   @Get()
   findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
     const companyId =
-      user.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user.companyId ?? undefined;
+      user.role === PLATFORM_ADMIN ? undefined : user.companyId ?? undefined;
     return this.service.findAllLists(query, companyId);
   }
 }

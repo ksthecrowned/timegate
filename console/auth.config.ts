@@ -22,7 +22,7 @@ export const authConfig = {
       const isLoginPage = pathname === '/login'
 
       if (isLoginPage) {
-        if (isLoggedIn && auth?.user?.role === 'SUPER_ADMIN') {
+        if (isLoggedIn && auth?.user?.role === 'PLATFORM_ADMIN') {
           return Response.redirect(new URL('/', nextUrl))
         }
         if (isLoggedIn) {
@@ -33,7 +33,7 @@ export const authConfig = {
 
       if (!isLoggedIn) return false
 
-      if (auth?.user?.role !== 'SUPER_ADMIN') {
+      if (auth?.user?.role !== 'PLATFORM_ADMIN') {
         return Response.redirect(new URL('/login?error=Forbidden', nextUrl))
       }
 

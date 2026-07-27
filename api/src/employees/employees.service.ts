@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { EmployeeStatus, Prisma, TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import * as bcrypt from 'bcrypt';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -162,7 +163,7 @@ export class EmployeesService {
     const limit = query.limit ?? 20;
     const branchId = query.branchId;
     const companyId =
-      user?.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user?.companyId ?? undefined;
+      user?.role === PLATFORM_ADMIN ? undefined : user?.companyId ?? undefined;
     const where: Prisma.EmployeeWhereInput = {
       ...(companyId ? { companyId } : {}),
       ...(branchId ? { branchId } : {}),
@@ -406,7 +407,7 @@ export class EmployeesService {
     const limit = query.limit ?? 20;
 
     const companyId =
-      user?.role === TimeGateUserRole.SUPER_ADMIN ? undefined : user?.companyId ?? undefined;
+      user?.role === PLATFORM_ADMIN ? undefined : user?.companyId ?? undefined;
     const where: Prisma.TimeGateEmployeeContractWhereInput = {
       ...(query.employeeId ? { employeeId: query.employeeId } : {}),
       ...(companyId ? { companyId } : {}),
@@ -656,7 +657,7 @@ export class EmployeesService {
   }
 
   private assertCompanyAccess(user: JwtUser, companyId: string | null) {
-    if (user.role === TimeGateUserRole.SUPER_ADMIN) return;
+    if (user.role === PLATFORM_ADMIN) return;
     if (!companyId || !user.companyId || user.companyId !== companyId) {
       throw new ForbiddenException('Access denied for this company');
     }

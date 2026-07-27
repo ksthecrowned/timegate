@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -67,7 +68,7 @@ export class AttendanceController {
     return this.attendance.findEvent(id, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, TimeGateUserRole.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, PLATFORM_ADMIN)
   @Patch('events/:id/review')
   reviewEvent(
     @Param('id', DocIdPipe) id: string,
@@ -77,7 +78,7 @@ export class AttendanceController {
     return this.attendance.reviewEvent(id, dto, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, TimeGateUserRole.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER, PLATFORM_ADMIN)
   @Get('events/:id/reviews')
   getEventReviews(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.attendance.getEventReviews(id, user);

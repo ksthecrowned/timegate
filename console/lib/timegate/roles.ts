@@ -1,8 +1,8 @@
 import type { TimeGateRole } from '@/lib/api/types'
 
 const ROLE_LABELS: Record<TimeGateRole, string> = {
-  SUPER_ADMIN: 'Super administrateur',
-  ADMIN: 'Administrateur',
+  PLATFORM_ADMIN: 'Administrateur plateforme',
+  ADMIN: 'Administrateur organisation',
   MANAGER: 'Manager',
   EMPLOYEE: 'Employé',
 }

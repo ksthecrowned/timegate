@@ -7,6 +7,7 @@ import {
   TimeGateUserRole,
   WeekDay,
 } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
@@ -340,7 +341,7 @@ export class DashboardService {
   }
 
   private resolveCompanyFilter(user: JwtUser): string | undefined {
-    if (user.role === TimeGateUserRole.SUPER_ADMIN) return undefined;
+    if (user.role === PLATFORM_ADMIN) return undefined;
     return user.companyId ?? undefined;
   }
 }

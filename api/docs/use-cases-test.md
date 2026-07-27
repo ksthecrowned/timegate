@@ -62,7 +62,7 @@ Requêtes HTTP d’exemple : [`../EXAMPLES.http`](../EXAMPLES.http).
 |-------------|----------------------------------|----------|
 | ADMIN       | `admin@monorganisation.com`      | `SOTR`   |
 | MANAGER     | `manager@monorganisation.com`    | `SOTR`   |
-| SUPER_ADMIN | `superadmin@monorganisation.com` | *(aucun)* |
+| PLATFORM_ADMIN | `superadmin@monorganisation.com` (entité `Admin`) | *(aucun)* |
 | Employé     | `patrick.mukendi@sotrafer.cg` | *(app `employee-app`)* |
 
 **Organisation :** SOTRAFER Congo (`SOTR`) — entreprise logistique, République du Congo (seed)

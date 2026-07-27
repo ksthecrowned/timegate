@@ -29,7 +29,7 @@ Noms préfixés `timegate-dashboard.*` (`lib/auth/cookies.ts`) pour éviter les 
 
 1. Formulaire `/login` → `signIn('credentials', { email, password, sku?, redirect: false })`
 2. `authorize()` appelle `POST /auth/login`, puis `/auth/me` + `/auth/subscription-status`
-3. Rôles hors dashboard (ex. `SUPER_ADMIN`) → refus (`null`)
+3. Rôles hors dashboard (ex. `PLATFORM_ADMIN`) → refus (`null`)
 4. Session JWT : `accessToken`, `accessTokenExpires`, user + flags abonnement
 
 ## Refresh token

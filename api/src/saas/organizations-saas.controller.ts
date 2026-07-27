@@ -1,5 +1,6 @@
 import { Body, Controller, Param, Patch, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -12,7 +13,7 @@ import { OrganizationsSaasService } from './organizations-saas.service';
 export class OrganizationsSaasController {
   constructor(private readonly organizations: OrganizationsSaasService) {}
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Patch(':id/suspension')
   setSuspension(
     @Param('id', DocIdPipe) id: string,

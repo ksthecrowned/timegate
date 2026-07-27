@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { TimeGateSubscriptionStatus, TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../constants/platform-admin';
 import { JwtUser } from '../decorators/current-user.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { ALLOW_INACTIVE_SUBSCRIPTION_KEY } from '../decorators/allow-inactive-subscription.decorator';
@@ -45,7 +46,7 @@ export class SubscriptionStateGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: JwtUser; method?: string }>();
     const user = request.user;
     if (!user?.sub) return true;
-    if (user.role === TimeGateUserRole.SUPER_ADMIN) return true;
+    if (user.kind === 'admin' || user.role === PLATFORM_ADMIN) return true;
     if (!user.companyId) return true;
 
     const resolved = await this.subscriptionState.resolveForCompany(user.companyId);

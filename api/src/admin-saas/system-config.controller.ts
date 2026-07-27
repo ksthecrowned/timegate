@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -26,13 +27,13 @@ export class SystemConfigController {
     return this.service.updateTenantConfig(user, dto);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN, TimeGateUserRole.ADMIN)
+  @Roles(PLATFORM_ADMIN, TimeGateUserRole.ADMIN)
   @Get()
   findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
     return this.service.findSystemConfigs(query, user);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN, TimeGateUserRole.ADMIN)
+  @Roles(PLATFORM_ADMIN, TimeGateUserRole.ADMIN)
   @Patch(':id')
   update(
     @Param('id', DocIdPipe) id: string,

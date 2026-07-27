@@ -38,7 +38,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           const accessToken = login.access_token
           const me = await fetchTimeGateMe(accessToken)
 
-          if (me.role !== 'SUPER_ADMIN') {
+          if (me.role !== 'PLATFORM_ADMIN') {
             return null
           }
 

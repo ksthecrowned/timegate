@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TimeGateUserRole } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AllowInactiveSubscription } from '../common/decorators/allow-inactive-subscription.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
@@ -93,8 +94,8 @@ export class AuthController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post('users')
-  createUser(@Body() dto: CreateUserDto) {
-    return this.auth.createUser(dto);
+  createUser(@CurrentUser() user: JwtUser, @Body() dto: CreateUserDto) {
+    return this.auth.createUser(user, dto);
   }
 
   @Roles(TimeGateUserRole.ADMIN)
@@ -104,25 +105,25 @@ export class AuthController {
   }
 
   @AllowInactiveSubscription()
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.SUPER_ADMIN)
+  @Roles(TimeGateUserRole.ADMIN, PLATFORM_ADMIN)
   @Post('activate')
   activate(@CurrentUser() user: JwtUser, @Body() dto: ActivateSubscriptionDto) {
     return this.auth.activateSubscription(user, dto);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Get('super-admin/organizations')
   listOrganizations() {
     return this.auth.listOrganizations();
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Get('super-admin/activation-keys')
   listActivationKeys() {
     return this.auth.listActivationKeys();
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Get('super-admin/organizations/:organizationId')
   getOrganization(@Param('organizationId', DocIdPipe) organizationId: string) {
     return this.auth.getOrganization(organizationId);
@@ -152,13 +153,13 @@ export class AuthController {
     return this.auth.changePassword(user, dto);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Post('super-admin/organizations')
   createOrganization(@Body() dto: CreateOrganizationDto) {
     return this.auth.createOrganization(dto);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Post('super-admin/organizations/:organizationId/admins')
   createOrganizationAdmin(
     @Param('organizationId', DocIdPipe) organizationId: string,
@@ -167,7 +168,7 @@ export class AuthController {
     return this.auth.createOrganizationAdmin(organizationId, dto);
   }
 
-  @Roles(TimeGateUserRole.SUPER_ADMIN)
+  @Roles(PLATFORM_ADMIN)
   @Post('super-admin/organizations/:organizationId/activation-keys')
   createActivationKey(
     @Param('organizationId', DocIdPipe) organizationId: string,

@@ -5,6 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common'
 import { Prisma, TimeGateUserRole } from '@prisma/client'
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin'
 import { PrismaService } from '../prisma/prisma.service'
 import { generateDocId } from '../common/utils/doc-id.util'
 import { JwtUser } from '../common/decorators/current-user.decorator'
@@ -95,7 +96,7 @@ export class EmploymentTypesService {
   }
 
   private assertCompanyAccess(user: JwtUser, companyId: string) {
-    if (user.role === TimeGateUserRole.SUPER_ADMIN) return
+    if (user.role === PLATFORM_ADMIN) return
     if (!user.companyId || user.companyId !== companyId) {
       throw new ForbiddenException('Access denied for this company')
     }

@@ -11,6 +11,7 @@ import {
   TimeGateTimesheetDayStatus,
   TimeGateUserRole,
 } from '@prisma/client';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { AttendanceService } from '../attendance/attendance.service';
 import { PunchWindowService } from '../attendance/punch-window.service';
 import { ReviewAttendanceEventDto } from '../attendance/dto/review-attendance-event.dto';
@@ -593,7 +594,7 @@ export class ManagerService {
   }
 
   private requireCompanyId(user: JwtUser): string {
-    if (user.role === TimeGateUserRole.SUPER_ADMIN || !user.companyId) {
+    if (user.role === PLATFORM_ADMIN || !user.companyId) {
       throw new BadRequestException('companyId is required for this operation');
     }
     return user.companyId;

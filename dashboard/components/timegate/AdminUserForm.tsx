@@ -1,6 +1,5 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
 import { useState } from 'react'
 import { FormField, Input, SelectSearch } from '@/components/ui/FormField'
 import { findOption } from '@/lib/select-options'
@@ -21,12 +20,10 @@ type AdminUserFormProps = {
 }
 
 export default function AdminUserForm({ onSuccess, onCancel }: AdminUserFormProps) {
-  const { data: session } = useSession()
   const [form, setForm] = useState<CreateAdminUserPayload>({
     email: '',
     password: '',
     role: 'MANAGER',
-    companyId: session?.user?.companyId ?? undefined,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,12 +35,9 @@ export default function AdminUserForm({ onSuccess, onCancel }: AdminUserFormProp
     setError('')
     setSuccess('')
     try {
-      const created = await createAdminUser({
-        ...form,
-        companyId: session?.user?.companyId ?? undefined,
-      })
+      const created = await createAdminUser(form)
       setSuccess(`Utilisateur ${created.email} créé.`)
-      setForm({ email: '', password: '', role: 'MANAGER', companyId: session?.user?.companyId ?? undefined })
+      setForm({ email: '', password: '', role: 'MANAGER' })
       onSuccess?.()
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Création impossible.')

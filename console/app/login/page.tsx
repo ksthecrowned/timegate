@@ -81,7 +81,7 @@ function LoginForm() {
                 )}
                 {forbidden && !error && (
                   <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 dark:bg-amber-900/20 dark:border-amber-800 dark:text-amber-300">
-                    Ce compte n&apos;a pas le rôle SUPER_ADMIN.
+                    Ce compte n&apos;est pas un administrateur plateforme.
                   </div>
                 )}
                 {error && (
