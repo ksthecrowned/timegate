@@ -379,6 +379,15 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 8. [x] **Mes alertes** — notifs push ; rappel départ + **reprise pause** (`BREAK_RESUME_REMINDER`)
 9. [x] **Auth biométrique OS** — `expo-local-authentication` + login biométrique optionnel
 
+### Polish app employé (ex-`totos.md`)
+
+10. [x] Accueil contextuel, branding TimeGate, empty/error states, dark mode, date pickers natifs
+11. [x] Hiérarchie CTA, feedback post-pointage, deep-links notifs, offline explicite, a11y login/QR/pause
+12. [x] Docs/contrats PDF, messagerie, quick actions Android, onboarding appareil de confiance, analytics funnels
+13. [ ] **Unifier `useTheme()`** sur les écrans restants
+14. [ ] **Harmoniser labels a11y FR** (`STRINGS.a11y`) sur tous les écrans restants
+15. [—] E2E UI (Playwright) — **YAGNI** : auto réservée à l’API (`test:use-cases`) ; front = manuel / pilote
+
 ---
 
 ## P2 — UX dashboard & formulaires
@@ -415,6 +424,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 3. [x] **Rétention photos faciales** (RGPD) — purge auto + suppression R2 + logs conservés
 4. [x] **Webhooks** — endpoint tenant + signature HMAC + émission `notification.emitted`
 5. [x] **API publique documentée** — Swagger `/api/v1/docs` + guide `api/docs/public-api.md`
+6. [ ] **Intégration SIRH** — connecteurs / mapping employés·congés·présences vers un SIRH tiers (Lucca, Factorial, etc.) via API publique + webhooks ; **pas prioritaire** tant que le pilote terrain n’est pas validé (noté 2026-07-27)
 
 ---
 
@@ -425,6 +435,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 - [—] Géofencing **général** (pointage hors site) · facial externe · QR comme mode principal  
   - *Exception validée : géoloc **reprise pause** employee-app uniquement (Lot E)*
 - [—] Stripe · impersonation · white-label (voir Lot I)
+- [—] E2E UI Playwright (dashboard / apps) — auto = API seulement
 
 ---
 
@@ -434,6 +445,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 |----------|---------|
 | `api/docs/roadmap-1.2.0.md` | Roadmap officielle 1.2.x / 1.3.x |
 | `docs/superpowers/specs/` | Specs design validées |
+| `docs/metier/positionnement-marche.md` | Positionnement vs Lucca / UKG / bornes (ex-`totos.md`) |
 | Brainstorming 2026-06-24 | Multi-méthodes, notifications, pauses, SaaS |
 | Brainstorming 2026-06-24 (pointage) | Machine à états, pauses, check-out oublié, réclamations — consolidé dans lots B, E, F, G, D |
 

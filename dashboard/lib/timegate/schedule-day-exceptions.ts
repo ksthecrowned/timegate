@@ -1,5 +1,5 @@
 import { http } from '@/lib/http'
-import type { PaginatedResponse } from '@/lib/timegate/types'
+import type { PaginatedResponse } from '@/lib/http/types'
 
 export type ScheduleDayException = {
   id: string

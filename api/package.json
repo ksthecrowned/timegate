@@ -12,7 +12,11 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "prisma db seed",
-    "test:use-cases": "node scripts/test-use-cases.mjs"
+    "prisma:migrate:e2e": "node scripts/with-e2e-db.mjs bunx prisma migrate deploy",
+    "prisma:seed:e2e": "node scripts/with-e2e-db.mjs bunx prisma db seed",
+    "start:e2e": "node scripts/with-e2e-db.mjs bun run start:dev",
+    "test:use-cases": "node scripts/test-use-cases.mjs",
+    "test:use-cases:e2e": "node scripts/run-use-cases-e2e.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1032.0",

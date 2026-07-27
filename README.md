@@ -190,10 +190,17 @@ Projet en evolution active, avec focus sur:
 - industrialisation SaaS / multi-tenant
 - extraction des modules reutilisables (ex: service facial dedie)
 
+## Kit pilote (essai entreprise)
+
+Documentation prête à remettre / à compléter avant un pilote client :
+
+→ [`docs/pilot/remise-client/`](docs/pilot/remise-client/) — **pack à envoyer au client**  
+→ [`docs/pilot/`](docs/pilot/README.md) — index (interne + remise)
+
 ## CI
 
 Workflow GitHub Actions : [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 
 - Job **api** : Postgres, migrate, seed, tests use-cases (`bun run test:use-cases`)
-- Job **frontend** : `tsc --noEmit` sur `dashboard`, `console`, `employee-web` et `mobile-app`
+- Job **frontend** : `tsc --noEmit` sur `dashboard`, `console`
 

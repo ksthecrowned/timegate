@@ -13,6 +13,12 @@ import { runUc10 } from './test/sections/uc10-employee.mjs'
 import { runUc11 } from './test/sections/uc11-sequential.mjs'
 import { runUc12 } from './test/sections/uc12-e2e.mjs'
 import { runUc13 } from './test/sections/uc13-planning-kpi.mjs'
+import { runUc14 } from './test/sections/uc14-face.mjs'
+import { runUc15 } from './test/sections/uc15-nfc-qr-offline.mjs'
+import { runUc16 } from './test/sections/uc16-notifications.mjs'
+import { runUc17 } from './test/sections/uc17-punch-windows.mjs'
+import { runUc18 } from './test/sections/uc18-multitenant.mjs'
+import { runUc19 } from './test/sections/uc19-perf.mjs'
 
 const sections = [
   { name: 'UC-01 Auth & rôles', run: runUc01 },
@@ -29,6 +35,12 @@ const sections = [
   { name: 'UC-11 Séquentiel', run: runUc11 },
   { name: 'UC-12 Bout-en-bout', run: runUc12 },
   { name: 'UC-13 Planning vs actual', run: runUc13 },
+  { name: 'UC-14 Moteur facial', run: runUc14 },
+  { name: 'UC-15 NFC/QR offline', run: runUc15 },
+  { name: 'UC-16 Notifications push', run: runUc16 },
+  { name: 'UC-17 Fenêtres de pointage', run: runUc17 },
+  { name: 'UC-18 Multi-tenant agressif', run: runUc18 },
+  { name: 'UC-19 Perf smoke', run: runUc19 },
 ]
 
 async function main() {

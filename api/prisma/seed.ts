@@ -484,13 +484,13 @@ async function main() {
     data: {
       id: generateDocId('SUB'),
       companyId: company.id,
-      plan: 'TRIAL',
-      maxEmployees: 10,
-      maxKiosks: 1,
-      status: TimeGateSubscriptionStatus.TRIAL,
+      plan: 'PRO',
+      maxEmployees: 200,
+      maxKiosks: 20,
+      status: TimeGateSubscriptionStatus.ACTIVE,
       source: TimeGateSubscriptionSource.MANUAL,
       trialEndsAt,
-      expiresAt: trialEndsAt,
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 365),
     },
   });
 

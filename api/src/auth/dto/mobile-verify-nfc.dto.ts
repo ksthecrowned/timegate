@@ -10,6 +10,12 @@ export class MobileVerifyNfcDto {
   @IsDateString()
   capturedAt?: string;
 
+  /** Flag sync offline (`"1"`) — lu aussi via @Body('offlineSync'). */
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  offlineSync?: string;
+
   @IsOptional()
   @IsLatitude()
   latitude?: number;

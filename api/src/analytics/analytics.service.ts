@@ -5,7 +5,7 @@ import { generateDocId } from '../common/utils/doc-id.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { TrackAnalyticsEventDto } from './dto/analytics.dto';
 
-/** Funnel events documented in totos.md — keep allowlist tight. */
+/** Funnel events (product analytics) — keep allowlist tight. */
 export const TRACKED_EVENTS = [
   'employee.login_success',
   'employee.qr_punch_success',

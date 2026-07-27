@@ -13,6 +13,12 @@ export class MobileVerifyPinDto {
   @IsDateString()
   capturedAt?: string;
 
+  /** Flag sync offline (`"1"`) — PIN offline est rejeté métier après validation. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  offlineSync?: string;
+
   @IsOptional()
   @IsLatitude()
   latitude?: number;

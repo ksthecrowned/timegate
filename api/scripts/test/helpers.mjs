@@ -53,12 +53,104 @@ export async function login(email, options = {}) {
   return result.json?.access_token ?? null
 }
 
-export async function employeeLogin(email, password) {
+/** Identifiant appareil stable par e-mail (1er login → TRUSTED ; réutilisable pour QR). */
+export function employeeDeviceInstallId(email) {
+  const slug = String(email)
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .slice(0, 28)
+  const id = `tgtest${slug || 'device'}`
+  return id.length >= 8 ? id : `${id}xxxxxxxx`.slice(0, 8)
+}
+
+export async function employeeLogin(email, password, options = {}) {
   const result = await request('/auth/employee/login', {
     method: 'POST',
-    body: JSON.stringify({ email, password: password ?? PASS }),
+    body: JSON.stringify({
+      email,
+      password: password ?? PASS,
+      deviceInstallId: options.deviceInstallId ?? employeeDeviceInstallId(email),
+      platform: options.platform ?? 'ANDROID',
+      ...(options.deviceLabel ? { deviceLabel: options.deviceLabel } : { deviceLabel: 'UC test device' }),
+    }),
   })
   return result.json?.access_token ?? null
+}
+
+/** Multipart (enrôlement facial / verify) — ne pas forcer Content-Type. */
+export async function requestMultipart(path, { method = 'POST', headers = {}, fields = {}, file } = {}) {
+  const form = new FormData()
+  for (const [key, value] of Object.entries(fields)) {
+    if (value != null) form.append(key, String(value))
+  }
+  if (file) {
+    const blob = new Blob([file.buffer], { type: file.type || 'application/octet-stream' })
+    form.append(file.fieldName || 'photo', blob, file.filename || 'photo.jpg')
+  }
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers: {
+      Accept: 'application/json',
+      ...headers,
+    },
+    body: form,
+  })
+  const text = await res.text()
+  let json = null
+  try {
+    json = text ? JSON.parse(text) : null
+  } catch {
+    json = text
+  }
+  return { res, json, text }
+}
+
+/** Provisionne une borne et retourne le lifetime_token kiosk. */
+export async function provisionKiosk(adminToken, kioskId) {
+  const result = await request('/auth/mobile/provision', {
+    method: 'POST',
+    headers: authHeader(adminToken),
+    body: JSON.stringify({ kioskId }),
+  })
+  return {
+    token: result.json?.lifetime_token ?? null,
+    json: result.json,
+    status: result.res.status,
+  }
+}
+
+/** ISO local (aligné dateToMinutes / fenêtres serveur). */
+export function localIso(year, month, day, hour, minute = 0, second = 0) {
+  return new Date(year, month - 1, day, hour, minute, second, 0).toISOString()
+}
+
+/** Prochain jour ouvré (lun–ven) à partir d’un offset unique. */
+export function uniqueWeekdayParts(ctx, offsetDays = 0) {
+  const base = new Date()
+  base.setHours(12, 0, 0, 0)
+  base.setDate(base.getDate() + 14 + (ctx.unique % 200) + offsetDays)
+  while (base.getDay() === 0 || base.getDay() === 6) {
+    base.setDate(base.getDate() + 1)
+  }
+  return {
+    year: base.getFullYear(),
+    month: base.getMonth() + 1,
+    day: base.getDate(),
+  }
+}
+
+export async function approvePendingTrustedDevice(adminToken, deviceInstallId) {
+  const pending = await request('/trusted-devices/pending', {
+    headers: authHeader(adminToken),
+  })
+  const row = (pending.json?.data ?? []).find((d) => d.deviceInstallId === deviceInstallId)
+  if (!row?.id || !row?.employee?.id) return false
+  const patched = await request(`/employees/${row.employee.id}/trusted-devices/${row.id}`, {
+    method: 'PATCH',
+    headers: authHeader(adminToken),
+    body: JSON.stringify({ status: 'TRUSTED' }),
+  })
+  return patched.res.status === 200 || patched.json?.status === 'TRUSTED'
 }
 
 export async function waitForApi(maxMs = 60_000) {

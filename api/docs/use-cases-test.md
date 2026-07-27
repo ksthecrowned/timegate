@@ -22,20 +22,33 @@ cd dashboard && bun install && bun run dev
 
 ```bash
 cd api
-bun run prisma:migrate && bun run prisma:seed && bun run start:dev   # terminal 1
-bun run test:use-cases                                               # terminal 2
+# Recommandé en local : Postgres dédié via E2E_DATABASE_URL (api/.env)
+bun run test:use-cases:e2e
+# → migrate + seed + API sur E2E_DATABASE_URL + UC-01…19, puis stop
+
+# Manuel (2 terminaux) — même base E2E :
+bun run prisma:migrate:e2e && bun run prisma:seed:e2e && bun run start:e2e
+bun run test:use-cases
 ```
 
-Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-13 côté API. Les parcours **dashboard** et **employee-web** sont complétés par les tests Playwright (voir ci-dessous).
+`E2E_DATABASE_URL` doit pointer vers un Postgres **local** (refusé s’il contient `alwaysdata.net`).  
+`DATABASE_URL` (AlwaysData / staging) n’est **pas** utilisé pour ces scripts.
 
-### Tests e2e Playwright (CI)
+Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-19 **côté API uniquement**.
 
-```bash
-# Terminaux requis : API (4001), dashboard (3000), employee-web (3001)
-cd e2e && npm install && npx playwright test
-```
+| UC | Thème |
+|----|--------|
+| 01–13 | Auth, structure, RH, présence, timesheets, paie, SaaS, portail, e2e, planning |
+| 14 | Moteur facial (enroll / verify — soft-skip si moteur Python absent) |
+| 15 | NFC + QR (online / offline, PIN offline refusé, sync batch) |
+| 16 | Devices push + inbox + règles notifications |
+| 17 | Cas limites fenêtres (trop tôt, double arrivée, départ anticipé, check-out) |
+| 18 | Multi-tenant agressif (signup ×2, IDOR 403, isolation listes) |
+| 19 | Perf smoke (budget `TIMEGATE_PERF_BUDGET_MS`, défaut 3000 ms) |
 
-Couverture minimale : profil dashboard, export présences CSV/PDF, KPI accueil, profil employee-web, manifest PWA.
+**Attention :** le runner **écrit en base**. Utiliser `test:use-cases:e2e` (ou `E2E_DATABASE_URL`) — jamais la base pilote / AlwaysData.
+
+**Politique :** pas d’e2e UI (dashboard / apps). Les parcours front sont validés **manuellement** (ex. kit pilote `docs/pilot/remise-client/`) ou via smoke typecheck CI.
 
 Requêtes HTTP d’exemple : [`../EXAMPLES.http`](../EXAMPLES.http).
 
@@ -50,7 +63,7 @@ Requêtes HTTP d’exemple : [`../EXAMPLES.http`](../EXAMPLES.http).
 | ADMIN       | `admin@monorganisation.com`      | `SOTR`   |
 | MANAGER     | `manager@monorganisation.com`    | `SOTR`   |
 | SUPER_ADMIN | `superadmin@monorganisation.com` | *(aucun)* |
-| Employé     | `patrick.mukendi@sotrafer.cg` | *(app `employee-web` port 3001)* |
+| Employé     | `patrick.mukendi@sotrafer.cg` | *(app `employee-app`)* |
 
 **Organisation :** SOTRAFER Congo (`SOTR`) — entreprise logistique, République du Congo (seed)
 
@@ -345,6 +358,7 @@ GET   /audit-logs
 
 ```http
 POST /auth/employee/login
+{ "email": "…", "password": "…", "deviceInstallId": "tg-test-device-01", "platform": "ANDROID" }
 GET  /employee/me
 GET  /employee/checkins?from=...&to=...
 GET  /employee/leaves
@@ -392,9 +406,77 @@ Parcours complet (~30 min), rôle ADMIN :
 
 ---
 
+## UC-13 — Planning vs actual
+
+**Automatisé CI :** oui (`GET /dashboard/planning-vs-actual`)
+
+---
+
+## UC-14 — Moteur facial
+
+**Automatisé CI :** oui (refus image invalide ; **soft-skip** si moteur Python/`dlib` absent sur la machine CI)
+
+| Étape | Attendu |
+|-------|---------|
+| `POST /face/enroll` sans fichier | 400 |
+| `POST /face/enroll` + faux JPEG | 400 ou soft-skip 500 moteur |
+| Provision kiosk + `POST /auth/mobile/verify` faux JPEG | 400 / soft-skip / no-match |
+
+---
+
+## UC-15 — NFC / QR offline
+
+**Automatisé CI :** oui
+
+| Étape | Attendu |
+|-------|---------|
+| Enable `nfcEnabled` + `qrEnabled` sur kiosk | 200 |
+| `PATCH /employees/:id/nfc-badge` | badge lié |
+| `POST /auth/mobile/verify-nfc` online | success |
+| NFC `offlineSync=1` + `capturedAt` récent | success |
+| PIN `offlineSync=1` | **400** (interdit) |
+| NFC offline sans / trop vieux `capturedAt` | 400 |
+| QR challenge + scan employé (appareil TRUSTED) | 200 ou 400 fenêtre métier |
+| `POST /employee/qr-punch/sync` batch | invalide / trop ancien → `ok: false` |
+
+---
+
+## UC-16 — Notifications & push
+
+**Automatisé CI :** oui — `POST /devices/register`, inbox, `GET/PATCH /notifications/rules`
+
+---
+
+## UC-17 — Fenêtres de pointage (cas limites)
+
+**Automatisé CI :** oui via PIN kiosk + `capturedAt` sur un jour ouvré futur unique
+
+| Horodatage local | Message attendu |
+|------------------|-----------------|
+| 05:00 | trop tôt |
+| 08:15 | arrivée |
+| 09:00 | déjà enregistrée |
+| 15:00 | départ anticipé (ou pause) |
+| 17:30 | fin / check-out |
+| PIN faux | 401 |
+
+---
+
+## UC-18 — Multi-tenant agressif
+
+**Automatisé CI :** oui — 2× `POST /auth/signup`, IDOR `GET/PATCH` employé SOTR → **403**, listes isolées, e-mail signup dupliqué
+
+---
+
+## UC-19 — Perf smoke
+
+**Automatisé CI :** oui — listes RH/présence/notifs/timesheets sous `TIMEGATE_PERF_BUDGET_MS` (défaut **3000**), plus burst parallèle
+
+---
+
 ## Checklist régressions UI (changements récents)
 
-**Automatisé CI :** tests API (`test:use-cases`) + Playwright e2e (`e2e/`) — vérifications manuelles complémentaires si besoin
+**Automatisé CI :** tests API (`test:use-cases`) uniquement — checklist UI ci-dessous = **manuel**
 
 - [ ] `/dashboard/subscriptions` et `/dashboard/system-config` : cartes, pas DataTable 480px
 - [ ] Onglet Contrats employé : cartes + skeleton au chargement
