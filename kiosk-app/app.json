@@ -30,6 +30,17 @@
       "expo-system-ui",
       "expo-secure-store",
       [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      [
         "react-native-face-detector-camera",
         {
           "cameraPermission": "Autorisez TimeGate a utiliser la camera pour la verification faciale."

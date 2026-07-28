@@ -10,6 +10,7 @@
     "@react-native-firebase/app": "^25.1.0",
     "@react-native-firebase/messaging": "^25.1.0",
     "expo": "~56.0.12",
+    "expo-build-properties": "~56.0.0",
     "expo-camera": "~56.0.8",
     "expo-constants": "~56.0.18",
     "expo-device": "~56.0.4",

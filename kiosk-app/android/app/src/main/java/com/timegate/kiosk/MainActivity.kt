@@ -1,4 +1,4 @@
-package com.timegate.mobile
+package com.timegate.kiosk
 
 import android.os.Build
 import android.os.Bundle

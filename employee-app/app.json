@@ -7,6 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "timegate",
     "userInterfaceStyle": "automatic",
+    "notification": {
+      "icon": "./assets/images/notification-icon.png",
+      "color": "#0d9488"
+    },
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.timegate.employee",
@@ -36,6 +40,17 @@
       "expo-router",
       "@react-native-firebase/app",
       "@react-native-firebase/messaging",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 36,
+            "buildToolsVersion": "36.0.0",
+            "minSdkVersion": 24
+          }
+        }
+      ],
       [
         "expo-splash-screen",
         {

@@ -1,4 +1,4 @@
-package com.timegate.mobile
+package com.timegate.kiosk
 
 import android.app.Application
 import android.content.res.Configuration
