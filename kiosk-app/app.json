@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "TimeGate",
-    "slug": "timegate-mobile",
+    "slug": "timegate-kisok-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "timegate",
@@ -9,7 +9,10 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.timegate.mobile"
+      "bundleIdentifier": "com.timegate.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Autorisez TimeGate a utiliser la camera pour la verification faciale."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -17,7 +20,10 @@
       },
       "package": "com.timegate.mobile",
       "usesCleartextTraffic": true,
-      "permissions": ["NFC"]
+      "permissions": [
+        "NFC",
+        "android.permission.CAMERA"
+      ]
     },
     "plugins": [
       "expo-router",
@@ -29,6 +35,13 @@
           "cameraPermission": "Autorisez TimeGate a utiliser la camera pour la verification faciale."
         }
       ]
-    ]
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cbb18368-e42d-4a15-ab57-591f0ae98ec3"
+      }
+    },
+    "owner": "kysr_styve"
   }
 }
