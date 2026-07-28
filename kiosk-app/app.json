@@ -9,7 +9,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.timegate.mobile",
+      "bundleIdentifier": "com.timegate.kiosk",
       "infoPlist": {
         "NSCameraUsageDescription": "Autorisez TimeGate a utiliser la camera pour la verification faciale."
       }
@@ -18,7 +18,7 @@
       "adaptiveIcon": {
         "backgroundColor": "#FFD23F"
       },
-      "package": "com.timegate.mobile",
+      "package": "com.timegate.kiosk",
       "usesCleartextTraffic": true,
       "permissions": [
         "NFC",
