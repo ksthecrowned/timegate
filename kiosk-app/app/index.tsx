@@ -598,7 +598,7 @@ function ReadyScreen({
             <View style={[styles.readyCorner, styles.readyBottomRight]} />
             <View style={styles.readyGifWrap}>
               <Image
-                source={require("../1_4Tr0FOsdUgkF32T3mdu6pg_transparent.gif")}
+                source={require("../assets/images/scan_loader_transparent.gif")}
                 style={styles.readyGif}
                 resizeMode="cover"
               />

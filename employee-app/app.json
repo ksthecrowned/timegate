@@ -7,10 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "timegate",
     "userInterfaceStyle": "automatic",
-    "notification": {
-      "icon": "./assets/images/notification-icon.png",
-      "color": "#0d9488"
-    },
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.timegate.employee",
@@ -59,6 +55,13 @@
             "image": "./assets/images/splash-icon.png",
             "imageWidth": 76
           }
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#0d9488"
         }
       ],
       [

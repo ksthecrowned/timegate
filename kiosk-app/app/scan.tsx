@@ -54,7 +54,7 @@ const AUTO_RESET_SECONDS = 10;
 const SUCCESS_REDIRECT_SECONDS = 2;
 const LOCAL_DETECTION_COOLDOWN_MS = 10000;
 const OFFLINE_SYNC_INTERVAL_MS = 15000;
-const SCAN_GIF = require("../1_4Tr0FOsdUgkF32T3mdu6pg_transparent.gif");
+const SCAN_GIF = require("../assets/images/scan_loader_transparent.gif");
 
 // Vertical bands reserved for the fixed overlays — the CaptureStage is
 // placed in the remaining space so the dark scrim never overlaps the

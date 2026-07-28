@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "timegate",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.timegate.kiosk",
@@ -19,7 +18,6 @@
         "backgroundColor": "#FFD23F"
       },
       "package": "com.timegate.kiosk",
-      "usesCleartextTraffic": true,
       "permissions": [
         "NFC",
         "android.permission.CAMERA"
@@ -36,7 +34,8 @@
             "compileSdkVersion": 36,
             "targetSdkVersion": 36,
             "buildToolsVersion": "36.0.0",
-            "minSdkVersion": 24
+            "minSdkVersion": 24,
+            "usesCleartextTraffic": true
           }
         }
       ],
@@ -45,7 +44,8 @@
         {
           "cameraPermission": "Autorisez TimeGate a utiliser la camera pour la verification faciale."
         }
-      ]
+      ],
+      "expo-font"
     ],
     "extra": {
       "router": {},
