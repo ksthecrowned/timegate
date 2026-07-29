@@ -29,9 +29,9 @@ export async function runUc07(ctx) {
   if (exportRes.json?.csv || exportRes.json?.filename) pass(ctx, 'UC-07 Export CSV paie')
   else fail(ctx, 'UC-07 Export CSV paie', detail(exportRes.json))
 
-  const salaries = await request('/salaries?page=1&limit=20', { headers: auth })
-  if (salaries.res.status === 200) pass(ctx, 'UC-07 Salaires liste')
-  else fail(ctx, 'UC-07 Salaires liste', String(salaries.res.status))
+  const grid = await request('/compensation-grid?page=1&limit=20', { headers: auth })
+  if (grid.res.status === 200) pass(ctx, 'UC-07 Grille de rémunération liste')
+  else fail(ctx, 'UC-07 Grille de rémunération liste', String(grid.res.status))
 
   const draftRun = await ensureDraftPayrollRun(ctx, auth, 'UC-07 Paie brouillon créée')
   if (!draftRun?.id) {

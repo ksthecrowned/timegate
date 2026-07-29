@@ -68,9 +68,10 @@ export default function PayrollRunsPage() {
         action={<AddPageLink href="/payroll-runs/new" label="Nouveau cycle" />}
       />
       <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Calcul mensuel à partir des rémunérations de base et du temps travaillé. Saisie des bases :{' '}
-        <a href="/salaries" className="text-primary hover:underline">
-          Rémunérations de base
+        Calcul mensuel à partir de la grille de rémunération, des majorations employé et du temps
+        travaillé. Bases contractuelles :{' '}
+        <a href="/compensation-grid" className="text-primary hover:underline">
+          Grille de rémunération
         </a>
         .
       </p>

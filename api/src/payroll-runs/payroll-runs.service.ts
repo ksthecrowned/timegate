@@ -160,7 +160,7 @@ export class PayrollRunsService {
     const lines = await this.findLines(id, user);
 
     const header =
-      'employeeId,firstName,lastName,baseSalary,overtimeAmount,penaltyAmount,absenceAmount,bonusAmount,netSalary';
+      'employeeId,firstName,lastName,baseSalary,fixedAllowancesTotal,fixedDeductionsTotal,variableAllowancesTotal,variableDeductionsTotal,overtimeAmount,lateMinutesPenalty,absenceAmount,penaltyAmount,bonusAmount,gross,netSalary';
     const body = lines
       .map((line) => {
         const first = line.employee?.firstName ?? '';
@@ -170,10 +170,16 @@ export class PayrollRunsService {
           first,
           last,
           line.baseSalary,
+          line.fixedAllowancesTotal,
+          line.fixedDeductionsTotal,
+          line.variableAllowancesTotal,
+          line.variableDeductionsTotal,
           line.overtimeAmount,
-          line.penaltyAmount,
+          line.lateMinutesPenalty,
           line.absenceAmount,
+          line.penaltyAmount,
           line.bonusAmount,
+          line.gross,
           line.netSalary,
         ].join(',');
       })

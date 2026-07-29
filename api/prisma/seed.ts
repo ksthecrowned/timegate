@@ -10,7 +10,7 @@ import {
   TimeGateAttendanceEventStatus,
   TimeGateAttendanceEventType,
   TimeGatePayrollRunStatus,
-  TimeGateSalaryStatus,
+  CompensationItemKind,
   TimeGateSubscriptionSource,
   TimeGateSubscriptionStatus,
   TimeGateTimesheetDayStatus,
@@ -358,8 +358,11 @@ async function purgeCompany(company: { id: string }) {
   await prisma.timeGateTimesheetDay.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateLateRecord.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateAbsenceRecord.deleteMany({ where: { companyId: company.id } });
+  await prisma.payrollVariableItem.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGatePayrollLine.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGatePayrollRun.deleteMany({ where: { companyId: company.id } });
+  await prisma.employeeCompensationItem.deleteMany({ where: { companyId: company.id } });
+  await prisma.compensationGrid.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateEmployeeContract.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateSalaryRecord.deleteMany({ where: { companyId: company.id } });
   await prisma.salarySlip.deleteMany({ where: { companyId: company.id } });
@@ -910,6 +913,7 @@ async function main() {
       defaultShiftId: westSchedule.id,
       departmentId: engineeringDept.id,
       designationId: developerDesignation.id,
+      employmentTypeId: cdiType.id,
       status: EmployeeStatus.ACTIVE,
       faceEmbedding: [0.1, 0.2, 0.3],
       faceEnrolledAt: new Date(),
@@ -1011,6 +1015,7 @@ async function main() {
         defaultShiftId: emp.defaultShiftId,
         departmentId: emp.departmentId,
         designationId: emp.designationId,
+        employmentTypeId: cdiType.id,
         status: EmployeeStatus.ACTIVE,
         faceEmbedding: [emp.faceSeed / 10, 0.2, 0.3],
         faceEnrolledAt: new Date(),
@@ -1167,44 +1172,51 @@ async function main() {
     })),
   });
 
-  await prisma.timeGateSalaryRecord.createMany({
-    data: demoEmployees.map((emp, idx) => {
-      const base = baseSalaries[idx % baseSalaries.length];
-      const bonuses = idx % 3 === 0 ? 120 : 0;
-      const deductions = idx % 4 === 0 ? 50 : 0;
-      return {
-        id: generateDocId('SAL'),
+  await prisma.compensationGrid.createMany({
+    data: [
+      {
+        id: generateDocId('CGRID'),
         companyId: company.id,
-        employeeId: emp.id,
-        year: prevYear,
-        month: prevMonth,
-        baseSalary: base,
-        bonuses,
-        deductions,
-        netSalary: base + bonuses - deductions,
-        status: TimeGateSalaryStatus.PAID,
-        paidAt: addDays(todayUtc(), -5),
-      };
-    }),
+        designationId: developerDesignation.id,
+        employmentTypeId: cdiType.id,
+        baseSalary: 4200,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+      {
+        id: generateDocId('CGRID'),
+        companyId: company.id,
+        designationId: hrDesignation.id,
+        employmentTypeId: cdiType.id,
+        baseSalary: 5200,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+      {
+        id: generateDocId('CGRID'),
+        companyId: company.id,
+        designationId: opsDesignation.id,
+        employmentTypeId: cdiType.id,
+        baseSalary: 4500,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+    ],
   });
 
-  await prisma.timeGateSalaryRecord.createMany({
-    data: demoEmployees.slice(0, 5).map((emp, idx) => {
-      const base = baseSalaries[idx % baseSalaries.length];
-      return {
-        id: generateDocId('SAL'),
+  const transportEmployee = demoEmployees[0];
+  if (transportEmployee) {
+    await prisma.employeeCompensationItem.create({
+      data: {
+        id: generateDocId('ECITEM'),
         companyId: company.id,
-        employeeId: emp.id,
-        year: payrollYear,
-        month: payrollMonth,
-        baseSalary: base,
-        bonuses: 0,
-        deductions: 0,
-        netSalary: base,
-        status: TimeGateSalaryStatus.PENDING,
-      };
-    }),
-  });
+        employeeId: transportEmployee.id,
+        label: 'Prime de transport',
+        kind: CompensationItemKind.ALLOWANCE,
+        amount: 150,
+        isRecurring: true,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+        isActive: true,
+      },
+    });
+  }
 
   await seedRichDemoData({
     companyId: company.id,

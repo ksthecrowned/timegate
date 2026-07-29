@@ -16,7 +16,6 @@ import { LeavesModule } from './leaves/leaves.module';
 import { TimesheetsModule } from './timesheets/timesheets.module';
 import { LateRecordsModule } from './late-records/late-records.module';
 import { AbsencesModule } from './absences/absences.module';
-import { SalariesModule } from './salaries/salaries.module';
 import { PayrollRunsModule } from './payroll-runs/payroll-runs.module';
 import { AdminSaasModule } from './admin-saas/admin-saas.module';
 import { SaasModule } from './saas/saas.module';
@@ -67,7 +66,6 @@ import { PayrollVariableItemsModule } from './payroll-variable-items/payroll-var
     TimesheetsModule,
     LateRecordsModule,
     AbsencesModule,
-    SalariesModule,
     PayrollRunsModule,
     AdminSaasModule,
     SaasModule,

@@ -450,25 +450,6 @@ export type PayrollLine = {
   employee?: EmployeeSummary | null
 }
 
-export type SalaryStatus = 'PENDING' | 'PAID'
-
-export type Salary = {
-  id: string
-  employeeId: string
-  companyId: string
-  year: number
-  month: number
-  baseSalary: number
-  bonuses: number
-  deductions: number
-  netSalary: number
-  status: SalaryStatus
-  paidAt?: string | null
-  notes?: string | null
-  createdAt: string
-  employee?: EmployeeSummary | null
-}
-
 export type CompensationGridEntry = {
   id: string
   companyId: string
