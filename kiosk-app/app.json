@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TimeGate",
+    "name": "TMG Kiosk",
     "slug": "timegate-kisok-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -18,10 +18,7 @@
         "backgroundColor": "#FFD23F"
       },
       "package": "com.timegate.kiosk",
-      "permissions": [
-        "NFC",
-        "android.permission.CAMERA"
-      ]
+      "permissions": ["NFC", "android.permission.CAMERA"]
     },
     "plugins": [
       "expo-router",

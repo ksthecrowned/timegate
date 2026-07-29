@@ -38,7 +38,7 @@ export const timegateNavSections: NavSection[] = [
     title: 'Manager',
     roles: ['ADMIN', 'MANAGER'],
     items: [
-      { label: 'Équipe du jour (suivi live)', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
+      { label: 'Équipe du jour (', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
       { label: 'Boite de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
       { label: 'Absences équipe', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
     ],

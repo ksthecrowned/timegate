@@ -36,6 +36,11 @@ export function middleware(request: NextRequest) {
       return NextResponse.next()
     }
 
+    // Page légale : accessible connecté ou non (pas de redirection).
+    if (pathname === '/privacy') {
+      return NextResponse.next()
+    }
+
     // /login, /signup — déjà connecté → callbackUrl ou accueil
     if (isLoggedIn) {
       const dest =
@@ -132,5 +137,6 @@ export const config = {
     '/login',
     '/signup',
     '/activate',
+    '/privacy',
   ],
 }

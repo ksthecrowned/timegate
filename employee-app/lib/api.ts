@@ -31,7 +31,7 @@ import type {
 export const TOKEN_KEY = "auth_token";
 
 const API_PORT = 4001;
-const FALLBACK_API_URL = `http://192.168.1.65:${API_PORT}/api/v1`;
+const FALLBACK_API_URL = `https://timegate.onrender.com/api/v1`;
 
 /**
  * LAN host of the machine serving the JS bundle.

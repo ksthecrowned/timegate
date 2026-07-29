@@ -215,7 +215,7 @@ export default function ManagerTeamPage() {
       <PageHeader
         breadcrumbs={[
           { label: 'Manager', href: '/' },
-          { label: 'Équipe du jour (suivi live)' },
+          { label: 'Équipe du jour' },
         ]}
         action={
           <Link href="/manager/inbox" className={secondaryBtnClass}>

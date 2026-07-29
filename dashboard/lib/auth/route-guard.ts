@@ -14,7 +14,7 @@ const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
   { prefix: '/organization', roles: ['ADMIN'] },
 ]
 
-export const publicPaths = new Set(['/login', '/signup', '/activate'])
+export const publicPaths = new Set(['/login', '/signup', '/activate', '/privacy'])
 
 /** Préfixes authentifiés — source unique pour middleware + garde de routes. */
 export const protectedPathPrefixes = [

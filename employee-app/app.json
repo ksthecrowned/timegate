@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "TimeGate",
+    "name": "TMG Employee",
     "slug": "timegate-employee-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -80,7 +80,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "apiUrl": "http://192.168.1.65:4001/api/v1",
+      "apiUrl": "https://timegate.onrender.com/api/v1",
       "router": {},
       "eas": {
         "projectId": "70532fa0-5a00-40e1-8ce1-88ef3a231aed"
