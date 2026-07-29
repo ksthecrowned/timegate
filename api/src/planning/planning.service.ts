@@ -110,6 +110,8 @@ export class PlanningService {
           const ex = exceptionByShift.get(row.shiftTypeId);
           if (ex?.isOff) return false;
           if (ex && !ex.isOff) return true; // journée forcée / heures override même hors weekDays
+          // One-day assignment (e.g. after a shift swap) forces that calendar day.
+          if (this.isSingleDayAssignment(row.startDate, row.endDate, date)) return true;
           return this.isWorkDayForShift(
             date,
             row.shiftType.weekDays.map((w) => w.day),
@@ -214,6 +216,13 @@ export class PlanningService {
     if (s && !e) return d >= s;
     if (!s && e) return d <= e;
     return d >= s! && d <= e!;
+  }
+
+  /** Affectation bornée à exactement ce jour (ex. suite à un échange de shift). */
+  private isSingleDayAssignment(start: Date | null, end: Date | null, day: Date): boolean {
+    if (!start || !end) return false;
+    const d = this.formatDateOnly(day);
+    return this.formatDateOnly(start) === d && this.formatDateOnly(end) === d;
   }
 
   /** Affectation : uniquement les jours configurés sur l'horaire (liste vide = aucun). */

@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, TimeGateShiftSwapStatus, TimeGateUserRole } from '@prisma/client';
+import { DocStatus, Prisma, TimeGateShiftSwapStatus } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { generateDocId } from '../common/utils/doc-id.util';
@@ -13,6 +13,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateShiftSwapDto } from './dto/create-shift-swap.dto';
 import { ReviewShiftSwapDto } from './dto/review-shift-swap.dto';
 import { ShiftSwapQueryDto } from './dto/shift-swap-query.dto';
+
+type AssignmentRow = {
+  id: string;
+  employeeId: string;
+  shiftTypeId: string;
+  shiftLocationId: string | null;
+  companyId: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  docStatus: DocStatus;
+};
 
 @Injectable()
 export class ShiftSwapsService {
@@ -35,6 +46,9 @@ export class ShiftSwapsService {
       });
       if (!target || target.companyId !== companyId) {
         throw new NotFoundException('Target employee not found');
+      }
+      if (dto.targetEmployeeId === requester.id) {
+        throw new BadRequestException('Requester and target must be different employees');
       }
     }
 
@@ -124,6 +138,11 @@ export class ShiftSwapsService {
     return this.toApiShape(updated);
   }
 
+  /**
+   * One-day swap: carve `swapDate` out of covering assignments and exchange
+   * only that calendar day. Recurring / multi-day assignments stay intact
+   * for every other day.
+   */
   private async applyApprovedSwap(
     tx: Prisma.TransactionClient,
     row: {
@@ -159,6 +178,9 @@ export class ShiftSwapsService {
     if (requesterAssignment.employeeId !== row.requesterEmployeeId) {
       throw new BadRequestException('Shift assignment does not belong to requester');
     }
+    if (!this.coversDate(requesterAssignment.startDate, requesterAssignment.endDate, row.swapDate)) {
+      throw new BadRequestException('Requester assignment does not cover the swap date');
+    }
 
     const targetAssignment = await this.findEmployeeAssignmentOnDate(
       tx,
@@ -168,18 +190,95 @@ export class ShiftSwapsService {
       requesterAssignment.id,
     );
 
-    if (!targetAssignment) {
-      throw new BadRequestException('Target employee has no shift assignment on swap date');
+    // Requester's shift for that day → target
+    await this.reassignSingleDay(tx, requesterAssignment, row.swapDate, row.targetEmployeeId);
+
+    // Target's shift for that day → requester (if they had one; otherwise requester is off)
+    if (targetAssignment) {
+      await this.reassignSingleDay(tx, targetAssignment, row.swapDate, row.requesterEmployeeId);
+    }
+  }
+
+  /**
+   * Give `newEmployeeId` the shift on `swapDate` only. Original employee keeps
+   * the assignment on every other day (via date-range split when needed).
+   */
+  private async reassignSingleDay(
+    tx: Prisma.TransactionClient,
+    assignment: AssignmentRow,
+    swapDate: Date,
+    newEmployeeId: string,
+  ) {
+    const day = this.toUtcDateOnly(swapDate);
+    const dayStr = this.formatDateOnly(day);
+    const startStr = assignment.startDate ? this.formatDateOnly(assignment.startDate) : null;
+    const endStr = assignment.endDate ? this.formatDateOnly(assignment.endDate) : null;
+
+    // Already scoped to exactly this day → just change the employee.
+    if (startStr === dayStr && endStr === dayStr) {
+      await tx.shiftAssignment.update({
+        where: { id: assignment.id },
+        data: { employeeId: newEmployeeId },
+      });
+      return;
     }
 
-    await tx.shiftAssignment.update({
-      where: { id: requesterAssignment.id },
-      data: { employeeId: row.targetEmployeeId },
+    const dayBefore = this.addDays(day, -1);
+    const dayAfter = this.addDays(day, 1);
+    const hasBefore = startStr === null || startStr < dayStr;
+    const hasAfter = endStr === null || endStr > dayStr;
+
+    await tx.shiftAssignment.create({
+      data: {
+        id: generateDocId('SASN'),
+        employeeId: newEmployeeId,
+        shiftTypeId: assignment.shiftTypeId,
+        shiftLocationId: assignment.shiftLocationId,
+        companyId: assignment.companyId,
+        startDate: day,
+        endDate: day,
+        docStatus: assignment.docStatus,
+      },
     });
-    await tx.shiftAssignment.update({
-      where: { id: targetAssignment.id },
-      data: { employeeId: row.requesterEmployeeId },
-    });
+
+    if (hasBefore && hasAfter) {
+      await tx.shiftAssignment.update({
+        where: { id: assignment.id },
+        data: { endDate: dayBefore },
+      });
+      await tx.shiftAssignment.create({
+        data: {
+          id: generateDocId('SASN'),
+          employeeId: assignment.employeeId,
+          shiftTypeId: assignment.shiftTypeId,
+          shiftLocationId: assignment.shiftLocationId,
+          companyId: assignment.companyId,
+          startDate: dayAfter,
+          endDate: assignment.endDate,
+          docStatus: assignment.docStatus,
+        },
+      });
+      return;
+    }
+
+    if (hasBefore && !hasAfter) {
+      await tx.shiftAssignment.update({
+        where: { id: assignment.id },
+        data: { endDate: dayBefore },
+      });
+      return;
+    }
+
+    if (!hasBefore && hasAfter) {
+      await tx.shiftAssignment.update({
+        where: { id: assignment.id },
+        data: { startDate: dayAfter },
+      });
+      return;
+    }
+
+    // Covers only this day but dates weren't both equal (shouldn't happen) — replace.
+    await tx.shiftAssignment.delete({ where: { id: assignment.id } });
   }
 
   private async findEmployeeAssignmentOnDate(
@@ -196,7 +295,11 @@ export class ShiftSwapsService {
         ...(excludeId ? { id: { not: excludeId } } : {}),
       },
     });
-    return rows.find((assignment) => this.coversDate(assignment.startDate, assignment.endDate, swapDate)) ?? null;
+    return (
+      rows.find((assignment) =>
+        this.coversDate(assignment.startDate, assignment.endDate, swapDate),
+      ) ?? null
+    );
   }
 
   private coversDate(start: Date | null, end: Date | null, day: Date): boolean {
@@ -207,6 +310,16 @@ export class ShiftSwapsService {
     if (s && !e) return d >= s;
     if (!s && e) return d <= e;
     return d >= s! && d <= e!;
+  }
+
+  private addDays(date: Date, days: number): Date {
+    const d = this.toUtcDateOnly(date);
+    d.setUTCDate(d.getUTCDate() + days);
+    return d;
+  }
+
+  private toUtcDateOnly(value: Date): Date {
+    return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
   }
 
   private formatDateOnly(value: Date): string {
@@ -227,7 +340,9 @@ export class ShiftSwapsService {
   }
 
   private toApiShape(
-    row: Prisma.TimeGateShiftSwapRequestGetPayload<{ include: ReturnType<ShiftSwapsService['defaultInclude']> }>,
+    row: Prisma.TimeGateShiftSwapRequestGetPayload<{
+      include: ReturnType<ShiftSwapsService['defaultInclude']>;
+    }>,
   ) {
     return {
       id: row.id,

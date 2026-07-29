@@ -98,6 +98,28 @@ export class PunchWindowService {
     const weekDays = shiftType.weekDays;
     const weekDay = toWeekDay(day);
     const weekDayRow = weekDays.find((row) => row.day === weekDay);
+    const singleDay =
+      assignment != null &&
+      this.isSingleDayAssignment(assignment.startDate, assignment.endDate, day);
+
+    // One-day assignment from a shift swap: force the day even if weekDays differ.
+    if (!weekDayRow && singleDay) {
+      const { startMin, endMin } = resolveShiftBounds(
+        shiftType.startTime,
+        shiftType.endTime,
+        null,
+        null,
+      );
+      return {
+        isWorkDay: true,
+        source: 'assignment',
+        shiftTypeId: shiftType.id,
+        shiftName: shiftType.shiftName ?? null,
+        startTime: minutesToHm(startMin),
+        endTime: minutesToHm(endMin),
+      };
+    }
+
     if (weekDays.length === 0 || !weekDayRow) {
       return {
         isWorkDay: false,
@@ -148,6 +170,20 @@ export class PunchWindowService {
     const weekDays = shiftType.weekDays;
     const weekDay = toWeekDay(day);
     const weekDayRow = weekDays.find((row) => row.day === weekDay);
+    const singleDay =
+      assignment != null &&
+      this.isSingleDayAssignment(assignment.startDate, assignment.endDate, day);
+
+    if (!weekDayRow && singleDay) {
+      const { startMin, endMin } = resolveShiftBounds(
+        shiftType.startTime,
+        shiftType.endTime,
+        null,
+        null,
+      );
+      return this.buildWindows(shiftType, startMin, endMin);
+    }
+
     if (weekDays.length === 0 || !weekDayRow) return null;
 
     const { startMin, endMin } = resolveShiftBounds(
@@ -223,6 +259,12 @@ export class PunchWindowService {
     if (s && !e) return target >= s;
     if (!s && e) return target <= e;
     return target >= s! && target <= e!;
+  }
+
+  private isSingleDayAssignment(start: Date | null, end: Date | null, day: Date): boolean {
+    if (!start || !end) return false;
+    const d = day.toISOString().slice(0, 10);
+    return start.toISOString().slice(0, 10) === d && end.toISOString().slice(0, 10) === d;
   }
 }
 

@@ -101,7 +101,7 @@ export default function ShiftSwapForm({
       <ApiErrorBanner message={error} />
       <FormCard
         title="Nouvelle demande d’échange"
-        hint="À l’approbation, les affectations du demandeur et de la cible sont permutées pour la date choisie."
+        hint="Échange ponctuel : seul le jour choisi est échangé. Les affectations habituelles des autres jours restent inchangées. Si la cible n’a pas de shift ce jour-là, elle reprend le créneau du demandeur."
         footer={
           <>
             <button type="button" onClick={onCancel} className={secondaryBtnClass}>
