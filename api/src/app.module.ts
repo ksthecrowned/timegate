@@ -45,6 +45,7 @@ import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { CompensationGridModule } from './compensation-grid/compensation-grid.module';
+import { EmployeeCompensationModule } from './employee-compensation/employee-compensation.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { CompensationGridModule } from './compensation-grid/compensation-grid.mo
     MessagingModule,
     AnalyticsModule,
     CompensationGridModule,
+    EmployeeCompensationModule,
   ],
 })
 export class AppModule {}
