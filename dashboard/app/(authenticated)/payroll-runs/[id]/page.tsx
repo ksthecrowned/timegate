@@ -6,6 +6,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import DataTable, { Column } from '@/components/ui/DataTable'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { employeeTableColumn } from '@/components/timegate/employee-table-column'
+import PayrollVariableItemsCard from '@/components/timegate/PayrollVariableItemsCard'
 import {
   ApiErrorBanner,
   DetailCard,
@@ -22,11 +23,24 @@ import {
   markPayrollRunPaid,
   MONTH_LABELS,
 } from '@/lib/timegate/payroll-runs'
-import type { PayrollLine, PayrollRun } from '@/lib/timegate/types'
+import { toSelectOptions } from '@/lib/select-options'
+import type { EmployeeSummary, PayrollLine, PayrollRun } from '@/lib/timegate/types'
+import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import { HttpError } from '@/lib/http'
 
 function formatMoney(value: number): string {
   return value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
+function formatSigned(value: number): string {
+  if (!value) return '—'
+  const formatted = formatMoney(Math.abs(value))
+  return value > 0 ? `+${formatted}` : `-${formatted}`
+}
+
+function signedClass(value: number): string {
+  if (!value) return 'text-gray-500 dark:text-neutral-400'
+  return value > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
 }
 
 function payrollStatusBadge(status: string) {
@@ -48,6 +62,23 @@ export default function PayrollRunDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
 
+  const employeeOptions = useMemo(
+    () =>
+      toSelectOptions(
+        lines.map((line) => ({
+          id: line.employeeId,
+          name: employeeDisplayName(line.employee),
+        })),
+      ),
+    [lines],
+  )
+
+  const employeesById = useMemo(() => {
+    const map = new Map<string, EmployeeSummary | null | undefined>()
+    for (const line of lines) map.set(line.employeeId, line.employee)
+    return map
+  }, [lines])
+
   const lineColumns: Column<PayrollLine>[] = useMemo(
     () => [
       employeeTableColumn<PayrollLine>(),
@@ -57,29 +88,45 @@ export default function PayrollRunDetailPage() {
         render: (_, row) => formatMoney(row.baseSalary),
       },
       {
-        key: 'overtimeAmount',
-        label: 'Heures sup.',
-        render: (_, row) => formatMoney(row.overtimeAmount),
+        key: 'fixedNet',
+        label: 'Maj. fixes',
+        render: (_, row) => {
+          const net = row.fixedAllowancesTotal - row.fixedDeductionsTotal
+          return <span className={signedClass(net)}>{formatSigned(net)}</span>
+        },
       },
       {
-        key: 'penaltyAmount',
-        label: 'Pénalités',
-        render: (_, row) => formatMoney(row.penaltyAmount),
+        key: 'variableNet',
+        label: 'Variables',
+        render: (_, row) => {
+          const net = row.variableAllowancesTotal - row.variableDeductionsTotal
+          return <span className={signedClass(net)}>{formatSigned(net)}</span>
+        },
+      },
+      {
+        key: 'lateMinutesPenalty',
+        label: 'Retards',
+        render: (_, row) => (row.lateMinutesPenalty ? `-${formatMoney(row.lateMinutesPenalty)}` : '—'),
       },
       {
         key: 'absenceAmount',
         label: 'Absences',
-        render: (_, row) => formatMoney(row.absenceAmount),
+        render: (_, row) => (row.absenceAmount ? `-${formatMoney(row.absenceAmount)}` : '—'),
       },
       {
-        key: 'bonusAmount',
-        label: 'Primes',
-        render: (_, row) => formatMoney(row.bonusAmount),
+        key: 'overtimeAmount',
+        label: 'HS',
+        render: (_, row) => (row.overtimeAmount ? `+${formatMoney(row.overtimeAmount)}` : '—'),
+      },
+      {
+        key: 'gross',
+        label: 'Brut',
+        render: (_, row) => formatMoney(row.gross),
       },
       {
         key: 'netSalary',
         label: 'Net',
-        render: (_, row) => formatMoney(row.netSalary),
+        render: (_, row) => <span className="font-semibold">{formatMoney(row.netSalary)}</span>,
       },
       {
         key: 'explainJson',
@@ -89,16 +136,16 @@ export default function PayrollRunDetailPage() {
             <button
               type="button"
               className="text-primary hover:underline text-sm"
-              onClick={() => setExplainLine(row)}
+              onClick={() => setExplainLine(explainLine?.id === row.id ? null : row)}
             >
-              Voir
+              {explainLine?.id === row.id ? 'Masquer' : 'Voir'}
             </button>
           ) : (
             '—'
           ),
       },
     ],
-    [],
+    [explainLine],
   )
 
   const load = useCallback(async () => {
@@ -250,6 +297,14 @@ export default function PayrollRunDetailPage() {
             )}
           </DetailCard>
 
+          {run.status === 'DRAFT' && (
+            <PayrollVariableItemsCard
+              runId={id}
+              employeeOptions={employeeOptions}
+              employeesById={employeesById}
+            />
+          )}
+
           <div>
             <h3 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
               Lignes de paie
@@ -265,11 +320,7 @@ export default function PayrollRunDetailPage() {
               <div className="mt-4 p-4 bg-gray-50 border border-slate-200/80 rounded-xl dark:bg-surface-card-dark dark:border-border-dark">
                 <div className="flex items-center justify-between mb-2">
                   <h4 className="text-sm font-medium text-gray-800 dark:text-neutral-200">
-                    Détail du calcul —{' '}
-                    {explainLine.employee
-                      ? `${explainLine.employee.firstName ?? ''} ${explainLine.employee.lastName ?? ''}`.trim() ||
-                        '—'
-                      : '—'}
+                    Détail du calcul — {employeeDisplayName(explainLine.employee)}
                   </h4>
                   <button
                     type="button"

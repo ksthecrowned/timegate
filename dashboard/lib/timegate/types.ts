@@ -437,6 +437,14 @@ export type PayrollLine = {
   absenceAmount: number
   bonusAmount: number
   netSalary: number
+  fixedAllowancesTotal: number
+  fixedDeductionsTotal: number
+  variableAllowancesTotal: number
+  variableDeductionsTotal: number
+  lateMinutesPenalty: number
+  gross: number
+  periodStart?: string | null
+  periodEnd?: string | null
   explainJson?: Record<string, unknown> | null
   createdAt: string
   employee?: EmployeeSummary | null
