@@ -47,22 +47,23 @@ export function FaceRing({
   height: number;
   mode: FaceRingMode;
   progress: number;
-}): JSX.Element {
-  const rx = Math.max(0, width / 2 - STROKE);
-  const ry = Math.max(0, height / 2 - STROKE);
+}): JSX.Element | null {
+  const rx = Math.max(0, Number.isFinite(width) ? width / 2 - STROKE : 0);
+  const ry = Math.max(0, Number.isFinite(height) ? height / 2 - STROKE : 0);
   const cx = width / 2;
   const cy = height / 2;
-  const perimeter = Math.max(1, ellipsePerimeter(rx, ry));
+  const calculatedPerimeter = ellipsePerimeter(rx, ry);
+  const hasValidGeometry =
+    rx > 0 && ry > 0 && Number.isFinite(calculatedPerimeter) && calculatedPerimeter > 0;
+  const perimeter = hasValidGeometry ? calculatedPerimeter : 1;
 
   const opacity = useSharedValue(1);
-  const rotation = useSharedValue(0);
   const shakeX = useSharedValue(0);
   const scale = useSharedValue(1);
   const dashOffset = useSharedValue(0);
 
   useEffect(() => {
     opacity.value = 1;
-    rotation.value = 0;
     shakeX.value = 0;
     scale.value = 1;
 
@@ -99,9 +100,8 @@ export function FaceRing({
     }
 
     if (mode === "verifying") {
-      dashOffset.value = perimeter * 0.72;
-      rotation.value = withRepeat(
-        withTiming(360, { duration: 1100, easing: Easing.linear }),
+      dashOffset.value = withRepeat(
+        withTiming(-perimeter, { duration: 1100, easing: Easing.linear }),
         -1,
         false,
       );
@@ -123,7 +123,7 @@ export function FaceRing({
         withTiming(0, { duration: 40 }),
       );
     }
-  }, [mode, progress, perimeter, dashOffset, opacity, rotation, shakeX, scale]);
+  }, [mode, progress, perimeter, dashOffset, opacity, shakeX, scale]);
 
   const animatedProps = useAnimatedProps(() => ({
     strokeDashoffset: dashOffset.value,
@@ -134,9 +134,10 @@ export function FaceRing({
     transform: [
       { translateX: shakeX.value },
       { scale: scale.value },
-      { rotate: `${rotation.value}deg` },
     ],
   }));
+
+  if (!hasValidGeometry) return null;
 
   return (
     <Animated.View
@@ -152,7 +153,11 @@ export function FaceRing({
           stroke={ringColor(mode)}
           strokeWidth={STROKE}
           fill="none"
-          strokeDasharray={`${perimeter}`}
+          strokeDasharray={
+            mode === "verifying"
+              ? `${perimeter * 0.24} ${perimeter * 0.76}`
+              : `${perimeter}`
+          }
           animatedProps={animatedProps}
           strokeLinecap="round"
         />

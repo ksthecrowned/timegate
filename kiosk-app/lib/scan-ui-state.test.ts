@@ -89,8 +89,9 @@ describe("resolveCoachMessage", () => {
 });
 
 describe("shouldShowStatusDock", () => {
-  test("hidden for idle, shown otherwise", () => {
+  test("shows the offline badge while idle and pending", () => {
     expect(shouldShowStatusDock("idle")).toBe(false);
+    expect(shouldShowStatusDock("idle", 1)).toBe(true);
     expect(shouldShowStatusDock("verifying")).toBe(true);
     expect(shouldShowStatusDock("success")).toBe(true);
     expect(shouldShowStatusDock("error")).toBe(true);

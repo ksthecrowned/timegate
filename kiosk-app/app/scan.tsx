@@ -249,11 +249,6 @@ export default function ScanScreen() {
         const result = await syncOfflineVerifications(VERIFY_TIMEOUT_SECONDS * 1000);
         if (mounted) {
           setPendingSyncCount(result.pending);
-          if (result.synced > 0) {
-            setStatusMessage(
-              `Synchronisation hors ligne terminée: ${result.synced} vérification(s) provisoire(s) validée(s).`,
-            );
-          }
         }
       } catch {
         if (mounted) {
@@ -716,6 +711,7 @@ function CaptureStage({
 
       {stageSize ? (
         <View
+          collapsable={false}
           style={{
             position: "absolute",
             left: ovalLeft,

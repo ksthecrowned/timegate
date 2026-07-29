@@ -93,6 +93,9 @@ export function resolveCoachMessage(input: {
   }
 }
 
-export function shouldShowStatusDock(verifyState: ScanUiVerifyState): boolean {
-  return verifyState !== "idle";
+export function shouldShowStatusDock(
+  verifyState: ScanUiVerifyState,
+  pendingSyncCount = 0,
+): boolean {
+  return verifyState !== "idle" || pendingSyncCount > 0;
 }

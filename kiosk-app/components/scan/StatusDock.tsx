@@ -17,7 +17,11 @@ export function StatusDock({
   errorMessage: string | null;
   pendingSyncCount: number;
 }) {
-  if (!shouldShowStatusDock(verifyState)) return null;
+  if (!shouldShowStatusDock(verifyState, pendingSyncCount)) return null;
+
+  if (verifyState === "idle") {
+    return <OfflineBadge pendingSyncCount={pendingSyncCount} />;
+  }
 
   const title =
     verifyState === "verifying"
@@ -55,18 +59,24 @@ export function StatusDock({
         </View>
         <Text style={styles.title}>{title}</Text>
       </View>
-      {pendingSyncCount > 0 ? (
-        <View style={styles.offlineBadge}>
-          <Ionicons
-            name="cloud-offline-outline"
-            size={14}
-            color={colors.warnText}
-          />
-          <Text style={styles.offlineText}>
-            {`${pendingSyncCount} vérification(s) en attente de synchro`}
-          </Text>
-        </View>
-      ) : null}
+      <OfflineBadge pendingSyncCount={pendingSyncCount} />
+    </View>
+  );
+}
+
+function OfflineBadge({ pendingSyncCount }: { pendingSyncCount: number }) {
+  if (pendingSyncCount <= 0) return null;
+
+  return (
+    <View style={styles.offlineBadge}>
+      <Ionicons
+        name="cloud-offline-outline"
+        size={14}
+        color={colors.warnText}
+      />
+      <Text style={styles.offlineText}>
+        {`${pendingSyncCount} vérification(s) en attente de synchro`}
+      </Text>
     </View>
   );
 }
