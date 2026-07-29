@@ -44,6 +44,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { AnalyticsModule } from './analytics/analytics.module';
+import { CompensationGridModule } from './compensation-grid/compensation-grid.module';
 
 @Module({
   imports: [
@@ -92,6 +93,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
     AiModule,
     MessagingModule,
     AnalyticsModule,
+    CompensationGridModule,
   ],
 })
 export class AppModule {}
