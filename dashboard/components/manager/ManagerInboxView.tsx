@@ -54,10 +54,6 @@ export default function ManagerInboxView() {
           </Link>
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Validations (pointages, temps travaillé, congés, claims) et messagerie. Les alertes
-        in-app sont la cloche en haut à droite.
-      </p>
 
       <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-surface-card shadow-sm dark:border-border-dark dark:bg-surface-card-dark">
         <div className="border-b border-slate-200/80 dark:border-border-dark">

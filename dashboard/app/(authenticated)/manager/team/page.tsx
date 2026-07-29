@@ -152,15 +152,7 @@ export default function ManagerTeamPage() {
       },
     ]
 
-    if (isFuture) {
-      cards.push({
-        key: 'EXPECTED',
-        label: 'Prévus',
-        value: summary?.expected ?? 0,
-        icon: 'fa-calendar-day',
-        accent: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-      })
-    } else {
+    if (!isFuture) {
       cards.push({
         key: 'ABSENT',
         label: 'Absents',
@@ -169,6 +161,14 @@ export default function ManagerTeamPage() {
         accent: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
       })
     }
+
+    cards.push({
+      key: 'EXPECTED',
+      label: 'Prévus',
+      value: summary?.expected ?? 0,
+      icon: 'fa-calendar-day',
+      accent: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    })
 
     cards.push(
       {
@@ -234,7 +234,7 @@ export default function ManagerTeamPage() {
 
       <ApiErrorBanner message={error} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
         {summaryCards.map((card) => (
           <TeamSummaryCard
             key={card.key}
@@ -340,6 +340,10 @@ export default function ManagerTeamPage() {
           {isFuture ? (
             <p className="text-xs text-indigo-600 dark:text-indigo-300">
               Jour à venir — les absences ne sont pas encore calculées
+            </p>
+          ) : date === today ? (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Absent uniquement après l&apos;heure de fin de vacation
             </p>
           ) : null}
         </div>

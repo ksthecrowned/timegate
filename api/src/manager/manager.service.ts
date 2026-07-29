@@ -18,6 +18,7 @@ import { ReviewAttendanceEventDto } from '../attendance/dto/review-attendance-ev
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { toEmployeeSummary } from '../common/utils/employee-summary.util';
+import { dateToMinutes } from '../common/utils/punch-time.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from './dto/manager-query.dto';
@@ -85,6 +86,20 @@ function hasCheckIn(events: DayEvent[]): boolean {
       (e.status === TimeGateAttendanceEventStatus.ACCEPTED ||
         e.status === TimeGateAttendanceEventStatus.REVIEW_REQUIRED),
   );
+}
+
+/** True once the scheduled shift end has passed (supports overnight shifts). */
+function shiftHasEnded(
+  nowMin: number,
+  shiftStartMin: number,
+  shiftEndMin: number,
+): boolean {
+  if (shiftEndMin > shiftStartMin) {
+    return nowMin >= shiftEndMin;
+  }
+  // Overnight: still on the start evening → not ended; after midnight → ended at endMin.
+  if (nowMin >= shiftStartMin) return false;
+  return nowMin >= shiftEndMin;
 }
 
 @Injectable()
@@ -231,6 +246,17 @@ export class ManagerService {
         status = 'PRESENT';
       } else if (isFuture) {
         // Future workday: not yet worked — never mark as absent
+        status = 'EXPECTED';
+      } else if (
+        workDateIso === todayIso &&
+        scheduled &&
+        !shiftHasEnded(
+          dateToMinutes(new Date()),
+          scheduled.shiftStartMin,
+          scheduled.shiftEndMin,
+        )
+      ) {
+        // Today, shift not finished yet — expected, not absent
         status = 'EXPECTED';
       } else {
         status = 'ABSENT';
