@@ -21,6 +21,14 @@ export class PayrollVariableItemsService {
       throw new BadRequestException('Can only add variable items to DRAFT runs');
     }
 
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: dto.employeeId },
+      select: { id: true, companyId: true },
+    });
+    if (!employee || employee.companyId !== run.companyId) {
+      throw new NotFoundException('Employee not found');
+    }
+
     const item = await this.prisma.payrollVariableItem.create({
       data: {
         id: generateDocId('PVITEM'),

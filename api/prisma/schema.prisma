@@ -1617,6 +1617,7 @@ model PayrollVariableItem {
 
   @@index([payrollRunId])
   @@index([employeeId])
+  @@index([companyId])
   @@map("timegate_payroll_variable_item")
 }
 

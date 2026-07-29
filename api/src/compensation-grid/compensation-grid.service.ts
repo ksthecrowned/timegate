@@ -14,30 +14,27 @@ import { CreateCompensationGridDto } from './dto/create-compensation-grid.dto';
 import { UpdateCompensationGridDto } from './dto/update-compensation-grid.dto';
 import { FindCompensationGridQueryDto } from './dto/find-compensation-grid-query.dto';
 
+type CompensationGridRow = Prisma.CompensationGridGetPayload<object>;
+
 @Injectable()
 export class CompensationGridService {
   constructor(private prisma: PrismaService) {}
 
   async create(dto: CreateCompensationGridDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
+    await this.ensureDesignation(dto.designationId, companyId);
+    await this.ensureEmploymentType(dto.employmentTypeId, companyId);
 
-    const overlap = await this.prisma.compensationGrid.findFirst({
-      where: {
-        companyId,
-        designationId: dto.designationId,
-        employmentTypeId: dto.employmentTypeId,
-        effectiveFrom: { lte: dto.effectiveTo ? new Date(dto.effectiveTo) : undefined },
-        OR: [
-          { effectiveTo: null },
-          { effectiveTo: { gte: new Date(dto.effectiveFrom) } },
-        ],
-      },
+    const effectiveFrom = new Date(dto.effectiveFrom);
+    const effectiveTo = dto.effectiveTo ? new Date(dto.effectiveTo) : null;
+    this.assertDateRange(effectiveFrom, effectiveTo);
+    await this.assertNoOverlap({
+      companyId,
+      designationId: dto.designationId,
+      employmentTypeId: dto.employmentTypeId,
+      effectiveFrom,
+      effectiveTo,
     });
-    if (overlap) {
-      throw new BadRequestException(
-        'An overlapping compensation grid entry already exists for this designation/employment type combination',
-      );
-    }
 
     const entry = await this.prisma.compensationGrid.create({
       data: {
@@ -46,8 +43,8 @@ export class CompensationGridService {
         designationId: dto.designationId,
         employmentTypeId: dto.employmentTypeId,
         baseSalary: toDecimal(dto.baseSalary),
-        effectiveFrom: new Date(dto.effectiveFrom),
-        effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : null,
+        effectiveFrom,
+        effectiveTo,
       },
     });
 
@@ -111,16 +108,41 @@ export class CompensationGridService {
     if (!existing) throw new NotFoundException('Compensation grid entry not found');
     this.assertCompanyAccess(user, existing.companyId);
 
+    const designationId = dto.designationId ?? existing.designationId;
+    const employmentTypeId = dto.employmentTypeId ?? existing.employmentTypeId;
+    if (dto.designationId !== undefined) {
+      await this.ensureDesignation(designationId, existing.companyId);
+    }
+    if (dto.employmentTypeId !== undefined) {
+      await this.ensureEmploymentType(employmentTypeId, existing.companyId);
+    }
+
+    const effectiveFrom =
+      dto.effectiveFrom !== undefined ? new Date(dto.effectiveFrom) : existing.effectiveFrom;
+    const effectiveTo =
+      dto.effectiveTo !== undefined
+        ? dto.effectiveTo
+          ? new Date(dto.effectiveTo)
+          : null
+        : existing.effectiveTo;
+    this.assertDateRange(effectiveFrom, effectiveTo);
+    await this.assertNoOverlap({
+      companyId: existing.companyId,
+      designationId,
+      employmentTypeId,
+      effectiveFrom,
+      effectiveTo,
+      excludeId: id,
+    });
+
     const updated = await this.prisma.compensationGrid.update({
       where: { id },
       data: {
         ...(dto.designationId !== undefined ? { designationId: dto.designationId } : {}),
         ...(dto.employmentTypeId !== undefined ? { employmentTypeId: dto.employmentTypeId } : {}),
         ...(dto.baseSalary !== undefined ? { baseSalary: toDecimal(dto.baseSalary) } : {}),
-        ...(dto.effectiveFrom !== undefined ? { effectiveFrom: new Date(dto.effectiveFrom) } : {}),
-        ...(dto.effectiveTo !== undefined
-          ? { effectiveTo: dto.effectiveTo ? new Date(dto.effectiveTo) : null }
-          : {}),
+        ...(dto.effectiveFrom !== undefined ? { effectiveFrom } : {}),
+        ...(dto.effectiveTo !== undefined ? { effectiveTo } : {}),
       },
     });
 
@@ -135,17 +157,64 @@ export class CompensationGridService {
     return { deleted: true };
   }
 
-  private toShape(row: any) {
+  private assertDateRange(effectiveFrom: Date, effectiveTo: Date | null) {
+    if (effectiveTo && effectiveTo < effectiveFrom) {
+      throw new BadRequestException('effectiveTo must be on or after effectiveFrom');
+    }
+  }
+
+  private async assertNoOverlap(params: {
+    companyId: string;
+    designationId: string;
+    employmentTypeId: string;
+    effectiveFrom: Date;
+    effectiveTo: Date | null;
+    excludeId?: string;
+  }) {
+    const overlap = await this.prisma.compensationGrid.findFirst({
+      where: {
+        companyId: params.companyId,
+        designationId: params.designationId,
+        employmentTypeId: params.employmentTypeId,
+        ...(params.excludeId ? { id: { not: params.excludeId } } : {}),
+        ...(params.effectiveTo ? { effectiveFrom: { lte: params.effectiveTo } } : {}),
+        OR: [{ effectiveTo: null }, { effectiveTo: { gte: params.effectiveFrom } }],
+      },
+    });
+    if (overlap) {
+      throw new BadRequestException(
+        'An overlapping compensation grid entry already exists for this designation/employment type combination',
+      );
+    }
+  }
+
+  private async ensureDesignation(designationId: string, companyId: string) {
+    const row = await this.prisma.designation.findUnique({ where: { id: designationId } });
+    if (!row || row.companyId !== companyId) {
+      throw new NotFoundException('Designation not found');
+    }
+    return row;
+  }
+
+  private async ensureEmploymentType(employmentTypeId: string, companyId: string) {
+    const row = await this.prisma.employmentType.findUnique({ where: { id: employmentTypeId } });
+    if (!row || row.companyId !== companyId) {
+      throw new NotFoundException('Employment type not found');
+    }
+    return row;
+  }
+
+  private toShape(row: CompensationGridRow) {
     return {
       id: row.id,
       companyId: row.companyId,
       designationId: row.designationId,
       employmentTypeId: row.employmentTypeId,
       baseSalary: fromDecimal(row.baseSalary),
-      effectiveFrom: row.effectiveFrom?.toISOString?.() ?? row.effectiveFrom,
-      effectiveTo: row.effectiveTo?.toISOString?.() ?? null,
-      createdAt: row.createdAt?.toISOString?.() ?? row.createdAt,
-      updatedAt: row.updatedAt?.toISOString?.() ?? row.updatedAt,
+      effectiveFrom: row.effectiveFrom.toISOString(),
+      effectiveTo: row.effectiveTo?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
     };
   }
 
