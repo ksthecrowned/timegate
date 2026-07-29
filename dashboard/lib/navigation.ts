@@ -194,9 +194,9 @@ export const timegateNavSections: NavSection[] = [
         faIcon: 'fa-solid fa-file-invoice-dollar',
       },
       {
-        label: 'Rémunérations de base',
-        href: '/salaries',
-        faIcon: 'fa-solid fa-money-bill-wave',
+        label: 'Grille de rémunération',
+        href: '/compensation-grid',
+        faIcon: 'fa-solid fa-table-cells',
       },
     ],
   },

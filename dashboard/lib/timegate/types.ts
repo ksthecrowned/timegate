@@ -461,6 +461,18 @@ export type Salary = {
   employee?: EmployeeSummary | null
 }
 
+export type CompensationGridEntry = {
+  id: string
+  companyId: string
+  designationId: string
+  employmentTypeId: string
+  baseSalary: number
+  effectiveFrom: string
+  effectiveTo?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type FaceRecognitionLog = {
   id: string
   kioskId?: string | null
