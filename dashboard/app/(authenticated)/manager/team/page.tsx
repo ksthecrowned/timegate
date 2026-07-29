@@ -224,13 +224,6 @@ export default function ManagerTeamPage() {
           </Link>
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Présence live. Registre / export :{' '}
-        <a href="/attendance/days" className="text-primary hover:underline">
-          Registre de présence
-        </a>
-        .
-      </p>
 
       <ApiErrorBanner message={error} />
 

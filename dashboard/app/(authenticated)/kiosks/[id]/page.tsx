@@ -1,13 +1,13 @@
 'use client'
 
-import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
+import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import WriteLink from '@/components/timegate/WriteLink'
 import ActionButtons from '@/components/ui/ActionButtons'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { HttpError } from '@/lib/http'
-import { deleteKiosk, getKiosk, regenerateKioskApiKey } from '@/lib/timegate/kiosks'
+import { deleteKiosk, getKiosk, resetKioskAccess } from '@/lib/timegate/kiosks'
 import type { Kiosk } from '@/lib/timegate/types'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -19,8 +19,8 @@ export default function KioskDetailPage() {
   const [kiosk, setKiosk] = useState<Kiosk | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [apiKeyVisible, setApiKeyVisible] = useState(false)
-  const [regeneratingKey, setRegeneratingKey] = useState(false)
+  const [info, setInfo] = useState('')
+  const [resetting, setResetting] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -47,10 +47,44 @@ export default function KioskDetailPage() {
         ]}
         action={
           kiosk && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <WriteLink href={`/kiosks/${id}/edit`} className={primaryBtnClass}>
                 Modifier
               </WriteLink>
+              <button
+                type="button"
+                disabled={resetting}
+                className={secondaryBtnClass}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      'Réinitialiser les accès de cette borne ? L’appareil devra être re-provisionné (écran de configuration).',
+                    )
+                  ) {
+                    return
+                  }
+                  setResetting(true)
+                  setError('')
+                  setInfo('')
+                  try {
+                    const updated = await resetKioskAccess(id)
+                    setKiosk(updated)
+                    setInfo(
+                      'Accès réinitialisés. Sur la borne, l’app demandera une nouvelle configuration.',
+                    )
+                  } catch (err) {
+                    setError(
+                      err instanceof HttpError
+                        ? err.message
+                        : 'Impossible de réinitialiser les accès.',
+                    )
+                  } finally {
+                    setResetting(false)
+                  }
+                }}
+              >
+                {resetting ? 'Réinitialisation…' : 'Réinitialiser les accès'}
+              </button>
               <ActionButtons
                 onDelete={async () => {
                   await deleteKiosk(id)
@@ -63,6 +97,11 @@ export default function KioskDetailPage() {
         }
       />
       <ApiErrorBanner message={error} />
+      {info ? (
+        <p className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-200">
+          {info}
+        </p>
+      ) : null}
       {loading ? (
         <SkeletonDetailCard />
       ) : kiosk ? (
@@ -93,60 +132,6 @@ export default function KioskDetailPage() {
               kiosk.lastSeenAt
                 ? new Date(kiosk.lastSeenAt).toLocaleString('fr-FR')
                 : null
-            }
-          />
-          <DetailRow
-            label="Clé API"
-            value={
-              kiosk.apiKey ? (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <code className="rounded bg-gray-100 px-2 py-1 text-xs dark:bg-neutral-900">
-                    {apiKeyVisible ? kiosk.apiKey : '••••••••••••••••'}
-                  </code>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setApiKeyVisible((v) => !v)}
-                      className="text-sm font-medium text-primary hover:underline"
-                    >
-                      {apiKeyVisible ? 'Masquer' : 'Afficher'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={regeneratingKey}
-                      onClick={async () => {
-                        if (
-                          !window.confirm(
-                            'Régénérer la clé API ? Les intégrations utilisant l’ancienne clé cesseront de fonctionner.',
-                          )
-                        ) {
-                          return
-                        }
-                        setRegeneratingKey(true)
-                        setError('')
-                        try {
-                          const updated = await regenerateKioskApiKey(id)
-                          setKiosk(updated)
-                          setApiKeyVisible(true)
-                        } catch (err) {
-                          setError(
-                            err instanceof HttpError
-                              ? err.message
-                              : 'Impossible de régénérer la clé API.',
-                          )
-                        } finally {
-                          setRegeneratingKey(false)
-                        }
-                      }}
-                      className="text-sm font-medium text-amber-700 hover:underline disabled:opacity-50 dark:text-amber-400"
-                    >
-                      {regeneratingKey ? 'Régénération…' : 'Régénérer'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                '—'
-              )
             }
           />
         </DetailCard>

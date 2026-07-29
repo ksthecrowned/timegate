@@ -112,9 +112,6 @@ export default function ManagerLeavesCalendarPage() {
           </Link>
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Vue mensuelle des congés de l&apos;équipe. Validation dans l&apos;inbox.
-      </p>
 
       <ApiErrorBanner message={error} />
 

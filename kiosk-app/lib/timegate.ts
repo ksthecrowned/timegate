@@ -80,9 +80,9 @@ export async function fetchMobileConfig(): Promise<KioskFeatures | null> {
 // ---------------------------------------------------------------------------
 // Failure tracking
 // After VERIFY_FAILURE_LIMIT consecutive failures on the SAME mode, the
-// kiosk forces the user to the PIN screen and triggers a VERIFY_COOLDOWN_MS
-// cooldown during which the main mode remains blocked. A success or a
-// mode change resets the counter.
+// kiosk triggers a VERIFY_COOLDOWN_MS cooldown during which that mode
+// remains blocked. A success or a mode change resets the counter.
+// NFC has no PIN fallback — the screen waits out the cooldown then retries.
 // ---------------------------------------------------------------------------
 
 export type AttemptKey = "face" | "nfc" | "qr" | "pin";
@@ -359,7 +359,10 @@ export async function sendKioskHeartbeat(): Promise<void> {
   });
   if (res.status === 401) {
     await clearProvisioning();
-    throw new MobileApiError("Session expiree. Reconfigurez l'appareil.", 401);
+    throw new MobileApiError(
+      "Session expiree. Un administrateur doit reinitialiser les acces puis provisionner la borne.",
+      401,
+    );
   }
   if (!res.ok) {
     const message = await parseErrorBody(res);
@@ -492,17 +495,17 @@ export function getVerificationUserMessage(error: unknown): string {
 
   // Auth/provisioning
   if (msg.includes("non provisionne") || msg.includes("missing bearer")) {
-    return "Appareil non configuré. Reconfigurez l'application.";
+    return "Appareil non configuré. Contactez un administrateur pour provisionner la borne.";
   }
   if (error instanceof MobileApiError) {
     if (error.status === 401) {
-      return "Session expirée. Reconfigurez l'appareil pour continuer.";
+      return "Session expirée. Un administrateur doit réinitialiser les accès puis re-provisionner la borne.";
     }
     if (error.status === 403) {
       return "Accès refusé. Vérifiez les droits de cet appareil auprès de votre administrateur.";
     }
     if (error.status === 404) {
-      return "Ressource introuvable. Réessayez ou reconfigurez l'appareil.";
+      return "Ressource introuvable. Réessayez ou contactez un administrateur.";
     }
     if (error.status === 429) {
       return "Trop de tentatives. Patientez quelques secondes avant de réessayer.";

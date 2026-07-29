@@ -54,6 +54,7 @@ export default function QrScreen() {
   const tickTimer = useRef<ReturnType<typeof setInterval> | null>(null);
   const redirectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const refreshing = useRef(false);
+  const hasChallengeRef = useRef(false);
   const refreshChallengeRef = useRef<() => Promise<void>>(async () => {});
 
   const clearTimers = useCallback(() => {
@@ -75,9 +76,13 @@ export default function QrScreen() {
     if (refreshing.current) return;
     refreshing.current = true;
     clearTimers();
-    setQrState("loading");
+    // Keep the previous QR visible until the next payload is ready (no loading flash).
+    if (!hasChallengeRef.current) {
+      setQrState("loading");
+    }
     try {
       const next = await createQrChallenge();
+      hasChallengeRef.current = true;
       setChallenge(next);
       setQrState("showing");
       setStatusVariant("info");
@@ -127,11 +132,22 @@ export default function QrScreen() {
       }
     } catch (err) {
       clearTimers();
-      setQrState("error");
-      setStatusVariant("error");
-      setStatusMessage(
-        err instanceof Error ? err.message : "Erreur challenge QR",
-      );
+      // Only surface error UI if we have nothing to show; otherwise keep the old QR.
+      if (!hasChallengeRef.current) {
+        setQrState("error");
+        setStatusVariant("error");
+        setStatusMessage(
+          err instanceof Error ? err.message : "Erreur challenge QR",
+        );
+      } else {
+        setStatusVariant("warn");
+        setStatusMessage(
+          err instanceof Error
+            ? `Actualisation impossible: ${err.message}`
+            : "Actualisation impossible. Conservez le code affiché.",
+        );
+        setQrState("showing");
+      }
     } finally {
       refreshing.current = false;
     }
@@ -183,7 +199,7 @@ export default function QrScreen() {
       <View style={styles.body}>
         <MessageBox variant={statusVariant} message={statusMessage} />
 
-        {qrState === "loading" && (
+        {qrState === "loading" && !challenge && (
           <ActivityIndicator
             size="large"
             color={colors.accent}

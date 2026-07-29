@@ -156,7 +156,6 @@ export type Kiosk = {
   status: string
   isActive: boolean
   lastSeenAt?: string | null
-  apiKey?: string | null
   faceEnabled?: boolean
   nfcEnabled?: boolean
   qrEnabled?: boolean

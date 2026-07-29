@@ -2277,13 +2277,16 @@ export class AuthService {
       if (!kiosk?.isActive) {
         throw new UnauthorizedException('Kiosk inactive or not found');
       }
-      if (kiosk.deviceToken) {
-        const hash = createHash('sha256').update(token).digest('hex');
-        if (kiosk.deviceToken !== hash) {
-          throw new UnauthorizedException(
-            'This kiosk is bound to another device. Reconfigure from the admin app.',
-          );
-        }
+      if (!kiosk.deviceToken) {
+        throw new UnauthorizedException(
+          'Acces kiosk reinitialise. Provisionnez a nouveau la borne.',
+        );
+      }
+      const hash = createHash('sha256').update(token).digest('hex');
+      if (kiosk.deviceToken !== hash) {
+        throw new UnauthorizedException(
+          'Cette borne est liee a un autre appareil. Reinitialisez les acces depuis l\'admin.',
+        );
       }
 
       return payload;
@@ -2317,7 +2320,6 @@ export class AuthService {
         kioskName: name,
         branchId,
         companyId: branch.companyId,
-        deviceApiKey: randomBytes(24).toString('hex'),
         status: KioskStatus.ONLINE,
         lastSeenAt: new Date(),
       },

@@ -574,7 +574,6 @@ async function main() {
       kioskName: 'Kiosque Brazzaville',
       companyId: company.id,
       branchId: hq.id,
-      deviceApiKey: randomBytes(24).toString('hex'),
       status: KioskStatus.ONLINE,
       lastSeenAt: new Date(),
     },
@@ -586,7 +585,6 @@ async function main() {
       kioskName: 'Kiosque Pointe-Noire',
       companyId: company.id,
       branchId: west.id,
-      deviceApiKey: randomBytes(24).toString('hex'),
       status: KioskStatus.OFFLINE,
     },
   });

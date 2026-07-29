@@ -45,9 +45,9 @@ export class KiosksController {
   }
 
   @Roles(TimeGateUserRole.ADMIN)
-  @Post(':id/regenerate-api-key')
-  regenerateApiKey(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
-    return this.kiosks.regenerateApiKey(id, user);
+  @Post(':id/reset-access')
+  resetAccess(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.kiosks.resetAccess(id, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN)

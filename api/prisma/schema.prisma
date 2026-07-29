@@ -512,7 +512,6 @@ model TimeGateKiosk {
   status          KioskStatus @default(OFFLINE)
   isActive        Boolean     @default(true) @map("is_active")
   lastSeenAt      DateTime?   @map("last_seen_at")
-  deviceApiKey    String?     @unique @map("device_api_key") @db.VarChar(140)
   deviceToken     String?     @map("device_token") @db.Text
   faceEnabled     Boolean     @default(true) @map("face_enabled")
   nfcEnabled      Boolean     @default(false) @map("nfc_enabled")

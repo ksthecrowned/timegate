@@ -1,7 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { KioskStatus, TimeGateUserRole } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
-import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { JwtUser } from '../common/decorators/current-user.decorator';
@@ -55,7 +54,6 @@ export class KiosksService {
         companyId: branch.companyId,
         shiftLocationId: dto.shiftLocationId,
         status: KioskStatus.OFFLINE,
-        deviceApiKey: randomBytes(24).toString('hex'),
         faceEnabled: resolvedMethods.faceEnabled,
         nfcEnabled: resolvedMethods.nfcEnabled,
         qrEnabled: resolvedMethods.qrEnabled,
@@ -168,11 +166,16 @@ export class KiosksService {
     return { id, deleted: true };
   }
 
-  async regenerateApiKey(id: string, user: JwtUser) {
+  /** Invalidate the device JWT binding so the tablet must be re-provisioned. */
+  async resetAccess(id: string, user: JwtUser) {
     await this.findOne(id, user);
     const updated = await this.prisma.timeGateKiosk.update({
       where: { id },
-      data: { deviceApiKey: randomBytes(24).toString('hex') },
+      data: {
+        deviceToken: null,
+        status: KioskStatus.OFFLINE,
+        lastSeenAt: null,
+      },
       include: {
         branch: { select: { id: true, branchName: true } },
         shiftLocation: { select: { id: true, locationName: true } },
@@ -225,7 +228,6 @@ export class KiosksService {
     status: KioskStatus;
     isActive: boolean;
     lastSeenAt: Date | null;
-    deviceApiKey: string | null;
     faceEnabled: boolean;
     nfcEnabled: boolean;
     qrEnabled: boolean;
@@ -244,7 +246,6 @@ export class KiosksService {
       isActive: kiosk.isActive,
       lastSeenAt: kiosk.lastSeenAt,
       location: kiosk.shiftLocation?.locationName ?? null,
-      apiKey: kiosk.deviceApiKey,
       faceEnabled: kiosk.faceEnabled,
       nfcEnabled: kiosk.nfcEnabled,
       qrEnabled: kiosk.qrEnabled,

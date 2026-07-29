@@ -14,13 +14,11 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KioskSetupShell } from "../components/setup/KioskSetupShell";
 import { OperatorLoginFields } from "../components/setup/OperatorLoginFields";
-import { ReconfigureAuthModal } from "../components/setup/ReconfigureAuthModal";
 import { MessageBox } from "../components/shared/MessageBox";
 import { PrimaryButton } from "../components/shared/PrimaryButton";
 import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
 import {
   bootstrapOperator,
-  clearProvisioning,
   fetchKiosksForBranch,
   fetchMobileConfig,
   getKioskFeatures,
@@ -63,8 +61,6 @@ export default function HomeScreen() {
   const [pendingOfflineCount, setPendingOfflineCount] = useState(0);
   const [syncingOffline, setSyncingOffline] = useState(false);
   const [features, setFeatures] = useState<KioskFeatures | null>(null);
-  const [showReconfigureAuth, setShowReconfigureAuth] = useState(false);
-  const [reconfigureError, setReconfigureError] = useState<string | null>(null);
 
   function deviceStatusLabel(status?: string) {
     if (!status) return "Inconnu";
@@ -221,46 +217,6 @@ export default function HomeScreen() {
     }
   }
 
-  async function handleReconfigureAuth() {
-    setReconfigureError(null);
-    setSubmitting(true);
-    try {
-      const data = await bootstrapOperator(email.trim(), password, sku.trim());
-      await clearProvisioning();
-      setOperatorToken(data.operatorToken);
-      setBranches(data.branches);
-      setConfigured(false);
-      setDeviceName(null);
-      setPendingOfflineCount(0);
-      setFeatures(await getKioskFeatures());
-      setShowReconfigureAuth(false);
-      setPassword("");
-      setStep("site");
-      setFeedback({
-        kind: "info",
-        message:
-          "Authentification confirmée. Sélectionnez le site et l'appareil pour ce kiosque.",
-      });
-      if (data.branches.length === 1) {
-        await handleChooseBranch(data.branches[0], data.operatorToken);
-      }
-    } catch (e) {
-      setReconfigureError(
-        e instanceof Error
-          ? `${e.message}. Vérifiez l'email, le mot de passe et le SKU.`
-          : "Identifiants invalides. Réessayez.",
-      );
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  function openReconfigure() {
-    setPassword("");
-    setReconfigureError(null);
-    setShowReconfigureAuth(true);
-  }
-
   const setupSubtitle =
     step === "login"
       ? "Configuration du kiosque"
@@ -292,7 +248,6 @@ export default function HomeScreen() {
                 onStartNfc={() => router.push("/nfc")}
                 onStartQr={() => router.push("/qr")}
                 onSyncOffline={() => void handleOfflineSync()}
-                onReconfigure={openReconfigure}
               />
             ) : null}
           </SafeAreaView>
@@ -522,26 +477,6 @@ export default function HomeScreen() {
           )}
         </KioskSetupShell>
       )}
-
-      <ReconfigureAuthModal
-        visible={showReconfigureAuth}
-        email={email}
-        password={password}
-        sku={sku}
-        showPassword={showPassword}
-        submitting={submitting}
-        errorMessage={reconfigureError}
-        onEmailChange={setEmail}
-        onPasswordChange={setPassword}
-        onSkuChange={setSku}
-        onTogglePassword={() => setShowPassword((v) => !v)}
-        onCancel={() => {
-          setShowReconfigureAuth(false);
-          setReconfigureError(null);
-          setPassword("");
-        }}
-        onConfirm={() => void handleReconfigureAuth()}
-      />
     </>
   );
 }
@@ -557,7 +492,6 @@ function ReadyScreen({
   onStartNfc,
   onStartQr,
   onSyncOffline,
-  onReconfigure,
 }: {
   deviceName: string | null;
   pendingOfflineCount: number;
@@ -569,7 +503,6 @@ function ReadyScreen({
   onStartNfc: () => void;
   onStartQr: () => void;
   onSyncOffline: () => void;
-  onReconfigure: () => void;
 }) {
   const multiMode = faceEnabled && (nfcEnabled || qrEnabled);
 
@@ -630,16 +563,6 @@ function ReadyScreen({
             onPress={faceEnabled ? onStartFace : nfcEnabled ? onStartNfc : onStartFace}
             trailingIcon={faceEnabled ? "scan-outline" : "card-outline"}
           />
-
-          <Pressable onPress={onReconfigure} style={styles.linkBtn} hitSlop={6}>
-            <Ionicons
-              name="settings-outline"
-              size={16}
-              color={colors.tealLight}
-              style={{ marginRight: Spacing[1] }}
-            />
-            <Text style={styles.linkText}>Reconfigurer cet appareil</Text>
-          </Pressable>
         </View>
       </View>
     );
@@ -711,16 +634,6 @@ function ReadyScreen({
             />
           </View>
         ) : null}
-
-        <Pressable onPress={onReconfigure} style={styles.linkBtn} hitSlop={6}>
-          <Ionicons
-            name="settings-outline"
-            size={16}
-            color={colors.tealLight}
-            style={{ marginRight: Spacing[1] }}
-          />
-          <Text style={styles.linkText}>Reconfigurer cet appareil</Text>
-        </Pressable>
       </View>
     </View>
   );

@@ -80,26 +80,56 @@ export class FaceEmbeddingService {
    * Resolve a Python interpreter that has `face_recognition` importable.
    *
    * Strategy:
-   *  1. Try the configured bin (FACE_ENGINE_PYTHON_BIN).
-   *  2. If it lacks face_recognition, probe common venv locations relative
-   *     to process.cwd() — .venv/Scripts/python.exe on Windows,
-   *     .venv/bin/python elsewhere.
-   *  3. Fall back to the configured bin anyway; the spawn will then surface
-   *     the underlying error (which the controller already maps to a 500).
+   *  1. Try the configured bin (FACE_ENGINE_PYTHON_BIN) if it exists and is
+   *     valid for this OS (ignore Windows `.venv/Scripts/python.exe` on Linux).
+   *  2. Probe common venv locations for this platform.
+   *  3. Fall back to `python3` / `python` on PATH.
    */
   private async resolvePythonBin(configured: string): Promise<string> {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    const isWin = process.platform === 'win32';
+
+    const pathExists = (bin: string) => {
+      try {
+        fs.accessSync(bin, fs.constants.F_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
+    const isUsableConfiguredPath = (bin: string) => {
+      const normalized = bin.replace(/\\/g, '/').toLowerCase();
+      const looksWindowsOnly =
+        normalized.includes('/scripts/python.exe') ||
+        normalized.endsWith('python.exe');
+      if (!isWin && looksWindowsOnly) {
+        this.logger.warn(
+          `[face-embed] Ignoring Windows-only FACE_ENGINE_PYTHON_BIN=${bin} on ${process.platform}`,
+        );
+        return false;
+      }
+      // Relative / absolute path that clearly does not exist — skip early.
+      if ((bin.includes('/') || bin.includes('\\') || bin.includes('.')) && !pathExists(bin)) {
+        // Bare commands like "python3" have no slash — leave them for PATH spawn.
+        if (bin.includes('/') || bin.includes('\\') || bin.endsWith('.exe')) {
+          this.logger.warn(
+            `[face-embed] FACE_ENGINE_PYTHON_BIN=${bin} not found on disk; trying fallbacks`,
+          );
+          return false;
+        }
+      }
+      return true;
+    };
+
     const hasFaceRec = (bin: string) =>
       new Promise<boolean>((resolveProbe) => {
         const child = spawn(bin, ['-c', 'import face_recognition'], {
           stdio: ['ignore', 'ignore', 'pipe'],
         });
-        let stderr = '';
-        child.stderr.on('data', (chunk: Buffer) => {
-          stderr += chunk.toString('utf8');
-        });
         child.on('error', () => resolveProbe(false));
         child.on('close', (code) => resolveProbe(code === 0));
-        // hard cap so we don't hang on a bad interpreter
         setTimeout(() => {
           try {
             child.kill('SIGKILL');
@@ -110,41 +140,51 @@ export class FaceEmbeddingService {
         }, 5000);
       });
 
-    if (await hasFaceRec(configured)) {
-      return configured;
+    const candidates: string[] = [];
+    if (isUsableConfiguredPath(configured)) {
+      candidates.push(configured);
+    }
+    if (isWin) {
+      candidates.push(
+        resolve(process.cwd(), '.venv', 'Scripts', 'python.exe'),
+        resolve(process.cwd(), 'venv', 'Scripts', 'python.exe'),
+        resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe'),
+      );
+    } else {
+      candidates.push(
+        resolve(process.cwd(), '.venv', 'bin', 'python'),
+        resolve(process.cwd(), 'venv', 'bin', 'python'),
+        resolve(process.cwd(), '..', '.venv', 'bin', 'python'),
+        'python3',
+        'python',
+      );
     }
 
-    const isWin = process.platform === 'win32';
-    const candidates = isWin
-      ? [
-          resolve(process.cwd(), '.venv', 'Scripts', 'python.exe'),
-          resolve(process.cwd(), 'venv', 'Scripts', 'python.exe'),
-          resolve(process.cwd(), '..', '.venv', 'Scripts', 'python.exe'),
-        ]
-      : [
-          resolve(process.cwd(), '.venv', 'bin', 'python'),
-          resolve(process.cwd(), 'venv', 'bin', 'python'),
-          resolve(process.cwd(), '..', '.venv', 'bin', 'python'),
-        ];
-
+    const seen = new Set<string>();
     for (const candidate of candidates) {
-      try {
-        // Cheap existence probe — fs.accessSync avoids spawning on a dead path.
-        // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const fs = require('fs') as typeof import('fs');
-        fs.accessSync(candidate, fs.constants.X_OK);
-      } catch {
-        continue;
-      }
+      if (seen.has(candidate)) continue;
+      seen.add(candidate);
+      const needsDisk =
+        candidate.includes('/') ||
+        candidate.includes('\\') ||
+        candidate.endsWith('.exe');
+      if (needsDisk && !pathExists(candidate)) continue;
       if (await hasFaceRec(candidate)) {
-        this.logger.log(
-          `[face-embed] FACE_ENGINE_PYTHON_BIN=${configured} lacks face_recognition; falling back to ${candidate}`,
-        );
+        if (candidate !== configured) {
+          this.logger.log(
+            `[face-embed] Using Python at ${candidate} (configured was ${configured})`,
+          );
+        }
         return candidate;
       }
     }
 
-    return configured;
+    // Last resort: prefer a PATH python over a broken Windows path on Linux.
+    const fallback = !isWin ? 'python3' : configured;
+    this.logger.warn(
+      `[face-embed] No interpreter with face_recognition found; spawning ${fallback} (will fail loudly if missing)`,
+    );
+    return fallback;
   }
 
   private async embedWithPython(buffer: Buffer): Promise<number[]> {
@@ -204,6 +244,15 @@ export class FaceEmbeddingService {
 
       child.on('error', (err) => {
         clearTimeout(timer);
+        if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+          rejectEmbedding(
+            new Error(
+              `Python introuvable (${pythonBin}). Sur Render/Linux, définissez FACE_ENGINE_PYTHON_BIN=python3 ` +
+                `(pas .venv/Scripts/python.exe) et installez face_recognition dans cet interpréteur.`,
+            ),
+          );
+          return;
+        }
         rejectEmbedding(err);
       });
 

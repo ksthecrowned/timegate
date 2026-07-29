@@ -35,8 +35,9 @@ export function updateKiosk(id: string, body: KioskUpdatePayload): Promise<Kiosk
   return http.patch<Kiosk>(`/kiosks/${id}`, body)
 }
 
-export function regenerateKioskApiKey(id: string): Promise<Kiosk> {
-  return http.post<Kiosk>(`/kiosks/${id}/regenerate-api-key`)
+/** Invalidate device token — tablet must be provisioned again. */
+export function resetKioskAccess(id: string): Promise<Kiosk> {
+  return http.post<Kiosk>(`/kiosks/${id}/reset-access`)
 }
 
 export function deleteKiosk(id: string): Promise<{ id: string; deleted: boolean }> {

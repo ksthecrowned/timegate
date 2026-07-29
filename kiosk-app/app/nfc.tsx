@@ -140,12 +140,16 @@ export default function NfcScreen() {
       }
       const cooldown = getCooldownState();
       if (cooldown.active) {
-        setCooldownHint(
-          `Trop de tentatives. Saisie PIN requise (${Math.ceil(
-            cooldown.msLeft / 1000,
-          )}s).`,
-        );
-        router.replace({ pathname: "/pin", params: { cooldown: "1" } });
+        const secs = Math.ceil(cooldown.msLeft / 1000);
+        setCooldownHint(`Trop de tentatives. Réessayez dans ${secs}s.`);
+        setNfcState("error");
+        setStatusVariant("error");
+        setStatusMessage(`Trop de tentatives. Réessayez dans ${secs}s.`);
+        redirectTimer.current = setTimeout(() => {
+          setCooldownHint(null);
+          setAttempts(0);
+          setNfcState("idle");
+        }, cooldown.msLeft);
       }
     })();
   }, [router]);
@@ -183,15 +187,17 @@ export default function NfcScreen() {
           const newCount = verdict.locked ? VERIFY_FAILURE_LIMIT : attempts + 1;
           setAttempts(newCount);
           if (verdict.locked) {
+            const secs = Math.ceil(verdict.cooldownMsLeft / 1000);
             setNfcState("error");
             setStatusVariant("error");
             setStatusMessage(
-              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
+              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Réessayez dans ${secs}s.`,
             );
-            speakMessage("Trop d'échecs. Saisie du code PIN.");
+            speakMessage("Trop d'échecs. Veuillez patienter.");
             redirectTimer.current = setTimeout(() => {
-              router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-            }, 1500);
+              setAttempts(0);
+              setNfcState("idle");
+            }, verdict.cooldownMsLeft);
           } else {
             setNfcState("error");
             setStatusVariant("error");
@@ -226,14 +232,16 @@ export default function NfcScreen() {
             : attempts + 1;
           setAttempts(newCount);
           if (verdict.locked) {
+            const secs = Math.ceil(verdict.cooldownMsLeft / 1000);
             setNfcState("error");
             setStatusVariant("error");
             setStatusMessage(
-              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
+              `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Réessayez dans ${secs}s.`,
             );
             redirectTimer.current = setTimeout(() => {
-              router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-            }, 1500);
+              setAttempts(0);
+              setNfcState("idle");
+            }, verdict.cooldownMsLeft);
           } else {
             setNfcState("error");
             setStatusVariant(classifyError(error));
@@ -272,14 +280,16 @@ export default function NfcScreen() {
               ? "Aucun badge detecte. Presentez votre badge."
               : null;
       if (verdict.locked) {
+        const secs = Math.ceil(verdict.cooldownMsLeft / 1000);
         setNfcState("error");
         setStatusVariant("error");
         setStatusMessage(
-          `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Bascule vers le PIN.`,
+          `Trop d'échecs (${VERIFY_FAILURE_LIMIT}/${VERIFY_FAILURE_LIMIT}). Réessayez dans ${secs}s.`,
         );
         redirectTimer.current = setTimeout(() => {
-          router.replace({ pathname: "/pin", params: { cooldown: "1" } });
-        }, 1500);
+          setAttempts(0);
+          setNfcState("idle");
+        }, verdict.cooldownMsLeft);
       } else {
         setNfcState("error");
         setStatusVariant("warn");
@@ -316,11 +326,6 @@ export default function NfcScreen() {
       router.replace("/");
     }
   }, [clearTimers, router, stopPulse]);
-
-  const handleUsePin = useCallback(() => {
-    clearTimers();
-    router.push("/pin");
-  }, [clearTimers, router]);
 
   if (!provisioned) {
     return (
@@ -451,23 +456,6 @@ export default function NfcScreen() {
             {attempts > 1 ? "s" : ""}
           </Text>
         </View>
-
-        <Pressable
-          style={({ pressed }) => [
-            styles.pinFallbackBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={handleUsePin}
-          hitSlop={6}
-        >
-          <Ionicons
-            name="keypad-outline"
-            size={16}
-            color={colors.tealLight}
-            style={{ marginRight: Spacing[1] }}
-          />
-          <Text style={styles.pinFallbackText}>Utiliser le code PIN</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -592,17 +580,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginLeft: Spacing[2],
     fontWeight: "600",
-  },
-  pinFallbackBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: Spacing[2],
-  },
-  pinFallbackText: {
-    color: colors.tealLight,
-    fontWeight: "600",
-    fontSize: 14,
   },
   actionBtn: {
     marginTop: Spacing[4],
