@@ -46,6 +46,7 @@ import { MessagingModule } from './messaging/messaging.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { CompensationGridModule } from './compensation-grid/compensation-grid.module';
 import { EmployeeCompensationModule } from './employee-compensation/employee-compensation.module';
+import { PayrollVariableItemsModule } from './payroll-variable-items/payroll-variable-items.module';
 
 @Module({
   imports: [
@@ -96,6 +97,7 @@ import { EmployeeCompensationModule } from './employee-compensation/employee-com
     AnalyticsModule,
     CompensationGridModule,
     EmployeeCompensationModule,
+    PayrollVariableItemsModule,
   ],
 })
 export class AppModule {}
