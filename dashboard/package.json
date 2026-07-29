@@ -14,6 +14,7 @@
     "driver.js": "^1.8.0",
     "firebase": "^12.15.0",
     "leaflet": "^1.9.4",
+    "libphonenumber-js": "^1.13.9",
     "lucide-react": "^0.400.0",
     "next": "15.5.20",
     "next-auth": "^5.0.0-beta.31",
@@ -26,6 +27,7 @@
     "react-dom": "^18.3.0",
     "react-dropzone": "^15.0.0",
     "react-leaflet": "^4.2.1",
+    "react-phone-number-input": "^3.4.17",
     "react-select": "^5.10.2"
   },
   "devDependencies": {

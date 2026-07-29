@@ -76,9 +76,9 @@ export function Switcher({
         className="peer sr-only"
         aria-checked={isOn}
       />
-      <span className="absolute inset-0 bg-gray-200 rounded-full transition-colors duration-200 ease-in-out peer-checked:bg-primary peer-disabled:opacity-50 dark:bg-neutral-700 dark:peer-checked:bg-primary" />
+      <span className="absolute inset-0 rounded-full bg-slate-200 transition-colors duration-200 ease-in-out peer-checked:bg-primary peer-disabled:opacity-50 dark:bg-slate-700 dark:peer-checked:bg-primary" />
       <span
-        className={`absolute top-1/2 start-0.5 -translate-y-1/2 ${s.thumb} bg-white rounded-full shadow-xs transition-transform duration-200 ease-in-out ${s.translate} dark:bg-neutral-400 dark:peer-checked:bg-white ${className}`}
+        className={`absolute top-1/2 start-0.5 -translate-y-1/2 ${s.thumb} rounded-full bg-white shadow-xs transition-transform duration-200 ease-in-out ${s.translate} dark:bg-slate-300 dark:peer-checked:bg-white ${className}`}
       />
     </label>
   )
@@ -106,11 +106,11 @@ export function SwitcherField({
 
   const text = (
     <div className={labelPosition === 'end' ? 'text-end' : ''}>
-      <label htmlFor={fieldId} className="text-sm font-medium text-gray-800 dark:text-neutral-200 cursor-pointer">
+      <label htmlFor={fieldId} className="cursor-pointer text-sm font-medium text-slate-800 dark:text-slate-200">
         {label}
       </label>
       {description ? (
-        <p className="text-xs text-gray-500 dark:text-neutral-500 mt-0.5">{description}</p>
+        <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">{description}</p>
       ) : null}
     </div>
   )

@@ -15,6 +15,7 @@ import { FaceModule } from '../face/face.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { TrustedDevicesModule } from '../trusted-devices/trusted-devices.module';
+import { KiosksModule } from '../kiosks/kiosks.module';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 @Module({
@@ -24,6 +25,7 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
     AttendanceModule,
     TrustedDevicesModule,
     NotificationsModule,
+    KiosksModule,
     SaasModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],

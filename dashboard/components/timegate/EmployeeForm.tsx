@@ -11,7 +11,9 @@ import {
     SwitcherField,
 } from '@/components/ui/FormField'
 import FormTabs from '@/components/ui/FormTabs'
+import PhoneInput from '@/components/ui/PhoneInput'
 import type { SelectOption } from '@/components/ui/select-search-types'
+import { useOrganization } from '@/components/providers/OrganizationProvider'
 import { normalizeApiDate } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
 import { findOption, toSelectOptions } from '@/lib/select-options'
@@ -33,6 +35,7 @@ type EmployeeFormTab = 'identity' | 'contact' | 'assignment' | 'face' | 'contrac
 
 type CountryMeta = {
   name: string
+  isoCode: string
   phoneCode?: string | null
 }
 
@@ -70,6 +73,7 @@ export default function EmployeeForm({
   employeeId,
   hasFaceEmbedding,
 }: EmployeeFormProps) {
+  const { company } = useOrganization()
   const [tab, setTab] = useState<EmployeeFormTab>('identity')
   const [form, setForm] = useState<EmployeeFormValues>({
     firstName: initial?.firstName ?? '',
@@ -127,7 +131,10 @@ export default function EmployeeForm({
       setCountryOptions(countries.data.map((c) => ({ value: c.id, label: c.name })))
       setCountryMetaById(
         Object.fromEntries(
-          countries.data.map((c) => [c.id, { name: c.name, phoneCode: c.phoneCode }]),
+          countries.data.map((c) => [
+            c.id,
+            { name: c.name, isoCode: c.isoCode, phoneCode: c.phoneCode },
+          ]),
         ),
       )
     })
@@ -252,21 +259,21 @@ export default function EmployeeForm({
           </FormField>
           <FormField
             label="Téléphone"
-            hint={
-              form.countryId && countryMetaById[form.countryId]?.phoneCode
-                ? `Format international conseillé: ${countryMetaById[form.countryId]?.phoneCode}`
-                : 'Format international conseillé: +243...'
-            }
           >
-            <Input
-              type="tel"
-              placeholder={form.countryId && countryMetaById[form.countryId]?.phoneCode ? `${countryMetaById[form.countryId]?.phoneCode} ...` : '+243 ...'}
+            <PhoneInput
               value={form.phone ?? ''}
-              onChange={(e) => set('phone', e.target.value)}
+              onChange={(next) => set('phone', next)}
+              countryIsoCode={countryMetaById[form.countryId ?? '']?.isoCode}
+              organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
             />
           </FormField>
           <FormField label="WhatsApp">
-            <Input value={form.whatsappPhone ?? ''} onChange={(e) => set('whatsappPhone', e.target.value)} />
+            <PhoneInput
+              value={form.whatsappPhone ?? ''}
+              onChange={(next) => set('whatsappPhone', next)}
+              countryIsoCode={countryMetaById[form.countryId ?? '']?.isoCode}
+              organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
+            />
           </FormField>
           <FormField label="Statut">
             <SwitcherField
@@ -325,9 +332,11 @@ export default function EmployeeForm({
             />
           </FormField>
           <FormField label="Tél. urgence">
-            <Input
+            <PhoneInput
               value={form.emergencyContactPhone ?? ''}
-              onChange={(e) => set('emergencyContactPhone', e.target.value)}
+              onChange={(next) => set('emergencyContactPhone', next)}
+              countryIsoCode={countryMetaById[form.countryId ?? '']?.isoCode}
+              organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
             />
           </FormField>
         </div>

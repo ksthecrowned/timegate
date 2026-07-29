@@ -3,10 +3,10 @@
 import { useCallback, useId, useState } from 'react'
 
 const btnClass =
-  'size-6 inline-flex justify-center items-center gap-x-2 text-sm font-medium rounded-full border border-gray-200 bg-white text-gray-800 shadow-xs hover:bg-gray-50 focus:outline-none focus:bg-gray-50 disabled:opacity-50 disabled:pointer-events-none dark:bg-neutral-900 dark:border-neutral-700 dark:text-white dark:hover:bg-neutral-800 dark:focus:bg-neutral-800'
+  'size-6 inline-flex items-center justify-center gap-x-2 rounded-full border border-slate-200/80 bg-surface-card text-sm font-medium text-slate-700 shadow-xs hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 disabled:pointer-events-none disabled:opacity-50 dark:border-border-dark dark:bg-surface-elevated-dark dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300'
 
 const inputClass =
-  'w-full p-0 bg-transparent border-0 text-gray-800 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:text-white placeholder:text-gray-400 dark:placeholder:text-neutral-500'
+  'w-full border-0 bg-transparent p-0 text-slate-800 focus:ring-0 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none dark:text-slate-200 placeholder:text-slate-400 dark:placeholder:text-slate-500'
 
 function parseNum(value: string): number {
   const n = parseFloat(value)

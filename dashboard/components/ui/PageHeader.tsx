@@ -14,7 +14,7 @@ interface PageHeaderProps {
 function CrumbSeparator() {
   return (
     <svg
-      className="shrink-0 mx-2 size-4 text-gray-400 dark:text-neutral-600"
+      className="mx-1.5 size-3.5 shrink-0 text-slate-400 dark:text-slate-600"
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
       fill="none"
@@ -28,60 +28,65 @@ function CrumbSeparator() {
 
 export default function PageHeader({ breadcrumbs, action }: PageHeaderProps) {
   const crumbs = breadcrumbs ?? []
+  const pageTitle = crumbs.length > 0 ? crumbs[crumbs.length - 1]?.label : 'Dashboard'
+  const trail = crumbs.length > 1 ? crumbs.slice(0, -1) : []
 
   return (
-    <div className="flex items-center justify-between flex-wrap gap-3 mb-4">
-      <ol className="flex items-center whitespace-nowrap">
-        <li className="inline-flex items-center">
-          <Link
-            href="/"
-            className="flex items-center text-sm text-gray-500 hover:text-primary focus:outline-none focus:text-primary dark:text-neutral-500 dark:hover:text-secondary dark:focus:text-secondary"
-          >
-            <svg
-              className="shrink-0 me-3 size-4"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a9 9 0 1 0 9 9" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m6.364 2.636-2.121 2.121M21 12h-3" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="m12 12 3.5-3.5" />
-            </svg>
-            Dashboard
-          </Link>
-          {crumbs.length > 0 ? <CrumbSeparator /> : null}
-        </li>
-        {crumbs.map((b, i) => {
-          const isLast = i === crumbs.length - 1
-          const href = b.href ?? '#'
-
-          return (
-            <li key={`${b.label}-${i}`} className="inline-flex items-center">
-              {isLast ? (
-                <span
-                  className="inline-flex items-center text-sm font-semibold text-gray-800 truncate dark:text-neutral-200"
-                  aria-current="page"
+    <div className="mb-5 rounded-xl border border-slate-200/80 bg-surface-card px-4 py-3 shadow-xs dark:border-border-dark dark:bg-surface-card-dark md:px-5 md:py-4">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 space-y-1.5">
+          <ol className="flex min-w-0 items-center whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+            <li className="inline-flex items-center">
+              <Link
+                href="/"
+                className="inline-flex items-center rounded-md px-1.5 py-0.5 hover:bg-primary/10 hover:text-primary focus:outline-none focus:text-primary dark:hover:bg-primary/15 dark:hover:text-teal-300 dark:focus:text-teal-300"
+              >
+                <svg
+                  className="me-1.5 size-3.5 shrink-0"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a9 9 0 1 0 9 9" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 3v3m6.364 2.636-2.121 2.121M21 12h-3"
+                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m12 12 3.5-3.5" />
+                </svg>
+                Dashboard
+              </Link>
+              <CrumbSeparator />
+            </li>
+            {trail.map((b, i) => (
+              <li key={`${b.label}-${i}`} className="inline-flex items-center">
+                <Link
+                  href={b.href ?? '#'}
+                  className="inline-flex items-center rounded-md px-1.5 py-0.5 hover:bg-primary/10 hover:text-primary focus:outline-none focus:text-primary dark:hover:bg-primary/15 dark:hover:text-teal-300 dark:focus:text-teal-300"
                 >
                   {b.label}
-                </span>
-              ) : (
-                <>
-                  <Link
-                    href={href}
-                    className="flex items-center text-sm text-gray-500 hover:text-primary focus:outline-none focus:text-primary dark:text-neutral-500 dark:hover:text-secondary"
-                  >
-                    {b.label}
-                  </Link>
-                  <CrumbSeparator />
-                </>
-              )}
+                </Link>
+                <CrumbSeparator />
+              </li>
+            ))}
+            <li
+              className="inline-flex max-w-[40ch] items-center truncate rounded-md bg-primary/10 px-2 py-0.5 font-medium text-primary dark:bg-primary/15 dark:text-teal-300"
+              aria-current="page"
+            >
+              {pageTitle}
             </li>
-          )
-        })}
-      </ol>
-      {action && <div className="shrink-0">{action}</div>}
+          </ol>
+
+          <h1 className="truncate text-lg font-semibold text-slate-800 dark:text-slate-100 md:text-xl">
+            {pageTitle}
+          </h1>
+        </div>
+
+        {action ? <div className="shrink-0">{action}</div> : null}
+      </div>
     </div>
   )
 }

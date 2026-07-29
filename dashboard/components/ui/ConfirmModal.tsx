@@ -22,12 +22,12 @@ export default function ConfirmModal({ open, title, message, confirmLabel = 'Oui
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center h-screen">
+    <div className="fixed inset-0 z-80 flex h-screen items-center justify-center">
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-gray-900/50 dark:bg-neutral-900/80" onClick={onCancel} />
+      <div className="fixed inset-0 bg-slate-900/50 dark:bg-slate-950/80" onClick={onCancel} />
 
       {/* Modal */}
-      <div className="relative z-10 bg-white border border-gray-200 rounded-xl shadow-lg dark:bg-neutral-800 dark:border-neutral-700 w-full max-w-lg mx-4">
+      <div className="relative z-10 mx-4 w-full max-w-lg rounded-xl border border-slate-200/80 bg-surface-card shadow-lg dark:border-border-dark dark:bg-surface-card-dark">
         <div className="w-full p-4 sm:p-7">
           <div className="w-full text-center">
             {/* Icon */}
@@ -37,9 +37,9 @@ export default function ConfirmModal({ open, title, message, confirmLabel = 'Oui
               </svg>
             </span>
 
-            <h3 className="mb-2 text-xl font-bold text-gray-800 dark:text-neutral-200">{title}</h3>
+            <h3 className="mb-2 text-xl font-bold text-slate-800 dark:text-slate-100">{title}</h3>
             <p
-              className="text-gray-500 dark:text-neutral-400 text-sm leading-relaxed px-1 whitespace-break-spaces"
+              className="px-1 text-sm leading-relaxed text-slate-500 whitespace-break-spaces dark:text-slate-400"
             >
               {message}
             </p>
@@ -47,7 +47,7 @@ export default function ConfirmModal({ open, title, message, confirmLabel = 'Oui
 
           <div className="mt-6 flex justify-center gap-x-4">
             <button type="button" onClick={onCancel}
-              className="py-2 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-800 shadow-xs hover:bg-gray-50 dark:bg-transparent dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800">
+              className="inline-flex items-center gap-x-2 rounded-lg border border-slate-200/80 bg-surface-card px-3 py-2 text-sm font-medium text-slate-700 shadow-xs hover:bg-primary/10 hover:text-primary dark:border-border-dark dark:bg-surface-elevated-dark dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300">
               {cancelLabel}
             </button>
             <button type="button" onClick={onConfirm}

@@ -10,12 +10,14 @@ import { KioskHeartbeatDto } from './dto/kiosk-heartbeat.dto';
 import { UpdateKioskDto } from './dto/update-kiosk.dto';
 
 import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
+import { KioskRealtimeService } from './kiosk-realtime.service';
 
 @Injectable()
 export class KiosksService {
   constructor(
     private prisma: PrismaService,
     private readonly subscriptionQuota: SubscriptionQuotaService,
+    private readonly realtime: KioskRealtimeService,
   ) {}
 
   async create(dto: CreateKioskDto) {
@@ -144,6 +146,9 @@ export class KiosksService {
       },
       include: { branch: { select: { id: true, branchName: true } } },
     });
+    if (dto.isActive === false) {
+      this.realtime.emitAccessRevoked(id, 'deactivated');
+    }
     return this.toApiShape(updated);
   }
 
@@ -162,6 +167,7 @@ export class KiosksService {
 
   async remove(id: string, user: JwtUser) {
     await this.findOne(id, user);
+    this.realtime.emitAccessRevoked(id, 'deleted');
     await this.prisma.timeGateKiosk.delete({ where: { id } });
     return { id, deleted: true };
   }
@@ -181,6 +187,7 @@ export class KiosksService {
         shiftLocation: { select: { id: true, locationName: true } },
       },
     });
+    this.realtime.emitAccessRevoked(id, 'reset');
     return this.toApiShape(updated);
   }
 

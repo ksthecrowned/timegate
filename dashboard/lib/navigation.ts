@@ -96,11 +96,6 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-user-clock',
           },
           {
-            label: 'Exceptions (date)',
-            href: '/schedule-day-exceptions',
-            faIcon: 'fa-solid fa-calendar-day',
-          },
-          {
             label: 'Planning prévu',
             href: '/planning',
             faIcon: 'fa-solid fa-calendar-days',

@@ -31,7 +31,7 @@ interface ActionButtonsProps {
 }
 
 const btnClass =
-  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-transparent bg-black/10 dark:bg-white/10 text-black hover:bg-gray-400 focus:outline-none focus:bg-gray-400 disabled:opacity-50 disabled:pointer-events-none dark:text-white dark:hover:bg-neutral-600 dark:focus:bg-neutral-900'
+  'py-2.5 px-3 inline-flex items-center gap-x-2 text-sm font-medium rounded-lg border border-slate-200/80 bg-surface-card text-slate-700 shadow-xs hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-elevated-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300'
 
 export default function ActionButtons({
   viewHref,
@@ -155,7 +155,7 @@ export default function ActionButtons({
 
             {menuOpen && (
               <div
-                className="absolute right-0 top-full z-50 mt-2 min-w-10 divide-y divide-gray-200 rounded-lg bg-white shadow-md dark:divide-neutral-700 dark:border dark:border-neutral-700 dark:bg-neutral-800"
+                className="absolute right-0 top-full z-50 mt-2 min-w-10 divide-y divide-slate-200/80 rounded-lg border border-slate-200/80 bg-surface-card shadow-lg dark:divide-border-dark dark:border-border-dark dark:bg-surface-card-dark"
                 role="menu"
               >
                 <div className="p-1 space-y-0.5">
@@ -163,7 +163,7 @@ export default function ActionButtons({
                     <a
                       href={`mailto:${mailTo}`}
                       onClick={closeMenu}
-                      className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-700 dark:hover:text-neutral-300"
+                      className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300"
                     >
                       <i className="fa-solid fa-envelope-open-text shrink-0 size-4" /> Envoyer un
                       mail
@@ -173,7 +173,7 @@ export default function ActionButtons({
                     <Link
                       href={writeEditHref}
                       onClick={closeMenu}
-                      className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-gray-100 focus:outline-none focus:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-700"
+                      className="flex items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300"
                     >
                       <i className="fa-regular fa-pen-to-square shrink-0 size-4" /> Modifier
                     </Link>
@@ -186,7 +186,7 @@ export default function ActionButtons({
                         setOpen(true)
                         closeMenu()
                       }}
-                      className="flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-gray-800 hover:bg-gray-100 dark:text-neutral-400 dark:hover:bg-neutral-700"
+                      className="flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-slate-700 hover:bg-primary/10 hover:text-primary dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300"
                     >
                       {isActive ? (
                         <>
@@ -207,7 +207,7 @@ export default function ActionButtons({
                         item.onClick()
                         closeMenu()
                       }}
-                      className={`flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm hover:bg-gray-100 dark:hover:bg-neutral-700 ${item.danger ? 'text-red-800 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-700' : 'text-gray-800 dark:text-neutral-400'}`}
+                      className={`flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm ${item.danger ? 'text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30' : 'text-slate-700 hover:bg-primary/10 hover:text-primary dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300'}`}
                     >
                       {item.faIcon && <i className={`${item.faIcon} shrink-0 size-4`} />}
                       {item.label}
@@ -223,7 +223,7 @@ export default function ActionButtons({
                         setOpen(true)
                         closeMenu()
                       }}
-                      className="flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-red-800 hover:bg-red-100 focus:outline-none dark:text-red-400 dark:hover:bg-red-700"
+                      className="flex w-full items-center gap-x-3.5 py-2 px-3 rounded-lg text-sm text-red-700 hover:bg-red-50 focus:outline-none dark:text-red-400 dark:hover:bg-red-900/30"
                     >
                       <i className="fa-regular fa-trash-can shrink-0 size-4" /> Supprimer
                     </button>

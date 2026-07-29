@@ -2263,6 +2263,14 @@ export class AuthService {
     };
   }
 
+  /** Validates lifetime token for SSE / realtime channels. */
+  async resolveMobileDevice(
+    token: string,
+  ): Promise<{ kioskId: string; branchId: string | null }> {
+    const payload = await this.verifyMobileToken(token);
+    return { kioskId: payload.kioskId, branchId: payload.branchId };
+  }
+
   private async verifyMobileToken(token: string): Promise<MobileTokenPayload> {
     try {
       const payload = await this.jwt.verifyAsync<MobileTokenPayload>(token);

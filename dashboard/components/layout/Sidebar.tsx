@@ -7,7 +7,7 @@ import type { TimeGateRole } from '@/lib/timegate/types'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 const LINK_BASE =
   'flex items-center gap-x-3.5 py-2 px-2.5 text-sm text-slate-600 rounded-lg hover:bg-primary/10 hover:text-primary focus:outline-none focus:bg-primary/10 focus:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-accent dark:focus:text-accent line-clamp-1'
@@ -16,10 +16,25 @@ const TOGGLE_BASE =
 
 function AccordionItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
   const pathname = usePathname()
-  const [open, setOpen] = useState(false)
-  const isActive = item.href
-    ? pathname === item.href || pathname.startsWith(item.href + '/')
-    : false
+
+  const isHrefActive = (href?: string): boolean => {
+    if (!href) return false
+    if (href === '/') return pathname === '/'
+    return pathname === href || pathname.startsWith(href + '/')
+  }
+
+  const hasActiveChild = (navItem: NavItem): boolean => {
+    if (isHrefActive(navItem.href)) return true
+    if (navItem.children?.length) return navItem.children.some((child) => hasActiveChild(child))
+    return false
+  }
+
+  const isActive = item.href ? isHrefActive(item.href) : hasActiveChild(item)
+  const [open, setOpen] = useState(isActive)
+
+  useEffect(() => {
+    if (isActive) setOpen(true)
+  }, [isActive])
 
   if (item.href && !item.children) {
     return (
@@ -42,7 +57,7 @@ function AccordionItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={TOGGLE_BASE}
+        className={`${TOGGLE_BASE} ${isActive ? 'text-primary font-semibold bg-primary/5 dark:bg-primary/10' : ''}`}
         aria-expanded={open}
       >
         {item.faIcon && <i className={`${item.faIcon} shrink-0 size-4`} />}
@@ -82,10 +97,7 @@ function AccordionItem({ item, depth = 0 }: { item: NavItem; depth?: number }) {
                   <Link
                     href={child.href ?? '#'}
                     className={`${LINK_BASE} ${
-                      child.href &&
-                      (pathname === child.href || pathname.startsWith(child.href + '/'))
-                        ? 'text-primary font-semibold'
-                        : ''
+                      isHrefActive(child.href) ? 'text-primary font-semibold' : ''
                     }`}
                   >
                     {child.label}

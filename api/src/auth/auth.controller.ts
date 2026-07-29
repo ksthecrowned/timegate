@@ -3,23 +3,28 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Headers,
   Logger,
+  MessageEvent,
   Param,
   ParseFilePipeBuilder,
   Patch,
   Post,
+  Sse,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { TimeGateUserRole } from '@prisma/client';
+import { Observable, from, switchMap } from 'rxjs';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
 import { AllowInactiveSubscription } from '../common/decorators/allow-inactive-subscription.decorator';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import { DocIdPipe } from '../common/pipes/doc-id.pipe';
+import { KioskRealtimeService } from '../kiosks/kiosk-realtime.service';
 import { AuthService } from './auth.service';
 import { ActivateSubscriptionDto } from './dto/activate-subscription.dto';
 import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
@@ -42,7 +47,10 @@ import { EmployeeIdentifyDto, EmployeeLoginDto } from './dto/employee-auth.dto';
 export class AuthController {
   private readonly logger = new Logger(AuthController.name);
 
-  constructor(private auth: AuthService) {}
+  constructor(
+    private auth: AuthService,
+    private readonly kioskRealtime: KioskRealtimeService,
+  ) {}
 
   @Public()
   @Post('signup')
@@ -195,6 +203,23 @@ export class AuthController {
   mobileHeartbeat(@Headers('authorization') authorization: string | undefined) {
     const token = this.extractBearerToken(authorization);
     return this.auth.heartbeatMobile(token);
+  }
+
+  /**
+   * SSE stream for the provisioned kiosk (lifetime token).
+   * Emits `access_revoked` when an admin resets / deactivates / deletes the device.
+   */
+  @Public()
+  @Sse('mobile/events')
+  @Header('Cache-Control', 'no-cache, no-transform')
+  @Header('X-Accel-Buffering', 'no')
+  mobileEvents(
+    @Headers('authorization') authorization: string | undefined,
+  ): Observable<MessageEvent> {
+    const token = this.extractBearerToken(authorization);
+    return from(this.auth.resolveMobileDevice(token)).pipe(
+      switchMap(({ kioskId }) => this.kioskRealtime.stream(kioskId)),
+    );
   }
 
   @Public()

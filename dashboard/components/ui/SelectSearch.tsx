@@ -23,7 +23,7 @@ const defaultFilter = createFilter<SelectOption>({ ignoreAccents: true, trim: tr
 
 const chevronIcon = (
   <svg
-    className="shrink-0 size-3.5 text-gray-500 dark:text-neutral-500"
+    className="shrink-0 size-3.5 text-slate-500 dark:text-slate-400"
     xmlns="http://www.w3.org/2000/svg"
     width="24"
     height="24"
@@ -60,7 +60,7 @@ function OptionLabel({
         <div
           className={cn(
             iconBox,
-            'border border-gray-200 overflow-hidden flex-none rounded-full me-2 dark:border-neutral-700',
+            'me-2 flex-none overflow-hidden rounded-full border border-slate-200/80 dark:border-border-dark',
           )}
         >
           <img
@@ -73,7 +73,7 @@ function OptionLabel({
           />
         </div>
       ) : null}
-      <div className="text-gray-800 dark:text-neutral-200 truncate">{label}</div>
+      <div className="truncate text-slate-800 dark:text-slate-200">{label}</div>
     </div>
   )
 }
@@ -185,8 +185,8 @@ function buildClassNames(
       cn('truncate', isToolbar ? 'text-slate-600 dark:text-slate-300' : 'text-slate-800 dark:text-slate-300'),
     singleValue: () => 'truncate text-slate-800 dark:text-slate-200',
     indicatorsContainer: () => 'items-center shrink-0',
-    dropdownIndicator: () => 'p-0 text-gray-500',
-    clearIndicator: () => 'p-0 text-gray-400 hover:text-gray-600',
+    dropdownIndicator: () => 'p-0 text-slate-500 dark:text-slate-400',
+    clearIndicator: () => 'p-0 text-slate-400 hover:text-primary dark:hover:text-teal-300',
     menu: () =>
       cn(
         'mt-2 z-50 w-full min-w-[var(--select-width,100%)] bg-surface-card border border-slate-200 rounded-lg shadow-lg',
@@ -200,8 +200,8 @@ function buildClassNames(
         isSelected && 'bg-primary/15 text-primary dark:bg-primary/25 dark:text-primary',
       ),
     group: () => 'p-0',
-    loadingMessage: () => 'py-2 px-4 text-sm text-gray-500 dark:text-neutral-400',
-    noOptionsMessage: () => 'py-2 px-4 text-sm text-gray-500 dark:text-neutral-400',
+    loadingMessage: () => 'py-2 px-4 text-sm text-slate-500 dark:text-slate-400',
+    noOptionsMessage: () => 'py-2 px-4 text-sm text-slate-500 dark:text-slate-400',
     menuPortal: () => 'z-[9999]',
   }
 }
@@ -211,7 +211,7 @@ export const selectSearchMenuStyles = {
   searchWrapper:
     'bg-surface-card p-2 sticky top-0 z-10 dark:bg-surface-card-dark border-b border-slate-100 dark:border-border-dark',
   searchInput:
-    'block w-full text-sm border border-slate-200 rounded-lg focus:border-primary focus:ring-primary bg-surface dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-neutral-500 py-2 px-3',
+    'block w-full rounded-lg border border-slate-200 text-sm bg-surface px-3 py-2 focus:border-primary focus:ring-primary dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500',
 }
 
 export interface SelectSearchProps

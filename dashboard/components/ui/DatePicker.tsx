@@ -80,7 +80,7 @@ export function DatePicker({
               e.stopPropagation()
               onChange?.(null)
             }}
-            className="absolute end-10 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500"
+            className="absolute end-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
             aria-label="Effacer la date"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -93,7 +93,7 @@ export function DatePicker({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => !disabled && setOpen((o) => !o)}
-          className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-primary disabled:opacity-50"
+          className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-primary disabled:opacity-50 dark:text-slate-500 dark:hover:text-teal-300"
           aria-label="Ouvrir le calendrier"
         >
           <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
@@ -108,7 +108,7 @@ export function DatePicker({
 
       {open && (
         <div
-          className="absolute z-60 mt-1 p-3 bg-white border border-gray-200 rounded-xl shadow-lg dark:bg-neutral-900 dark:border-neutral-700"
+          className="absolute z-60 mt-1 rounded-xl border border-slate-200/80 bg-surface-card p-3 shadow-lg dark:border-border-dark dark:bg-surface-card-dark"
           role="dialog"
         >
           <DayPicker
@@ -130,19 +130,19 @@ export function DatePicker({
             }}
             classNames={{
               root: 'rdp-root text-sm',
-              month_caption: 'flex justify-center items-center font-semibold text-gray-800 dark:text-white mb-2 capitalize',
+              month_caption: 'mb-2 flex items-center justify-center font-semibold text-slate-800 dark:text-slate-100 capitalize',
               nav: 'flex items-center justify-between absolute inset-x-3 top-3',
-              button_previous: 'p-1 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-300',
-              button_next: 'p-1 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-300',
-              weekdays: 'text-xs text-gray-500 dark:text-neutral-400',
+              button_previous: 'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
+              button_next: 'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
+              weekdays: 'text-xs text-slate-500 dark:text-slate-400',
               weekday: 'w-9 font-medium',
               day: 'w-9 h-9 text-sm',
               day_button:
-                'w-9 h-9 rounded-lg hover:bg-orange-50 dark:hover:bg-neutral-800 focus:outline-none focus:ring-2 focus:ring-primary',
+                'h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/15 dark:hover:text-teal-300 focus:outline-none focus:ring-2 focus:ring-primary',
               selected:
-                '[&>button]:bg-primary [&>button]:text-white [&>button]:hover:bg-secondary [&>button]:font-semibold',
+                '[&>button]:bg-primary [&>button]:text-white [&>button]:hover:bg-primary [&>button]:font-semibold',
               today: '[&>button]:font-bold [&>button]:text-primary',
-              outside: 'text-gray-300 dark:text-neutral-600',
+              outside: 'text-slate-300 dark:text-slate-600',
               disabled: 'opacity-40 pointer-events-none',
             }}
           />

@@ -3,6 +3,7 @@
 import { useOrganization } from '@/components/providers/OrganizationProvider'
 import { ApiErrorBanner, FormCard, primaryBtnClass } from '@/components/timegate/ui'
 import { FormField, Input, SelectSearch } from '@/components/ui/FormField'
+import PhoneInput from '@/components/ui/PhoneInput'
 import PageHeader from '@/components/ui/PageHeader'
 import { HttpError } from '@/lib/http'
 import { findOption } from '@/lib/select-options'
@@ -141,9 +142,10 @@ export default function OrganizationSettingsPage() {
                 />
               </FormField>
               <FormField label="Téléphone">
-                <Input
+                <PhoneInput
                   value={form.phone ?? ''}
-                  onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))}
+                  onChange={(next) => setForm((f) => ({ ...f, phone: next }))}
+                  organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
                 />
               </FormField>
               <FormField label="Email">

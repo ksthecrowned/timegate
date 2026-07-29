@@ -22,7 +22,7 @@ const tabButtonClass = (active: boolean) =>
   `py-3 px-4 inline-flex items-center gap-x-2 border-b-2 text-sm font-medium transition-colors ${
     active
       ? 'border-primary text-primary'
-      : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-neutral-400 dark:hover:text-neutral-200'
+      : 'border-transparent text-slate-500 hover:text-primary dark:text-slate-400 dark:hover:text-teal-300'
   }`
 
 function renderTabContent(content: ReactNode | (() => ReactNode)) {
@@ -38,7 +38,7 @@ export default function FormTabs({ tabs, activeTab, onTabChange, flush = true }:
         className={
           flush
             ? 'border-b border-slate-200/80 -mx-4 md:-mx-5 px-4 md:px-5 dark:border-border-dark'
-            : 'border-b border-gray-200 dark:border-neutral-700'
+            : 'border-b border-slate-200/80 dark:border-border-dark'
         }
       >
         <nav className="flex flex-wrap gap-x-1 -mb-px" role="tablist" aria-label="Sections du formulaire">

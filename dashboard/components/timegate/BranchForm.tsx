@@ -2,7 +2,9 @@
 
 import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import { FormField, Input, SelectSearch, SwitcherField } from '@/components/ui/FormField'
+import PhoneInput from '@/components/ui/PhoneInput'
 import type { SelectOption } from '@/components/ui/select-search-types'
+import { useOrganization } from '@/components/providers/OrganizationProvider'
 import { HttpError } from '@/lib/http'
 import { findOption } from '@/lib/select-options'
 import type { BranchPayload } from '@/lib/timegate/branches'
@@ -21,6 +23,7 @@ type BranchFormProps = {
 const tzOptions = timezoneOptions()
 
 export default function BranchForm({ initial, submitLabel, onSubmit, onCancel }: BranchFormProps) {
+  const { company } = useOrganization()
   const [form, setForm] = useState<BranchPayload>({
     name: initial?.name ?? '',
     branchCode: initial?.branchCode ?? '',
@@ -37,14 +40,20 @@ export default function BranchForm({ initial, submitLabel, onSubmit, onCancel }:
     isActive: initial?.isActive ?? true,
   })
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([])
+  const [countryMetaById, setCountryMetaById] = useState<Record<string, { isoCode: string; phoneCode?: string | null }>>({})
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
-    void listCountries({ limit: 100 }).then((res) =>
-      setCountryOptions(res.data.map((c) => ({ value: c.id, label: `${c.name} (${c.isoCode})` }))),
-    )
+    void listCountries({ limit: 100 }).then((res) => {
+      setCountryOptions(res.data.map((c) => ({ value: c.id, label: `${c.name} (${c.isoCode})` })))
+      setCountryMetaById(
+        Object.fromEntries(
+          res.data.map((c) => [c.id, { isoCode: c.isoCode, phoneCode: c.phoneCode }]),
+        ),
+      )
+    })
   }, [])
 
   useEffect(() => {
@@ -184,7 +193,12 @@ export default function BranchForm({ initial, submitLabel, onSubmit, onCancel }:
             />
           </FormField>
           <FormField label="Téléphone">
-            <Input value={form.phone ?? ''} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
+            <PhoneInput
+              value={form.phone ?? ''}
+              onChange={(next) => setForm((f) => ({ ...f, phone: next }))}
+              countryIsoCode={countryMetaById[form.countryId ?? '']?.isoCode}
+              organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
+            />
           </FormField>
           <FormField label="Email">
             <Input

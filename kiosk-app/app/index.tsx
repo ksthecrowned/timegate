@@ -4,6 +4,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  DeviceEventEmitter,
   Image,
   Pressable,
   StyleSheet,
@@ -16,6 +17,7 @@ import { KioskSetupShell } from "../components/setup/KioskSetupShell";
 import { OperatorLoginFields } from "../components/setup/OperatorLoginFields";
 import { MessageBox } from "../components/shared/MessageBox";
 import { PrimaryButton } from "../components/shared/PrimaryButton";
+import { KIOSK_ACCESS_REVOKED } from "../lib/kiosk-sse";
 import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
 import {
   bootstrapOperator,
@@ -100,6 +102,26 @@ export default function HomeScreen() {
         setLoading(false);
       }
     })();
+  }, []);
+
+  useEffect(() => {
+    const sub = DeviceEventEmitter.addListener(
+      KIOSK_ACCESS_REVOKED,
+      (payload: { reason?: string }) => {
+        setConfigured(false);
+        setDeviceName(null);
+        setFeatures(null);
+        setStep("login");
+        setFeedback({
+          kind: "info",
+          message:
+            payload?.reason === "deactivated"
+              ? "Cette borne a été désactivée. Contactez un administrateur."
+              : "Accès réinitialisé. Reconfigurez la borne pour continuer.",
+        });
+      },
+    );
+    return () => sub.remove();
   }, []);
 
   useFocusEffect(

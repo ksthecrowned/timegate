@@ -293,6 +293,8 @@ export async function clearProvisioning(): Promise<void> {
   await SecureStore.deleteItemAsync(KIOSK_FEATURES_KEY);
   const { clearQrChallengeSecret } = await import("./qr-challenge");
   await clearQrChallengeSecret();
+  const { emitKioskSessionChanged } = await import("./kiosk-sse");
+  emitKioskSessionChanged(false);
 }
 
 export async function getProvisionState(): Promise<ProvisionState> {
@@ -346,6 +348,8 @@ export async function provisionKiosk(
     const { storeQrChallengeSecret } = await import("./qr-challenge");
     await storeQrChallengeSecret(json.qrChallengeSecret);
   }
+  const { emitKioskSessionChanged } = await import("./kiosk-sse");
+  emitKioskSessionChanged(true);
   return { hasToken: true, deviceName };
 }
 
