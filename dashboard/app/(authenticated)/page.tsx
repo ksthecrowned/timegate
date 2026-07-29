@@ -76,7 +76,7 @@ export default function DashboardPage() {
         { href: '/kiosks', label: 'Bornes', icon: 'fa-tablet-screen-button' },
       ]
     : [
-        { href: '/manager/team', label: 'Équipe du jour (live)', icon: 'fa-users' },
+        { href: '/manager/team', label: 'Équipe du jour', icon: 'fa-users' },
         { href: '/manager/inbox', label: 'À traiter', icon: 'fa-inbox' },
         { href: '/manager/leaves', label: 'Absences équipe', icon: 'fa-calendar-days' },
         { href: '/attendance/events', label: 'Pointages', icon: 'fa-clock' },

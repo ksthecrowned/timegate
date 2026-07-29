@@ -1,16 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import ActionButtons from '@/components/ui/ActionButtons'
 import AddPageLink from '@/components/timegate/AddPageLink'
-import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import { dateTableColumn } from '@/components/timegate/date-table-column'
+import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import { ApiErrorBanner, primaryBtnClass } from '@/components/timegate/ui'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { Column } from '@/components/ui/DataTable'
+import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import { deleteAbsence, listAbsences, syncAbsences } from '@/lib/timegate/absences'
 import type { Absence } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 function last30DaysRange() {
   const to = new Date()
@@ -89,7 +89,7 @@ export default function AbsencesPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Absences non justifiées' }]}
+        breadcrumbs={[{ label: 'Absences' }]}
         action={
           <div className="flex gap-2">
             <button
@@ -104,13 +104,6 @@ export default function AbsencesPage() {
           </div>
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        No-shows dérivés des journées ABSENT — pas les demandes de congé (
-        <a href="/leaves" className="text-primary hover:underline">
-          Demandes de congé
-        </a>
-        ).
-      </p>
       <ApiErrorBanner message={error} />
       {syncMessage && (
         <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">

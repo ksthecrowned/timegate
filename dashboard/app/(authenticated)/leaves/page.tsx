@@ -1,16 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import StatusBadge from '@/components/ui/StatusBadge'
-import ActionButtons from '@/components/ui/ActionButtons'
 import AddPageLink from '@/components/timegate/AddPageLink'
-import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import { dateTableColumn } from '@/components/timegate/date-table-column'
+import { employeeTableColumn } from '@/components/timegate/employee-table-column'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { Column } from '@/components/ui/DataTable'
+import PageHeader from '@/components/ui/PageHeader'
+import StatusBadge from '@/components/ui/StatusBadge'
+import { HttpError } from '@/lib/http'
 import { deleteLeave, listLeaves } from '@/lib/timegate/leaves'
 import type { Leave } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 const columns: Column<Leave>[] = [
   employeeTableColumn<Leave>({ sortable: true }),
@@ -59,7 +59,7 @@ export default function LeavesPage() {
       <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
         Demandes RH (congés payés, maladie…). Les no-shows sans demande sont dans{' '}
         <a href="/absences" className="text-primary hover:underline">
-          Absences non justifiées
+          Absences
         </a>
         .
       </p>
