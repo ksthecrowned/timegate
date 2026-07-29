@@ -62,11 +62,6 @@ models/
 *.orig.*
 web-build/
 
-# Native Firebase config (real values must NOT be committed)
-# Keep `.example` templates under version control.
-employee-app/GoogleService-Info.plist
-employee-app/google-services.json
-
 # Generated artifacts
 api/dist/
 dashboard/.next/

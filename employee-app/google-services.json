@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "243972435553",
+    "project_id": "timegate-f19a8",
+    "storage_bucket": "timegate-f19a8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:243972435553:android:b096bdc16cf3548c8ac420",
+        "android_client_info": {
+          "package_name": "com.timegate.employeeapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjrNBpoSDFqlBK_8QdRgy190qS9Th3O3Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
