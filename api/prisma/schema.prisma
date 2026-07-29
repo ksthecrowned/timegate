@@ -210,6 +210,16 @@ enum WeekDay {
   SUNDAY
 }
 
+enum CompensationItemKind {
+  ALLOWANCE
+  DEDUCTION
+}
+
+enum PayrollVariableSource {
+  MANUAL
+  AUTO_RULE
+}
+
 // ---------------------------------------------------------------------------
 // Tenant & organisation
 // ---------------------------------------------------------------------------
@@ -272,6 +282,9 @@ model Company {
   timeGatePunchClaims       TimeGatePunchClaim[]
   timeGateConversations     TimeGateConversation[]
   scheduleDayExceptions     TimeGateScheduleDayException[]
+  compensationGrids          CompensationGrid[]
+  employeeCompensationItems  EmployeeCompensationItem[]
+  payrollVariableItems       PayrollVariableItem[]
 
   @@map("tabCompany")
 }
@@ -487,6 +500,8 @@ model Employee {
   shiftSwapRequestsTarget    TimeGateShiftSwapRequest[] @relation("ShiftSwapTarget")
   punchClaims                TimeGatePunchClaim[]
   conversations              TimeGateConversation[]
+  compensationItems          EmployeeCompensationItem[]
+  payrollVariableItems       PayrollVariableItem[]
 
   @@unique([companyId, nfcBadgeUid])
   @@map("tabEmployee")
@@ -1507,7 +1522,8 @@ model TimeGatePayrollRun {
   lockedAt    DateTime?                @map("locked_at")
   paidAt      DateTime?                @map("paid_at")
 
-  lines TimeGatePayrollLine[]
+  lines         TimeGatePayrollLine[]
+  variableItems PayrollVariableItem[]
 
   @@unique([companyId, year, month])
   @@map("timegate_payroll_run")
@@ -1526,13 +1542,82 @@ model TimeGatePayrollLine {
   overtimeAmount Decimal            @default(0) @map("overtime_amount") @db.Decimal(21, 9)
   penaltyAmount  Decimal            @default(0) @map("penalty_amount") @db.Decimal(21, 9)
   absenceAmount  Decimal            @default(0) @map("absence_amount") @db.Decimal(21, 9)
-  bonusAmount    Decimal            @default(0) @map("bonus_amount") @db.Decimal(21, 9)
-  netSalary      Decimal            @default(0) @map("net_salary") @db.Decimal(21, 9)
-  explainJson    Json?              @map("explain_json")
+  bonusAmount             Decimal   @default(0) @map("bonus_amount") @db.Decimal(21, 9)
+  netSalary               Decimal   @default(0) @map("net_salary") @db.Decimal(21, 9)
+  fixedAllowancesTotal    Decimal   @default(0) @map("fixed_allowances_total") @db.Decimal(21, 9)
+  fixedDeductionsTotal    Decimal   @default(0) @map("fixed_deductions_total") @db.Decimal(21, 9)
+  variableAllowancesTotal Decimal   @default(0) @map("variable_allowances_total") @db.Decimal(21, 9)
+  variableDeductionsTotal Decimal   @default(0) @map("variable_deductions_total") @db.Decimal(21, 9)
+  lateMinutesPenalty      Decimal   @default(0) @map("late_minutes_penalty") @db.Decimal(21, 9)
+  gross                   Decimal   @default(0) @db.Decimal(21, 9)
+  periodStart             DateTime? @map("period_start") @db.Date
+  periodEnd               DateTime? @map("period_end") @db.Date
+  explainJson             Json?     @map("explain_json")
 
   @@unique([payrollRunId, employeeId])
   @@index([companyId])
   @@map("timegate_payroll_line")
+}
+
+model CompensationGrid {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId        String    @map("company") @db.VarChar(140)
+  company          Company   @relation(fields: [companyId], references: [id])
+  designationId    String    @map("designation") @db.VarChar(140)
+  employmentTypeId String    @map("employment_type") @db.VarChar(140)
+  baseSalary       Decimal   @map("base_salary") @db.Decimal(21, 9)
+  effectiveFrom    DateTime  @map("effective_from") @db.Date
+  effectiveTo      DateTime? @map("effective_to") @db.Date
+
+  @@unique([companyId, designationId, employmentTypeId, effectiveFrom])
+  @@index([companyId])
+  @@map("timegate_compensation_grid")
+}
+
+model EmployeeCompensationItem {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId     String               @map("company") @db.VarChar(140)
+  company       Company              @relation(fields: [companyId], references: [id])
+  employeeId    String               @map("employee") @db.VarChar(140)
+  employee      Employee             @relation(fields: [employeeId], references: [id])
+  label         String               @db.VarChar(200)
+  kind          CompensationItemKind
+  amount        Decimal              @db.Decimal(21, 9)
+  isRecurring   Boolean              @default(true) @map("is_recurring")
+  effectiveFrom DateTime             @map("effective_from") @db.Date
+  effectiveTo   DateTime?            @map("effective_to") @db.Date
+  isActive      Boolean              @default(true) @map("is_active")
+
+  @@index([employeeId])
+  @@index([companyId])
+  @@map("timegate_employee_compensation_item")
+}
+
+model PayrollVariableItem {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+
+  companyId    String                @map("company") @db.VarChar(140)
+  company      Company               @relation(fields: [companyId], references: [id])
+  employeeId   String                @map("employee") @db.VarChar(140)
+  employee     Employee              @relation(fields: [employeeId], references: [id])
+  payrollRunId String?               @map("payroll_run") @db.VarChar(140)
+  payrollRun   TimeGatePayrollRun?   @relation(fields: [payrollRunId], references: [id])
+  label        String                @db.VarChar(200)
+  kind         CompensationItemKind
+  amount       Decimal               @db.Decimal(21, 9)
+  source       PayrollVariableSource @default(MANUAL)
+  notes        String?               @db.VarChar(500)
+
+  @@index([payrollRunId])
+  @@index([employeeId])
+  @@map("timegate_payroll_variable_item")
 }
 
 model TimeGateEmployeeContract {
