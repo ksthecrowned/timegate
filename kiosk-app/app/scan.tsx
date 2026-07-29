@@ -39,17 +39,18 @@ import {
   syncOfflineVerifications,
 } from "../lib/offline-verify-queue";
 import {
+  resolveCoachMessage,
+  resolveFaceRingMode,
+  type ScanCoachSignal,
+} from "../lib/scan-ui-state";
+import {
   createMobileIdempotencyKey,
+  getKioskFeatures,
   getProvisionState,
   getVerificationUserMessage,
   isLikelyNetworkError,
   verifyFacePhoto,
 } from "../lib/timegate";
-import {
-  resolveCoachMessage,
-  resolveFaceRingMode,
-  type ScanCoachSignal,
-} from "../lib/scan-ui-state";
 import { colors, Radius, Spacing } from "../theme/colors";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
@@ -221,7 +222,8 @@ export default function ScanScreen() {
       } else {
         setVerifyState("error");
         shouldAutoReset = true;
-        const friendlyMessage = getVerificationUserMessage(error);
+        const features = await getKioskFeatures();
+        const friendlyMessage = getVerificationUserMessage(error, features);
         setStatusMessage(friendlyMessage);
         speakMessage(friendlyMessage);
         console.warn("[TimeGateMobile][scan] verification failed", { message: friendlyMessage });
@@ -613,7 +615,7 @@ export default function ScanScreen() {
           onPress={() => router.back()}
           hitSlop={8}
         >
-          <Ionicons name="chevron-back" size={22} color="#FFF" />
+          <Ionicons name="close" size={22} color="#FFF" />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={styles.headerTitle}>
@@ -765,6 +767,9 @@ const styles = StyleSheet.create({
     gap: Spacing[2],
   },
   iconBtn: {
+    position: "absolute",
+    left: 16,
+    top: 30,
     width: 36,
     height: 36,
     borderRadius: Radius.md,
@@ -778,7 +783,7 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontSize: 18,
     fontWeight: "700",
-    textAlign: "left",
+    textAlign: "center",
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "700", textAlign: "center" },
   sub: {

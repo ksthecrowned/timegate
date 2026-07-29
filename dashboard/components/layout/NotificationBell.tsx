@@ -16,6 +16,10 @@ import {
 } from '@/lib/timegate/messages'
 import { notificationTypeLabel } from '@/lib/timegate/notification-labels'
 import {
+  loadNotificationsCache,
+  saveNotificationsCache,
+} from '@/lib/timegate/notifications-cache'
+import {
   getUnreadNotificationCount,
   listNotifications,
   markAllNotificationsRead,
@@ -23,6 +27,7 @@ import {
   type NotificationItem,
 } from '@/lib/timegate/notifications'
 import { Bell, MessageCircle } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 type PanelTab = 'notifications' | 'messages'
@@ -55,6 +60,8 @@ function metaConversationId(meta: unknown): string | null {
 }
 
 export default function NotificationBell() {
+  const { data: session } = useSession()
+  const userId = session?.user?.id ?? session?.user?.email ?? null
   const rootRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<PanelTab>('notifications')
@@ -62,6 +69,7 @@ export default function NotificationBell() {
   const [items, setItems] = useState<NotificationItem[]>([])
   const [loading, setLoading] = useState(false)
   const [selectedNotif, setSelectedNotif] = useState<NotificationItem | null>(null)
+  const hydratedUserRef = useRef<string | null>(null)
 
   const close = useCallback(() => {
     setOpen(false)
@@ -69,14 +77,38 @@ export default function NotificationBell() {
   }, [])
   useClickOutside(rootRef, open, close)
 
+  const persistCache = useCallback(
+    (nextItems: NotificationItem[], nextUnread: number) => {
+      if (!userId) return
+      saveNotificationsCache(userId, { items: nextItems, unreadCount: nextUnread })
+    },
+    [userId],
+  )
+
+  useEffect(() => {
+    if (!userId || hydratedUserRef.current === userId) return
+    hydratedUserRef.current = userId
+    const cached = loadNotificationsCache(userId)
+    if (!cached) return
+    setItems(cached.items)
+    setUnreadCount(cached.unreadCount)
+  }, [userId])
+
   const refreshCount = useCallback(async () => {
     try {
       const res = await getUnreadNotificationCount()
       setUnreadCount(res.count)
+      if (userId) {
+        const cached = loadNotificationsCache(userId)
+        saveNotificationsCache(userId, {
+          items: cached?.items ?? [],
+          unreadCount: res.count,
+        })
+      }
     } catch {
-      // ignore
+      // ignore — keep cached badge if any
     }
-  }, [])
+  }, [userId])
 
   const loadNotifications = useCallback(async () => {
     setLoading(true)
@@ -84,12 +116,13 @@ export default function NotificationBell() {
       const res = await listNotifications({ page: 1, limit: 20 })
       setItems(res.data)
       setUnreadCount(res.meta.unreadCount)
+      persistCache(res.data, res.meta.unreadCount)
     } catch {
-      setItems([])
+      // Keep cached items visible while offline / API still failing.
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [persistCache])
 
   useEffect(() => {
     void refreshCount()
@@ -106,13 +139,13 @@ export default function NotificationBell() {
     if (item.readAt) return
     try {
       await markNotificationRead(item.id)
-      setItems((prev) =>
-        prev.map((n) => (n.id === item.id ? { ...n, readAt: new Date().toISOString() } : n)),
-      )
-      setUnreadCount((c) => Math.max(0, c - 1))
-      setSelectedNotif((prev) =>
-        prev?.id === item.id ? { ...prev, readAt: new Date().toISOString() } : prev,
-      )
+      const readAt = new Date().toISOString()
+      const nextItems = items.map((n) => (n.id === item.id ? { ...n, readAt } : n))
+      const nextUnread = Math.max(0, unreadCount - 1)
+      setItems(nextItems)
+      setUnreadCount(nextUnread)
+      setSelectedNotif((prev) => (prev?.id === item.id ? { ...prev, readAt } : prev))
+      persistCache(nextItems, nextUnread)
     } catch {
       // ignore
     }
@@ -123,10 +156,13 @@ export default function NotificationBell() {
   async function handleMarkAllRead() {
     try {
       await markAllNotificationsRead()
-      setItems((prev) => prev.map((n) => ({ ...n, readAt: n.readAt ?? new Date().toISOString() })))
+      const readAt = new Date().toISOString()
+      const nextItems = items.map((n) => ({ ...n, readAt: n.readAt ?? readAt }))
+      setItems(nextItems)
       setUnreadCount(0)
+      persistCache(nextItems, 0)
       if (selectedNotif && !selectedNotif.readAt) {
-        setSelectedNotif({ ...selectedNotif, readAt: new Date().toISOString() })
+        setSelectedNotif({ ...selectedNotif, readAt })
       }
     } catch {
       // ignore
@@ -212,7 +248,7 @@ export default function NotificationBell() {
                     selectedNotif ? 'hidden sm:block' : 'block'
                   }`}
                 >
-                  {loading ? (
+                  {loading && items.length === 0 ? (
                     <li className="px-4 py-6 text-center text-sm text-slate-500">Chargement…</li>
                   ) : items.length === 0 ? (
                     <li className="px-4 py-6 text-center text-sm text-slate-500">

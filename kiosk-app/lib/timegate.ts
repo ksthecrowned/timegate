@@ -445,7 +445,48 @@ export function classifyError(error: unknown): ErrorCategory {
   return "error";
 }
 
-export function getVerificationUserMessage(error: unknown): string {
+export function isFaceEngineUnavailableError(error: unknown): boolean {
+  const raw =
+    error instanceof MobileApiError || error instanceof Error
+      ? (error.message ?? "")
+      : String(error);
+  const msg = raw.toLowerCase();
+  return (
+    msg.includes("face engine") ||
+    msg.includes("face_recognition") ||
+    msg.includes("python introuvable") ||
+    msg.includes("reconnaissance momentanément indisponible") ||
+    msg.includes("reconnaissance momentanement indisponible")
+  );
+}
+
+/** Spoken / UI hint listing other punch methods enabled on this kiosk. */
+export function formatAlternateMethodsHint(
+  features: Pick<KioskFeatures, "nfcEnabled" | "qrEnabled">,
+): string {
+  const alts: string[] = [];
+  if (features.nfcEnabled) alts.push("votre badge");
+  if (features.qrEnabled) alts.push("le QR code");
+  if (alts.length === 0) return "";
+  if (alts.length === 1) return ` Vous pouvez utiliser ${alts[0]}.`;
+  return ` Vous pouvez utiliser ${alts[0]} ou ${alts[1]}.`;
+}
+
+export function getFaceUnavailableUserMessage(
+  features?: Pick<KioskFeatures, "nfcEnabled" | "qrEnabled">,
+): string {
+  const base = "Service de reconnaissance momentanément indisponible.";
+  const hint = features
+    ? formatAlternateMethodsHint(features)
+    : "";
+  if (hint) return `${base}${hint}`;
+  return `${base} Patientez quelques secondes puis réessayez.`;
+}
+
+export function getVerificationUserMessage(
+  error: unknown,
+  features?: Pick<KioskFeatures, "nfcEnabled" | "qrEnabled">,
+): string {
   const raw =
     error instanceof MobileApiError || error instanceof Error
       ? (error.message ?? "")
@@ -459,12 +500,8 @@ export function getVerificationUserMessage(error: unknown): string {
   if (msg.includes("multiple faces") || msg.includes("several faces")) {
     return "Plusieurs visages détectés. Une seule personne doit se présenter à la fois.";
   }
-  if (
-    msg.includes("face engine") ||
-    msg.includes("face_recognition import failed") ||
-    msg.includes("face engine timeout")
-  ) {
-    return "Service de reconnaissance momentanément indisponible. Patientez quelques secondes puis réessayez.";
+  if (isFaceEngineUnavailableError(error)) {
+    return getFaceUnavailableUserMessage(features);
   }
 
   if (msg.includes("nfc_disabled")) {
@@ -511,13 +548,15 @@ export function getVerificationUserMessage(error: unknown): string {
       return "Trop de tentatives. Patientez quelques secondes avant de réessayer.";
     }
     if (error.status >= 500) {
+      // Prefer face-specific copy when the body already identified the engine.
+      if (isFaceEngineUnavailableError(error)) {
+        return getFaceUnavailableUserMessage(features);
+      }
       return "Service temporairement indisponible. Réessayez dans quelques instants.";
     }
   }
 
   if (raw.trim()) {
-    // Nettoyage léger : si le backend renvoie un message technique anglais,
-    // on l'enveloppe pour qu'il reste lisible côté UX.
     const trimmed = raw.trim();
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   }
@@ -595,16 +634,13 @@ export async function verifyFacePhoto(
 
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    const userMessage = getVerificationUserMessage(
-      new MobileApiError(message, res.status),
-    );
     mobileLog("warn", "verifyFacePhoto API error", {
       status: res.status,
       elapsedMs: Date.now() - startedAt,
       message,
-      userMessage,
     });
-    throw new MobileApiError(userMessage, res.status);
+    // Keep the raw API message so callers can detect face-engine failures.
+    throw new MobileApiError(message, res.status);
   }
 
   const json = (await res.json()) as {
@@ -799,4 +835,3 @@ export async function readNfcBadge(timeoutMs = 10_000): Promise<string> {
     throw error;
   }
 }
-
