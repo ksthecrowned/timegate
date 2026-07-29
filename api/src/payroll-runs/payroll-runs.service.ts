@@ -127,6 +127,10 @@ export class PayrollRunsService {
       throw new BadRequestException('Only DRAFT payroll runs can be locked');
     }
 
+    // Regenerate lines to incorporate variable items added after initial creation
+    await this.prisma.timeGatePayrollLine.deleteMany({ where: { payrollRunId: id } });
+    await this.generateLines(id, run.companyId, run.year, run.month);
+
     const updated = await this.prisma.timeGatePayrollRun.update({
       where: { id },
       data: { status: TimeGatePayrollRunStatus.LOCKED, lockedAt: new Date() },
@@ -257,6 +261,7 @@ export class PayrollRunsService {
       employees.map(async (employee) => {
         // 1. Base salary from compensation grid (fallback: ctc/12, then 0)
         let baseSalary = 0;
+        let gridFound = false;
         if (employee.designationId && employee.employmentTypeId) {
           const grid = await this.compensationGrid.findEffective(
             companyId,
@@ -264,9 +269,12 @@ export class PayrollRunsService {
             employee.employmentTypeId,
             to,
           );
-          if (grid) baseSalary = fromDecimal(grid.baseSalary);
+          if (grid) {
+            baseSalary = fromDecimal(grid.baseSalary);
+            gridFound = true;
+          }
         }
-        if (baseSalary === 0 && employee.ctc) {
+        if (!gridFound && employee.ctc) {
           baseSalary = roundMoney(Number(employee.ctc) / 12);
         }
 
