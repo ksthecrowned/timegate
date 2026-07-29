@@ -9,6 +9,7 @@ import EmployeeIdentityHub from '@/components/timegate/EmployeeIdentityHub'
 import EmployeeTrustedDevicesCard from '@/components/timegate/EmployeeTrustedDevicesCard'
 import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccessCard'
 import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
+import EmployeeCompensationItemsCard from '@/components/timegate/EmployeeCompensationItemsCard'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
 import ResourceProfileHeader from '@/components/timegate/ResourceProfileHeader'
@@ -145,6 +146,8 @@ export default function EmployeeDetailPage() {
           <EmployeeTrustedDevicesCard employeeId={employee.id} />
 
           <EmployeeContractsCard employeeId={employee.id} />
+
+          <EmployeeCompensationItemsCard employeeId={employee.id} />
         </div>
       ) : null}
     </div>
