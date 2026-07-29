@@ -28,7 +28,7 @@
     "expo-status-bar": "~55.0.6",
     "expo-system-ui": "~55.0.20",
     "react": "19.2.0",
-    "react-native": "0.83.6",
+    "react-native": "0.83.10",
     "react-native-face-detector-camera": "^1.0.0-beta.1",
     "react-native-nfc-manager": "^3.17.2",
     "react-native-qrcode-svg": "^6.3.21",
