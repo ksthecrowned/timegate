@@ -5,7 +5,6 @@ import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Animated,
   Image,
   Pressable,
   StyleSheet,
@@ -21,8 +20,10 @@ import {
   type FaceDetectionResult,
 } from "react-native-face-detector-camera";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { CoachLabel } from "../components/scan/CoachLabel";
+import { FaceRing } from "../components/scan/FaceRing";
 import { OvalScrimOverlay } from "../components/scan/OvalScrimOverlay";
-import { MessageBox } from "../components/shared/MessageBox";
+import { StatusDock } from "../components/scan/StatusDock";
 import {
   FacePresenceSmoother,
   faceQualityMessage,
@@ -38,14 +39,17 @@ import {
   syncOfflineVerifications,
 } from "../lib/offline-verify-queue";
 import {
-  classifyError,
   createMobileIdempotencyKey,
   getProvisionState,
   getVerificationUserMessage,
   isLikelyNetworkError,
   verifyFacePhoto,
-  type ErrorCategory
 } from "../lib/timegate";
+import {
+  resolveCoachMessage,
+  resolveFaceRingMode,
+  type ScanCoachSignal,
+} from "../lib/scan-ui-state";
 import { colors, Radius, Spacing } from "../theme/colors";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
@@ -54,14 +58,12 @@ const AUTO_RESET_SECONDS = 10;
 const SUCCESS_REDIRECT_SECONDS = 2;
 const LOCAL_DETECTION_COOLDOWN_MS = 10000;
 const OFFLINE_SYNC_INTERVAL_MS = 15000;
-const SCAN_GIF = require("../assets/images/scan_loader_transparent.gif");
 
 // Vertical bands reserved for the fixed overlays — the CaptureStage is
 // placed in the remaining space so the dark scrim never overlaps the
 // header or the footer card.
 const HEADER_HEIGHT = 64; // back/PIN/title row
-const FOOTER_HEIGHT = 130; // progress card
-const TOAST_GAP = 4;
+const FOOTER_HEIGHT = 130; // status dock
 const SPACER = 8;
 
 function speakMessage(message: string, useFallback = false) {
@@ -105,18 +107,20 @@ export default function ScanScreen() {
   } | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [verifyState, setVerifyState] = useState<VerifyState>("idle");
+  const [coachSignal, setCoachSignal] = useState<ScanCoachSignal>("none");
   const [statusMessage, setStatusMessage] = useState(
     "Placez votre visage dans le cadre pour lancer la vérification.",
   );
-  const [statusVariant, setStatusVariant] =
-    useState<ErrorCategory | "success" | "info">("info");
-  const [confidence, setConfidence] = useState<number | null>(null);
-  const [verifyElapsedSeconds, setVerifyElapsedSeconds] = useState(0);
   const [capturedPhotoUri, setCapturedPhotoUri] = useState<string | null>(null);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [employeeName, setEmployeeName] = useState<string | null>(null);
   const [stabilityProgress, setStabilityProgress] = useState(0);
-  const feedbackOpacity = useRef(new Animated.Value(0)).current;
+  const [ovalLayout, setOvalLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const stabilityTrackerRef = useRef(new FaceStabilityTracker());
   const facePresenceRef = useRef(new FacePresenceSmoother());
 
@@ -126,35 +130,27 @@ export default function ScanScreen() {
     facePresenceRef.current.reset();
     setStabilityProgress(0);
     setVerifyState("idle");
-    setConfidence(null);
-    setVerifyElapsedSeconds(0);
+    setCoachSignal("none");
     setCapturedPhotoUri(null);
     setEmployeeName(null);
-    setStatusVariant("info");
     setStatusMessage(
       "Placez votre visage dans le cadre pour lancer la vérification.",
     );
   }, []);
 
-  const verifyingMessage = useMemo(() => {
-    if (verifyElapsedSeconds < 4) return "Capture envoyée à l'API...";
-    if (verifyElapsedSeconds < 10) return "Analyse du visage en cours...";
-    return `Vérification en cours (${verifyElapsedSeconds}s)...`;
-  }, [verifyElapsedSeconds]);
-  const topFeedbackMessage =
-    verifyState === "verifying" ? verifyingMessage : statusMessage;
-  const progressPercent = useMemo(() => {
-    if (verifyState === "verifying") {
-      return Math.min(
-        100,
-        Math.max(1, Math.round((verifyElapsedSeconds / VERIFY_TIMEOUT_SECONDS) * 100)),
-      );
-    }
-    if (confidence != null) {
-      return Math.round(confidence * 100);
-    }
-    return 0;
-  }, [confidence, verifyElapsedSeconds, verifyState]);
+  const ringMode = useMemo(
+    () =>
+      resolveFaceRingMode({
+        verifyState,
+        stabilityProgress,
+        coachSignal,
+      }),
+    [coachSignal, stabilityProgress, verifyState],
+  );
+  const coachMessage = useMemo(
+    () => resolveCoachMessage({ verifyState, coachSignal }),
+    [coachSignal, verifyState],
+  );
 
   const runVerification = useCallback(async () => {
     if (!cameraRef.current || captureInFlight.current || verifyState === "verifying") return;
@@ -167,8 +163,7 @@ export default function ScanScreen() {
 
     try {
       setVerifyState("verifying");
-      setVerifyElapsedSeconds(0);
-      setStatusVariant("info");
+      setCoachSignal("none");
       setStatusMessage("Visage détecté en direct. Capture et envoi au serveur...");
       const photo = await cameraRef.current.takePictureAsync({
         skipProcessing: false,
@@ -183,7 +178,6 @@ export default function ScanScreen() {
       const result = await verifyFacePhoto(photo.uri, VERIFY_TIMEOUT_SECONDS * 1000, {
         idempotencyKey: createMobileIdempotencyKey("verify-online"),
       });
-      setConfidence(result.confidence);
       setEmployeeName(result.employeeName);
       const resultMessage = result.message?.trim()
         ? result.message
@@ -196,7 +190,6 @@ export default function ScanScreen() {
 
       if (result.success) {
         setVerifyState("success");
-        setStatusVariant("success");
         shouldRedirectHome = true;
         console.log("[TimeGateMobile][scan] verification success", {
           confidence: result.confidence,
@@ -205,7 +198,6 @@ export default function ScanScreen() {
         speakMessage(resultMessage);
       } else {
         setVerifyState("error");
-        setStatusVariant("error");
         shouldAutoReset = true;
         speakMessage(resultMessage);
         console.warn("[TimeGateMobile][scan] verification failed (not matched)", {
@@ -217,8 +209,8 @@ export default function ScanScreen() {
       if (isLikelyNetworkError(error) && capturedPhotoForRetry) {
         const pending = await enqueueOfflineVerification(capturedPhotoForRetry);
         setPendingSyncCount(pending);
+        setCoachSignal("offline_queued");
         setVerifyState("success");
-        setStatusVariant("info");
         shouldAutoReset = true;
         setStatusMessage(
           `Mode hors ligne: capture enregistrée. Synchronisation automatique dès que le réseau revient (${pending} en attente).`,
@@ -228,7 +220,6 @@ export default function ScanScreen() {
         });
       } else {
         setVerifyState("error");
-        setStatusVariant(classifyError(error));
         shouldAutoReset = true;
         const friendlyMessage = getVerificationUserMessage(error);
         setStatusMessage(friendlyMessage);
@@ -251,14 +242,6 @@ export default function ScanScreen() {
   }, [resetToIdle, router, verifyState]);
 
   useEffect(() => {
-    if (verifyState !== "verifying") return;
-    const id = setInterval(() => {
-      setVerifyElapsedSeconds((prev) => prev + 1);
-    }, 1000);
-    return () => clearInterval(id);
-  }, [verifyState]);
-
-  useEffect(() => {
     let mounted = true;
     const refreshAndSync = async () => {
       if (captureInFlight.current) return;
@@ -266,12 +249,6 @@ export default function ScanScreen() {
         const result = await syncOfflineVerifications(VERIFY_TIMEOUT_SECONDS * 1000);
         if (mounted) {
           setPendingSyncCount(result.pending);
-          if (result.synced > 0) {
-            setStatusVariant("success");
-            setStatusMessage(
-              `Synchronisation hors ligne terminée: ${result.synced} vérification(s) provisoire(s) validée(s).`,
-            );
-          }
         }
       } catch {
         if (mounted) {
@@ -309,7 +286,7 @@ export default function ScanScreen() {
         stabilityTrackerRef.current.reset();
         facePresenceRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal("no_face");
         setStatusMessage(
           "Aucun visage détecté. Placez votre visage dans le cadre ovale.",
         );
@@ -321,7 +298,7 @@ export default function ScanScreen() {
         logFaceCaptureDebug({ phase: "multiple_faces", count: detectedFaces });
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("warn");
+        setCoachSignal("multiple_faces");
         setStatusMessage(
           "Plusieurs visages détectés. Une seule personne doit se présenter à la fois.",
         );
@@ -339,7 +316,7 @@ export default function ScanScreen() {
       if (!oval || !fb) {
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal("off_center");
         setStatusMessage("Centrez votre visage dans le cadre ovale.");
         return;
       }
@@ -371,7 +348,7 @@ export default function ScanScreen() {
         });
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal("off_center");
         setStatusMessage(
           !horizontallyCentered
             ? "Déplacez-vous vers la gauche ou la droite pour centrer votre visage."
@@ -388,7 +365,7 @@ export default function ScanScreen() {
         });
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal("too_far");
         setStatusMessage("Rapprochez-vous de la caméra.");
         return;
       }
@@ -400,7 +377,7 @@ export default function ScanScreen() {
         });
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal("too_close");
         setStatusMessage("Éloignez-vous un peu de la caméra.");
         return;
       }
@@ -419,7 +396,7 @@ export default function ScanScreen() {
         });
         stabilityTrackerRef.current.reset();
         setStabilityProgress(0);
-        setStatusVariant("info");
+        setCoachSignal(qualityIssue);
         setStatusMessage(faceQualityMessage(qualityIssue));
         return;
       }
@@ -442,7 +419,7 @@ export default function ScanScreen() {
       });
 
       if (!stable) {
-        setStatusVariant("info");
+        setCoachSignal("stabilizing");
         setStatusMessage(
           !landmarksOk && progress < 50
             ? "Visage détecté. Regardez la caméra..."
@@ -453,7 +430,7 @@ export default function ScanScreen() {
         return;
       }
 
-      setStatusVariant("info");
+      setCoachSignal("capture");
       setStatusMessage("Visage stable. Capture en cours...");
       logFaceCaptureDebug(
         {
@@ -480,7 +457,7 @@ export default function ScanScreen() {
     if (verifyState !== "idle") return;
     const now = Date.now();
     if (now - lastDetectionAttemptAtRef.current > LOCAL_DETECTION_COOLDOWN_MS) {
-      setStatusVariant("info");
+      setCoachSignal("none");
       setStatusMessage(
         "Placez votre visage dans le cadre pour lancer la vérification.",
       );
@@ -493,32 +470,6 @@ export default function ScanScreen() {
       if (!state.hasToken) router.replace("/");
     })();
   }, [router]);
-
-  useEffect(() => {
-    if (!topFeedbackMessage?.trim()) return;
-    feedbackOpacity.setValue(0);
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(feedbackOpacity, {
-          toValue: 1,
-          duration: 350,
-          useNativeDriver: true,
-        }),
-        Animated.delay(1200),
-        Animated.timing(feedbackOpacity, {
-          toValue: 0,
-          duration: 350,
-          useNativeDriver: true,
-        }),
-        Animated.delay(120),
-      ]),
-    );
-    pulse.start();
-    return () => {
-      pulse.stop();
-      feedbackOpacity.stopAnimation();
-    };
-  }, [feedbackOpacity, topFeedbackMessage]);
 
   if (!permission) {
     return (
@@ -604,37 +555,48 @@ export default function ScanScreen() {
 
       {/* Capture area definition: a centered oval. onLayout feeds the absolute
           rectangle to ovalBoundsRef so the face detection callback can
-          validate that the face is inside. The oval itself is transparent —
-          only its border is drawn (next overlay). */}
+          validate that the face is inside. */}
       <CaptureStage
-        topInset={insets.top + HEADER_HEIGHT + TOAST_GAP}
-        bottomInset={insets.bottom + FOOTER_HEIGHT + SPACER}
         onLayoutOval={(rect) => {
           ovalBoundsRef.current = rect;
+          setOvalLayout(rect);
         }}
         state={verifyState}
-      >
-        {/* Border of the capture oval (drawn inside the cutout). */}
-        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-          <View
-            style={[
-              styles.ovalBorder,
-              verifyState === "verifying" && styles.ovalBorderVerifying,
-              verifyState === "success" && styles.ovalBorderSuccess,
-              verifyState === "error" && styles.ovalBorderError,
-            ]}
+      />
+
+      {ovalLayout ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.ovalOverlay,
+            {
+              left: ovalLayout.x,
+              top: ovalLayout.y,
+              width: ovalLayout.width,
+              height: ovalLayout.height,
+            },
+          ]}
+        >
+          <FaceRing
+            width={ovalLayout.width}
+            height={ovalLayout.height}
+            mode={ringMode}
+            progress={stabilityProgress}
           />
-          {verifyState === "verifying" ? (
-            <View style={styles.scanGifWrap}>
-              <Image
-                source={SCAN_GIF}
-                style={styles.scanGif}
-                resizeMode="contain"
-              />
-            </View>
-          ) : null}
         </View>
-      </CaptureStage>
+      ) : null}
+
+      {ovalLayout ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.coachWrap,
+            { top: ovalLayout.y + ovalLayout.height + Spacing[2] },
+          ]}
+        >
+          <CoachLabel message={coachMessage} />
+        </View>
+      ) : null}
 
       {/* Header (back + PIN) — fixed at the top, never overlaps the oval. */}
       <View
@@ -663,109 +625,22 @@ export default function ScanScreen() {
                   ? "Vérification échouée"
                   : "Vérification faciale"}
           </Text>
-          <Text style={styles.headerSubTitle} numberOfLines={1}>
-            {employeeName
-              ? `${employeeName}`
-              : "Placez votre visage dans le cadre"}
-          </Text>
         </View>
       </View>
 
-      {/* Toast — sits just under the header, above the oval. */}
-      <View
-        style={[
-          styles.toastWrap,
-          { top: insets.top + HEADER_HEIGHT + Spacing[1] },
-        ]}
-      >
-        <MessageBox
-          variant={
-            statusVariant === "success"
-              ? "success"
-              : statusVariant === "warn"
-                ? "warn"
-                : statusVariant === "error"
-                  ? "error"
-                  : "info"
-          }
-          message={topFeedbackMessage}
-        />
-      </View>
-
-      {/* Footer progress card — fixed at the bottom, never overlaps the oval. */}
+      {/* Status dock — fixed at the bottom, never overlaps the oval. */}
       <View
         style={[
           styles.footerWrap,
           { paddingBottom: insets.bottom + Spacing[2] },
         ]}
       >
-        <View
-          style={[
-            styles.progressCard,
-            verifyState === "verifying" && styles.progressCardVerifying,
-            verifyState === "success" && styles.progressCardSuccess,
-            verifyState === "error" && styles.progressCardError,
-          ]}
-        >
-          <View style={styles.progressRow}>
-            <View
-              style={[
-                styles.stateIconWrap,
-                verifyState === "verifying" && styles.stateIconVerifying,
-                verifyState === "success" && styles.stateIconSuccess,
-                verifyState === "error" && styles.stateIconError,
-              ]}
-            >
-              <Ionicons
-                name={
-                  verifyState === "verifying"
-                    ? "sync"
-                    : verifyState === "success"
-                      ? "checkmark"
-                      : verifyState === "error"
-                        ? "close"
-                        : "scan-outline"
-                }
-                size={24}
-                color="#fff"
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.progressLabel}>
-                {verifyState === "verifying"
-                  ? "Vérification de votre visage..."
-                  : verifyState === "success"
-                    ? employeeName
-                      ? `Bienvenue ${employeeName}`
-                      : "Pointage enregistré"
-                    : verifyState === "error"
-                      ? "Échec de la vérification"
-                      : stabilityProgress > 0
-                        ? "Stabilisation du visage..."
-                        : "En attente d'un visage centré"}
-              </Text>
-              {verifyState === "idle" && stabilityProgress > 0 ? (
-                <Text style={styles.progressValue}>{`${stabilityProgress}%`}</Text>
-              ) : verifyState === "verifying" || confidence != null ? (
-                <Text style={styles.progressValue}>
-                  {`${progressPercent}%`}
-                </Text>
-              ) : null}
-            </View>
-          </View>
-          {pendingSyncCount > 0 ? (
-            <View style={styles.offlineBadge}>
-              <Ionicons
-                name="cloud-offline-outline"
-                size={14}
-                color={colors.warnText}
-              />
-              <Text style={styles.offlineBadgeText}>
-                {`${pendingSyncCount} vérification(s) en attente de synchro`}
-              </Text>
-            </View>
-          ) : null}
-        </View>
+        <StatusDock
+          verifyState={verifyState}
+          employeeName={employeeName}
+          errorMessage={verifyState === "error" ? statusMessage : null}
+          pendingSyncCount={pendingSyncCount}
+        />
       </View>
     </View>
   );
@@ -777,14 +652,9 @@ export default function ScanScreen() {
  * parent so face detection can validate that the user's face is centered.
  */
 function CaptureStage({
-  topInset,
-  bottomInset,
   onLayoutOval,
   state,
-  children,
 }: {
-  topInset: number;
-  bottomInset: number;
   onLayoutOval: (rect: {
     x: number;
     y: number;
@@ -792,8 +662,8 @@ function CaptureStage({
     height: number;
   }) => void;
   state: VerifyState;
-  children: React.ReactNode;
 }) {
+  const ovalRef = useRef<View>(null);
   const [stageSize, setStageSize] = useState<{
     width: number;
     height: number;
@@ -841,6 +711,7 @@ function CaptureStage({
 
       {stageSize ? (
         <View
+          collapsable={false}
           style={{
             position: "absolute",
             left: ovalLeft,
@@ -848,16 +719,15 @@ function CaptureStage({
             width: finalOvalWidth,
             height: finalOvalHeight,
           }}
-          onLayout={(e) => {
-            const { x, y, width, height } = e.nativeEvent.layout;
-            // The CaptureStage fills the available space between the
-            // header and the footer. Its layout origin is therefore
-            // already relative to the camera (which is absoluteFill).
-            onLayoutOval({ x, y, width, height });
+          ref={ovalRef}
+          onLayout={() => {
+            // Face bounds are reported in the camera's viewport coordinate
+            // space, so publish this oval in that same absolute space.
+            ovalRef.current?.measureInWindow((x, y, width, height) => {
+              onLayoutOval({ x, y, width, height });
+            });
           }}
-        >
-          {children}
-        </View>
+        />
       ) : null}
     </View>
   );
@@ -904,28 +774,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
-  pinLink: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: Radius.pill,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    paddingHorizontal: Spacing[3],
-    paddingVertical: Spacing[1],
-  },
-  pinLinkText: { color: "#FFF", fontWeight: "700", fontSize: 12 },
   headerTitle: {
     color: "#FFF",
     fontSize: 18,
     fontWeight: "700",
     textAlign: "left",
-  },
-  headerSubTitle: {
-    color: "rgba(255,255,255,0.86)",
-    textAlign: "left",
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "500",
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "700", textAlign: "center" },
   sub: {
@@ -944,105 +797,20 @@ const styles = StyleSheet.create({
     paddingTop: HEADER_HEIGHT,
     paddingBottom: FOOTER_HEIGHT + SPACER,
   },
-  /** Border of the oval (transparent inside). */
-  ovalBorder: {
-    flex: 1,
-    borderRadius: 9999,
-    borderWidth: 16,
-    borderColor: colors.info,
-    backgroundColor: "transparent",
+  ovalOverlay: {
+    position: "absolute",
   },
-  ovalBorderVerifying: { borderColor: colors.info },
-  ovalBorderSuccess: { borderColor: colors.success },
-  ovalBorderError: { borderColor: colors.error },
-  scanGifWrap: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    padding: Spacing[1],
-    backgroundColor: "rgba(2, 6, 23, 0.25)",
-  },
-  scanGif: {
-    width: "100%",
-    height: "100%",
-    marginLeft: 12,
-    transform: [{ scale: 2 }],
-  },
-  toastWrap: {
+  coachWrap: {
     position: "absolute",
     left: Spacing[4],
     right: Spacing[4],
   },
-  /** Footer progress card band — fixed at the bottom, height reserved via FOOTER_HEIGHT. */
   footerWrap: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: Spacing[4],
-  },
-  progressCard: {
-    borderRadius: Radius.xl,
-    backgroundColor: "rgba(2, 6, 23, 0.78)",
-    borderWidth: 1,
-    borderColor: "rgba(13, 148, 136, 0.4)",
-    padding: Spacing[3],
-    gap: Spacing[2],
-  },
-  progressCardVerifying: {
-    borderColor: "rgba(13, 148, 136, 0.6)",
-  },
-  progressCardSuccess: {
-    borderColor: colors.successBorder,
-    backgroundColor: "rgba(16, 185, 129, 0.18)",
-  },
-  progressCardError: {
-    borderColor: colors.errorBorder,
-    backgroundColor: "rgba(239, 68, 68, 0.18)",
-  },
-  progressRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing[3],
-  },
-  stateIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: Radius.md,
-    backgroundColor: colors.teal,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  stateIconVerifying: { backgroundColor: colors.teal },
-  stateIconSuccess: { backgroundColor: colors.success },
-  stateIconError: { backgroundColor: colors.error },
-  progressValue: {
-    color: "#FFFFFF",
-    fontSize: 24,
-    fontWeight: "700",
-    lineHeight: 30,
-  },
-  progressLabel: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  offlineBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing[1],
-    alignSelf: "flex-start",
-    backgroundColor: colors.warnSoft,
-    borderColor: "rgba(245, 158, 11, 0.4)",
-    borderWidth: 1,
-    borderRadius: Radius.pill,
-    paddingHorizontal: Spacing[2],
-    paddingVertical: Spacing[1],
-  },
-  offlineBadgeText: {
-    color: colors.warnText,
-    fontSize: 12,
-    fontWeight: "600",
   },
   actionBtn: {
     marginTop: Spacing[4],
