@@ -17,6 +17,8 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
 import { fromDecimal, roundMoney, toDecimal } from '../common/utils/money.util';
+import { CompensationGridService } from '../compensation-grid/compensation-grid.service';
+import { EmployeeCompensationService } from '../employee-compensation/employee-compensation.service';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
 import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
 
@@ -32,7 +34,11 @@ type PayrollLineRow = Prisma.TimeGatePayrollLineGetPayload<{
 
 @Injectable()
 export class PayrollRunsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private compensationGrid: CompensationGridService,
+    private employeeCompensation: EmployeeCompensationService,
+  ) {}
 
   async create(dto: CreatePayrollRunDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
@@ -185,28 +191,21 @@ export class PayrollRunsService {
 
     const employees = await this.prisma.employee.findMany({
       where: { companyId, status: EmployeeStatus.ACTIVE },
-      select: { id: true, ctc: true },
+      select: { id: true, ctc: true, designationId: true, employmentTypeId: true },
     });
 
     if (!employees.length) return;
 
     const employeeIds = employees.map((e) => e.id);
 
-    const [salaries, timesheets, absences] = await Promise.all([
-      this.prisma.timeGateSalaryRecord.findMany({
-        where: { companyId, year, month, employeeId: { in: employeeIds } },
-      }),
+    const [timesheets, absences, variableItems] = await Promise.all([
       this.prisma.timeGateTimesheetDay.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
           workDate: { gte: from, lte: to },
         },
-        select: {
-          employeeId: true,
-          lateMinutes: true,
-          overtimeMinutes: true,
-        },
+        select: { employeeId: true, lateMinutes: true, overtimeMinutes: true },
       }),
       this.prisma.timeGateAbsenceRecord.findMany({
         where: {
@@ -217,14 +216,15 @@ export class PayrollRunsService {
         },
         select: { employeeId: true },
       }),
+      this.prisma.payrollVariableItem.findMany({
+        where: { payrollRunId, companyId },
+      }),
     ]);
 
-    const salaryByEmployee = new Map(salaries.map((s) => [s.employeeId, s]));
     const timesheetByEmployee = new Map<
       string,
       { lateMinutes: number; overtimeMinutes: number }
     >();
-
     for (const row of timesheets) {
       const bucket = timesheetByEmployee.get(row.employeeId) ?? {
         lateMinutes: 0,
@@ -243,20 +243,62 @@ export class PayrollRunsService {
       );
     }
 
+    const variableByEmployee = new Map<string, typeof variableItems>();
+    for (const item of variableItems) {
+      const list = variableByEmployee.get(item.employeeId) ?? [];
+      list.push(item);
+      variableByEmployee.set(item.employeeId, list);
+    }
+
     const hourlyRate = (base: number) => (base > 0 ? base / MONTHLY_HOURS : 0);
     const dailyRate = (base: number) => (base > 0 ? base / WORKING_DAYS_PER_MONTH : 0);
 
-    await this.prisma.timeGatePayrollLine.createMany({
-      data: employees.map((employee) => {
-        const salary = salaryByEmployee.get(employee.id);
-        const baseSalary = salary
-          ? fromDecimal(salary.baseSalary)
-          : employee.ctc
-            ? roundMoney(Number(employee.ctc) / 12)
-            : 0;
-        const bonuses = salary ? fromDecimal(salary.bonuses) : 0;
-        const deductions = salary ? fromDecimal(salary.deductions) : 0;
+    const lineData = await Promise.all(
+      employees.map(async (employee) => {
+        // 1. Base salary from compensation grid (fallback: ctc/12, then 0)
+        let baseSalary = 0;
+        if (employee.designationId && employee.employmentTypeId) {
+          const grid = await this.compensationGrid.findEffective(
+            companyId,
+            employee.designationId,
+            employee.employmentTypeId,
+            to,
+          );
+          if (grid) baseSalary = fromDecimal(grid.baseSalary);
+        }
+        if (baseSalary === 0 && employee.ctc) {
+          baseSalary = roundMoney(Number(employee.ctc) / 12);
+        }
 
+        // 2. Fixed employee allowances/deductions
+        const fixedItems = await this.employeeCompensation.findActiveForEmployee(
+          companyId,
+          employee.id,
+          to,
+        );
+        let fixedAllowancesTotal = 0;
+        let fixedDeductionsTotal = 0;
+        for (const item of fixedItems) {
+          const amt = fromDecimal(item.amount);
+          if (item.kind === 'ALLOWANCE') fixedAllowancesTotal += amt;
+          else fixedDeductionsTotal += amt;
+        }
+        fixedAllowancesTotal = roundMoney(fixedAllowancesTotal);
+        fixedDeductionsTotal = roundMoney(fixedDeductionsTotal);
+
+        // 3. Variable items for this run
+        const vars = variableByEmployee.get(employee.id) ?? [];
+        let variableAllowancesTotal = 0;
+        let variableDeductionsTotal = 0;
+        for (const v of vars) {
+          const amt = fromDecimal(v.amount);
+          if (v.kind === 'ALLOWANCE') variableAllowancesTotal += amt;
+          else variableDeductionsTotal += amt;
+        }
+        variableAllowancesTotal = roundMoney(variableAllowancesTotal);
+        variableDeductionsTotal = roundMoney(variableDeductionsTotal);
+
+        // 4. Penalties (late + absences)
         const ts = timesheetByEmployee.get(employee.id);
         const lateMinutes = ts?.lateMinutes ?? 0;
         const overtimeMinutes = ts?.overtimeMinutes ?? 0;
@@ -264,12 +306,15 @@ export class PayrollRunsService {
 
         const rate = hourlyRate(baseSalary);
         const overtimeAmount = roundMoney((overtimeMinutes / 60) * rate);
-        const penaltyAmount = roundMoney((lateMinutes / 60) * rate * 0.5);
+        const lateMinutesPenalty = roundMoney((lateMinutes / 60) * rate * 0.5);
         const absenceAmount = roundMoney(unjustifiedAbsences * dailyRate(baseSalary));
-        const bonusAmount = bonuses;
-        const netSalary = roundMoney(
-          baseSalary + overtimeAmount + bonusAmount - penaltyAmount - absenceAmount - deductions,
-        );
+        const penaltyAmount = roundMoney(lateMinutesPenalty + absenceAmount);
+
+        // 5. Totals
+        const bonusAmount = roundMoney(fixedAllowancesTotal + variableAllowancesTotal);
+        const totalDeductions = roundMoney(fixedDeductionsTotal + variableDeductionsTotal);
+        const gross = roundMoney(baseSalary + bonusAmount + overtimeAmount);
+        const netSalary = roundMoney(gross - penaltyAmount - totalDeductions);
 
         return {
           id: generateDocId('PLINE'),
@@ -282,17 +327,36 @@ export class PayrollRunsService {
           absenceAmount: toDecimal(absenceAmount),
           bonusAmount: toDecimal(bonusAmount),
           netSalary: toDecimal(netSalary),
+          fixedAllowancesTotal: toDecimal(fixedAllowancesTotal),
+          fixedDeductionsTotal: toDecimal(fixedDeductionsTotal),
+          variableAllowancesTotal: toDecimal(variableAllowancesTotal),
+          variableDeductionsTotal: toDecimal(variableDeductionsTotal),
+          lateMinutesPenalty: toDecimal(lateMinutesPenalty),
+          gross: toDecimal(gross),
+          periodStart: from,
+          periodEnd: to,
           explainJson: {
             ruleVersion: RULE_VERSION,
             lateMinutes,
             overtimeMinutes,
             unjustifiedAbsences,
-            deductions,
             hourlyRate: roundMoney(rate),
+            fixedItems: fixedItems.map((i) => ({
+              label: i.label,
+              kind: i.kind,
+              amount: fromDecimal(i.amount),
+            })),
+            variableItems: vars.map((v) => ({
+              label: v.label,
+              kind: v.kind,
+              amount: fromDecimal(v.amount),
+            })),
           },
         };
       }),
-    });
+    );
+
+    await this.prisma.timeGatePayrollLine.createMany({ data: lineData });
   }
 
   private monthBounds(year: number, month: number) {
@@ -359,6 +423,14 @@ export class PayrollRunsService {
       absenceAmount: fromDecimal(row.absenceAmount),
       bonusAmount: fromDecimal(row.bonusAmount),
       netSalary: fromDecimal(row.netSalary),
+      fixedAllowancesTotal: fromDecimal(row.fixedAllowancesTotal),
+      fixedDeductionsTotal: fromDecimal(row.fixedDeductionsTotal),
+      variableAllowancesTotal: fromDecimal(row.variableAllowancesTotal),
+      variableDeductionsTotal: fromDecimal(row.variableDeductionsTotal),
+      lateMinutesPenalty: fromDecimal(row.lateMinutesPenalty),
+      gross: fromDecimal(row.gross),
+      periodStart: row.periodStart?.toISOString?.() ?? null,
+      periodEnd: row.periodEnd?.toISOString?.() ?? null,
       explainJson: row.explainJson,
       createdAt: row.createdAt.toISOString(),
       employee: toEmployeeSummary(row.employee) ?? undefined,
