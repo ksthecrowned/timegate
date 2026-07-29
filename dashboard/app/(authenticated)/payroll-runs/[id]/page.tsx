@@ -279,7 +279,6 @@ export default function PayrollRunDetailPage() {
           <DetailCard title={`Paie — ${periodLabel}`}>
             <DetailRow label="Période" value={periodLabel} />
             <DetailRow label="Statut" value={payrollStatusBadge(run.status)} />
-            <DetailRow label="Version règles" value={run.ruleVersion ?? '—'} />
             <DetailRow
               label="Créée le"
               value={new Date(run.createdAt).toLocaleString('fr-FR')}
