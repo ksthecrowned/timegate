@@ -5,9 +5,8 @@ import PageHeader from '@/components/ui/PageHeader'
 import DataTable, { Column } from '@/components/ui/DataTable'
 import StatusBadge from '@/components/ui/StatusBadge'
 import ActionButtons from '@/components/ui/ActionButtons'
-import AddPageLink from '@/components/timegate/AddPageLink'
 import { employeeTableColumn } from '@/components/timegate/employee-table-column'
-import { deleteSalary, listSalaries, markSalaryPaid } from '@/lib/timegate/salaries'
+import { listSalaries } from '@/lib/timegate/salaries'
 import { MONTH_LABELS } from '@/lib/timegate/payroll-runs'
 import type { Salary } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
@@ -72,10 +71,16 @@ export default function SalariesPage() {
 
   return (
     <div>
-      <PageHeader
-        breadcrumbs={[{ label: 'Rémunérations de base' }]}
-        action={<AddPageLink href="/salaries/new" label="Ajouter une rémunération" />}
-      />
+      <PageHeader breadcrumbs={[{ label: 'Rémunérations de base' }]} />
+      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 p-4 mb-6">
+        <p className="text-sm text-amber-800 dark:text-amber-200">
+          <strong>Module en transition.</strong> Les rémunérations de base sont désormais gérées via la{' '}
+          <a href="/compensation-grid" className="underline font-medium">
+            Grille de rémunération
+          </a>
+          . Les données ci-dessous sont conservées en lecture seule.
+        </p>
+      </div>
       <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
         Base / primes / retenues saisies pour le mois. Le calcul du cycle (HS, absences…) se fait
         dans{' '}
@@ -96,28 +101,7 @@ export default function SalariesPage() {
           entityLabel="salaires"
           tableId="hs-salaries-table"
           emptyMessage="Aucun salaire trouvé."
-          actions={(row) => (
-            <ActionButtons
-              viewHref={`/salaries/${row.id}`}
-              editHref={`/salaries/${row.id}/edit`}
-              onDelete={() => {
-                void deleteSalary(row.id).then(load)
-              }}
-              extra={
-                row.status === 'PENDING'
-                  ? [
-                      {
-                        label: 'Marquer payé',
-                        faIcon: 'fa-solid fa-circle-check',
-                        onClick: () => {
-                          void markSalaryPaid(row.id).then(load)
-                        },
-                      },
-                    ]
-                  : undefined
-              }
-            />
-          )}
+          actions={(row) => <ActionButtons viewHref={`/salaries/${row.id}`} />}
         />
     </div>
   )
