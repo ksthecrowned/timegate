@@ -91,7 +91,7 @@ export default function PayrollRunDetailPage() {
         key: 'fixedNet',
         label: 'Maj. fixes',
         render: (_, row) => {
-          const net = row.fixedAllowancesTotal - row.fixedDeductionsTotal
+          const net = (row.fixedAllowancesTotal ?? 0) - (row.fixedDeductionsTotal ?? 0)
           return <span className={signedClass(net)}>{formatSigned(net)}</span>
         },
       },
@@ -99,14 +99,15 @@ export default function PayrollRunDetailPage() {
         key: 'variableNet',
         label: 'Variables',
         render: (_, row) => {
-          const net = row.variableAllowancesTotal - row.variableDeductionsTotal
+          const net = (row.variableAllowancesTotal ?? 0) - (row.variableDeductionsTotal ?? 0)
           return <span className={signedClass(net)}>{formatSigned(net)}</span>
         },
       },
       {
         key: 'lateMinutesPenalty',
         label: 'Retards',
-        render: (_, row) => (row.lateMinutesPenalty ? `-${formatMoney(row.lateMinutesPenalty)}` : '—'),
+        render: (_, row) =>
+          row.lateMinutesPenalty ? `-${formatMoney(row.lateMinutesPenalty)}` : '—',
       },
       {
         key: 'absenceAmount',
@@ -121,7 +122,7 @@ export default function PayrollRunDetailPage() {
       {
         key: 'gross',
         label: 'Brut',
-        render: (_, row) => formatMoney(row.gross),
+        render: (_, row) => formatMoney(row.gross ?? row.netSalary ?? 0),
       },
       {
         key: 'netSalary',
@@ -157,7 +158,7 @@ export default function PayrollRunDetailPage() {
         getPayrollRunLines(id, { limit: 100 }),
       ])
       setRun(runRes)
-      setLines(linesRes.data)
+      setLines(Array.isArray(linesRes) ? linesRes : [])
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Paie introuvable.')
     } finally {

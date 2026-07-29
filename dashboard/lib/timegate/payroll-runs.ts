@@ -28,7 +28,8 @@ export function createPayrollRun(body: PayrollRunPayload) {
 }
 
 export function getPayrollRunLines(id: string, params?: { page?: number; limit?: number }) {
-  return http.get<PaginatedResponse<PayrollLine>>(`/payroll-runs/${id}/lines`, { params })
+  // API returns a bare array (not a paginated envelope).
+  return http.get<PayrollLine[]>(`/payroll-runs/${id}/lines`, { params })
 }
 
 export function exportPayrollRun(id: string) {
