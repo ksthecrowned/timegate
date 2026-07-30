@@ -138,9 +138,14 @@ export class PayrollRunsService {
       ...(employeeFilter ? { employee: employeeFilter } : {}),
     };
 
+    const page = query?.page ?? 1;
+    const limit = query?.limit ?? 1000;
+
     const lines = await this.prisma.timeGatePayrollLine.findMany({
       where,
       orderBy: { employeeId: 'asc' },
+      skip: (page - 1) * limit,
+      take: limit,
       include: {
         employee: { select: employeeSummarySelect },
       },
