@@ -22,9 +22,6 @@ import {
   verifyKioskQrChallengePayload,
 } from '../common/utils/kiosk-qr-challenge.util';
 import {
-  dateKeyInTimeZone,
-  dateToMinutesInTimeZone,
-  dayBoundsForDateKeyInTimeZone,
   resolveOrgTimeZone,
 } from '../common/utils/punch-time.util';
 import { PrismaService } from '../prisma/prisma.service';
@@ -380,36 +377,32 @@ export class KioskQrPunchService {
     const source = params.offlineSync
       ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
       : TimeGateAttendanceEventSource.EMPLOYEE_APP;
-    const windows = await this.punchWindows.resolveForEmployee(
-      params.employee.id,
-      params.occurredAt,
-    );
-    if (!windows) {
-      throw new BadRequestException('Horaires de pointage non configures');
-    }
-
     const company = await this.prisma.company.findUnique({
       where: { id: params.kiosk.companyId },
       select: { timeZone: true },
     });
     const timeZone = resolveOrgTimeZone(company?.timeZone);
-    const dayKey = dateKeyInTimeZone(params.occurredAt, timeZone);
-    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
+    const punchCtx = await this.punchWindows.resolvePunchContext(
+      params.employee.id,
+      params.occurredAt,
+      timeZone,
+    );
+    const windows = punchCtx.windows;
+    if (!windows) {
+      throw new BadRequestException('Horaires de pointage non configures');
+    }
+
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId: params.employee.id,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: bounds.start, lte: bounds.end },
+        occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
     });
-    const state = buildDayPunchStateFromEvents(todaysEvents);
-    const resolution = resolveAttendancePunch(
-      dateToMinutesInTimeZone(params.occurredAt, timeZone),
-      windows,
-      state,
-    );
+    const state = buildDayPunchStateFromEvents(todaysEvents, timeZone);
+    const resolution = resolveAttendancePunch(punchCtx.atMin, windows, state);
 
     if (resolution.action === 'REJECTED' || resolution.action === 'NONE') {
       await this.punchAttemptLog.logAttempt({

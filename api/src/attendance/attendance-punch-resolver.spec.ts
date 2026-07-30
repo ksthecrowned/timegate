@@ -3,8 +3,11 @@ import { resolveAttendancePunch } from './attendance-punch-resolver';
 import {
   afterMinuteWindowEnd,
   beforeMinuteWindowStart,
+  belongsToPreviousOvernightWorkDate,
   inMinuteWindow,
   isOvernightShift,
+  punchEventBoundsForWorkDate,
+  resolvePunchWorkDateKey,
   shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
 import type { DayPunchState, ResolvedPunchWindows } from './punch-window.types';
@@ -42,6 +45,23 @@ describe('overnight shift helpers', () => {
   test('before/after window distinguish early evening vs after midnight', () => {
     expect(beforeMinuteWindowStart(20 * 60, 21 * 60, 0)).toBe(true);
     expect(afterMinuteWindowEnd(30, 21 * 60, 0)).toBe(true);
+  });
+
+  test('morning punch attaches to previous overnight work date', () => {
+    expect(belongsToPreviousOvernightWorkDate(3 * 60, overnightWindows)).toBe(true);
+    expect(belongsToPreviousOvernightWorkDate(7 * 60, overnightWindows)).toBe(true);
+    expect(belongsToPreviousOvernightWorkDate(9 * 60, overnightWindows)).toBe(false);
+    expect(belongsToPreviousOvernightWorkDate(23 * 60, overnightWindows)).toBe(false);
+
+    expect(resolvePunchWorkDateKey('2026-07-30', 7 * 60, overnightWindows)).toBe('2026-07-29');
+    expect(resolvePunchWorkDateKey('2026-07-30', 23 * 60, overnightWindows)).toBe('2026-07-30');
+    expect(resolvePunchWorkDateKey('2026-07-30', 7 * 60, null)).toBe('2026-07-30');
+  });
+
+  test('overnight event bounds span into next local day', () => {
+    const overnight = punchEventBoundsForWorkDate('2026-07-29', 'Africa/Brazzaville', true);
+    const dayOnly = punchEventBoundsForWorkDate('2026-07-29', 'Africa/Brazzaville', false);
+    expect(overnight.end.getTime()).toBeGreaterThan(dayOnly.end.getTime());
   });
 });
 

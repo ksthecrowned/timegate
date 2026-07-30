@@ -19,9 +19,6 @@ import {
   PunchWindowService,
 } from './punch-window.service';
 import {
-  dateKeyInTimeZone,
-  dateToMinutesInTimeZone,
-  dayBoundsForDateKeyInTimeZone,
   resolveOrgTimeZone,
 } from '../common/utils/punch-time.util';
 import {
@@ -219,7 +216,17 @@ export class EmployeeBreakPunchService {
   }
 
   private async resolveNow(employeeId: string, companyId: string, occurredAt: Date) {
-    const windows = await this.punchWindows.resolveForEmployee(employeeId, occurredAt);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const punchCtx = await this.punchWindows.resolvePunchContext(
+      employeeId,
+      occurredAt,
+      timeZone,
+    );
+    const windows = punchCtx.windows;
     if (!windows) {
       return {
         windows: null as null,
@@ -227,30 +234,18 @@ export class EmployeeBreakPunchService {
       };
     }
 
-    const company = await this.prisma.company.findUnique({
-      where: { id: companyId },
-      select: { timeZone: true },
-    });
-    const timeZone = resolveOrgTimeZone(company?.timeZone);
-    const dayKey = dateKeyInTimeZone(occurredAt, timeZone);
-    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
-
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: bounds.start, lte: bounds.end },
+        occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
     });
 
-    const state = buildDayPunchStateFromEvents(todaysEvents);
-    const resolution = resolveAttendancePunch(
-      dateToMinutesInTimeZone(occurredAt, timeZone),
-      windows,
-      state,
-    );
+    const state = buildDayPunchStateFromEvents(todaysEvents, timeZone);
+    const resolution = resolveAttendancePunch(punchCtx.atMin, windows, state);
 
     return { windows, resolution };
   }

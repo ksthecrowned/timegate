@@ -16,6 +16,8 @@ import {
   dateKeyInTimeZone,
   dateToMinutesInTimeZone,
   dayBoundsForDateKeyInTimeZone,
+  isOvernightShift,
+  punchEventBoundsForWorkDate,
   resolveOrgTimeZone,
   shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
@@ -199,8 +201,9 @@ export class PunchCronService {
   }
 
   /**
-   * Hourly sweep; at 00:30 local company time, CHECK_IN without CHECK_OUT
-   * for the previous local day → REVIEW_REQUIRED (no synthetic CHECK_OUT).
+   * Hourly sweep for unclosed check-ins on the previous local work date.
+   * Day shifts: claimed at local hour 0.
+   * Overnight: claimed only after the morning checkout window has ended.
    */
   @Cron(CronExpression.EVERY_HOUR)
   async processUnclosedCheckIns() {
@@ -212,23 +215,19 @@ export class PunchCronService {
     let flaggedTotal = 0;
     for (const company of companies) {
       const timeZone = resolveOrgTimeZone(company.timeZone);
-      const localMin = dateToMinutesInTimeZone(now, timeZone);
-      // Fire in the 00:00–00:59 local hour window (cron is hourly).
-      if (Math.floor(localMin / 60) !== 0) continue;
+      const atMin = dateToMinutesInTimeZone(now, timeZone);
+      const hourLocal = Math.floor(atMin / 60);
 
       const yesterdayKey = dateKeyAddDays(dateKeyInTimeZone(now, timeZone), -1);
       const workDate = new Date(`${yesterdayKey}T00:00:00.000Z`);
-      const { start: dayStart, end: dayEnd } = dayBoundsForDateKeyInTimeZone(
-        yesterdayKey,
-        timeZone,
-      );
+      const workBounds = dayBoundsForDateKeyInTimeZone(yesterdayKey, timeZone);
 
       const checkIns = await this.prisma.timeGateAttendanceEvent.findMany({
         where: {
           companyId: company.id,
           type: TimeGateAttendanceEventType.CHECK_IN,
           status: TimeGateAttendanceEventStatus.ACCEPTED,
-          occurredAt: { gte: dayStart, lte: dayEnd },
+          occurredAt: { gte: workBounds.start, lte: workBounds.end },
           employeeId: { not: null },
         },
         select: { id: true, employeeId: true, companyId: true, occurredAt: true },
@@ -238,20 +237,31 @@ export class PunchCronService {
       for (const checkIn of checkIns) {
         if (!checkIn.employeeId) continue;
 
+        const windows = await this.punchWindows.resolveForEmployee(
+          checkIn.employeeId,
+          workDate,
+        );
+        const overnight = Boolean(
+          windows && isOvernightShift(windows.shiftStartMin, windows.shiftEndMin),
+        );
+
+        if (overnight) {
+          if (atMin <= windows!.checkOutEndMin) continue;
+        } else if (hourLocal !== 0) {
+          continue;
+        }
+
+        const eventBounds = punchEventBoundsForWorkDate(yesterdayKey, timeZone, overnight);
         const checkOut = await this.prisma.timeGateAttendanceEvent.findFirst({
           where: {
             employeeId: checkIn.employeeId,
             type: TimeGateAttendanceEventType.CHECK_OUT,
             status: TimeGateAttendanceEventStatus.ACCEPTED,
-            occurredAt: { gte: dayStart, lte: dayEnd },
+            occurredAt: { gte: eventBounds.start, lte: eventBounds.end },
           },
         });
         if (checkOut) continue;
 
-        const windows = await this.punchWindows.resolveForEmployee(
-          checkIn.employeeId,
-          checkIn.occurredAt,
-        );
         const shiftStartMin = windows?.shiftStartMin ?? 8 * 60;
         const shiftEndMin = windows?.shiftEndMin ?? 17 * 60;
         const breakMinutes = windows?.breakDurationMinutes ?? 60;
@@ -351,12 +361,16 @@ export class PunchCronService {
     >();
     for (const employee of employees) {
       const timeZone = resolveOrgTimeZone(employee.company?.timeZone);
-      const dayKey = dateKeyInTimeZone(now, timeZone);
-      const dayStart = new Date(`${dayKey}T00:00:00.000Z`);
-      const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
-      const atMin = dateToMinutesInTimeZone(now, timeZone);
-      const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
+      const punchCtx = await this.punchWindows.resolvePunchContext(
+        employee.id,
+        now,
+        timeZone,
+      );
+      const windows = punchCtx.windows;
       if (!windows) continue;
+
+      const workDate = new Date(`${punchCtx.workDateKey}T00:00:00.000Z`);
+      const atMin = punchCtx.atMin;
 
       let settings = settingsByCompany.get(employee.companyId);
       if (!settings) {
@@ -374,7 +388,15 @@ export class PunchCronService {
       const reminderFromMin =
         (windows.checkOutStartMin ?? windows.shiftEndMin) +
         Math.max(0, settings.notificationUnclosedReminderDelayMinutes);
-      if (atMin < reminderFromMin) continue;
+      // Overnight: checkout window is morning — compare on circular timeline from shift start.
+      if (isOvernightShift(windows.shiftStartMin, windows.shiftEndMin)) {
+        const sinceAt = (atMin - windows.shiftStartMin + 24 * 60) % (24 * 60);
+        const sinceReminder =
+          (reminderFromMin - windows.shiftStartMin + 24 * 60) % (24 * 60);
+        if (sinceAt < sinceReminder) continue;
+      } else if (atMin < reminderFromMin) {
+        continue;
+      }
 
       const checkIn = await this.prisma.timeGateAttendanceEvent.findFirst({
         where: {
@@ -386,7 +408,7 @@ export class PunchCronService {
               TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
             ],
           },
-          occurredAt: { gte: bounds.start, lte: bounds.end },
+          occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
         },
       });
       if (!checkIn) continue;
@@ -396,7 +418,7 @@ export class PunchCronService {
           employeeId: employee.id,
           type: TimeGateAttendanceEventType.CHECK_OUT,
           status: TimeGateAttendanceEventStatus.ACCEPTED,
-          occurredAt: { gte: bounds.start, lte: bounds.end },
+          occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
         },
       });
       if (checkOut) continue;
@@ -410,7 +432,7 @@ export class PunchCronService {
           companyId: employee.companyId,
           employeeId: employee.id,
           employeeName,
-          workDate: dayStart,
+          workDate,
         });
         sent += 1;
       } catch (err) {
@@ -438,15 +460,23 @@ export class PunchCronService {
     let sent = 0;
     for (const employee of employees) {
       const timeZone = resolveOrgTimeZone(employee.company?.timeZone);
-      const dayKey = dateKeyInTimeZone(now, timeZone);
-      const dayStart = new Date(`${dayKey}T00:00:00.000Z`);
-      const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
-      const atMin = dateToMinutesInTimeZone(now, timeZone);
-      const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
+      const punchCtx = await this.punchWindows.resolvePunchContext(
+        employee.id,
+        now,
+        timeZone,
+      );
+      const windows = punchCtx.windows;
       if (!windows?.breakEndMin || windows.breakStartMin == null) continue;
 
-      const shiftEndMin = windows.checkOutStartMin ?? windows.shiftEndMin;
-      if (atMin <= windows.breakEndMin || atMin >= shiftEndMin) continue;
+      const workDate = new Date(`${punchCtx.workDateKey}T00:00:00.000Z`);
+      const atMin = punchCtx.atMin;
+      const sinceAt = (atMin - windows.shiftStartMin + 24 * 60) % (24 * 60);
+      const sinceBreakEnd =
+        (windows.breakEndMin - windows.shiftStartMin + 24 * 60) % (24 * 60);
+      const sinceShiftEnd =
+        ((windows.checkOutStartMin ?? windows.shiftEndMin) - windows.shiftStartMin + 24 * 60) %
+        (24 * 60);
+      if (sinceAt <= sinceBreakEnd || sinceAt >= sinceShiftEnd) continue;
 
       const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
         where: {
@@ -457,18 +487,19 @@ export class PunchCronService {
               TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
             ],
           },
-          occurredAt: { gte: bounds.start, lte: bounds.end },
+          occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
         },
         orderBy: { occurredAt: 'asc' },
         select: { type: true, occurredAt: true },
       });
 
-      const state = buildDayPunchStateFromEvents(todaysEvents);
+      const state = buildDayPunchStateFromEvents(todaysEvents, timeZone);
       if (!state.hasCheckIn || state.hasBreakEnd || state.hasCheckOut) continue;
       if (
         state.checkInAtMin != null &&
         windows.breakEndMin != null &&
-        state.checkInAtMin > windows.breakEndMin
+        (state.checkInAtMin - windows.shiftStartMin + 24 * 60) % (24 * 60) >
+          sinceBreakEnd
       ) {
         continue;
       }
@@ -477,7 +508,7 @@ export class PunchCronService {
         await this.notifications.notifyBreakResumeReminder({
           companyId: employee.companyId,
           employeeId: employee.id,
-          workDate: dayStart,
+          workDate,
         });
         sent += 1;
       } catch (err) {

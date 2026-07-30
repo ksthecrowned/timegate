@@ -155,6 +155,59 @@ export function inMinuteWindow(min: number, start: number, end: number): boolean
 }
 
 /**
+ * True when `atMin` (local) still belongs to yesterday's overnight shift
+ * (post-midnight segment or morning checkout window).
+ */
+export function belongsToPreviousOvernightWorkDate(
+  atMin: number,
+  windows: {
+    shiftStartMin: number;
+    shiftEndMin: number;
+    checkOutStartMin: number;
+    checkOutEndMin: number;
+  },
+): boolean {
+  if (!isOvernightShift(windows.shiftStartMin, windows.shiftEndMin)) return false;
+  if (atMin <= windows.shiftEndMin) return true;
+  return inMinuteWindow(atMin, windows.checkOutStartMin, windows.checkOutEndMin);
+}
+
+/**
+ * Event query bounds for a punch work date. Overnight shifts span into the next
+ * local calendar day so morning check-out is included with the evening check-in.
+ */
+export function punchEventBoundsForWorkDate(
+  workDateKey: string,
+  timeZone: string,
+  overnight: boolean,
+): { start: Date; end: Date } {
+  const workBounds = dayBoundsForDateKeyInTimeZone(workDateKey, timeZone);
+  if (!overnight) return workBounds;
+  const nextBounds = dayBoundsForDateKeyInTimeZone(dateKeyAddDays(workDateKey, 1), timeZone);
+  return { start: workBounds.start, end: nextBounds.end };
+}
+
+/**
+ * Pick the punch work-date key: prefer yesterday when that schedule is overnight
+ * and local time is still in the morning/checkout segment.
+ */
+export function resolvePunchWorkDateKey(
+  todayKey: string,
+  atMin: number,
+  yesterdayWindows: {
+    shiftStartMin: number;
+    shiftEndMin: number;
+    checkOutStartMin: number;
+    checkOutEndMin: number;
+  } | null,
+): string {
+  if (yesterdayWindows && belongsToPreviousOvernightWorkDate(atMin, yesterdayWindows)) {
+    return dateKeyAddDays(todayKey, -1);
+  }
+  return todayKey;
+}
+
+/**
  * "Too early" for a (possibly wrapping) window: in the exterior gap and closer to
  * the upcoming start than to the just-passed end.
  */

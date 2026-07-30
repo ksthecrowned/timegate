@@ -2229,35 +2229,33 @@ export class AuthService {
     }
 
     const occurredAt = params.occurredAt ?? new Date();
-    const windows = await this.punchWindows.resolveForEmployee(params.employeeId, occurredAt);
-    if (!windows) {
-      return this.applyLegacyAttendanceFromVerification(params, occurredAt, employee.branchId);
-    }
-
     const company = await this.prisma.company.findUnique({
       where: { id: params.companyId },
       select: { timeZone: true },
     });
     const timeZone = resolveOrgTimeZone(company?.timeZone);
-    const dayKey = dateKeyInTimeZone(occurredAt, timeZone);
-    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
+    const punchCtx = await this.punchWindows.resolvePunchContext(
+      params.employeeId,
+      occurredAt,
+      timeZone,
+    );
+    const windows = punchCtx.windows;
+    if (!windows) {
+      return this.applyLegacyAttendanceFromVerification(params, occurredAt, employee.branchId);
+    }
 
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId: params.employeeId,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: bounds.start, lte: bounds.end },
+        occurredAt: { gte: punchCtx.bounds.start, lte: punchCtx.bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
     });
 
-    const state = buildDayPunchStateFromEvents(todaysEvents);
-    const resolution = resolveAttendancePunch(
-      dateToMinutesInTimeZone(occurredAt, timeZone),
-      windows,
-      state,
-    );
+    const state = buildDayPunchStateFromEvents(todaysEvents, timeZone);
+    const resolution = resolveAttendancePunch(punchCtx.atMin, windows, state);
 
     if (resolution.action === 'REJECTED') {
       await this.punchAttemptLog.logAttempt({

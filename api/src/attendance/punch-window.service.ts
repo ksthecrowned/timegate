@@ -2,8 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { ShiftType, WeekDay } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
   dateToMinutes,
+  dateToMinutesInTimeZone,
   isOvernightShift,
+  punchEventBoundsForWorkDate,
+  resolvePunchWorkDateKey,
   resolveShiftBounds,
   timeDateToMinutes,
   toWeekDay,
@@ -200,6 +205,43 @@ export class PunchWindowService {
     return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
   }
 
+  /**
+   * Resolve the punch work date (previous local day when still in an overnight
+   * morning segment), windows for that day, and event query bounds spanning midnight.
+   */
+  async resolvePunchContext(
+    employeeId: string,
+    at: Date,
+    timeZone: string,
+  ): Promise<{
+    workDateKey: string;
+    windows: ResolvedPunchWindows | null;
+    bounds: { start: Date; end: Date };
+    atMin: number;
+  }> {
+    const todayKey = dateKeyInTimeZone(at, timeZone);
+    const yesterdayKey = dateKeyAddDays(todayKey, -1);
+    const atMin = dateToMinutesInTimeZone(at, timeZone);
+
+    const yesterdayWindows = await this.resolveForEmployee(
+      employeeId,
+      new Date(`${yesterdayKey}T00:00:00.000Z`),
+    );
+    const workDateKey = resolvePunchWorkDateKey(todayKey, atMin, yesterdayWindows);
+
+    const windows =
+      workDateKey === yesterdayKey
+        ? yesterdayWindows
+        : await this.resolveForEmployee(employeeId, new Date(`${todayKey}T00:00:00.000Z`));
+
+    const overnight = Boolean(
+      windows && isOvernightShift(windows.shiftStartMin, windows.shiftEndMin),
+    );
+    const bounds = punchEventBoundsForWorkDate(workDateKey, timeZone, overnight);
+
+    return { workDateKey, windows, bounds, atMin };
+  }
+
   private buildWindows(
     shiftType: ShiftType,
     shiftStartMin: number,
@@ -296,6 +338,7 @@ export class PunchWindowService {
 
 export function buildDayPunchStateFromEvents(
   events: Array<{ type: string; occurredAt: Date }>,
+  timeZone?: string,
 ): import('./punch-window.types').DayPunchState {
   const accepted = events;
   const checkIn = accepted.find((e) => e.type === 'CHECK_IN');
@@ -306,6 +349,10 @@ export function buildDayPunchStateFromEvents(
     hasCheckIn: Boolean(checkIn),
     hasCheckOut: checkOut,
     hasBreakEnd: breakEnd,
-    checkInAtMin: checkIn ? dateToMinutes(checkIn.occurredAt) : null,
+    checkInAtMin: checkIn
+      ? timeZone
+        ? dateToMinutesInTimeZone(checkIn.occurredAt, timeZone)
+        : dateToMinutes(checkIn.occurredAt)
+      : null,
   };
 }
