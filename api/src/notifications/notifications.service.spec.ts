@@ -1,15 +1,18 @@
 import { describe, expect, mock, test } from 'bun:test';
 import {
-  PayrollLinePaymentStatus,
   TimeGateNotificationType,
   TimeGatePayrollRunStatus,
 } from '@prisma/client';
 import { NotificationsService } from './notifications.service';
 
-const now = new Date('2026-07-10T12:00:00.000Z');
+/** 08:00 UTC so localHour === 8 for company timeZone UTC. */
+const now = new Date('2026-07-10T08:00:00.000Z');
 
 function createService(lines: unknown[]) {
   const prisma = {
+    company: {
+      findMany: mock(async () => [{ id: 'COMPANY-1', timeZone: 'UTC' }]),
+    },
     timeGatePayrollLine: {
       findMany: mock(async () => lines),
     },
@@ -45,11 +48,13 @@ describe('notifyPayrollDueAlerts', () => {
 
     await service.notifyPayrollDueAlerts(now);
 
+    expect(prisma.company.findMany).toHaveBeenCalled();
     expect(prisma.timeGatePayrollLine.findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          paymentStatus: PayrollLinePaymentStatus.UNPAID,
-          payrollRun: { status: { not: TimeGatePayrollRunStatus.DRAFT } },
+          companyId: 'COMPANY-1',
+          paymentStatus: 'UNPAID',
+          payrollRun: { status: { not: 'DRAFT' } },
         }),
       }),
     );
@@ -58,14 +63,14 @@ describe('notifyPayrollDueAlerts', () => {
       expect.objectContaining({
         userIds: ['ADMIN-1'],
         type: TimeGateNotificationType.PAYROLL_DUE_SOON,
-        dedupeKey: 'payroll-due-alert:PAYROLL_DUE_SOON:LINE-DUE-SOON:2026-07-10',
+        dedupeKey: 'payroll-due-alert:COMPANY-1:PAYROLL_DUE_SOON:LINE-DUE-SOON:2026-07-10',
       }),
     );
     expect(service.emit).toHaveBeenCalledWith(
       expect.objectContaining({
         userIds: ['ADMIN-1'],
         type: TimeGateNotificationType.PAYROLL_OVERDUE,
-        dedupeKey: 'payroll-due-alert:PAYROLL_OVERDUE:LINE-OVERDUE:2026-07-10',
+        dedupeKey: 'payroll-due-alert:COMPANY-1:PAYROLL_OVERDUE:LINE-OVERDUE:2026-07-10',
       }),
     );
   });
@@ -87,7 +92,7 @@ describe('notifyPayrollDueAlerts', () => {
     expect(service.emit).toHaveBeenCalledWith(
       expect.objectContaining({
         type: TimeGateNotificationType.PAYROLL_DUE_SOON,
-        dedupeKey: 'payroll-due-alert:PAYROLL_DUE_SOON:LINE-DUE-TOMORROW:2026-07-10',
+        dedupeKey: 'payroll-due-alert:COMPANY-1:PAYROLL_DUE_SOON:LINE-DUE-TOMORROW:2026-07-10',
       }),
     );
   });
@@ -126,6 +131,24 @@ describe('notifyPayrollDueAlerts', () => {
 
     await service.notifyPayrollDueAlerts(now);
 
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
+  test('skips companies outside local 08:00 window', async () => {
+    const { prisma, service } = createService([
+      {
+        id: 'LINE-DUE-SOON',
+        companyId: 'COMPANY-1',
+        employeeId: 'EMP-1',
+        dueDate: new Date('2026-07-13T00:00:00.000Z'),
+        employee: { employeeName: 'Alice Doe', firstName: null, lastName: null },
+        payrollRun: { id: 'RUN-1', status: TimeGatePayrollRunStatus.LOCKED },
+      },
+    ]);
+
+    await service.notifyPayrollDueAlerts(new Date('2026-07-10T12:00:00.000Z'));
+
+    expect(prisma.timeGatePayrollLine.findMany).not.toHaveBeenCalled();
     expect(service.emit).not.toHaveBeenCalled();
   });
 });

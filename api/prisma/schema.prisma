@@ -516,6 +516,7 @@ model Employee {
   payrollVariableItems       PayrollVariableItem[]
 
   @@unique([companyId, nfcBadgeUid])
+  @@index([payGroupId])
   @@map("tabEmployee")
 }
 

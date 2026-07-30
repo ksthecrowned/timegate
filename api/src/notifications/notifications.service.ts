@@ -365,7 +365,7 @@ export class NotificationsService {
             dueDate: dueDateLabel,
             alertDay: dayKey,
           },
-          dedupeKey: `payroll-due-alert:${type}:${line.id}:${dayKey}`,
+          dedupeKey: `payroll-due-alert:${line.companyId}:${type}:${line.id}:${dayKey}`,
         });
       }
     }

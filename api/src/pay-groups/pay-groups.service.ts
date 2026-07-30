@@ -22,7 +22,8 @@ export class PayGroupsService {
 
   async create(dto: CreatePayGroupDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
-    const name = dto.name.trim();
+    const name = this.normalizeName(dto.name);
+    if (!name) throw new BadRequestException('Pay group name is required');
     await this.assertUniqueName(companyId, name);
 
     try {
@@ -81,7 +82,8 @@ export class PayGroupsService {
     this.assertCompanyAccess(user, existing.companyId);
 
     if (dto.name !== undefined) {
-      const name = dto.name.trim();
+      const name = this.normalizeName(dto.name);
+      if (!name) throw new BadRequestException('Pay group name is required');
       if (name !== existing.name) {
         await this.assertUniqueName(existing.companyId, name);
       }
@@ -90,7 +92,7 @@ export class PayGroupsService {
     const updated = await this.prisma.payGroup.update({
       where: { id },
       data: {
-        ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+        ...(dto.name !== undefined ? { name: this.normalizeName(dto.name) } : {}),
         ...(dto.payDayOfMonth !== undefined ? { payDayOfMonth: dto.payDayOfMonth } : {}),
       },
     });
@@ -104,6 +106,10 @@ export class PayGroupsService {
     this.assertCompanyAccess(user, existing.companyId);
     await this.prisma.payGroup.delete({ where: { id } });
     return { id, deleted: true };
+  }
+
+  private normalizeName(value: string): string {
+    return value.trim().replace(/\s+/g, ' ');
   }
 
   private async assertUniqueName(companyId: string, name: string) {

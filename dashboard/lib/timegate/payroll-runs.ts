@@ -60,10 +60,6 @@ export function lockPayrollRun(id: string) {
   return http.patch<PayrollRun>(`/payroll-runs/${id}/lock`, {})
 }
 
-export function markPayrollRunPaid(id: string) {
-  return http.patch<PayrollRun>(`/payroll-runs/${id}/mark-paid`, {})
-}
-
 export function markLinesPaid(id: string, body: MarkLinesPaidPayload) {
   return http.post<PayrollRun>(`/payroll-runs/${id}/mark-lines-paid`, body)
 }
