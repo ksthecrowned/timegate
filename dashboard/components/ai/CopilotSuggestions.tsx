@@ -1,5 +1,7 @@
 'use client'
 
+import { useSession } from 'next-auth/react'
+
 const SUGGESTIONS = [
   'Absents aujourd’hui',
   'Validations en attente',
@@ -8,10 +10,19 @@ const SUGGESTIONS = [
   'Top heures sup ce mois',
 ]
 
+const ADMIN_SUGGESTIONS = [
+  'Qui n’a pas été payé à Brazzaville ?',
+  'Masse juillet vs juin',
+]
+
 export default function CopilotSuggestions({ onSelect }: { onSelect: (text: string) => void }) {
+  const { data: session } = useSession()
+  const isAdmin = session?.user?.role === 'ADMIN'
+  const suggestions = isAdmin ? [...SUGGESTIONS, ...ADMIN_SUGGESTIONS] : SUGGESTIONS
+
   return (
     <div className="flex flex-wrap gap-2">
-      {SUGGESTIONS.map((label) => (
+      {suggestions.map((label) => (
         <button
           key={label}
           type="button"

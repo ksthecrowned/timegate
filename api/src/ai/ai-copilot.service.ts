@@ -62,7 +62,7 @@ export class AiCopilotService {
     const history = this.normalizeHistory(session.messages);
     history.push({ role: 'user', content: message.trim(), createdAt: new Date().toISOString() });
 
-    const tools = this.tools.getDefinitions();
+    const tools = this.tools.getDefinitions(user);
     let totalInput = 0;
     let totalOutput = 0;
     let model = 'stub';
@@ -246,6 +246,71 @@ export class AiCopilotService {
       case 'get_late_records': {
         const total = payload.total as number;
         return `${total ?? 0} retard(s) enregistré(s) sur la période.`;
+      }
+      case 'get_payroll_mass': {
+        if (payload.found === false) return payload.message as string;
+        const run = payload.run as { year: number; month: number; status: string };
+        const totals = payload.totals as { gross: number; net: number };
+        return `Cycle ${run.month}/${run.year} (${run.status}) — Brut: ${totals.gross} · Net: ${totals.net}.`;
+      }
+      case 'get_payroll_payment_status': {
+        if (payload.found === false) return payload.message as string;
+        const unpaidCount = payload.unpaidCount as number;
+        if (unpaidCount === 0) return 'Tout le monde est payé sur ce cycle.';
+        const employees =
+          (payload.employees as Array<{ employee: { name: string } | null }>) ?? [];
+        const lines = employees.slice(0, 15).map((e) => `• ${e.employee?.name ?? 'Employé'}`);
+        return `${unpaidCount} employé(s) non payé(s):\n${lines.join('\n')}`;
+      }
+      case 'get_payroll_due_alerts': {
+        const dueSoonCount = payload.dueSoonCount as number;
+        const overdueCount = payload.overdueCount as number;
+        if (!dueSoonCount && !overdueCount) return 'Aucune échéance de paie proche ou en retard.';
+        return `${dueSoonCount} échéance(s) proche(s), ${overdueCount} en retard.`;
+      }
+      case 'list_payroll_runs': {
+        const runs =
+          (payload.runs as Array<{ year: number; month: number; status: string }>) ?? [];
+        if (!runs.length) return 'Aucun cycle de paie trouvé.';
+        return `Cycles de paie:\n${runs.map((r) => `• ${r.month}/${r.year} — ${r.status}`).join('\n')}`;
+      }
+      case 'compare_payroll_months': {
+        const diff = payload.diff as { gross: number; net: number } | null;
+        if (!diff) return 'Un des deux mois demandés est introuvable.';
+        return `Écart brut: ${diff.gross >= 0 ? '+' : ''}${diff.gross} · Écart net: ${diff.net >= 0 ? '+' : ''}${diff.net}.`;
+      }
+      case 'get_payroll_by_branch': {
+        if (payload.found === false) return payload.message as string;
+        const branches =
+          (payload.branches as Array<{
+            branchName: string | null;
+            paid: number;
+            unpaid: number;
+          }>) ?? [];
+        if (!branches.length) return 'Aucune branche avec des lignes de paie sur ce cycle.';
+        return branches
+          .map((b) => `• ${b.branchName ?? 'Sans branche'}: ${b.paid} payé(s), ${b.unpaid} non payé(s)`)
+          .join('\n');
+      }
+      case 'get_pay_groups': {
+        const groups =
+          (payload.groups as Array<{ name: string; payDayOfMonth: number; employeeCount: number }>) ?? [];
+        if (!groups.length) return 'Aucun groupe de paie configuré.';
+        return groups
+          .map((g) => `• ${g.name} — échéance jour ${g.payDayOfMonth}, ${g.employeeCount} employé(s)`)
+          .join('\n');
+      }
+      case 'get_employee_compensation': {
+        if (payload.found === false) return payload.message as string;
+        const employee = payload.employee as { name: string } | null;
+        const baseSalary = payload.baseSalary as number;
+        return `${employee?.name ?? 'Employé'} — salaire de base: ${baseSalary}.`;
+      }
+      case 'get_upcoming_pay_dues': {
+        const total = payload.total as number;
+        const days = payload.days as number;
+        if (!total) return `Aucune échéance de paie dans les ${days} prochains jours.`;
+        return `${total} échéance(s) de paie dans les ${days} prochains jours.`;
       }
       default:
         return JSON.stringify(payload).slice(0, 1500);
