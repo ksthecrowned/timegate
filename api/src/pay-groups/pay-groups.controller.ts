@@ -33,11 +33,13 @@ export class PayGroupsController {
   }
 
   @Get()
+  @Roles(TimeGateUserRole.ADMIN)
   findAll(@Query() query: PaginationQueryDto, @CurrentUser() user: JwtUser) {
     return this.service.findAll(query, user);
   }
 
   @Get(':id')
+  @Roles(TimeGateUserRole.ADMIN)
   findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.service.findOne(id, user);
   }

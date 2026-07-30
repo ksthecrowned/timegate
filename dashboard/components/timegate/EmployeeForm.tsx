@@ -127,7 +127,9 @@ export default function EmployeeForm({
       listEmploymentTypes(),
       listHolidayLists(),
       listCountries({ limit: 100 }),
-      listPayGroups({ limit: 100 }),
+      // Pay groups are ADMIN-only; MANAGER can reach this form (e.g. via kiosk-pin/nfc
+      // sub-actions) but must not fail loading the other option lists if this 403s.
+      listPayGroups({ limit: 100 }).catch(() => ({ data: [] })),
     ]).then(([branches, departments, designations, employmentTypes, holidayLists, countries, payGroups]) => {
       setBranchOptions(toSelectOptions(branches.data))
       setDepartmentOptions(toSelectOptions(departments.data))

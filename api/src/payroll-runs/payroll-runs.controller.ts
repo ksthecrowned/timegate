@@ -12,12 +12,15 @@ import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
 import { MarkLinesPaidDto } from './dto/mark-lines-paid.dto';
 import { PayrollRunsService } from './payroll-runs.service';
 
+// Payroll mass/payment data is financially sensitive; MANAGER has no payroll UI
+// (see dashboard/lib/navigation.ts "Paie" section, ADMIN-only), so the whole
+// controller is gated ADMIN-only rather than picking individual handlers.
 @Controller('payroll-runs')
 @UseGuards(JwtAuthGuard, RolesGuard, OperationalAccessGuard)
+@Roles(TimeGateUserRole.ADMIN)
 export class PayrollRunsController {
   constructor(private readonly service: PayrollRunsService) {}
 
-  @Roles(TimeGateUserRole.ADMIN)
   @Post()
   create(@Body() dto: CreatePayrollRunDto, @CurrentUser() user: JwtUser) {
     return this.service.create(dto, user);
@@ -52,19 +55,16 @@ export class PayrollRunsController {
     return this.service.exportCsv(id, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id/lock')
   lock(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.service.lock(id, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id/mark-paid')
   markPaid(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.service.markPaid(id, user);
   }
 
-  @Roles(TimeGateUserRole.ADMIN)
   @Post(':id/mark-lines-paid')
   markLinesPaid(
     @Param('id', DocIdPipe) id: string,
