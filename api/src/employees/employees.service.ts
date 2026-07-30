@@ -287,7 +287,8 @@ export class EmployeesService {
     }
     const branchId = dto.branchId;
     if (branchId) {
-      await this.ensureBranch(branchId);
+      const branch = await this.ensureBranch(branchId);
+      this.assertCompanyAccess(user, branch.companyId);
     }
     if (dto.defaultShiftId) {
       await this.ensureShiftType(
@@ -445,6 +446,7 @@ export class EmployeesService {
   async createContract(
     employeeId: string,
     dto: CreateEmployeeContractDto,
+    user: JwtUser,
     file?: Express.Multer.File,
   ) {
     const employee = await this.prisma.employee.findUnique({
@@ -454,6 +456,7 @@ export class EmployeesService {
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
+    this.assertCompanyAccess(user, employee.companyId);
 
     const signedAt = new Date(dto.signedAt);
     if (Number.isNaN(signedAt.getTime())) {
@@ -663,7 +666,7 @@ export class EmployeesService {
     if (!shift) {
       throw new NotFoundException('Work schedule not found');
     }
-    if (companyId && shift.companyId && shift.companyId !== companyId) {
+    if (companyId && (!shift.companyId || shift.companyId !== companyId)) {
       throw new BadRequestException('Work schedule does not belong to employee company');
     }
     if (branchId && shift.branchId && shift.branchId !== branchId) {

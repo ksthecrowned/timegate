@@ -71,9 +71,10 @@ export class EmployeesController {
   createContract(
     @Param('id', DocIdPipe) id: string,
     @Body() dto: CreateEmployeeContractDto,
+    @CurrentUser() user: JwtUser,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.employees.createContract(id, dto, file);
+    return this.employees.createContract(id, dto, user, file);
   }
 
   @Roles(TimeGateUserRole.ADMIN)

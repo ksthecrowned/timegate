@@ -19,8 +19,8 @@ export class HolidaysController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateHolidayDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateHolidayDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()

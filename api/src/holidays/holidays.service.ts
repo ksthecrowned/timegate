@@ -20,10 +20,11 @@ type HolidayRow = Prisma.HolidayGetPayload<{
 export class HolidaysService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateHolidayDto) {
+  async create(dto: CreateHolidayDto, user: JwtUser) {
     const companyId = dto.companyId.trim();
     const company = await this.prisma.company.findUnique({ where: { id: companyId } });
     if (!company) throw new NotFoundException('Organization not found');
+    this.assertCompanyAccess(user, companyId);
 
     const list = await this.ensureHolidayList(companyId, company.name ?? 'Company');
 

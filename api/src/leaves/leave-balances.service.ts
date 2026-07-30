@@ -173,8 +173,17 @@ export class LeaveBalancesService {
     year: number,
     allocatedDays: number,
   ) {
-    await this.prisma.employee.findUniqueOrThrow({ where: { id: employeeId } });
-    await this.prisma.leaveType.findUniqueOrThrow({ where: { id: leaveTypeId } });
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, companyId: true },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+
+    const leaveType = await this.prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
+    if (!leaveType) throw new NotFoundException('Leave type not found');
+    if (leaveType.companyId && leaveType.companyId !== employee.companyId) {
+      throw new NotFoundException('Leave type not found');
+    }
 
     return this.prisma.leaveAllocation.upsert({
       where: {

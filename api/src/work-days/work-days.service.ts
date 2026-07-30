@@ -12,9 +12,10 @@ import { WorkDayQueryDto } from './dto/work-day-query.dto';
 export class WorkDaysService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateWorkDayDto) {
+  async create(dto: CreateWorkDayDto, user: JwtUser) {
     const schedule = await this.prisma.shiftType.findUnique({ where: { id: dto.scheduleId } });
     if (!schedule) throw new NotFoundException('Work schedule not found');
+    this.assertCompanyAccess(user, schedule.companyId ?? '');
 
     try {
       const created = await this.prisma.shiftTypeWeekDay.create({
@@ -99,6 +100,7 @@ export class WorkDaysService {
     if (dto.scheduleId && dto.scheduleId !== existing.shiftTypeId) {
       const schedule = await this.prisma.shiftType.findUnique({ where: { id: dto.scheduleId } });
       if (!schedule) throw new NotFoundException('Work schedule not found');
+      this.assertCompanyAccess(user, schedule.companyId ?? '');
     }
 
     try {

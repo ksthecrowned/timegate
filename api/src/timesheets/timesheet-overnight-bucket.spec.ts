@@ -2,7 +2,9 @@ import { describe, expect, test } from 'bun:test';
 import {
   dateKeyInTimeZone,
   dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
   resolvePunchWorkDateKey,
+  shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
 import type { ResolvedPunchWindows } from '../attendance/punch-window.types';
 
@@ -46,5 +48,23 @@ describe('timesheet overnight work-date bucketing', () => {
     expect(inKey).toBe('2026-07-29');
     expect(outKey).toBe('2026-07-29');
     expect(inKey).toBe(outKey);
+  });
+
+  test('recalc fetch start uses org-local midnight not UTC', () => {
+    const fromKey = '2026-07-21';
+    const utcMidnight = new Date(`${fromKey}T00:00:00.000Z`);
+    const localStart = dayBoundsForDateKeyInTimeZone(fromKey, tz).start;
+    // Brazzaville UTC+1 → local midnight is 1h before UTC midnight
+    expect(localStart.getTime()).toBeLessThan(utcMidnight.getTime());
+
+    // 00:30 local would be dropped by a UTC-midnight lower bound
+    const earlyLocal = new Date('2026-07-20T23:30:00.000Z');
+    expect(earlyLocal.getTime()).toBeLessThan(utcMidnight.getTime());
+    expect(earlyLocal.getTime()).toBeGreaterThanOrEqual(localStart.getTime());
+  });
+
+  test('overnight planned minutes wrap across midnight', () => {
+    expect(shiftDurationMinutes(22 * 60, 6 * 60)).toBe(8 * 60);
+    expect(shiftDurationMinutes(8 * 60, 17 * 60)).toBe(9 * 60);
   });
 });

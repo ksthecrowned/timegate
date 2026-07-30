@@ -18,8 +18,8 @@ export class WorkDaysController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateWorkDayDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateWorkDayDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()

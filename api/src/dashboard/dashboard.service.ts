@@ -21,6 +21,7 @@ import {
   dateKeyInTimeZone,
   dayBoundsForDateKeyInTimeZone,
   resolveOrgTimeZone,
+  shiftDurationMinutes,
   toWeekDay,
 } from '../common/utils/punch-time.util';
 import { PlanningVsActualQueryDto } from './dto/planning-vs-actual-query.dto';
@@ -43,7 +44,7 @@ function shiftMinutes(startTime: Date | null | undefined, endTime: Date | null |
   if (!startTime || !endTime) return 480;
   const start = startTime.getUTCHours() * 60 + startTime.getUTCMinutes();
   const end = endTime.getUTCHours() * 60 + endTime.getUTCMinutes();
-  return Math.max(0, end - start);
+  return shiftDurationMinutes(start, end);
 }
 
 function isAssignmentActive(
@@ -394,7 +395,7 @@ export class DashboardService {
           ? (() => {
               const [sh, sm] = weekDayRow.startTime.split(':').map(Number);
               const [eh, em] = weekDayRow.endTime.split(':').map(Number);
-              return Math.max(0, eh * 60 + (em || 0) - (sh * 60 + (sm || 0)));
+              return shiftDurationMinutes(sh * 60 + (sm || 0), eh * 60 + (em || 0));
             })()
           : shiftMinutes(shift.startTime, shift.endTime);
 

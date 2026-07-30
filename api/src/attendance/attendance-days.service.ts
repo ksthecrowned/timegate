@@ -264,7 +264,23 @@ export class AttendanceDaysService {
     if (!existing) {
       throw new NotFoundException('Attendance day not found');
     }
-    this.assertCompanyAccess(user, existing.companyId ?? existing.employee.companyId);
+    const companyId = existing.companyId ?? existing.employee.companyId;
+    this.assertCompanyAccess(user, companyId);
+
+    if (dto.leaveTypeId) {
+      const leaveType = await this.prisma.leaveType.findUnique({ where: { id: dto.leaveTypeId } });
+      if (!leaveType) throw new NotFoundException('Leave type not found');
+      if (leaveType.companyId && leaveType.companyId !== companyId) {
+        throw new NotFoundException('Leave type not found');
+      }
+    }
+    if (dto.shiftId) {
+      const shift = await this.prisma.shiftType.findUnique({ where: { id: dto.shiftId } });
+      if (!shift) throw new NotFoundException('Work schedule not found');
+      if (shift.companyId && shift.companyId !== companyId) {
+        throw new NotFoundException('Work schedule not found');
+      }
+    }
 
     const updated = await this.prisma.attendance.update({
       where: { id },

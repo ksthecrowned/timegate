@@ -29,6 +29,7 @@ import {
   dateKeyAddDays,
   dateKeyInTimeZone,
   dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
   minutesSinceOrigin,
   punchEventBoundsForWorkDate,
   resolveOrgTimeZone,
@@ -170,7 +171,10 @@ export class TimesheetsService {
     const days = this.enumerateDates(from, to);
     const holidayIndex = await this.holidayCalendar.buildIndexForEmployees(employees, from, to);
     const todayStart = this.startOfUtcDay(new Date());
+    const fromKey = from.toISOString().slice(0, 10);
     const toKey = to.toISOString().slice(0, 10);
+    // Org-local day start (not UTC midnight) so early local punches are not dropped.
+    const eventFetchStart = dayBoundsForDateKeyInTimeZone(fromKey, timeZone).start;
     // Include next local day so overnight morning check-outs still land in range.
     const eventFetchEnd = punchEventBoundsForWorkDate(toKey, timeZone, true).end;
     const employeeIds = employees.map((e) => e.id);
@@ -209,7 +213,7 @@ export class TimesheetsService {
       where: {
         companyId,
         employeeId: { in: employeeIds },
-        occurredAt: { gte: from, lte: eventFetchEnd },
+        occurredAt: { gte: eventFetchStart, lte: eventFetchEnd },
       },
       select: {
         employeeId: true,
