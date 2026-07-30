@@ -489,7 +489,10 @@ export type PayrollBranchPaymentSummary = {
   total: number
   paid: number
   unpaid: number
+  gross?: number
+  net?: number
   unpaidEmployeeIds: string[]
+  unpaidEmployees?: { id: string; name: string }[]
 }
 
 export type CompensationGridEntry = {

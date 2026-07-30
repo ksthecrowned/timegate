@@ -103,6 +103,7 @@ describe('AiToolRegistry payroll by branch', () => {
         month: 6,
         status: 'LOCKED',
       })),
+      paymentSummaryByBranch: mock(async () => []),
     };
     const registry = new AiToolRegistry(
       {} as never,
@@ -125,6 +126,63 @@ describe('AiToolRegistry payroll by branch', () => {
     );
 
     expect(result.data).toMatchObject({ found: false });
-    expect(prisma.timeGatePayrollLine.findMany).not.toHaveBeenCalled();
+    expect(payrollRuns.paymentSummaryByBranch).not.toHaveBeenCalled();
+  });
+
+  test('delegates bucketing to payrollRuns.paymentSummaryByBranch', async () => {
+    const prisma = {
+      timeGatePayrollRun: {
+        findFirst: mock(async () => ({
+          id: 'PRUN-1',
+          companyId: 'company-1',
+          year: 2026,
+          month: 6,
+          status: 'LOCKED',
+        })),
+      },
+    };
+    const payrollRuns = {
+      findOne: mock(async () => ({
+        id: 'PRUN-1',
+        companyId: 'company-1',
+        year: 2026,
+        month: 6,
+        status: 'LOCKED',
+      })),
+      paymentSummaryByBranch: mock(async () => [
+        {
+          branchId: 'BR-1',
+          branchName: 'Centre',
+          total: 2,
+          paid: 1,
+          unpaid: 1,
+          gross: 1000,
+          net: 900,
+          unpaidEmployeeIds: ['EMP-1'],
+          unpaidEmployees: [{ id: 'EMP-1', name: 'Ada Lovelace' }],
+        },
+      ]),
+    };
+    const registry = new AiToolRegistry(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prisma as never,
+      payrollRuns as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await registry.execute('get_payroll_by_branch', {}, admin);
+
+    expect(payrollRuns.paymentSummaryByBranch).toHaveBeenCalledWith('PRUN-1', admin);
+    expect(result.data).toMatchObject({
+      run: { id: 'PRUN-1' },
+      branches: [{ branchName: 'Centre', unpaid: 1, gross: 1000 }],
+    });
   });
 });

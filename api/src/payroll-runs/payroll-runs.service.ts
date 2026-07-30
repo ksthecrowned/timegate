@@ -170,8 +170,14 @@ export class PayrollRunsService {
       select: {
         employeeId: true,
         paymentStatus: true,
+        gross: true,
+        netSalary: true,
         employee: {
-          select: { branchId: true, branch: { select: { branchName: true } } },
+          select: {
+            branchId: true,
+            branch: { select: { branchName: true } },
+            ...employeeSummarySelect,
+          },
         },
       },
     });
@@ -182,7 +188,10 @@ export class PayrollRunsService {
       total: number;
       paid: number;
       unpaid: number;
+      gross: number;
+      net: number;
       unpaidEmployeeIds: string[];
+      unpaidEmployees: { id: string; name: string }[];
     };
 
     const byBranch = new Map<string, BranchBucket>();
@@ -196,15 +205,25 @@ export class PayrollRunsService {
         total: 0,
         paid: 0,
         unpaid: 0,
+        gross: 0,
+        net: 0,
         unpaidEmployeeIds: [],
+        unpaidEmployees: [],
       };
 
       bucket.total += 1;
+      bucket.gross = roundMoney(bucket.gross + fromDecimal(line.gross));
+      bucket.net = roundMoney(bucket.net + fromDecimal(line.netSalary));
       if (line.paymentStatus === PayrollLinePaymentStatus.PAID) {
         bucket.paid += 1;
       } else {
         bucket.unpaid += 1;
         bucket.unpaidEmployeeIds.push(line.employeeId);
+        const summary = toEmployeeSummary(line.employee);
+        if (summary) {
+          const name = `${summary.firstName} ${summary.lastName}`.trim() || summary.id;
+          bucket.unpaidEmployees.push({ id: line.employeeId, name });
+        }
       }
 
       byBranch.set(key, bucket);

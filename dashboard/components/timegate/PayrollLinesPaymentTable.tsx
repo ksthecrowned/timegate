@@ -136,7 +136,34 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
     }
   }
 
-  const columnCount = canMarkPaid ? 7 : 6
+  const columnCount = canMarkPaid ? 8 : 6
+
+  function isOverdue(line: PayrollLine): boolean {
+    if (line.paymentStatus === 'PAID' || !line.dueDate) return false
+    const due = line.dueDate.slice(0, 10)
+    const today = toIsoDate(new Date())
+    return due < today
+  }
+
+  async function handleMarkOne(lineId: string) {
+    if (!window.confirm('Marquer cette ligne comme payée ?')) return
+    setMarking(true)
+    setError('')
+    setMessage('')
+    try {
+      await markLinesPaid(runId, {
+        lineIds: [lineId],
+        ...(paidAt ? { paidAt: toIsoDate(paidAt) } : {}),
+      })
+      setMessage('1 ligne marquée payée.')
+      await load()
+      onChanged?.()
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Marquage impossible.')
+    } finally {
+      setMarking(false)
+    }
+  }
 
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
@@ -254,7 +281,8 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
               <th className="py-2 pr-3 font-semibold">Brut</th>
               <th className="py-2 pr-3 font-semibold">Net</th>
               <th className="py-2 pr-3 font-semibold">Statut</th>
-              <th className="py-2 font-semibold">Payée le</th>
+              <th className="py-2 pr-3 font-semibold">Payée le</th>
+              {canMarkPaid ? <th className="py-2 font-semibold" /> : null}
             </tr>
           </thead>
           <tbody>
@@ -273,6 +301,7 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
             ) : (
               lines.map((line) => {
                 const isPaid = line.paymentStatus === 'PAID'
+                const overdue = isOverdue(line)
                 return (
                   <tr key={line.id} className="border-b border-slate-100 dark:border-slate-800">
                     {canMarkPaid ? (
@@ -290,15 +319,38 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
                     <td className="py-2 pr-3">
                       <EmployeeTableCell employee={line.employee ?? null} />
                     </td>
-                    <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
+                    <td
+                      className={`py-2 pr-3 ${
+                        overdue
+                          ? 'font-medium text-amber-700 dark:text-amber-300'
+                          : 'text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
                       {formatApiDate(line.dueDate)}
+                      {overdue ? (
+                        <span className="ml-1 text-xs uppercase tracking-wide">retard</span>
+                      ) : null}
                     </td>
                     <td className="py-2 pr-3">{formatMoney(line.gross)}</td>
                     <td className="py-2 pr-3 font-semibold">{formatMoney(line.netSalary)}</td>
                     <td className="py-2 pr-3">{paymentStatusBadge(line.paymentStatus)}</td>
-                    <td className="py-2 text-slate-600 dark:text-slate-300">
+                    <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
                       {line.paidAt ? formatApiDate(line.paidAt) : '—'}
                     </td>
+                    {canMarkPaid ? (
+                      <td className="py-2 text-right">
+                        {!isPaid ? (
+                          <button
+                            type="button"
+                            disabled={marking}
+                            onClick={() => void handleMarkOne(line.id)}
+                            className="text-sm text-primary hover:underline disabled:opacity-50"
+                          >
+                            Payer
+                          </button>
+                        ) : null}
+                      </td>
+                    ) : null}
                   </tr>
                 )
               })

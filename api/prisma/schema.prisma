@@ -1601,6 +1601,7 @@ model PayGroup {
 
   employees Employee[]
 
+  @@unique([companyId, name])
   @@index([companyId])
   @@map("timegate_pay_group")
 }

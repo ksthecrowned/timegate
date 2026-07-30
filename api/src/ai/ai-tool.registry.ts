@@ -871,64 +871,19 @@ export class AiToolRegistry {
       }
     }
 
-    const lines = await this.prisma.timeGatePayrollLine.findMany({
-      where: {
-        payrollRunId: run.id,
-        ...(branchId ? { employee: { branchId } } : {}),
-      },
-      select: {
-        paymentStatus: true,
-        gross: true,
-        netSalary: true,
-        employee: {
-          select: { branchId: true, branch: { select: { branchName: true } }, ...employeeSummarySelect },
-        },
-      },
-    });
-
-    type Bucket = {
-      branchId: string | null;
-      branchName: string | null;
-      total: number;
-      paid: number;
-      unpaid: number;
-      gross: number;
-      net: number;
-      unpaidEmployees: { id?: string; name: string }[];
-    };
-    const byBranch = new Map<string, Bucket>();
-
-    for (const line of lines) {
-      const branchId = line.employee?.branchId ?? null;
-      const key = branchId ?? '__unassigned__';
-      const bucket = byBranch.get(key) ?? {
-        branchId,
-        branchName: line.employee?.branch?.branchName ?? null,
-        total: 0,
-        paid: 0,
-        unpaid: 0,
-        gross: 0,
-        net: 0,
-        unpaidEmployees: [],
-      };
-
-      bucket.total += 1;
-      bucket.gross = roundMoney(bucket.gross + fromDecimal(line.gross));
-      bucket.net = roundMoney(bucket.net + fromDecimal(line.netSalary));
-      if (line.paymentStatus === PayrollLinePaymentStatus.PAID) {
-        bucket.paid += 1;
-      } else {
-        bucket.unpaid += 1;
-        const summary = this.sanitizeEmployee(line.employee ?? null);
-        if (summary) bucket.unpaidEmployees.push(summary);
-      }
-
-      byBranch.set(key, bucket);
-    }
-
-    const branches = Array.from(byBranch.values()).sort((x, y) =>
-      (x.branchName ?? '').localeCompare(y.branchName ?? ''),
-    );
+    const summary = await this.payrollRuns.paymentSummaryByBranch(run.id, user);
+    const branches = summary
+      .filter((row) => !branchId || row.branchId === branchId)
+      .map((row) => ({
+        branchId: row.branchId,
+        branchName: row.branchName,
+        total: row.total,
+        paid: row.paid,
+        unpaid: row.unpaid,
+        gross: row.gross,
+        net: row.net,
+        unpaidEmployees: row.unpaidEmployees,
+      }));
 
     return {
       data: {

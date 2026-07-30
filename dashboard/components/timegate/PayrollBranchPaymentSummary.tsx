@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useState } from 'react'
 import { ApiErrorBanner } from '@/components/timegate/ui'
 import { HttpError } from '@/lib/http'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
-import { getPaymentSummaryByBranch } from '@/lib/timegate/payroll-runs'
+import { formatMoney, getPaymentSummaryByBranch } from '@/lib/timegate/payroll-runs'
 import type {
   EmployeeSummary,
   PayrollBranchPaymentSummary as BranchPaymentSummary,
@@ -62,6 +62,8 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
                 <th className="py-2 pr-3 font-semibold">Lignes</th>
                 <th className="py-2 pr-3 font-semibold">Payées</th>
                 <th className="py-2 pr-3 font-semibold">Non payées</th>
+                <th className="py-2 pr-3 font-semibold">Brut</th>
+                <th className="py-2 pr-3 font-semibold">Net</th>
                 <th className="py-2 font-semibold" />
               </tr>
             </thead>
@@ -69,6 +71,13 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
               {summary.map((branch) => {
                 const key = branch.branchId ?? '__unassigned__'
                 const isExpanded = expandedKey === key
+                const unpaidNames =
+                  branch.unpaidEmployees?.map((e) => e.name) ??
+                  branch.unpaidEmployeeIds.map((employeeId) =>
+                    employeesById?.get(employeeId)
+                      ? employeeDisplayName(employeesById.get(employeeId))
+                      : employeeId,
+                  )
                 return (
                   <Fragment key={key}>
                     <tr className="border-b border-slate-100 dark:border-slate-800">
@@ -76,6 +85,8 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
                       <td className="py-2 pr-3">{branch.total}</td>
                       <td className="py-2 pr-3 text-emerald-600 dark:text-emerald-400">{branch.paid}</td>
                       <td className="py-2 pr-3 text-amber-600 dark:text-amber-400">{branch.unpaid}</td>
+                      <td className="py-2 pr-3">{formatMoney(branch.gross)}</td>
+                      <td className="py-2 pr-3 font-semibold">{formatMoney(branch.net)}</td>
                       <td className="py-2 text-right">
                         {branch.unpaid > 0 ? (
                           <button
@@ -90,14 +101,8 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
                     </tr>
                     {isExpanded && branch.unpaid > 0 ? (
                       <tr className="border-b border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-white/5">
-                        <td colSpan={5} className="px-3 py-2 text-slate-600 dark:text-slate-300">
-                          {branch.unpaidEmployeeIds
-                            .map((employeeId) =>
-                              employeesById?.get(employeeId)
-                                ? employeeDisplayName(employeesById.get(employeeId))
-                                : employeeId,
-                            )
-                            .join(', ')}
+                        <td colSpan={7} className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          {unpaidNames.join(', ')}
                         </td>
                       </tr>
                     ) : null}

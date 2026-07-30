@@ -25,16 +25,22 @@ export class PayGroupsService {
     const name = dto.name.trim();
     await this.assertUniqueName(companyId, name);
 
-    const created = await this.prisma.payGroup.create({
-      data: {
-        id: generateDocId('PGRP'),
-        companyId,
-        name,
-        payDayOfMonth: dto.payDayOfMonth,
-      },
-    });
-
-    return this.toShape(created);
+    try {
+      const created = await this.prisma.payGroup.create({
+        data: {
+          id: generateDocId('PGRP'),
+          companyId,
+          name,
+          payDayOfMonth: dto.payDayOfMonth,
+        },
+      });
+      return this.toShape(created);
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException('Pay group name already exists for this company');
+      }
+      throw error;
+    }
   }
 
   async findAll(query: PaginationQueryDto, user: JwtUser) {
