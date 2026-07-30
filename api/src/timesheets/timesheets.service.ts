@@ -29,9 +29,11 @@ import {
   dateKeyAddDays,
   dateKeyInTimeZone,
   dateToMinutesInTimeZone,
+  minutesSinceOrigin,
   punchEventBoundsForWorkDate,
   resolveOrgTimeZone,
   resolvePunchWorkDateKey,
+  shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
 import {
   roundMinutesToStep,
@@ -268,17 +270,24 @@ export class TimesheetsService {
         const prevDayKey = `${employee.id}:${new Date(`${dateKeyAddDays(workDateKey, -1)}T00:00:00.000Z`).toISOString()}`;
         const previousDayEvents = eventsByEmployeeDay.get(prevDayKey) ?? [];
         const punchWindows = await resolveWindows(employee.id, workDateKey);
-        const shiftGrace = shiftWindow?.lateGraceMinutes ?? policy.lateGraceMinutes;
+        const resolvedShiftWindow = punchWindows
+          ? this.shiftWindowFromPunchWindows(
+              punchWindows,
+              shift?.lateGraceMinutes ?? policy.lateGraceMinutes,
+            )
+          : shiftWindow;
+        const shiftGrace = resolvedShiftWindow?.lateGraceMinutes ?? policy.lateGraceMinutes;
         const metrics = this.computeDayMetrics(
           day,
           dayEvents,
-          shiftWindow,
+          resolvedShiftWindow,
           shiftGrace,
           todayStart,
           isEmployeeHoliday(holidayIndex, employee.id, day),
           punchWindows,
           policy,
           previousDayEvents,
+          timeZone,
         );
 
         const existing = await this.prisma.timeGateTimesheetDay.findUnique({
@@ -479,6 +488,7 @@ export class TimesheetsService {
     punchWindows: ResolvedPunchWindows | null,
     policy: TimesheetPolicy,
     previousDayEvents: DayEvent[] = [],
+    timeZone: string = resolveOrgTimeZone(null),
   ) {
     const hasReview = events.some(
       (e) => e.status === TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
@@ -526,12 +536,22 @@ export class TimesheetsService {
     let lateMinutes = 0;
     let overtimeMinutes = 0;
     const firstCheckIn = accepted.find((e) => e.type === TimeGateAttendanceEventType.CHECK_IN);
-    if (firstCheckIn && shift) {
-      const scheduledStart = this.combineDayAndTime(day, shift.startTime);
-      const graceMs = (shift.lateGraceMinutes ?? defaultGrace) * 60_000;
-      const lateMs = firstCheckIn.occurredAt.getTime() - scheduledStart.getTime() - graceMs;
-      if (lateMs > 0) {
-        lateMinutes = roundMinutesToStep(Math.round(lateMs / 60_000), policy.roundingMinutes);
+    if (firstCheckIn) {
+      const grace = shift?.lateGraceMinutes ?? defaultGrace;
+      if (punchWindows) {
+        const checkInMin = dateToMinutesInTimeZone(firstCheckIn.occurredAt, timeZone);
+        const sinceStart = minutesSinceOrigin(checkInMin, punchWindows.shiftStartMin);
+        const lateRaw = sinceStart - grace;
+        if (lateRaw > 0 && sinceStart < shiftDurationMinutes(punchWindows.shiftStartMin, punchWindows.shiftEndMin)) {
+          lateMinutes = roundMinutesToStep(lateRaw, policy.roundingMinutes);
+        }
+      } else if (shift) {
+        const scheduledStart = this.combineDayAndTime(day, shift.startTime);
+        const graceMs = grace * 60_000;
+        const lateMs = firstCheckIn.occurredAt.getTime() - scheduledStart.getTime() - graceMs;
+        if (lateMs > 0) {
+          lateMinutes = roundMinutesToStep(Math.round(lateMs / 60_000), policy.roundingMinutes);
+        }
       }
     }
 
@@ -618,6 +638,31 @@ export class TimesheetsService {
       new Date(Date.UTC(1970, 0, 1, endTime.getUTCHours(), endTime.getUTCMinutes())),
     );
     return { startTime, endTime, lateGraceMinutes, scheduledMinutes };
+  }
+
+  /** Prefer assignment/punch windows over employee default shift (overnight-safe). */
+  private shiftWindowFromPunchWindows(
+    punch: ResolvedPunchWindows,
+    lateGraceMinutes: number,
+  ): ShiftWindow {
+    const startTime = new Date(
+      Date.UTC(
+        1970,
+        0,
+        1,
+        Math.floor(punch.shiftStartMin / 60),
+        punch.shiftStartMin % 60,
+      ),
+    );
+    const endTime = new Date(
+      Date.UTC(1970, 0, 1, Math.floor(punch.shiftEndMin / 60), punch.shiftEndMin % 60),
+    );
+    return {
+      startTime,
+      endTime,
+      lateGraceMinutes,
+      scheduledMinutes: shiftDurationMinutes(punch.shiftStartMin, punch.shiftEndMin),
+    };
   }
 
   private combineDayAndTime(day: Date, time: Date): Date {

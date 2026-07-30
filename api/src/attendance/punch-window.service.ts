@@ -316,7 +316,19 @@ export class PunchWindowService {
       orderBy: { startDate: 'desc' },
     });
 
-    return rows.find((row) => this.coversDate(row.startDate, row.endDate, day)) ?? null;
+    const covering = rows.filter((row) => this.coversDate(row.startDate, row.endDate, day));
+    if (covering.length === 0) return null;
+
+    // One-day overrides (shift swaps / night fixtures) must win over open-ended ranges.
+    const singleDay = covering.find((row) =>
+      this.isSingleDayAssignment(row.startDate, row.endDate, day),
+    );
+    if (singleDay) return singleDay;
+
+    const bounded = covering.find((row) => row.startDate != null && row.endDate != null);
+    if (bounded) return bounded;
+
+    return covering[0] ?? null;
   }
 
   private coversDate(start: Date | null, end: Date | null, day: Date): boolean {
