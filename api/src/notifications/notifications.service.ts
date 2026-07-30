@@ -282,11 +282,13 @@ export class NotificationsService {
   async notifyPayrollDueAlerts(now = new Date()) {
     const dayStart = startOfUtcDay(now);
     const dueSoonCutoff = addUtcDays(dayStart, 3);
+    // Overdue alert only fires on J+1 (spec), so the earliest relevant due date is "yesterday".
+    const overdueFloor = addUtcDays(dayStart, -1);
     const dayKey = dayStart.toISOString().slice(0, 10);
     const lines = await this.prisma.timeGatePayrollLine.findMany({
       where: {
         paymentStatus: 'UNPAID',
-        dueDate: { not: null, lte: dueSoonCutoff },
+        dueDate: { not: null, gte: overdueFloor, lte: dueSoonCutoff },
         payrollRun: { status: { not: 'DRAFT' } },
       },
       select: {
@@ -308,7 +310,7 @@ export class NotificationsService {
       const type =
         daysUntilDue === 3 || daysUntilDue === 1
           ? TimeGateNotificationType.PAYROLL_DUE_SOON
-          : daysUntilDue < 0
+          : daysUntilDue === -1
             ? TimeGateNotificationType.PAYROLL_OVERDUE
             : null;
       if (!type) continue;

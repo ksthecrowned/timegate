@@ -91,4 +91,41 @@ describe('notifyPayrollDueAlerts', () => {
       }),
     );
   });
+
+  test('does not re-emit overdue alerts for lines overdue by more than one day', async () => {
+    const { prisma, service } = createService([]);
+
+    await service.notifyPayrollDueAlerts(now);
+
+    // J+1 spec: only the day right after the due date should ever query/alert as overdue,
+    // so a line overdue by e.g. 5 days must fall outside the query window entirely.
+    expect(prisma.timeGatePayrollLine.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          dueDate: expect.objectContaining({
+            gte: new Date('2026-07-09T00:00:00.000Z'),
+            lte: new Date('2026-07-13T00:00:00.000Z'),
+          }),
+        }),
+      }),
+    );
+    expect(service.emit).not.toHaveBeenCalled();
+  });
+
+  test('does not emit an overdue alert for a line overdue by more than one day', async () => {
+    const { service } = createService([
+      {
+        id: 'LINE-LONG-OVERDUE',
+        companyId: 'COMPANY-1',
+        employeeId: 'EMP-3',
+        dueDate: new Date('2026-07-05T00:00:00.000Z'),
+        employee: { employeeName: 'Carl Doe', firstName: null, lastName: null },
+        payrollRun: { id: 'RUN-1', status: TimeGatePayrollRunStatus.LOCKED },
+      },
+    ]);
+
+    await service.notifyPayrollDueAlerts(now);
+
+    expect(service.emit).not.toHaveBeenCalled();
+  });
 });

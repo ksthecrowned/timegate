@@ -271,33 +271,42 @@ export class PayrollRunsService {
       .filter((l) => l.paymentStatus !== PayrollLinePaymentStatus.PAID)
       .map((l) => l.id);
 
-    if (toPayIds.length) {
-      await this.prisma.timeGatePayrollLine.updateMany({
-        where: { id: { in: toPayIds } },
-        data: { paymentStatus: PayrollLinePaymentStatus.PAID, paidAt: paidAtDate },
+    // Wrapped so concurrent mark-paid calls on the same run can't race between the
+    // line update and the denormalized run totals/status recompute below.
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (toPayIds.length) {
+        await tx.timeGatePayrollLine.updateMany({
+          where: { id: { in: toPayIds } },
+          data: { paymentStatus: PayrollLinePaymentStatus.PAID, paidAt: paidAtDate },
+        });
+      }
+
+      const allLines = await tx.timeGatePayrollLine.findMany({
+        where: { payrollRunId: id },
       });
-    }
+      const linesCount = allLines.length;
+      const paidCount = allLines.filter(
+        (l) => l.paymentStatus === PayrollLinePaymentStatus.PAID,
+      ).length;
 
-    const allLines = await this.prisma.timeGatePayrollLine.findMany({
-      where: { payrollRunId: id },
-    });
-    const linesCount = allLines.length;
-    const paidCount = allLines.filter(
-      (l) => l.paymentStatus === PayrollLinePaymentStatus.PAID,
-    ).length;
+      let newStatus: TimeGatePayrollRunStatus;
+      if (linesCount > 0 && paidCount === linesCount) {
+        newStatus = TimeGatePayrollRunStatus.PAID;
+      } else if (paidCount > 0) {
+        newStatus = TimeGatePayrollRunStatus.PARTIALLY_PAID;
+      } else {
+        newStatus = TimeGatePayrollRunStatus.LOCKED;
+      }
 
-    let newStatus: TimeGatePayrollRunStatus;
-    if (linesCount > 0 && paidCount === linesCount) {
-      newStatus = TimeGatePayrollRunStatus.PAID;
-    } else if (paidCount > 0) {
-      newStatus = TimeGatePayrollRunStatus.PARTIALLY_PAID;
-    } else {
-      newStatus = TimeGatePayrollRunStatus.LOCKED;
-    }
-
-    const updated = await this.updateRunTotals(id, allLines, {
-      status: newStatus,
-      ...(newStatus === TimeGatePayrollRunStatus.PAID ? { paidAt: paidAtDate } : {}),
+      return this.updateRunTotals(
+        id,
+        allLines,
+        {
+          status: newStatus,
+          ...(newStatus === TimeGatePayrollRunStatus.PAID ? { paidAt: paidAtDate } : {}),
+        },
+        tx,
+      );
     });
 
     return this.toRunShape(updated);
@@ -565,6 +574,7 @@ export class PayrollRunsService {
       paymentStatus: PayrollLinePaymentStatus;
     }[],
     extra?: Pick<Prisma.TimeGatePayrollRunUpdateInput, 'status' | 'paidAt' | 'lockedAt'>,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const totals: PayrollRunTotals = sumPayrollLineTotals(
       lines.map((line) => ({
@@ -581,7 +591,7 @@ export class PayrollRunsService {
       })),
     );
 
-    return this.prisma.timeGatePayrollRun.update({
+    return client.timeGatePayrollRun.update({
       where: { id: payrollRunId },
       data: {
         totalBaseSalary: toDecimal(totals.totalBaseSalary),
