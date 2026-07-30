@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { LeaveApplicationStatus, Prisma, WeekDay } from '@prisma/client';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
@@ -23,9 +23,11 @@ export class PlanningService {
       throw new BadRequestException('companyId is required for this operation');
     }
 
-    const branchFilter = query.branchId?.trim()
-      ? { branchId: query.branchId.trim() }
-      : {};
+    const branchId = query.branchId?.trim() || undefined;
+    if (branchId) {
+      await this.ensureBranchForCompany(branchId, companyId);
+    }
+    const branchFilter = branchId ? { branchId } : {};
 
     const assignmentWhere: Prisma.ShiftAssignmentWhereInput = {
       companyId,
@@ -184,6 +186,17 @@ export class PlanningService {
   private resolveCompanyFilter(user: JwtUser): string | null {
     if (user.role === 'PLATFORM_ADMIN') return null;
     return user.companyId ?? null;
+  }
+
+  private async ensureBranchForCompany(branchId: string, companyId: string) {
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, companyId: true },
+    });
+    if (!branch || branch.companyId !== companyId) {
+      throw new NotFoundException('Branch not found');
+    }
+    return branch;
   }
 
   private toDateOnly(value: string): Date {

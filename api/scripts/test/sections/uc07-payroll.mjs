@@ -108,6 +108,7 @@ export async function runUc07(ctx) {
     pass(ctx, 'UC-07 Totaux de masse présents')
   } else {
     fail(ctx, 'UC-07 Totaux de masse présents', detail(locked.json))
+    return
   }
 
   const lockedLines = await request(`/payroll-runs/${draftRun.id}/lines`, { headers: auth })

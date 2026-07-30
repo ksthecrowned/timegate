@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import {
   EmployeeStatus,
   KioskStatus,
@@ -276,9 +276,11 @@ export class DashboardService {
       throw new BadRequestException('companyId is required for this operation');
     }
 
-    const branchFilter = query.branchId?.trim()
-      ? { branchId: query.branchId.trim() }
-      : {};
+    const branchId = query.branchId?.trim() || undefined;
+    if (branchId) {
+      await this.ensureBranchForCompany(branchId, companyId);
+    }
+    const branchFilter = branchId ? { branchId } : {};
 
     const employees = await this.prisma.employee.findMany({
       where: {
@@ -433,5 +435,16 @@ export class DashboardService {
   private resolveCompanyFilter(user: JwtUser): string | undefined {
     if (user.role === PLATFORM_ADMIN) return undefined;
     return user.companyId ?? undefined;
+  }
+
+  private async ensureBranchForCompany(branchId: string, companyId: string) {
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: branchId },
+      select: { id: true, companyId: true },
+    });
+    if (!branch || branch.companyId !== companyId) {
+      throw new NotFoundException('Branch not found');
+    }
+    return branch;
   }
 }

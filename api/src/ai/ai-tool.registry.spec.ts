@@ -35,6 +35,9 @@ function createRegistry(lines: unknown[] = []) {
     timeGatePayrollLine: {
       findMany: mock(async () => lines),
     },
+    company: {
+      findUnique: mock(async () => ({ timeZone: 'Africa/Brazzaville' })),
+    },
   };
   const registry = new AiToolRegistry(
     {} as never,
@@ -72,5 +75,56 @@ describe('AiToolRegistry payroll due alerts', () => {
     await registry.execute('get_payroll_due_alerts', {}, admin);
 
     expect(prisma.timeGatePayrollLine.findMany).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('AiToolRegistry payroll by branch', () => {
+  test('rejects foreign branchId without querying lines', async () => {
+    const prisma = {
+      timeGatePayrollLine: { findMany: mock(async () => []) },
+      timeGatePayrollRun: {
+        findFirst: mock(async () => ({
+          id: 'PRUN-1',
+          companyId: 'company-1',
+          year: 2026,
+          month: 6,
+          status: 'LOCKED',
+        })),
+      },
+      branch: {
+        findUnique: mock(async () => ({ companyId: 'other-company' })),
+      },
+    };
+    const payrollRuns = {
+      findOne: mock(async () => ({
+        id: 'PRUN-1',
+        companyId: 'company-1',
+        year: 2026,
+        month: 6,
+        status: 'LOCKED',
+      })),
+    };
+    const registry = new AiToolRegistry(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      prisma as never,
+      payrollRuns as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    );
+
+    const result = await registry.execute(
+      'get_payroll_by_branch',
+      { branchId: 'BR-foreign' },
+      admin,
+    );
+
+    expect(result.data).toMatchObject({ found: false });
+    expect(prisma.timeGatePayrollLine.findMany).not.toHaveBeenCalled();
   });
 });

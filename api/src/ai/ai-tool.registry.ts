@@ -856,10 +856,25 @@ export class AiToolRegistry {
       };
     }
 
+    const branchId =
+      typeof args.branchId === 'string' && args.branchId.trim() ? args.branchId.trim() : undefined;
+    if (branchId) {
+      const branch = await this.prisma.branch.findUnique({
+        where: { id: branchId },
+        select: { companyId: true },
+      });
+      if (!branch || branch.companyId !== this.requireCompanyId(user)) {
+        return {
+          data: { found: false, message: 'Branche introuvable pour cette organisation.' },
+          sources: [{ label: 'Cycles de paie', href: `/payroll-runs/${run.id}` }],
+        };
+      }
+    }
+
     const lines = await this.prisma.timeGatePayrollLine.findMany({
       where: {
         payrollRunId: run.id,
-        ...(typeof args.branchId === 'string' ? { employee: { branchId: args.branchId } } : {}),
+        ...(branchId ? { employee: { branchId } } : {}),
       },
       select: {
         paymentStatus: true,
