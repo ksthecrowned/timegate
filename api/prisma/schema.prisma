@@ -121,6 +121,12 @@ enum TimeGateSalaryStatus {
 enum TimeGatePayrollRunStatus {
   DRAFT
   LOCKED
+  PARTIALLY_PAID
+  PAID
+}
+
+enum PayrollLinePaymentStatus {
+  UNPAID
   PAID
 }
 
@@ -172,6 +178,8 @@ enum TimeGateNotificationType {
   HR_DOCUMENT_MISSING
   OVERTIME_THRESHOLD
   MESSAGE_RECEIVED
+  PAYROLL_DUE_SOON
+  PAYROLL_OVERDUE
 }
 
 enum TimeGateTrustedDeviceStatus {
@@ -285,6 +293,7 @@ model Company {
   compensationGrids          CompensationGrid[]
   employeeCompensationItems  EmployeeCompensationItem[]
   payrollVariableItems       PayrollVariableItem[]
+  payGroups                  PayGroup[]
 
   @@map("tabCompany")
 }
@@ -467,6 +476,9 @@ model Employee {
   defaultShift     ShiftType? @relation(fields: [defaultShiftId], references: [id])
   holidayListId    String? @map("holiday_list") @db.VarChar(140)
   holidayList      HolidayList? @relation(fields: [holidayListId], references: [id], onDelete: SetNull)
+  payGroupId         String?   @map("pay_group") @db.VarChar(140)
+  payGroup           PayGroup? @relation(fields: [payGroupId], references: [id], onDelete: SetNull)
+  payDueDayOverride  Int?      @map("pay_due_day_override")
 
   cellNumber     String? @map("cell_number") @db.VarChar(140)
   personalEmail  String? @map("personal_email") @db.VarChar(140)
@@ -1521,6 +1533,18 @@ model TimeGatePayrollRun {
   ruleVersion String                   @default("v1") @map("rule_version") @db.VarChar(32)
   lockedAt    DateTime?                @map("locked_at")
   paidAt      DateTime?                @map("paid_at")
+  totalBaseSalary           Decimal @default(0) @map("total_base_salary") @db.Decimal(21, 9)
+  totalFixedAllowances      Decimal @default(0) @map("total_fixed_allowances") @db.Decimal(21, 9)
+  totalFixedDeductions      Decimal @default(0) @map("total_fixed_deductions") @db.Decimal(21, 9)
+  totalVariableAllowances   Decimal @default(0) @map("total_variable_allowances") @db.Decimal(21, 9)
+  totalVariableDeductions   Decimal @default(0) @map("total_variable_deductions") @db.Decimal(21, 9)
+  totalOvertime             Decimal @default(0) @map("total_overtime") @db.Decimal(21, 9)
+  totalPenalties            Decimal @default(0) @map("total_penalties") @db.Decimal(21, 9)
+  totalGross                Decimal @default(0) @map("total_gross") @db.Decimal(21, 9)
+  totalNet                  Decimal @default(0) @map("total_net") @db.Decimal(21, 9)
+  linesCount                Int     @default(0) @map("lines_count")
+  paidCount                 Int     @default(0) @map("paid_count")
+  unpaidCount               Int     @default(0) @map("unpaid_count")
 
   lines         TimeGatePayrollLine[]
   variableItems PayrollVariableItem[]
@@ -1553,10 +1577,31 @@ model TimeGatePayrollLine {
   periodStart             DateTime? @map("period_start") @db.Date
   periodEnd               DateTime? @map("period_end") @db.Date
   explainJson             Json?     @map("explain_json")
+  dueDate                 DateTime?                  @map("due_date") @db.Date
+  paidAt                  DateTime?                  @map("paid_at")
+  paymentStatus           PayrollLinePaymentStatus   @default(UNPAID) @map("payment_status")
 
   @@unique([payrollRunId, employeeId])
   @@index([companyId])
+  @@index([payrollRunId, paymentStatus])
+  @@index([payrollRunId, dueDate])
   @@map("timegate_payroll_line")
+}
+
+model PayGroup {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId     String @map("company") @db.VarChar(140)
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name          String @db.VarChar(140)
+  payDayOfMonth Int    @map("pay_day_of_month")
+
+  employees Employee[]
+
+  @@index([companyId])
+  @@map("timegate_pay_group")
 }
 
 model CompensationGrid {
