@@ -37,6 +37,8 @@ export type EmployeePayload = {
   designationId?: string
   employmentTypeId?: string
   holidayListId?: string | null
+  payGroupId?: string | null
+  payDueDayOverride?: number | null
   isActive?: boolean
 }
 

@@ -66,6 +66,8 @@ export default function EditEmployeePage() {
             designationId: employee.designationId ?? '',
             employmentTypeId: employee.employmentTypeId ?? '',
             holidayListId: employee.holidayListId ?? '',
+            payGroupId: employee.payGroupId ?? '',
+            payDueDayOverride: employee.payDueDayOverride ?? null,
             isActive: employee.isActive,
           }}
           onSubmit={async (values) => {

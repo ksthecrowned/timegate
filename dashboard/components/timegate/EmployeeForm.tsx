@@ -7,6 +7,7 @@ import {
     DateField,
     FormField,
     Input,
+    NumberInput,
     SelectSearch,
     SwitcherField,
 } from '@/components/ui/FormField'
@@ -21,6 +22,7 @@ import { listBranches } from '@/lib/timegate/branches'
 import { listCities } from '@/lib/timegate/cities'
 import { listCountries } from '@/lib/timegate/countries'
 import type { EmployeePayload } from '@/lib/timegate/employees'
+import { listPayGroups } from '@/lib/timegate/pay-groups'
 import {
     listDepartments,
     listDesignations,
@@ -101,6 +103,8 @@ export default function EmployeeForm({
     designationId: initial?.designationId ?? '',
     employmentTypeId: initial?.employmentTypeId ?? '',
     holidayListId: initial?.holidayListId ?? '',
+    payGroupId: initial?.payGroupId ?? '',
+    payDueDayOverride: initial?.payDueDayOverride ?? null,
     isActive: initial?.isActive ?? true,
   })
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
@@ -108,6 +112,7 @@ export default function EmployeeForm({
   const [designationOptions, setDesignationOptions] = useState<SelectOption[]>([])
   const [employmentTypeOptions, setEmploymentTypeOptions] = useState<SelectOption[]>([])
   const [holidayListOptions, setHolidayListOptions] = useState<SelectOption[]>([])
+  const [payGroupOptions, setPayGroupOptions] = useState<SelectOption[]>([])
   const [countryOptions, setCountryOptions] = useState<SelectOption[]>([])
   const [countryMetaById, setCountryMetaById] = useState<Record<string, CountryMeta>>({})
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([])
@@ -122,12 +127,14 @@ export default function EmployeeForm({
       listEmploymentTypes(),
       listHolidayLists(),
       listCountries({ limit: 100 }),
-    ]).then(([branches, departments, designations, employmentTypes, holidayLists, countries]) => {
+      listPayGroups({ limit: 100 }),
+    ]).then(([branches, departments, designations, employmentTypes, holidayLists, countries, payGroups]) => {
       setBranchOptions(toSelectOptions(branches.data))
       setDepartmentOptions(toSelectOptions(departments.data))
       setDesignationOptions(toSelectOptions(designations.data))
       setEmploymentTypeOptions(toSelectOptions(employmentTypes.data))
       setHolidayListOptions(toSelectOptions(holidayLists.data))
+      setPayGroupOptions(toSelectOptions(payGroups.data))
       setCountryOptions(countries.data.map((c) => ({ value: c.id, label: c.name })))
       setCountryMetaById(
         Object.fromEntries(
@@ -192,6 +199,8 @@ export default function EmployeeForm({
         designationId: form.designationId || undefined,
         employmentTypeId: form.employmentTypeId || undefined,
         holidayListId: form.holidayListId || null,
+        payGroupId: form.payGroupId || null,
+        payDueDayOverride: form.payDueDayOverride,
       })
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible.')
@@ -406,6 +415,30 @@ export default function EmployeeForm({
               onChange={(opt) => set('holidayListId', opt?.value ?? '')}
               placeholder="Par défaut (entreprise)"
               isClearable
+            />
+          </FormField>
+          <FormField label="Groupe de paie">
+            <SelectSearch
+              instanceId="employee-pay-group"
+              options={payGroupOptions}
+              value={findOption(payGroupOptions, form.payGroupId ?? '')}
+              onChange={(opt) => set('payGroupId', opt?.value ?? '')}
+              placeholder="Optionnel"
+              isClearable
+            />
+          </FormField>
+          <FormField
+            label="Jour d’échéance de paie (override)"
+            hint="Remplace le jour du groupe de paie pour cet employé (1-28)."
+          >
+            <NumberInput
+              min={1}
+              max={28}
+              step={1}
+              value={form.payDueDayOverride ?? ''}
+              onValueChange={(raw) =>
+                set('payDueDayOverride', raw === '' ? null : Number(raw))
+              }
             />
           </FormField>
         </div>

@@ -198,6 +198,11 @@ export const timegateNavSections: NavSection[] = [
         href: '/compensation-grid',
         faIcon: 'fa-solid fa-table-cells',
       },
+      {
+        label: 'Groupes de paie',
+        href: '/pay-groups',
+        faIcon: 'fa-solid fa-people-arrows',
+      },
     ],
   },
   {

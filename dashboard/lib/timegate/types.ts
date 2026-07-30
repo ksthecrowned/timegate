@@ -119,6 +119,9 @@ export type Employee = {
   employmentTypeId?: string | null
   defaultShiftId?: string | null
   holidayListId?: string | null
+  payGroupId?: string | null
+  payDueDayOverride?: number | null
+  payGroup?: { id: string; name: string; payDayOfMonth: number } | null
   birthDate?: string | null
   gender?: string | null
   nationality?: string | null
@@ -462,6 +465,15 @@ export type CompensationGridEntry = {
   baseSalary: number
   effectiveFrom: string
   effectiveTo?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export type PayGroup = {
+  id: string
+  companyId: string
+  name: string
+  payDayOfMonth: number
   createdAt: string
   updatedAt: string
 }

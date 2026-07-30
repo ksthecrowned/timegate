@@ -4,6 +4,7 @@ import type { TimeGateRole } from '@/lib/timegate/types'
 const roleRules: Array<{ prefix: string; roles: TimeGateRole[] }> = [
   { prefix: '/payroll-runs', roles: ['ADMIN'] },
   { prefix: '/compensation-grid', roles: ['ADMIN'] },
+  { prefix: '/pay-groups', roles: ['ADMIN'] },
   { prefix: '/system-config', roles: ['ADMIN'] },
   { prefix: '/subscriptions', roles: ['ADMIN'] },
   { prefix: '/holidays', roles: ['ADMIN'] },
@@ -39,6 +40,7 @@ export const protectedPathPrefixes = [
   '/face-recognition-logs',
   '/payroll-runs',
   '/compensation-grid',
+  '/pay-groups',
   '/holidays',
   '/users',
   '/audit-logs',
