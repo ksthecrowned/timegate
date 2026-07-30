@@ -26,13 +26,21 @@ import { computeBreakDeduction } from '../common/utils/break-calculation.util';
 import { PunchWindowService } from '../attendance/punch-window.service';
 import { ResolvedPunchWindows } from '../attendance/punch-window.types';
 import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  punchEventBoundsForWorkDate,
+  resolveOrgTimeZone,
+  resolvePunchWorkDateKey,
+} from '../common/utils/punch-time.util';
+import {
   roundMinutesToStep,
   TimesheetPolicy,
   DEFAULT_TIMESHEET_POLICY,
 } from '../common/utils/timesheet-policy.util';
 import { NotificationsService } from '../notifications/notifications.service';
 
-const RULE_VERSION = 'v3';
+const RULE_VERSION = 'v4';
 
 type DayEvent = {
   type: TimeGateAttendanceEventType;
@@ -127,6 +135,12 @@ export class TimesheetsService {
       throw new BadRequestException('companyId is required for this operation');
     }
 
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+
     const branchId = dto.branchId;
     const employees = await this.prisma.employee.findMany({
       where: {
@@ -154,7 +168,9 @@ export class TimesheetsService {
     const days = this.enumerateDates(from, to);
     const holidayIndex = await this.holidayCalendar.buildIndexForEmployees(employees, from, to);
     const todayStart = this.startOfUtcDay(new Date());
-    const dayEnd = this.endOfUtcDay(to);
+    const toKey = to.toISOString().slice(0, 10);
+    // Include next local day so overnight morning check-outs still land in range.
+    const eventFetchEnd = punchEventBoundsForWorkDate(toKey, timeZone, true).end;
     const employeeIds = employees.map((e) => e.id);
 
     const shiftIds = [
@@ -191,7 +207,7 @@ export class TimesheetsService {
       where: {
         companyId,
         employeeId: { in: employeeIds },
-        occurredAt: { gte: from, lte: dayEnd },
+        occurredAt: { gte: from, lte: eventFetchEnd },
       },
       select: {
         employeeId: true,
@@ -202,10 +218,28 @@ export class TimesheetsService {
       orderBy: { occurredAt: 'asc' },
     });
 
+    const windowsCache = new Map<string, ResolvedPunchWindows | null>();
+    const resolveWindows = async (employeeId: string, dateKey: string) => {
+      const cacheKey = `${employeeId}:${dateKey}`;
+      if (windowsCache.has(cacheKey)) return windowsCache.get(cacheKey) ?? null;
+      const windows = await this.punchWindows.resolveForEmployee(
+        employeeId,
+        new Date(`${dateKey}T00:00:00.000Z`),
+      );
+      windowsCache.set(cacheKey, windows);
+      return windows;
+    };
+
     const eventsByEmployeeDay = new Map<string, DayEvent[]>();
     for (const event of events) {
       if (!event.employeeId) continue;
-      const dayKey = `${event.employeeId}:${this.startOfUtcDay(event.occurredAt).toISOString()}`;
+      const todayKey = dateKeyInTimeZone(event.occurredAt, timeZone);
+      const yesterdayKey = dateKeyAddDays(todayKey, -1);
+      const atMin = dateToMinutesInTimeZone(event.occurredAt, timeZone);
+      const yesterdayWindows = await resolveWindows(event.employeeId, yesterdayKey);
+      const workDateKey = resolvePunchWorkDateKey(todayKey, atMin, yesterdayWindows);
+      const dayIso = new Date(`${workDateKey}T00:00:00.000Z`).toISOString();
+      const dayKey = `${event.employeeId}:${dayIso}`;
       const bucket = eventsByEmployeeDay.get(dayKey) ?? [];
       bucket.push({
         type: event.type,
@@ -230,13 +264,10 @@ export class TimesheetsService {
       for (const day of days) {
         const dayKey = `${employee.id}:${day.toISOString()}`;
         const dayEvents = eventsByEmployeeDay.get(dayKey) ?? [];
-        const prevDay = new Date(day);
-        prevDay.setUTCDate(prevDay.getUTCDate() - 1);
-        const prevDayKey = `${employee.id}:${prevDay.toISOString()}`;
+        const workDateKey = day.toISOString().slice(0, 10);
+        const prevDayKey = `${employee.id}:${new Date(`${dateKeyAddDays(workDateKey, -1)}T00:00:00.000Z`).toISOString()}`;
         const previousDayEvents = eventsByEmployeeDay.get(prevDayKey) ?? [];
-        const windowAt = new Date(day);
-        windowAt.setUTCHours(12, 0, 0, 0);
-        const punchWindows = await this.punchWindows.resolveForEmployee(employee.id, windowAt);
+        const punchWindows = await resolveWindows(employee.id, workDateKey);
         const shiftGrace = shiftWindow?.lateGraceMinutes ?? policy.lateGraceMinutes;
         const metrics = this.computeDayMetrics(
           day,
