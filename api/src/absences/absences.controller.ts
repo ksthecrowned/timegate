@@ -20,8 +20,8 @@ export class AbsencesController {
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post()
-  create(@Body() dto: CreateAbsenceDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateAbsenceDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()

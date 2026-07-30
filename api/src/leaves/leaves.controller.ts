@@ -19,8 +19,8 @@ export class LeavesController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateLeaveDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateLeaveDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()

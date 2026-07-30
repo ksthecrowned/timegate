@@ -179,15 +179,18 @@ export class EmployeePortalService {
       supportDocumentUrl = uploaded;
     }
 
-    return this.leaves.create({
-      employeeId,
-      startDate: dto.startDate,
-      endDate: dto.endDate,
-      reason: dto.reason,
-      leaveTypeId: dto.leaveTypeId,
-      status: LegacyLeaveStatus.PENDING,
-      supportDocumentUrl,
-    });
+    return this.leaves.create(
+      {
+        employeeId,
+        startDate: dto.startDate,
+        endDate: dto.endDate,
+        reason: dto.reason,
+        leaveTypeId: dto.leaveTypeId,
+        status: LegacyLeaveStatus.PENDING,
+        supportDocumentUrl,
+      },
+      user,
+    );
   }
 
   getMyLeaveBalances(user: JwtUser, query: LeaveBalanceQueryDto) {

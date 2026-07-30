@@ -30,7 +30,7 @@ export class LeavesService {
     private notifications: NotificationsService,
   ) {}
 
-  async create(dto: CreateLeaveDto) {
+  async create(dto: CreateLeaveDto, user: JwtUser) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: dto.employeeId },
       select: { id: true, companyId: true, branchId: true, firstName: true, lastName: true, employeeName: true },
@@ -39,6 +39,7 @@ export class LeavesService {
     if (!employee.companyId) {
       throw new BadRequestException('Employee is not linked to a company');
     }
+    this.assertCompanyAccess(user, employee.companyId);
 
     const fromDate = this.toDateOnly(dto.startDate);
     const toDate = this.toDateOnly(dto.endDate);
@@ -50,6 +51,9 @@ export class LeavesService {
       ? await this.prisma.leaveType.findUnique({ where: { id: dto.leaveTypeId } })
       : await this.ensureDefaultLeaveType(employee.companyId);
     if (!leaveType) throw new NotFoundException('Leave type not found');
+    if (leaveType.companyId && leaveType.companyId !== employee.companyId) {
+      throw new NotFoundException('Leave type not found');
+    }
 
     const status = this.toApplicationStatus(dto.status);
 
@@ -177,7 +181,26 @@ export class LeavesService {
     if (dto.leaveTypeId) {
       const lt = await this.prisma.leaveType.findUnique({ where: { id: dto.leaveTypeId } });
       if (!lt) throw new NotFoundException('Leave type not found');
+      if (lt.companyId && lt.companyId !== current.companyId) {
+        throw new NotFoundException('Leave type not found');
+      }
       leaveTypeId = lt.id;
+    }
+
+    let nextEmployeeId = current.employeeId;
+    let nextCompanyId = current.companyId;
+    if (dto.employeeId && dto.employeeId !== current.employeeId) {
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: dto.employeeId },
+        select: { id: true, companyId: true },
+      });
+      if (!employee) throw new NotFoundException('Employee not found');
+      this.assertCompanyAccess(user, employee.companyId);
+      if (employee.companyId !== current.companyId) {
+        throw new ForbiddenException('Access denied for this company');
+      }
+      nextEmployeeId = employee.id;
+      nextCompanyId = employee.companyId;
     }
 
     const nextStatus =
@@ -185,7 +208,7 @@ export class LeavesService {
 
     const effectiveFrom = fromDate ?? current.fromDate;
     const effectiveTo = toDate ?? current.toDate;
-    const effectiveEmployeeId = dto.employeeId ?? current.employeeId;
+    const effectiveEmployeeId = nextEmployeeId;
 
     if (
       nextStatus === LeaveApplicationStatus.APPROVED &&
@@ -204,7 +227,9 @@ export class LeavesService {
     const updated = await this.prisma.leaveApplication.update({
       where: { id },
       data: {
-        ...(dto.employeeId !== undefined ? { employeeId: dto.employeeId } : {}),
+        ...(dto.employeeId !== undefined
+          ? { employeeId: nextEmployeeId, companyId: nextCompanyId }
+          : {}),
         leaveTypeId,
         ...(fromDate !== undefined ? { fromDate } : {}),
         ...(toDate !== undefined ? { toDate } : {}),

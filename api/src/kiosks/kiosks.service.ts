@@ -20,12 +20,13 @@ export class KiosksService {
     private readonly realtime: KioskRealtimeService,
   ) {}
 
-  async create(dto: CreateKioskDto) {
+  async create(dto: CreateKioskDto, user: JwtUser) {
     const branchId = dto.branchId;
     if (!branchId) {
       throw new NotFoundException('branchId is required');
     }
     const branch = await this.ensureBranch(branchId);
+    this.assertCompanyAccess(user, branch.companyId);
     await this.subscriptionQuota.assertCanAddKiosk(branch.companyId);
     const settings = await this.prisma.timeGateSystemSettings.findUnique({
       where: { companyId: branch.companyId },
@@ -41,6 +42,9 @@ export class KiosksService {
       qrEnabled: dto.qrEnabled ?? settings?.defaultQrEnabled ?? false,
     };
     this.assertAtLeastOneMethod(resolvedMethods);
+    if (dto.shiftLocationId) {
+      await this.ensureShiftLocationForCompany(dto.shiftLocationId, branch.companyId);
+    }
     const existing = await this.prisma.timeGateKiosk.findUnique({
       where: { branchId },
     });
@@ -130,14 +134,30 @@ export class KiosksService {
         });
       }
     }
+    let nextBranchId: string | undefined;
+    let nextCompanyId: string | undefined;
     if (dto.branchId) {
-      await this.ensureBranch(dto.branchId);
+      const branch = await this.ensureBranch(dto.branchId);
+      this.assertCompanyAccess(user, branch.companyId);
+      nextBranchId = branch.id;
+      nextCompanyId = branch.companyId;
     }
+
+    const effectiveCompanyId = nextCompanyId ?? (await this.prisma.timeGateKiosk.findUnique({
+      where: { id },
+      select: { companyId: true },
+    }))?.companyId;
+    if (dto.shiftLocationId) {
+      await this.ensureShiftLocationForCompany(dto.shiftLocationId, effectiveCompanyId ?? null);
+    }
+
     const updated = await this.prisma.timeGateKiosk.update({
       where: { id },
       data: {
         ...(dto.name !== undefined ? { kioskName: dto.name.trim() } : {}),
-        ...(dto.branchId !== undefined ? { branchId: dto.branchId } : {}),
+        ...(nextBranchId !== undefined
+          ? { branchId: nextBranchId, companyId: nextCompanyId }
+          : {}),
         ...(dto.shiftLocationId !== undefined ? { shiftLocationId: dto.shiftLocationId } : {}),
         ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
         ...(dto.faceEnabled !== undefined ? { faceEnabled: dto.faceEnabled } : {}),
@@ -224,6 +244,25 @@ export class KiosksService {
       throw new NotFoundException('Branch not found');
     }
     return branch;
+  }
+
+  private async ensureShiftLocationForCompany(id: string, companyId: string | null) {
+    const row = await this.prisma.shiftLocation.findUnique({ where: { id } });
+    if (!row) throw new NotFoundException('Shift location not found');
+    if (!companyId) {
+      throw new NotFoundException('Shift location not found');
+    }
+    if (!row.branchId) {
+      throw new BadRequestException('Shift location has no branch assignment');
+    }
+    const branch = await this.prisma.branch.findUnique({
+      where: { id: row.branchId },
+      select: { companyId: true },
+    });
+    if (!branch || branch.companyId !== companyId) {
+      throw new NotFoundException('Shift location not found');
+    }
+    return row;
   }
 
   private toApiShape(kiosk: {

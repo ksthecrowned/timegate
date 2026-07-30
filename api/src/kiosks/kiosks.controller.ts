@@ -19,8 +19,8 @@ export class KiosksController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateKioskDto) {
-    return this.kiosks.create(dto);
+  create(@Body() dto: CreateKioskDto, @CurrentUser() user: JwtUser) {
+    return this.kiosks.create(dto, user);
   }
 
   @Get()

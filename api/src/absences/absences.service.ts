@@ -30,7 +30,7 @@ export class AbsencesService {
     private punchWindows: PunchWindowService,
   ) {}
 
-  async create(dto: CreateAbsenceDto) {
+  async create(dto: CreateAbsenceDto, user: JwtUser) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: dto.employeeId },
       select: { id: true, companyId: true },
@@ -39,6 +39,7 @@ export class AbsencesService {
     if (!employee.companyId) {
       throw new BadRequestException('Employee is not linked to a company');
     }
+    this.assertCompanyAccess(user, employee.companyId);
 
     const recordDate = this.toDateOnly(dto.date);
     const windows = await this.punchWindows.resolveForEmployee(dto.employeeId, recordDate);
@@ -125,10 +126,28 @@ export class AbsencesService {
     if (!existing) throw new NotFoundException('Absence not found');
     this.assertCompanyAccess(user, existing.companyId);
 
+    let nextEmployeeId = existing.employeeId;
+    let nextCompanyId = existing.companyId;
+    if (dto.employeeId && dto.employeeId !== existing.employeeId) {
+      const employee = await this.prisma.employee.findUnique({
+        where: { id: dto.employeeId },
+        select: { id: true, companyId: true },
+      });
+      if (!employee?.companyId) throw new NotFoundException('Employee not found');
+      this.assertCompanyAccess(user, employee.companyId);
+      if (employee.companyId !== existing.companyId) {
+        throw new ForbiddenException('Access denied for this company');
+      }
+      nextEmployeeId = employee.id;
+      nextCompanyId = employee.companyId;
+    }
+
     const updated = await this.prisma.timeGateAbsenceRecord.update({
       where: { id },
       data: {
-        ...(dto.employeeId ? { employeeId: dto.employeeId } : {}),
+        ...(dto.employeeId
+          ? { employeeId: nextEmployeeId, companyId: nextCompanyId }
+          : {}),
         ...(dto.date ? { recordDate: this.toDateOnly(dto.date) } : {}),
         ...(typeof dto.justified === 'boolean' ? { justified: dto.justified } : {}),
         ...(dto.reason !== undefined ? { reason: dto.reason?.trim() || null } : {}),

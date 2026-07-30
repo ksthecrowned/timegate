@@ -20,8 +20,8 @@ export class LateRecordsController {
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post()
-  create(@Body() dto: CreateLateRecordDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateLateRecordDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()
