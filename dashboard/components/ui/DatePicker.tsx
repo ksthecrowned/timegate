@@ -9,8 +9,9 @@ function stripTime(date: Date): Date {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate())
 }
 
-const fieldClass =
-  'py-3 px-4 block w-full border border-slate-200/80 rounded-lg text-sm bg-surface focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600 cursor-pointer'
+function cn(...parts: Array<string | false | undefined>) {
+  return parts.filter(Boolean).join(' ')
+}
 
 export interface DatePickerProps {
   value?: Date | null
@@ -24,6 +25,8 @@ export interface DatePickerProps {
   id?: string
   fromYear?: number
   toYear?: number
+  /** `toolbar` : hauteur réduite pour barres d’outils (filtres). */
+  variant?: 'default' | 'toolbar'
 }
 
 export function DatePicker({
@@ -38,12 +41,14 @@ export function DatePicker({
   id,
   fromYear,
   toYear,
+  variant = 'default',
 }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
   const currentYear = new Date().getFullYear()
   const resolvedFromYear = fromYear ?? Math.max(1950, currentYear - 80)
   const resolvedToYear = toYear ?? currentYear + 20
+  const isToolbar = variant === 'toolbar'
 
   useEffect(() => {
     if (!open) return
@@ -56,7 +61,15 @@ export function DatePicker({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
-  const errorClass = error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''
+  const fieldClass = cn(
+    'block w-full border rounded-lg text-sm bg-surface cursor-pointer',
+    'focus:border-primary focus:ring-primary disabled:opacity-50 disabled:pointer-events-none',
+    'dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:placeholder-slate-500 dark:focus:ring-neutral-600',
+    isToolbar
+      ? 'py-2 px-2.5 pe-16 border-slate-200/80'
+      : 'py-3 px-4 pe-20 border-slate-200/80',
+    error && 'border-red-400 focus:border-red-400 focus:ring-red-400',
+  )
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
@@ -68,7 +81,7 @@ export function DatePicker({
           value={formatDisplayDate(value)}
           placeholder={placeholder}
           onClick={() => !disabled && setOpen((o) => !o)}
-          className={`${fieldClass} pe-20 ${errorClass}`}
+          className={fieldClass}
           aria-haspopup="dialog"
           aria-expanded={open}
         />
@@ -80,7 +93,10 @@ export function DatePicker({
               e.stopPropagation()
               onChange?.(null)
             }}
-            className="absolute end-10 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400"
+            className={cn(
+              'absolute top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400',
+              isToolbar ? 'end-8' : 'end-10',
+            )}
             aria-label="Effacer la date"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -93,10 +109,19 @@ export function DatePicker({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => !disabled && setOpen((o) => !o)}
-          className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-primary disabled:opacity-50 dark:text-slate-500 dark:hover:text-teal-300"
+          className={cn(
+            'absolute top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-primary disabled:opacity-50 dark:text-slate-500 dark:hover:text-teal-300',
+            isToolbar ? 'end-2.5' : 'end-3',
+          )}
           aria-label="Ouvrir le calendrier"
         >
-          <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <svg
+            className={isToolbar ? 'size-4' : 'size-5'}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
             <path
               strokeLinecap="round"
               strokeLinejoin="round"

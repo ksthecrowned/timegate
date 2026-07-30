@@ -30,8 +30,8 @@ export async function runUc07(ctx) {
   else fail(ctx, 'UC-07 Export CSV paie', detail(exportRes.json))
 
   const grid = await request('/compensation-grid?page=1&limit=20', { headers: auth })
-  if (grid.res.status === 200) pass(ctx, 'UC-07 Grille de rémunération liste')
-  else fail(ctx, 'UC-07 Grille de rémunération liste', String(grid.res.status))
+  if (grid.res.status === 200) pass(ctx, 'UC-07 Grille salariale liste')
+  else fail(ctx, 'UC-07 Grille salariale liste', String(grid.res.status))
 
   const draftRun = await ensureDraftPayrollRun(ctx, auth, 'UC-07 Paie brouillon créée')
   if (!draftRun?.id) {

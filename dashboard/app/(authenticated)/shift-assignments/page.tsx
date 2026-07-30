@@ -56,10 +56,6 @@ export default function ShiftAssignmentsPage() {
           <AddPageLink href="/shift-assignments/new" label="Ajouter une affectation" />
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Lie un employé à un horaire (jours + heures). Sans affectation, rien n&apos;est prévu au
-        pointage ni au planning.
-      </p>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}

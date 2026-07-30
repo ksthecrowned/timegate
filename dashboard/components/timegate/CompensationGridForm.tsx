@@ -70,7 +70,7 @@ export default function CompensationGridForm({
   return (
     <form onSubmit={handleSubmit}>
       <FormCard
-        title="Grille de rémunération"
+        title="Grille salariale"
         footer={
           <>
             {onCancel && (

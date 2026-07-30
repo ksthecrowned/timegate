@@ -33,8 +33,8 @@ export default function PageHeader({ breadcrumbs, action }: PageHeaderProps) {
 
   return (
     <div className="mb-5 rounded-xl border border-slate-200/80 bg-surface-card px-4 py-3 shadow-xs dark:border-border-dark dark:bg-surface-card-dark md:px-5 md:py-4">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 space-y-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="min-w-0">
           <ol className="flex min-w-0 items-center whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
             <li className="inline-flex items-center">
               <Link
@@ -79,10 +79,6 @@ export default function PageHeader({ breadcrumbs, action }: PageHeaderProps) {
               {pageTitle}
             </li>
           </ol>
-
-          <h1 className="truncate text-lg font-semibold text-slate-800 dark:text-slate-100 md:text-xl">
-            {pageTitle}
-          </h1>
         </div>
 
         {action ? <div className="shrink-0">{action}</div> : null}

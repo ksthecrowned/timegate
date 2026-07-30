@@ -11,7 +11,7 @@ export default function NewCompensationGridPage() {
     <div>
       <PageHeader
         breadcrumbs={[
-          { label: 'Grille de rémunération', href: '/compensation-grid' },
+          { label: 'Grille salariale', href: '/compensation-grid' },
           { label: 'Ajouter' },
         ]}
       />

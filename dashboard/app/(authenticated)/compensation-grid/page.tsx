@@ -73,7 +73,7 @@ export default function CompensationGridPage() {
   return (
     <div>
       <PageHeader
-        breadcrumbs={[{ label: 'Grille de rémunération' }]}
+        breadcrumbs={[{ label: 'Grille salariale' }]}
         action={<AddPageLink href="/compensation-grid/new" label="Nouvelle entrée" />}
       />
       <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">

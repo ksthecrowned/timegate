@@ -5,8 +5,12 @@ import {
   TeamSummaryCard,
 } from '@/components/manager/TeamSummaryCard'
 import { ApiErrorBanner, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
+import { DateField, SelectSearch } from '@/components/ui/FormField'
+import IconMenuDropdown from '@/components/ui/IconMenuDropdown'
 import PageHeader from '@/components/ui/PageHeader'
+import type { SelectOption } from '@/components/ui/select-search-types'
 import { HttpError } from '@/lib/http'
+import { findOption, toSelectOptions } from '@/lib/select-options'
 import { listBranches } from '@/lib/timegate/branches'
 import {
   getManagerTeamToday,
@@ -75,7 +79,7 @@ export default function ManagerTeamPage() {
   const today = useMemo(() => isoTodayLocal(), [])
   const [date, setDate] = useState(today)
   const [branchId, setBranchId] = useState('')
-  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
+  const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
   const [members, setMembers] = useState<TeamTodayMember[]>([])
   const [summary, setSummary] = useState<Record<string, number> | null>(null)
   const [statusFilter, setStatusFilter] = useState<TeamMemberStatus | 'ALL'>('ALL')
@@ -86,9 +90,7 @@ export default function ManagerTeamPage() {
   const isFuture = date > today
 
   useEffect(() => {
-    void listBranches({ limit: 100 }).then((res) =>
-      setBranches(res.data.map((b) => ({ id: b.id, name: b.name }))),
-    )
+    void listBranches({ limit: 100 }).then((res) => setBranchOptions(toSelectOptions(res.data)))
   }, [])
 
   const load = useCallback(async () => {
@@ -247,11 +249,11 @@ export default function ManagerTeamPage() {
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Date
             </label>
-            <input
-              type="date"
+            <DateField
+              variant="toolbar"
               value={date}
-              onChange={(e) => setDate(e.target.value)}
-              className="block w-full cursor-pointer rounded-lg border border-slate-200/80 bg-surface px-3 py-2.5 text-sm focus:border-primary focus:ring-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
+              onChange={setDate}
+              placeholder="Date"
             />
           </div>
 
@@ -259,18 +261,15 @@ export default function ManagerTeamPage() {
             <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
               Branche
             </label>
-            <select
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-              className="block w-full cursor-pointer rounded-lg border border-slate-200/80 bg-surface px-3 py-2.5 text-sm focus:border-primary focus:ring-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
-            >
-              <option value="">Toutes</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
+            <SelectSearch
+              instanceId="manager-team-branch"
+              variant="toolbar"
+              options={branchOptions}
+              value={findOption(branchOptions, branchId)}
+              onChange={(opt) => setBranchId(opt?.value ?? '')}
+              placeholder="Toutes"
+              isClearable={Boolean(branchId)}
+            />
           </div>
 
           <div className="min-w-48 flex-1 sm:max-w-sm">
@@ -284,26 +283,18 @@ export default function ManagerTeamPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Nom, branche, statut…"
-                className="block w-full rounded-lg border border-slate-200/80 bg-surface py-2.5 pl-9 pr-3 text-sm focus:border-primary focus:ring-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
+                className="block w-full rounded-lg border border-slate-200/80 bg-surface py-2 pl-9 pr-3 text-sm focus:border-primary focus:ring-primary dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
               />
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 pb-0.5">
-            {datePresets.map((preset) => (
-              <button
-                key={preset.value}
-                type="button"
-                onClick={() => setDate(preset.value)}
-                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  date === preset.value
-                    ? 'bg-primary text-white'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15'
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
+            <IconMenuDropdown
+              options={datePresets}
+              value={date}
+              onChange={setDate}
+              ariaLabel="Raccourcis de date"
+            />
             <button
               type="button"
               onClick={() => void load()}

@@ -17,9 +17,6 @@ export default function EmployeeIdentityHub({ employee, onUpdated }: Props) {
       <h2 className="mb-4 text-xl font-semibold text-gray-900 dark:text-white">
         Identité & pointage kiosk
       </h2>
-      <p className="mb-4 text-sm text-gray-600 dark:text-neutral-400">
-        Le pointage QR se fait désormais via l’app employé (scan du QR affiché sur le kiosk).
-      </p>
       <EmployeePunchEligibilityCard employee={employee} />
       <div className="grid grid-cols-2 gap-4">
         <FaceEnrollCard
