@@ -9,6 +9,11 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { fromDecimal, roundMoney } from '../common/utils/money.util';
 import { employeeSummarySelect } from '../common/utils/employee-summary.util';
+import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import { CompensationGridService } from '../compensation-grid/compensation-grid.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { PlanningVsActualQueryDto } from '../dashboard/dto/planning-vs-actual-query.dto';
@@ -334,22 +339,29 @@ export class AiToolRegistry {
     return user.companyId;
   }
 
-  private toDateOnly(value?: unknown): string {
+  private async resolveTimeZone(user: JwtUser): Promise<string> {
+    if (!user.companyId) return resolveOrgTimeZone(null);
+    const company = await this.prisma.company.findUnique({
+      where: { id: user.companyId },
+      select: { timeZone: true },
+    });
+    return resolveOrgTimeZone(company?.timeZone);
+  }
+
+  private toDateOnly(value: unknown | undefined, timeZone: string): string {
     if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-    return new Date().toISOString().slice(0, 10);
+    return dateKeyInTimeZone(new Date(), timeZone);
   }
 
-  private weekRange(): { from: string; to: string } {
-    const to = new Date();
-    const from = new Date(to);
-    from.setUTCDate(from.getUTCDate() - 6);
-    return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+  private weekRange(timeZone: string): { from: string; to: string } {
+    const to = dateKeyInTimeZone(new Date(), timeZone);
+    return { from: dateKeyAddDays(to, -6), to };
   }
 
-  private monthRange(): { from: string; to: string } {
-    const now = new Date();
-    const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
-    return { from: from.toISOString().slice(0, 10), to: now.toISOString().slice(0, 10) };
+  private monthRange(timeZone: string): { from: string; to: string } {
+    const to = dateKeyInTimeZone(new Date(), timeZone);
+    const [year, month] = to.split('-');
+    return { from: `${year}-${month}-01`, to };
   }
 
   private sanitizeEmployee(employee: {
@@ -383,8 +395,9 @@ export class AiToolRegistry {
   }
 
   private async getTeamToday(args: Record<string, unknown>, user: JwtUser) {
+    const timeZone = await this.resolveTimeZone(user);
     const dto = new ManagerTeamTodayQueryDto();
-    dto.date = this.toDateOnly(args.date);
+    dto.date = this.toDateOnly(args.date, timeZone);
     if (typeof args.branchId === 'string') dto.branchId = args.branchId;
     const result = await this.manager.teamToday(dto, user);
     const statusFilter = (args.statusFilter as TeamMemberStatus | 'ALL' | undefined) ?? 'ALL';
@@ -446,7 +459,11 @@ export class AiToolRegistry {
 
   private async getWeeklyAnomalies(args: Record<string, unknown>, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
-    const range = args.from && args.to ? { from: String(args.from), to: String(args.to) } : this.weekRange();
+    const timeZone = await this.resolveTimeZone(user);
+    const range =
+      args.from && args.to
+        ? { from: String(args.from), to: String(args.to) }
+        : this.weekRange(timeZone);
     const from = new Date(`${range.from}T00:00:00.000Z`);
     const to = new Date(`${range.to}T00:00:00.000Z`);
     const stats = await this.managerReport.getWeeklyAnomalyStats(companyId, from, to);
@@ -458,7 +475,11 @@ export class AiToolRegistry {
 
   private async getLateRecords(args: Record<string, unknown>, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
-    const range = args.from && args.to ? { from: String(args.from), to: String(args.to) } : this.weekRange();
+    const timeZone = await this.resolveTimeZone(user);
+    const range =
+      args.from && args.to
+        ? { from: String(args.from), to: String(args.to) }
+        : this.weekRange(timeZone);
     const limit = typeof args.limit === 'number' ? args.limit : 20;
     const query = new PaginationQueryDto();
     query.page = 1;
@@ -488,10 +509,11 @@ export class AiToolRegistry {
 
   private async getPlanningVsActual(args: Record<string, unknown>, user: JwtUser) {
     const dto = new PlanningVsActualQueryDto();
+    const timeZone = await this.resolveTimeZone(user);
     const range =
       args.from && args.to
         ? { from: String(args.from), to: String(args.to) }
-        : this.weekRange();
+        : this.weekRange(timeZone);
     dto.from = range.from;
     dto.to = range.to;
     if (typeof args.branchId === 'string') dto.branchId = args.branchId;
@@ -501,7 +523,11 @@ export class AiToolRegistry {
 
   private async getOvertimeLeaders(args: Record<string, unknown>, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
-    const range = args.from && args.to ? { from: String(args.from), to: String(args.to) } : this.monthRange();
+    const timeZone = await this.resolveTimeZone(user);
+    const range =
+      args.from && args.to
+        ? { from: String(args.from), to: String(args.to) }
+        : this.monthRange(timeZone);
     const limit = typeof args.limit === 'number' ? Math.min(args.limit, 20) : 5;
     const from = new Date(`${range.from}T00:00:00.000Z`);
     const to = new Date(`${range.to}T23:59:59.999Z`);
@@ -681,11 +707,11 @@ export class AiToolRegistry {
 
   private async getPayrollDueAlerts(args: Record<string, unknown>, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
+    const timeZone = await this.resolveTimeZone(user);
     const daysAhead = typeof args.daysAhead === 'number' ? Math.min(Math.max(args.daysAhead, 1), 30) : 3;
-    const dayStart = new Date();
-    dayStart.setUTCHours(0, 0, 0, 0);
-    const cutoff = new Date(dayStart);
-    cutoff.setUTCDate(cutoff.getUTCDate() + daysAhead);
+    const todayKey = dateKeyInTimeZone(new Date(), timeZone);
+    const dayStart = new Date(`${todayKey}T00:00:00.000Z`);
+    const cutoff = new Date(`${dateKeyAddDays(todayKey, daysAhead)}T00:00:00.000Z`);
 
     const select = {
       id: true,
@@ -1013,11 +1039,11 @@ export class AiToolRegistry {
 
   private async getUpcomingPayDues(args: Record<string, unknown>, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
+    const timeZone = await this.resolveTimeZone(user);
     const days = typeof args.days === 'number' ? Math.min(Math.max(args.days, 1), 60) : 7;
-    const dayStart = new Date();
-    dayStart.setUTCHours(0, 0, 0, 0);
-    const cutoff = new Date(dayStart);
-    cutoff.setUTCDate(cutoff.getUTCDate() + days);
+    const todayKey = dateKeyInTimeZone(new Date(), timeZone);
+    const dayStart = new Date(`${todayKey}T00:00:00.000Z`);
+    const cutoff = new Date(`${dateKeyAddDays(todayKey, days)}T00:00:00.000Z`);
 
     const lines = await this.prisma.timeGatePayrollLine.findMany({
       where: {

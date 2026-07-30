@@ -18,7 +18,12 @@ import {
   buildDayPunchStateFromEvents,
   PunchWindowService,
 } from './punch-window.service';
-import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import {
   DEFAULT_BRANCH_CHECKIN_RADIUS_M,
   isWithinBranchRadius,
@@ -57,7 +62,7 @@ export class EmployeeBreakPunchService {
     }
     const ctx = await this.loadEmployeeContext(user);
     const branchGeo = this.branchGeoShape(ctx.branch);
-    const resolution = await this.resolveNow(ctx.employeeId, new Date());
+    const resolution = await this.resolveNow(ctx.employeeId, ctx.companyId, new Date());
 
     if (!resolution.windows) {
       return {
@@ -119,7 +124,7 @@ export class EmployeeBreakPunchService {
     }
 
     const occurredAt = new Date();
-    const resolution = await this.resolveNow(ctx.employeeId, occurredAt);
+    const resolution = await this.resolveNow(ctx.employeeId, ctx.companyId, occurredAt);
 
     if (!resolution.windows) {
       throw new BadRequestException('Horaires de pointage non configurés.');
@@ -213,7 +218,7 @@ export class EmployeeBreakPunchService {
     };
   }
 
-  private async resolveNow(employeeId: string, occurredAt: Date) {
+  private async resolveNow(employeeId: string, companyId: string, occurredAt: Date) {
     const windows = await this.punchWindows.resolveForEmployee(employeeId, occurredAt);
     if (!windows) {
       return {
@@ -222,16 +227,19 @@ export class EmployeeBreakPunchService {
       };
     }
 
-    const dayStart = new Date(occurredAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(occurredAt);
-    dayEnd.setHours(23, 59, 59, 999);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const dayKey = dateKeyInTimeZone(occurredAt, timeZone);
+    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
 
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: dayStart, lte: dayEnd },
+        occurredAt: { gte: bounds.start, lte: bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
@@ -239,7 +247,7 @@ export class EmployeeBreakPunchService {
 
     const state = buildDayPunchStateFromEvents(todaysEvents);
     const resolution = resolveAttendancePunch(
-      dateToMinutes(occurredAt),
+      dateToMinutesInTimeZone(occurredAt, timeZone),
       windows,
       state,
     );

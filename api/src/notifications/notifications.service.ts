@@ -14,6 +14,12 @@ import { PushDeliveryService } from '../push/push-delivery.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { UpdateNotificationRuleDto } from './dto/update-notification-rule.dto';
 import { NotificationEmailService } from './notification-email.service';
+import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 
 export type EmitNotificationInput = {
   companyId: string;
@@ -280,70 +286,88 @@ export class NotificationsService {
   }
 
   async notifyPayrollDueAlerts(now = new Date()) {
-    const dayStart = startOfUtcDay(now);
-    const dueSoonCutoff = addUtcDays(dayStart, 3);
-    // Overdue alert only fires on J+1 (spec), so the earliest relevant due date is "yesterday".
-    const overdueFloor = addUtcDays(dayStart, -1);
-    const dayKey = dayStart.toISOString().slice(0, 10);
-    const lines = await this.prisma.timeGatePayrollLine.findMany({
+    const companies = await this.prisma.company.findMany({
       where: {
-        paymentStatus: 'UNPAID',
-        dueDate: { not: null, gte: overdueFloor, lte: dueSoonCutoff },
-        payrollRun: { status: { not: 'DRAFT' } },
+        timeGatePayrollRuns: {
+          some: {
+            status: { not: 'DRAFT' },
+            lines: { some: { paymentStatus: 'UNPAID', dueDate: { not: null } } },
+          },
+        },
       },
-      select: {
-        id: true,
-        companyId: true,
-        employeeId: true,
-        dueDate: true,
-        employee: { select: { employeeName: true, firstName: true, lastName: true } },
-        payrollRun: { select: { id: true, status: true } },
-      },
+      select: { id: true, timeZone: true },
     });
     const adminIdsByCompany = new Map<string, string[]>();
 
-    for (const line of lines) {
-      if (!line.dueDate) continue;
-      const daysUntilDue = Math.round(
-        (startOfUtcDay(line.dueDate).getTime() - dayStart.getTime()) / 86_400_000,
-      );
-      const type =
-        daysUntilDue === 3 || daysUntilDue === 1
-          ? TimeGateNotificationType.PAYROLL_DUE_SOON
-          : daysUntilDue === -1
-            ? TimeGateNotificationType.PAYROLL_OVERDUE
-            : null;
-      if (!type) continue;
-
-      let adminIds = adminIdsByCompany.get(line.companyId);
-      if (!adminIds) {
-        adminIds = await this.resolveAdminUserIds(line.companyId);
-        adminIdsByCompany.set(line.companyId, adminIds);
-      }
-      if (adminIds.length === 0) continue;
-
-      const dueDateLabel = line.dueDate.toISOString().slice(0, 10);
-      const employeeName =
-        `${line.employee.firstName ?? ''} ${line.employee.lastName ?? ''}`.trim() ||
-        line.employee.employeeName;
-      const isOverdue = type === TimeGateNotificationType.PAYROLL_OVERDUE;
-      await this.emit({
-        companyId: line.companyId,
-        userIds: adminIds,
-        type,
-        title: isOverdue ? 'Paiement de paie en retard' : 'Échéance de paie proche',
-        body: isOverdue
-          ? `${employeeName} — paiement non réglé depuis l'échéance du ${dueDateLabel}.`
-          : `${employeeName} — paiement dû le ${dueDateLabel} (dans ${daysUntilDue} jour(s)).`,
-        meta: {
-          payrollLineId: line.id,
-          payrollRunId: line.payrollRun.id,
-          employeeId: line.employeeId,
-          dueDate: dueDateLabel,
-          alertDay: dayKey,
+    for (const company of companies) {
+      const timeZone = resolveOrgTimeZone(company.timeZone);
+      const localHour = Math.floor(dateToMinutesInTimeZone(now, timeZone) / 60);
+      if (localHour !== 8) continue;
+      const dayKey = dateKeyInTimeZone(now, timeZone);
+      const overdueKey = dateKeyAddDays(dayKey, -1);
+      const dueSoonMaxKey = dateKeyAddDays(dayKey, 3);
+      const lines = await this.prisma.timeGatePayrollLine.findMany({
+        where: {
+          companyId: company.id,
+          paymentStatus: 'UNPAID',
+          dueDate: {
+            not: null,
+            gte: new Date(`${overdueKey}T00:00:00.000Z`),
+            lte: new Date(`${dueSoonMaxKey}T00:00:00.000Z`),
+          },
+          payrollRun: { status: { not: 'DRAFT' } },
         },
-        dedupeKey: `payroll-due-alert:${type}:${line.id}:${dayKey}`,
+        select: {
+          id: true,
+          companyId: true,
+          employeeId: true,
+          dueDate: true,
+          employee: { select: { employeeName: true, firstName: true, lastName: true } },
+          payrollRun: { select: { id: true, status: true } },
+        },
       });
+
+      for (const line of lines) {
+        if (!line.dueDate) continue;
+        const dueDateLabel = line.dueDate.toISOString().slice(0, 10);
+        const daysUntilDue = dateKeyDiffDays(dayKey, dueDateLabel);
+        const type =
+          daysUntilDue === 3 || daysUntilDue === 1
+            ? TimeGateNotificationType.PAYROLL_DUE_SOON
+            : daysUntilDue === -1
+              ? TimeGateNotificationType.PAYROLL_OVERDUE
+              : null;
+        if (!type) continue;
+
+        let adminIds = adminIdsByCompany.get(line.companyId);
+        if (!adminIds) {
+          adminIds = await this.resolveAdminUserIds(line.companyId);
+          adminIdsByCompany.set(line.companyId, adminIds);
+        }
+        if (adminIds.length === 0) continue;
+
+        const employeeName =
+          `${line.employee.firstName ?? ''} ${line.employee.lastName ?? ''}`.trim() ||
+          line.employee.employeeName;
+        const isOverdue = type === TimeGateNotificationType.PAYROLL_OVERDUE;
+        await this.emit({
+          companyId: line.companyId,
+          userIds: adminIds,
+          type,
+          title: isOverdue ? 'Paiement de paie en retard' : 'Échéance de paie proche',
+          body: isOverdue
+            ? `${employeeName} — paiement non réglé depuis l'échéance du ${dueDateLabel}.`
+            : `${employeeName} — paiement dû le ${dueDateLabel} (dans ${daysUntilDue} jour(s)).`,
+          meta: {
+            payrollLineId: line.id,
+            payrollRunId: line.payrollRun.id,
+            employeeId: line.employeeId,
+            dueDate: dueDateLabel,
+            alertDay: dayKey,
+          },
+          dedupeKey: `payroll-due-alert:${type}:${line.id}:${dayKey}`,
+        });
+      }
     }
   }
 
@@ -1074,12 +1098,8 @@ function flattenPushMeta(meta: Prisma.InputJsonValue | undefined): Record<string
   return out;
 }
 
-function startOfUtcDay(value: Date): Date {
-  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
-}
-
-function addUtcDays(value: Date, days: number): Date {
-  const result = new Date(value);
-  result.setUTCDate(result.getUTCDate() + days);
-  return result;
+function dateKeyDiffDays(fromKey: string, toKey: string): number {
+  const from = new Date(`${fromKey}T00:00:00.000Z`);
+  const to = new Date(`${toKey}T00:00:00.000Z`);
+  return Math.round((to.getTime() - from.getTime()) / 86_400_000);
 }

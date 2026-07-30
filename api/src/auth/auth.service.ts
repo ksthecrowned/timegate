@@ -59,7 +59,12 @@ import {
   buildDayPunchStateFromEvents,
   PunchWindowService,
 } from '../attendance/punch-window.service';
-import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import {
   buildKioskQrChallengePayload,
   generateKioskQrChallengeSecret,
@@ -2229,16 +2234,19 @@ export class AuthService {
       return this.applyLegacyAttendanceFromVerification(params, occurredAt, employee.branchId);
     }
 
-    const dayStart = new Date(occurredAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(occurredAt);
-    dayEnd.setHours(23, 59, 59, 999);
+    const company = await this.prisma.company.findUnique({
+      where: { id: params.companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const dayKey = dateKeyInTimeZone(occurredAt, timeZone);
+    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
 
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId: params.employeeId,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: dayStart, lte: dayEnd },
+        occurredAt: { gte: bounds.start, lte: bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
@@ -2246,7 +2254,7 @@ export class AuthService {
 
     const state = buildDayPunchStateFromEvents(todaysEvents);
     const resolution = resolveAttendancePunch(
-      dateToMinutes(occurredAt),
+      dateToMinutesInTimeZone(occurredAt, timeZone),
       windows,
       state,
     );
@@ -2372,13 +2380,16 @@ export class AuthService {
     occurredAt: Date,
     employeeBranchId: string,
   ): Promise<string> {
-    const dayStart = new Date(occurredAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(occurredAt);
-    dayEnd.setHours(23, 59, 59, 999);
+    const company = await this.prisma.company.findUnique({
+      where: { id: params.companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const dayKey = dateKeyInTimeZone(occurredAt, timeZone);
+    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
 
     const todaysCheckins = await this.prisma.employeeCheckin.findMany({
-      where: { employeeId: params.employeeId, time: { gte: dayStart, lte: dayEnd } },
+      where: { employeeId: params.employeeId, time: { gte: bounds.start, lte: bounds.end } },
       orderBy: { time: 'asc' },
       select: { logType: true },
     });

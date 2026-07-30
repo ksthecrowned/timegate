@@ -8,8 +8,8 @@ export class PayrollDueAlertCronService {
 
   constructor(private readonly notifications: NotificationsService) {}
 
-  /** Daily payroll due-soon and overdue alerts for company admins. */
-  @Cron(CronExpression.EVERY_DAY_AT_8AM)
+  /** Hourly sweep; actual send is gated at 08:00 local company time. */
+  @Cron(CronExpression.EVERY_HOUR)
   async sendPayrollDueAlerts() {
     try {
       await this.notifications.notifyPayrollDueAlerts();

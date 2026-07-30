@@ -16,7 +16,13 @@ import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from '../manager/dto/m
 import { ManagerService } from '../manager/manager.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { fromDecimal } from '../common/utils/money.util';
-import { toWeekDay } from '../common/utils/punch-time.util';
+import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+  toWeekDay,
+} from '../common/utils/punch-time.util';
 import { PlanningVsActualQueryDto } from './dto/planning-vs-actual-query.dto';
 
 function toDateOnly(value: string): Date {
@@ -72,11 +78,16 @@ export class DashboardService {
       throw new BadRequestException('companyId is required for this operation');
     }
 
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const todayIso = dateKeyInTimeZone(new Date(), timeZone);
+    const fromIso = dateKeyAddDays(todayIso, -29);
+    const from = toDateOnly(fromIso);
     const to = toDateOnly(todayIso);
-    const from = new Date(to);
-    from.setUTCDate(from.getUTCDate() - 29);
-    const fromIso = from.toISOString().slice(0, 10);
+    const todayBounds = dayBoundsForDateKeyInTimeZone(todayIso, timeZone);
 
     const teamQuery = Object.assign(new ManagerTeamTodayQueryDto(), { date: todayIso });
     const inboxQuery = Object.assign(new ManagerInboxQueryDto(), { limit: 1 });
@@ -131,8 +142,8 @@ export class DashboardService {
           companyId,
           status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
           occurredAt: {
-            gte: new Date(`${todayIso}T00:00:00.000Z`),
-            lte: new Date(`${todayIso}T23:59:59.999Z`),
+            gte: todayBounds.start,
+            lte: todayBounds.end,
           },
         },
       }),

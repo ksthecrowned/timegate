@@ -21,7 +21,12 @@ import {
   parseKioskQrChallengePayload,
   verifyKioskQrChallengePayload,
 } from '../common/utils/kiosk-qr-challenge.util';
-import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import { PrismaService } from '../prisma/prisma.service';
 import { AttendancePunchRecorderService } from './attendance-punch-recorder.service';
 import { resolveAttendancePunch } from './attendance-punch-resolver';
@@ -383,22 +388,25 @@ export class KioskQrPunchService {
       throw new BadRequestException('Horaires de pointage non configures');
     }
 
-    const dayStart = new Date(params.occurredAt);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(params.occurredAt);
-    dayEnd.setHours(23, 59, 59, 999);
+    const company = await this.prisma.company.findUnique({
+      where: { id: params.kiosk.companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const dayKey = dateKeyInTimeZone(params.occurredAt, timeZone);
+    const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
       where: {
         employeeId: params.employee.id,
         status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: dayStart, lte: dayEnd },
+        occurredAt: { gte: bounds.start, lte: bounds.end },
       },
       orderBy: { occurredAt: 'asc' },
       select: { type: true, occurredAt: true },
     });
     const state = buildDayPunchStateFromEvents(todaysEvents);
     const resolution = resolveAttendancePunch(
-      dateToMinutes(params.occurredAt),
+      dateToMinutesInTimeZone(params.occurredAt, timeZone),
       windows,
       state,
     );

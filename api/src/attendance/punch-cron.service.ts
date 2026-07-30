@@ -11,7 +11,13 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
-import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window.service';
@@ -43,9 +49,6 @@ export class PunchCronService {
   @Cron(CronExpression.EVERY_HOUR)
   async processMissedCheckIns() {
     const now = new Date();
-    const atMin = dateToMinutes(now);
-    const dayStart = this.startOfDay(now);
-    const dayEnd = this.endOfDay(now);
 
     const employees = await this.prisma.employee.findMany({
       where: { status: EmployeeStatus.ACTIVE },
@@ -57,21 +60,46 @@ export class PunchCronService {
         lastName: true,
         branchId: true,
         holidayListId: true,
+        company: { select: { timeZone: true } },
       },
     });
 
-    const holidayIndex = await this.holidayCalendar.buildIndexForEmployees(
-      employees.map((e) => ({
-        id: e.id,
-        companyId: e.companyId,
-        holidayListId: e.holidayListId,
-      })),
-      dayStart,
-      dayStart,
-    );
+    const holidayByDateKey = new Map<string, Awaited<ReturnType<HolidayCalendarService['buildIndexForEmployees']>>>();
+    const dateKeyByEmployeeId = new Map<string, string>();
+    const dayByEmployeeId = new Map<string, Date>();
+    const boundsByEmployeeId = new Map<string, { start: Date; end: Date }>();
+    const atMinByEmployeeId = new Map<string, number>();
+
+    for (const employee of employees) {
+      const timeZone = resolveOrgTimeZone(employee.company?.timeZone);
+      const dateKey = dateKeyInTimeZone(now, timeZone);
+      const workDate = new Date(`${dateKey}T00:00:00.000Z`);
+      dateKeyByEmployeeId.set(employee.id, dateKey);
+      dayByEmployeeId.set(employee.id, workDate);
+      boundsByEmployeeId.set(employee.id, dayBoundsForDateKeyInTimeZone(dateKey, timeZone));
+      atMinByEmployeeId.set(employee.id, dateToMinutesInTimeZone(now, timeZone));
+      if (!holidayByDateKey.has(dateKey)) {
+        const scoped = employees
+          .filter((e) => dateKeyByEmployeeId.get(e.id) === dateKey)
+          .map((e) => ({
+            id: e.id,
+            companyId: e.companyId,
+            holidayListId: e.holidayListId,
+          }));
+        holidayByDateKey.set(
+          dateKey,
+          await this.holidayCalendar.buildIndexForEmployees(scoped, workDate, workDate),
+        );
+      }
+    }
 
     let marked = 0;
     for (const employee of employees) {
+      const dateKey = dateKeyByEmployeeId.get(employee.id)!;
+      const dayStart = dayByEmployeeId.get(employee.id)!;
+      const bounds = boundsByEmployeeId.get(employee.id)!;
+      const atMin = atMinByEmployeeId.get(employee.id)!;
+      const holidayIndex = holidayByDateKey.get(dateKey)!;
       if (isEmployeeHoliday(holidayIndex, employee.id, dayStart)) continue;
 
       const onLeave = await this.prisma.leaveApplication.findFirst({
@@ -97,7 +125,7 @@ export class PunchCronService {
               TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
             ],
           },
-          occurredAt: { gte: dayStart, lte: dayEnd },
+          occurredAt: { gte: bounds.start, lte: bounds.end },
         },
       });
       if (checkIn) continue;
@@ -165,105 +193,130 @@ export class PunchCronService {
     }
 
     if (marked > 0) {
-      this.logger.log(`Marked ${marked} automatic absence(s) for ${dayStart.toISOString().slice(0, 10)}`);
+      this.logger.log(`Marked ${marked} automatic absence(s).`);
     }
   }
 
-  /** 00h30 : CHECK_IN sans CHECK_OUT → REVIEW_REQUIRED (sans CHECK_OUT synthétique). */
-  @Cron('30 0 * * *')
+  /**
+   * Hourly sweep; at 00:30 local company time, CHECK_IN without CHECK_OUT
+   * for the previous local day → REVIEW_REQUIRED (no synthetic CHECK_OUT).
+   */
+  @Cron(CronExpression.EVERY_HOUR)
   async processUnclosedCheckIns() {
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    const workDate = this.startOfDay(yesterday);
-    const dayStart = workDate;
-    const dayEnd = this.endOfDay(yesterday);
-
-    const checkIns = await this.prisma.timeGateAttendanceEvent.findMany({
-      where: {
-        type: TimeGateAttendanceEventType.CHECK_IN,
-        status: TimeGateAttendanceEventStatus.ACCEPTED,
-        occurredAt: { gte: dayStart, lte: dayEnd },
-        employeeId: { not: null },
-      },
-      select: { id: true, employeeId: true, companyId: true, occurredAt: true },
+    const now = new Date();
+    const companies = await this.prisma.company.findMany({
+      select: { id: true, timeZone: true },
     });
 
-    let flagged = 0;
-    for (const checkIn of checkIns) {
-      if (!checkIn.employeeId) continue;
+    let flaggedTotal = 0;
+    for (const company of companies) {
+      const timeZone = resolveOrgTimeZone(company.timeZone);
+      const localMin = dateToMinutesInTimeZone(now, timeZone);
+      // Fire in the 00:00–00:59 local hour window (cron is hourly).
+      if (Math.floor(localMin / 60) !== 0) continue;
 
-      const checkOut = await this.prisma.timeGateAttendanceEvent.findFirst({
+      const yesterdayKey = dateKeyAddDays(dateKeyInTimeZone(now, timeZone), -1);
+      const workDate = new Date(`${yesterdayKey}T00:00:00.000Z`);
+      const { start: dayStart, end: dayEnd } = dayBoundsForDateKeyInTimeZone(
+        yesterdayKey,
+        timeZone,
+      );
+
+      const checkIns = await this.prisma.timeGateAttendanceEvent.findMany({
         where: {
-          employeeId: checkIn.employeeId,
-          type: TimeGateAttendanceEventType.CHECK_OUT,
+          companyId: company.id,
+          type: TimeGateAttendanceEventType.CHECK_IN,
           status: TimeGateAttendanceEventStatus.ACCEPTED,
           occurredAt: { gte: dayStart, lte: dayEnd },
+          employeeId: { not: null },
         },
+        select: { id: true, employeeId: true, companyId: true, occurredAt: true },
       });
-      if (checkOut) continue;
 
-      const windows = await this.punchWindows.resolveForEmployee(
-        checkIn.employeeId,
-        checkIn.occurredAt,
-      );
-      const shiftEndMin = windows?.shiftEndMin ?? 17 * 60;
-      const breakMinutes = windows?.breakDurationMinutes ?? 60;
-      const checkInMin = dateToMinutes(checkIn.occurredAt);
-      const inferredWorked = Math.max(0, shiftEndMin - checkInMin - breakMinutes);
+      let flagged = 0;
+      for (const checkIn of checkIns) {
+        if (!checkIn.employeeId) continue;
 
-      await this.prisma.timeGateTimesheetDay.upsert({
-        where: {
-          employeeId_workDate: { employeeId: checkIn.employeeId, workDate },
-        },
-        create: {
-          id: generateDocId('TSD'),
-          companyId: checkIn.companyId,
-          employeeId: checkIn.employeeId,
-          workDate,
-          workedMinutes: inferredWorked,
-          breakMinutes,
-          status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
-          anomalyFlags: ['UNCLOSED_CHECKIN', 'CHECKOUT_INFERRED'],
-        },
-        update: {
-          status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
-          workedMinutes: inferredWorked,
-          breakMinutes,
-          anomalyFlags: ['UNCLOSED_CHECKIN', 'CHECKOUT_INFERRED'],
-        },
-      });
-      flagged += 1;
-
-      try {
-        const employee = await this.prisma.employee.findUnique({
-          where: { id: checkIn.employeeId },
-          select: {
-            firstName: true,
-            lastName: true,
-            employeeName: true,
-            branchId: true,
+        const checkOut = await this.prisma.timeGateAttendanceEvent.findFirst({
+          where: {
+            employeeId: checkIn.employeeId,
+            type: TimeGateAttendanceEventType.CHECK_OUT,
+            status: TimeGateAttendanceEventStatus.ACCEPTED,
+            occurredAt: { gte: dayStart, lte: dayEnd },
           },
         });
-        const employeeName =
-          `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() ||
-          employee?.employeeName ||
-          'Employé';
-        await this.notifications.notifyUnclosedCheckIn({
-          companyId: checkIn.companyId,
-          branchId: employee?.branchId ?? undefined,
-          employeeId: checkIn.employeeId,
-          employeeName,
-          workDate,
+        if (checkOut) continue;
+
+        const windows = await this.punchWindows.resolveForEmployee(
+          checkIn.employeeId,
+          checkIn.occurredAt,
+        );
+        const shiftEndMin = windows?.shiftEndMin ?? 17 * 60;
+        const breakMinutes = windows?.breakDurationMinutes ?? 60;
+        const checkInMin = dateToMinutesInTimeZone(checkIn.occurredAt, timeZone);
+        const inferredWorked = Math.max(0, shiftEndMin - checkInMin - breakMinutes);
+
+        await this.prisma.timeGateTimesheetDay.upsert({
+          where: {
+            employeeId_workDate: { employeeId: checkIn.employeeId, workDate },
+          },
+          create: {
+            id: generateDocId('TSD'),
+            companyId: checkIn.companyId,
+            employeeId: checkIn.employeeId,
+            workDate,
+            workedMinutes: inferredWorked,
+            breakMinutes,
+            status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
+            anomalyFlags: ['UNCLOSED_CHECKIN', 'CHECKOUT_INFERRED'],
+          },
+          update: {
+            status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
+            workedMinutes: inferredWorked,
+            breakMinutes,
+            anomalyFlags: ['UNCLOSED_CHECKIN', 'CHECKOUT_INFERRED'],
+          },
         });
-      } catch (err) {
-        this.logger.warn(
-          `Unclosed check-in notification failed: ${err instanceof Error ? err.message : err}`,
+        flagged += 1;
+
+        try {
+          const employee = await this.prisma.employee.findUnique({
+            where: { id: checkIn.employeeId },
+            select: {
+              firstName: true,
+              lastName: true,
+              employeeName: true,
+              branchId: true,
+            },
+          });
+          const employeeName =
+            `${employee?.firstName ?? ''} ${employee?.lastName ?? ''}`.trim() ||
+            employee?.employeeName ||
+            'Employé';
+          await this.notifications.notifyUnclosedCheckIn({
+            companyId: checkIn.companyId,
+            branchId: employee?.branchId ?? undefined,
+            employeeId: checkIn.employeeId,
+            employeeName,
+            workDate,
+          });
+        } catch (err) {
+          this.logger.warn(
+            `Unclosed check-in notification failed: ${err instanceof Error ? err.message : err}`,
+          );
+        }
+      }
+
+      if (flagged > 0) {
+        flaggedTotal += flagged;
+        this.logger.log(
+          `Flagged ${flagged} unclosed check-in day(s) for company ${company.id} on ${yesterdayKey}`,
         );
       }
     }
 
-    if (flagged > 0) {
-      this.logger.log(`Flagged ${flagged} unclosed check-in day(s) for ${workDate.toISOString().slice(0, 10)}`);
+    if (flaggedTotal > 0) {
+      this.logger.log(`Flagged ${flaggedTotal} unclosed check-in day(s) total`);
     }
   }
 
@@ -271,9 +324,6 @@ export class PunchCronService {
   @Cron(CronExpression.EVERY_HOUR)
   async sendUnclosedCheckInReminders() {
     const now = new Date();
-    const atMin = dateToMinutes(now);
-    const dayStart = this.startOfDay(now);
-    const dayEnd = this.endOfDay(now);
 
     const employees = await this.prisma.employee.findMany({
       where: { status: EmployeeStatus.ACTIVE },
@@ -283,6 +333,7 @@ export class PunchCronService {
         employeeName: true,
         firstName: true,
         lastName: true,
+        company: { select: { timeZone: true } },
       },
     });
 
@@ -292,6 +343,11 @@ export class PunchCronService {
       { notificationUnclosedReminderDelayMinutes: number }
     >();
     for (const employee of employees) {
+      const timeZone = resolveOrgTimeZone(employee.company?.timeZone);
+      const dayKey = dateKeyInTimeZone(now, timeZone);
+      const dayStart = new Date(`${dayKey}T00:00:00.000Z`);
+      const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
+      const atMin = dateToMinutesInTimeZone(now, timeZone);
       const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
       if (!windows) continue;
 
@@ -323,7 +379,7 @@ export class PunchCronService {
               TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
             ],
           },
-          occurredAt: { gte: dayStart, lte: dayEnd },
+          occurredAt: { gte: bounds.start, lte: bounds.end },
         },
       });
       if (!checkIn) continue;
@@ -333,7 +389,7 @@ export class PunchCronService {
           employeeId: employee.id,
           type: TimeGateAttendanceEventType.CHECK_OUT,
           status: TimeGateAttendanceEventStatus.ACCEPTED,
-          occurredAt: { gte: dayStart, lte: dayEnd },
+          occurredAt: { gte: bounds.start, lte: bounds.end },
         },
       });
       if (checkOut) continue;
@@ -358,7 +414,7 @@ export class PunchCronService {
     }
 
     if (sent > 0) {
-      this.logger.log(`Sent ${sent} unclosed check-in reminder(s) for ${dayStart.toISOString().slice(0, 10)}`);
+      this.logger.log(`Sent ${sent} unclosed check-in reminder(s).`);
     }
   }
 
@@ -366,17 +422,19 @@ export class PunchCronService {
   @Cron('*/15 * * * *')
   async sendBreakResumeReminders() {
     const now = new Date();
-    const atMin = dateToMinutes(now);
-    const dayStart = this.startOfDay(now);
-    const dayEnd = this.endOfDay(now);
 
     const employees = await this.prisma.employee.findMany({
       where: { status: EmployeeStatus.ACTIVE },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, company: { select: { timeZone: true } } },
     });
 
     let sent = 0;
     for (const employee of employees) {
+      const timeZone = resolveOrgTimeZone(employee.company?.timeZone);
+      const dayKey = dateKeyInTimeZone(now, timeZone);
+      const dayStart = new Date(`${dayKey}T00:00:00.000Z`);
+      const bounds = dayBoundsForDateKeyInTimeZone(dayKey, timeZone);
+      const atMin = dateToMinutesInTimeZone(now, timeZone);
       const windows = await this.punchWindows.resolveForEmployee(employee.id, now);
       if (!windows?.breakEndMin || windows.breakStartMin == null) continue;
 
@@ -392,7 +450,7 @@ export class PunchCronService {
               TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
             ],
           },
-          occurredAt: { gte: dayStart, lte: dayEnd },
+          occurredAt: { gte: bounds.start, lte: bounds.end },
         },
         orderBy: { occurredAt: 'asc' },
         select: { type: true, occurredAt: true },
@@ -423,15 +481,14 @@ export class PunchCronService {
     }
 
     if (sent > 0) {
-      this.logger.log(`Sent ${sent} break resume reminder(s) for ${dayStart.toISOString().slice(0, 10)}`);
+      this.logger.log(`Sent ${sent} break resume reminder(s).`);
     }
   }
 
-  /** 9h : relance managers pour REVIEW_REQUIRED en attente > 24 h (Lot D #13). */
-  @Cron('0 9 * * *')
+  /** 9h locale (timezone company) : relance managers pour REVIEW_REQUIRED en attente > 24 h. */
+  @Cron(CronExpression.EVERY_HOUR)
   async sendReviewRequiredManagerReminders() {
     const now = new Date();
-    const reminderDate = now.toISOString().slice(0, 10);
     const groups = new Map<string, ReviewReminderGroup>();
     const settingsRows = await this.prisma.timeGateSystemSettings.findMany({
       select: { companyId: true, notificationReviewReminderMinAgeMinutes: true },
@@ -441,6 +498,13 @@ export class PunchCronService {
         row.companyId,
         Math.max(0, row.notificationReviewReminderMinAgeMinutes),
       ]),
+    );
+    const companies = await this.prisma.company.findMany({
+      where: { id: { in: [...reviewAgeByCompany.keys()] } },
+      select: { id: true, timeZone: true },
+    });
+    const timeZoneByCompany = new Map(
+      companies.map((row) => [row.id, resolveOrgTimeZone(row.timeZone)]),
     );
 
     const pendingEvents = await this.prisma.timeGateAttendanceEvent.findMany({
@@ -496,6 +560,10 @@ export class PunchCronService {
     for (const group of groups.values()) {
       const total = group.pendingEventCount + group.pendingDayCount;
       if (total <= 0) continue;
+      const timeZone = timeZoneByCompany.get(group.companyId) ?? resolveOrgTimeZone(null);
+      const hourLocal = Math.floor(dateToMinutesInTimeZone(now, timeZone) / 60);
+      if (hourLocal !== 9) continue;
+      const reminderDate = dateKeyInTimeZone(now, timeZone);
       try {
         await this.notifications.notifyReviewRequiredManagerReminder({
           companyId: group.companyId,
@@ -513,7 +581,7 @@ export class PunchCronService {
     }
 
     if (sent > 0) {
-      this.logger.log(`Sent ${sent} REVIEW_REQUIRED manager reminder(s) for ${reminderDate}`);
+      this.logger.log(`Sent ${sent} REVIEW_REQUIRED manager reminder(s).`);
     }
   }
 
@@ -655,11 +723,4 @@ export class PunchCronService {
     });
   }
 
-  private startOfDay(value: Date): Date {
-    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
-  }
-
-  private endOfDay(value: Date): Date {
-    return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 23, 59, 59, 999);
-  }
 }

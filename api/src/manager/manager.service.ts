@@ -18,7 +18,12 @@ import { ReviewAttendanceEventDto } from '../attendance/dto/review-attendance-ev
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { toEmployeeSummary } from '../common/utils/employee-summary.util';
-import { dateToMinutes } from '../common/utils/punch-time.util';
+import {
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from './dto/manager-query.dto';
@@ -41,14 +46,6 @@ type DayEvent = {
 
 function toDateOnly(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
-}
-
-function dayBounds(date: Date) {
-  const start = new Date(date);
-  start.setUTCHours(0, 0, 0, 0);
-  const end = new Date(date);
-  end.setUTCHours(23, 59, 59, 999);
-  return { start, end };
 }
 
 function employeeDisplayName(employee: {
@@ -99,11 +96,18 @@ export class ManagerService {
 
   async teamToday(query: ManagerTeamTodayQueryDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
-    const workDate = query.date ? toDateOnly(query.date) : toDateOnly(new Date().toISOString().slice(0, 10));
-    const workDateIso = workDate.toISOString().slice(0, 10);
-    const todayIso = new Date().toISOString().slice(0, 10);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const companyTimeZone = resolveOrgTimeZone(company?.timeZone);
+    const now = new Date();
+    const todayIso = dateKeyInTimeZone(now, companyTimeZone);
+    const workDateIso = query.date ?? todayIso;
+    const workDate = toDateOnly(workDateIso);
     const isFuture = workDateIso > todayIso;
-    const { start, end } = dayBounds(workDate);
+    const { start, end } = dayBoundsForDateKeyInTimeZone(workDateIso, companyTimeZone);
+    const nowMin = dateToMinutesInTimeZone(now, companyTimeZone);
     const branchId = query.resolvedBranchId();
 
     const employees = await this.prisma.employee.findMany({
@@ -236,12 +240,11 @@ export class ManagerService {
       } else if (
         workDateIso === todayIso &&
         scheduled &&
-        dateToMinutes(new Date()) < scheduled.shiftStartMin
+        nowMin < scheduled.shiftStartMin
       ) {
         // Today, shift has not started yet — expected, not absent
         status = 'EXPECTED';
       } else if (workDateIso === todayIso && scheduled) {
-        const nowMin = dateToMinutes(new Date());
         const absentAfterMin =
           scheduled.breakStartMin != null &&
           scheduled.breakStartMin > scheduled.shiftStartMin
@@ -291,7 +294,7 @@ export class ManagerService {
     );
 
     return {
-      date: workDate.toISOString().slice(0, 10),
+      date: workDateIso,
       branchId: branchId ?? null,
       summary,
       members,

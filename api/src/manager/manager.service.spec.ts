@@ -1,5 +1,6 @@
 import { describe, expect, mock, test } from 'bun:test';
 import { EmployeeStatus, TimeGateUserRole } from '@prisma/client';
+import { dateToMinutesInTimeZone } from '../common/utils/punch-time.util';
 import { ManagerService } from './manager.service';
 import { ManagerTeamTodayQueryDto } from './dto/manager-query.dto';
 
@@ -17,6 +18,7 @@ function buildService(shiftStartMin: number) {
   };
 
   const prisma = {
+    company: { findUnique: mock(async () => ({ timeZone: 'Africa/Brazzaville' })) },
     employee: { findMany: mock(async () => [employee]) },
     leaveApplication: { findMany: mock(async () => []) },
     timeGateAttendanceEvent: { findMany: mock(async () => []) },
@@ -40,8 +42,7 @@ function buildService(shiftStartMin: number) {
 }
 
 function currentMinutes(): number {
-  const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
+  return dateToMinutesInTimeZone(new Date(), 'Africa/Brazzaville');
 }
 
 const MANAGER_USER = {

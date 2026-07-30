@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import {
   AttendanceStatus,
@@ -8,14 +8,15 @@ import {
   TimeGateTimesheetDayStatus,
 } from '@prisma/client';
 import { MailService } from '../auth/mail.service';
+import {
+  dateKeyAddDays,
+  dateKeyInTimeZone,
+  dateToMinutesInTimeZone,
+  dayBoundsForDateKeyInTimeZone,
+  resolveOrgTimeZone,
+} from '../common/utils/punch-time.util';
 import { NotificationRecipientResolver } from '../notifications/notification-recipient.resolver';
 import { PrismaService } from '../prisma/prisma.service';
-
-function startOfDay(date: Date): Date {
-  const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
 
 function formatFrDate(iso: string): string {
   return new Date(`${iso}T12:00:00`).toLocaleDateString('fr-FR', {
@@ -23,6 +24,24 @@ function formatFrDate(iso: string): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+/** Monday=0 … Sunday=6 from Intl weekday short names. */
+function weekdayIndexInTimeZone(at: Date, timeZone: string): number {
+  const weekday = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    weekday: 'short',
+  }).format(at);
+  const map: Record<string, number> = {
+    Mon: 0,
+    Tue: 1,
+    Wed: 2,
+    Thu: 3,
+    Fri: 4,
+    Sat: 5,
+    Sun: 6,
+  };
+  return map[weekday] ?? 0;
 }
 
 @Injectable()
@@ -36,25 +55,28 @@ export class ManagerReportService {
     private readonly config: ConfigService,
   ) {}
 
-  /** Lundi 7h — rapport anomalies de la semaine précédente (lun–dim). */
-  @Cron('0 7 * * 1')
+  /** Hourly sweep; Monday 07:00 local company time — previous Mon–Sun anomalies. */
+  @Cron(CronExpression.EVERY_HOUR)
   async sendWeeklyAnomalyReports() {
-    const today = startOfDay(new Date());
-    const periodEnd = new Date(today);
-    periodEnd.setUTCDate(periodEnd.getUTCDate() - 1);
-    const periodStart = new Date(periodEnd);
-    periodStart.setUTCDate(periodStart.getUTCDate() - 6);
-
-    const fromIso = periodStart.toISOString().slice(0, 10);
-    const toIso = periodEnd.toISOString().slice(0, 10);
-    const periodLabel = `${formatFrDate(fromIso)} – ${formatFrDate(toIso)}`;
-
+    const now = new Date();
     const companies = await this.prisma.company.findMany({
-      select: { id: true, name: true },
+      select: { id: true, name: true, timeZone: true },
     });
 
     let sent = 0;
     for (const company of companies) {
+      const timeZone = resolveOrgTimeZone(company.timeZone);
+      const hourLocal = Math.floor(dateToMinutesInTimeZone(now, timeZone) / 60);
+      if (hourLocal !== 7) continue;
+      if (weekdayIndexInTimeZone(now, timeZone) !== 0) continue;
+
+      const todayKey = dateKeyInTimeZone(now, timeZone);
+      const toIso = dateKeyAddDays(todayKey, -1);
+      const fromIso = dateKeyAddDays(toIso, -6);
+      const periodLabel = `${formatFrDate(fromIso)} – ${formatFrDate(toIso)}`;
+      const periodStart = new Date(`${fromIso}T00:00:00.000Z`);
+      const periodEnd = new Date(`${toIso}T00:00:00.000Z`);
+
       try {
         const stats = await this.getWeeklyAnomalyStats(company.id, periodStart, periodEnd);
         if (stats.total === 0) continue;
@@ -82,13 +104,20 @@ export class ManagerReportService {
     }
 
     if (sent > 0) {
-      this.logger.log(`Sent ${sent} weekly anomaly report(s) for ${periodLabel}`);
+      this.logger.log(`Sent ${sent} weekly anomaly report(s)`);
     }
   }
 
   async getWeeklyAnomalyStats(companyId: string, from: Date, to: Date) {
-    const toEnd = new Date(to);
-    toEnd.setUTCHours(23, 59, 59, 999);
+    const fromIso = from.toISOString().slice(0, 10);
+    const toIso = to.toISOString().slice(0, 10);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const timeZone = resolveOrgTimeZone(company?.timeZone);
+    const fromBounds = dayBoundsForDateKeyInTimeZone(fromIso, timeZone);
+    const toBounds = dayBoundsForDateKeyInTimeZone(toIso, timeZone);
 
     const [
       pendingReviews,
@@ -108,7 +137,7 @@ export class ManagerReportService {
         where: {
           companyId,
           status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
-          occurredAt: { gte: from, lte: toEnd },
+          occurredAt: { gte: fromBounds.start, lte: toBounds.end },
         },
       }),
       this.prisma.timeGateTimesheetDay.count({
@@ -121,7 +150,7 @@ export class ManagerReportService {
       this.prisma.timeGateLateRecord.count({
         where: {
           companyId,
-          createdAt: { gte: from, lte: toEnd },
+          createdAt: { gte: fromBounds.start, lte: toBounds.end },
         },
       }),
       this.prisma.attendance.count({
@@ -160,8 +189,8 @@ export class ManagerReportService {
     }
 
     return {
-      from: from.toISOString().slice(0, 10),
-      to: to.toISOString().slice(0, 10),
+      from: fromIso,
+      to: toIso,
       total: lines.length,
       lines,
       counts: {
