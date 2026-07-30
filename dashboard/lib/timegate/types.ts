@@ -418,7 +418,26 @@ export type TimesheetOverride = {
   createdAt: string
 }
 
-export type PayrollRunStatus = 'DRAFT' | 'LOCKED' | 'PAID'
+export type PayrollRunStatus = 'DRAFT' | 'LOCKED' | 'PARTIALLY_PAID' | 'PAID'
+
+export type PayrollRunTotals = {
+  baseSalary: number
+  fixedAllowances: number
+  fixedDeductions: number
+  variableAllowances: number
+  variableDeductions: number
+  overtime: number
+  penalties: number
+  gross: number
+  net: number
+}
+
+export type PayrollRunPaymentProgress = {
+  linesCount: number
+  paidCount: number
+  unpaidCount: number
+  percentPaid: number
+}
 
 export type PayrollRun = {
   id: string
@@ -431,7 +450,11 @@ export type PayrollRun = {
   lockedAt?: string | null
   paidAt?: string | null
   _count?: { lines: number }
+  totals?: PayrollRunTotals
+  paymentProgress?: PayrollRunPaymentProgress
 }
+
+export type PayrollLinePaymentStatus = 'UNPAID' | 'PAID'
 
 export type PayrollLine = {
   id: string
@@ -453,8 +476,20 @@ export type PayrollLine = {
   periodStart?: string | null
   periodEnd?: string | null
   explainJson?: Record<string, unknown> | null
+  dueDate?: string | null
+  paidAt?: string | null
+  paymentStatus?: PayrollLinePaymentStatus
   createdAt: string
   employee?: EmployeeSummary | null
+}
+
+export type PayrollBranchPaymentSummary = {
+  branchId: string | null
+  branchName: string | null
+  total: number
+  paid: number
+  unpaid: number
+  unpaidEmployeeIds: string[]
 }
 
 export type CompensationGridEntry = {

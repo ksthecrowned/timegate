@@ -7,6 +7,9 @@ import DataTable, { Column } from '@/components/ui/DataTable'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import PayrollVariableItemsCard from '@/components/timegate/PayrollVariableItemsCard'
+import PayrollRunMassBanner from '@/components/timegate/PayrollRunMassBanner'
+import PayrollLinesPaymentTable from '@/components/timegate/PayrollLinesPaymentTable'
+import PayrollBranchPaymentSummary from '@/components/timegate/PayrollBranchPaymentSummary'
 import {
   ApiErrorBanner,
   DetailCard,
@@ -17,20 +20,17 @@ import {
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import {
   exportPayrollRun,
+  formatMoney,
   getPayrollRun,
   getPayrollRunLines,
   lockPayrollRun,
-  markPayrollRunPaid,
+  markLinesPaid,
   MONTH_LABELS,
 } from '@/lib/timegate/payroll-runs'
 import { toSelectOptions } from '@/lib/select-options'
 import type { EmployeeSummary, PayrollLine, PayrollRun } from '@/lib/timegate/types'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import { HttpError } from '@/lib/http'
-
-function formatMoney(value: number): string {
-  return value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
 
 function formatSigned(value: number): string {
   if (!value) return '—'
@@ -47,6 +47,7 @@ function payrollStatusBadge(status: string) {
   const map: Record<string, string> = {
     DRAFT: 'pending',
     LOCKED: 'processing',
+    PARTIALLY_PAID: 'processing',
     PAID: 'completed',
   }
   return <StatusBadge status={map[status] ?? status.toLowerCase()} />
@@ -61,6 +62,8 @@ export default function PayrollRunDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [error, setError] = useState('')
+  const [paymentTableRefreshKey, setPaymentTableRefreshKey] = useState(0)
+  const [branchSummaryRefreshKey, setBranchSummaryRefreshKey] = useState(0)
 
   const employeeOptions = useMemo(
     () =>
@@ -183,17 +186,30 @@ export default function PayrollRunDetailPage() {
     }
   }
 
-  async function handleMarkPaid() {
+  async function handleMarkAllUnpaid() {
+    const unpaidCount = run?.paymentProgress?.unpaidCount ?? 0
+    if (unpaidCount === 0) return
+    if (!window.confirm(`Marquer les ${unpaidCount} ligne(s) non payée(s) comme payées ?`)) return
     setActionLoading(true)
     setError('')
     try {
-      await markPayrollRunPaid(id)
+      const unpaidLines = await getPayrollRunLines(id, { paymentStatus: 'UNPAID', limit: 1000 })
+      if (unpaidLines.length > 0) {
+        await markLinesPaid(id, { lineIds: unpaidLines.map((line) => line.id) })
+      }
       await load()
+      setPaymentTableRefreshKey((key) => key + 1)
+      setBranchSummaryRefreshKey((key) => key + 1)
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Marquage impossible.')
     } finally {
       setActionLoading(false)
     }
+  }
+
+  function handlePaymentTableChanged() {
+    void load()
+    setBranchSummaryRefreshKey((key) => key + 1)
   }
 
   async function handleExport() {
@@ -239,16 +255,17 @@ export default function PayrollRunDetailPage() {
                   Verrouiller
                 </button>
               )}
-              {run.status === 'LOCKED' && (
-                <button
-                  type="button"
-                  disabled={actionLoading}
-                  onClick={() => void handleMarkPaid()}
-                  className={primaryBtnClass}
-                >
-                  Marquer payée
-                </button>
-              )}
+              {(run.status === 'LOCKED' || run.status === 'PARTIALLY_PAID') &&
+                (run.paymentProgress?.unpaidCount ?? 0) > 0 && (
+                  <button
+                    type="button"
+                    disabled={actionLoading}
+                    onClick={() => void handleMarkAllUnpaid()}
+                    className={primaryBtnClass}
+                  >
+                    Marquer toutes les lignes non payées
+                  </button>
+                )}
               <button
                 type="button"
                 disabled={actionLoading}
@@ -297,6 +314,8 @@ export default function PayrollRunDetailPage() {
             )}
           </DetailCard>
 
+          <PayrollRunMassBanner run={run} />
+
           {run.status === 'DRAFT' && (
             <PayrollVariableItemsCard
               runId={id}
@@ -304,6 +323,19 @@ export default function PayrollRunDetailPage() {
               employeesById={employeesById}
             />
           )}
+
+          <PayrollLinesPaymentTable
+            runId={id}
+            runStatus={run.status}
+            refreshKey={paymentTableRefreshKey}
+            onChanged={handlePaymentTableChanged}
+          />
+
+          <PayrollBranchPaymentSummary
+            runId={id}
+            refreshKey={branchSummaryRefreshKey}
+            employeesById={employeesById}
+          />
 
           <div>
             <h3 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
