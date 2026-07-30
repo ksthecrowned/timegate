@@ -592,6 +592,7 @@ export type SystemConfig = {
   defaultBreakWindowStart?: string | null
   defaultBreakWindowEnd?: string | null
   defaultBreakDurationMinutes?: number
+  allowCheckInAfterBreakStart?: boolean
   company?: { id: string; name: string; sku?: string } | null
 }
 
@@ -621,6 +622,7 @@ export type TenantAttendanceSettings = Pick<
   | 'defaultBreakWindowStart'
   | 'defaultBreakWindowEnd'
   | 'defaultBreakDurationMinutes'
+  | 'allowCheckInAfterBreakStart'
   | 'minConfidence'
   | 'lateThreshold'
   | 'veryLateThreshold'

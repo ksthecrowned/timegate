@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { Prisma, WeekDay } from '@prisma/client';
+import { JwtUser } from '../common/decorators/current-user.decorator';
+import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { generateDocId } from '../common/utils/doc-id.util';
@@ -12,10 +14,11 @@ import { formatPunchWindows, mapPunchWindowFields } from './punch-window.mapper'
 export class WorkSchedulesService {
   constructor(private prisma: PrismaService) {}
 
-  async create(dto: CreateWorkScheduleDto) {
+  async create(dto: CreateWorkScheduleDto, user: JwtUser) {
     const branchId = dto.branchId;
     const branch = await this.prisma.branch.findUnique({ where: { id: branchId } });
     if (!branch) throw new NotFoundException('Branch not found');
+    this.assertCompanyAccess(user, branch.companyId);
 
     const weekDays = this.normalizeWeekDays(dto.weekDays);
 
@@ -55,12 +58,13 @@ export class WorkSchedulesService {
     return this.toApiShape(created);
   }
 
-  async findAll(query: PaginationQueryDto) {
+  async findAll(query: PaginationQueryDto, user: JwtUser) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const branchId = query.resolvedBranchId();
 
     const where: Prisma.ShiftTypeWhereInput = {
+      ...(user.role === PLATFORM_ADMIN ? {} : { companyId: user.companyId }),
       ...(branchId ? { branchId } : {}),
       ...(query.from || query.to
         ? {
@@ -92,7 +96,7 @@ export class WorkSchedulesService {
     };
   }
 
-  async findOne(id: string) {
+  async findOne(id: string, user: JwtUser) {
     const row = await this.prisma.shiftType.findUnique({
       where: { id },
       include: {
@@ -101,12 +105,14 @@ export class WorkSchedulesService {
       },
     });
     if (!row) throw new NotFoundException('Work schedule not found');
+    this.assertCompanyAccess(user, row.companyId);
     return this.toApiShape(row);
   }
 
-  async update(id: string, dto: UpdateWorkScheduleDto) {
+  async update(id: string, dto: UpdateWorkScheduleDto, user: JwtUser) {
     const current = await this.prisma.shiftType.findUnique({ where: { id } });
     if (!current) throw new NotFoundException('Work schedule not found');
+    this.assertCompanyAccess(user, current.companyId);
 
     let companyId = current.companyId;
     let branchId = current.branchId;
@@ -114,6 +120,7 @@ export class WorkSchedulesService {
     if (nextBranchId && nextBranchId !== current.branchId) {
       const branch = await this.prisma.branch.findUnique({ where: { id: nextBranchId } });
       if (!branch) throw new NotFoundException('Branch not found');
+      this.assertCompanyAccess(user, branch.companyId);
       companyId = branch.companyId;
       branchId = branch.id;
     }
@@ -162,8 +169,8 @@ export class WorkSchedulesService {
     return this.toApiShape(updated);
   }
 
-  async remove(id: string) {
-    await this.findOne(id);
+  async remove(id: string, user: JwtUser) {
+    await this.findOne(id, user);
     try {
       await this.prisma.$transaction(async (tx) => {
         await tx.employee.updateMany({
@@ -215,6 +222,13 @@ export class WorkSchedulesService {
       });
     }
     return normalized;
+  }
+
+  private assertCompanyAccess(user: JwtUser, companyId: string | null) {
+    if (user.role === PLATFORM_ADMIN) return;
+    if (!companyId || !user.companyId || user.companyId !== companyId) {
+      throw new NotFoundException('Work schedule not found');
+    }
   }
 
   private normalizeHhMm(value: string): string {

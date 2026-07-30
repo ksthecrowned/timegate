@@ -332,6 +332,9 @@ export class AdminSaasService {
       ...(dto.defaultBreakDurationMinutes !== undefined
         ? { defaultBreakDurationMinutes: dto.defaultBreakDurationMinutes }
         : {}),
+      ...(dto.allowCheckInAfterBreakStart !== undefined
+        ? { allowCheckInAfterBreakStart: dto.allowCheckInAfterBreakStart }
+        : {}),
     };
   }
 
@@ -361,6 +364,7 @@ export class AdminSaasService {
     defaultBreakWindowStart?: string | null;
     defaultBreakWindowEnd?: string | null;
     defaultBreakDurationMinutes?: number;
+    allowCheckInAfterBreakStart?: boolean;
     company?: { id: string; name: string | null; sku: string | null } | null;
     defaultShiftType?: { id: string; shiftName: string } | null;
   }) {
@@ -390,6 +394,7 @@ export class AdminSaasService {
       defaultBreakWindowStart: row.defaultBreakWindowStart ?? '12:00',
       defaultBreakWindowEnd: row.defaultBreakWindowEnd ?? '13:00',
       defaultBreakDurationMinutes: row.defaultBreakDurationMinutes ?? 60,
+      allowCheckInAfterBreakStart: row.allowCheckInAfterBreakStart ?? true,
       defaultShiftType: row.defaultShiftType
         ? { id: row.defaultShiftType.id, name: row.defaultShiftType.shiftName }
         : null,

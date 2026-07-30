@@ -22,6 +22,7 @@ export type TenantAttendanceSettingsPayload = {
   defaultBreakWindowStart?: string | null
   defaultBreakWindowEnd?: string | null
   defaultBreakDurationMinutes?: number
+  allowCheckInAfterBreakStart?: boolean
   minConfidence?: number
   lateThreshold?: number
   veryLateThreshold?: number

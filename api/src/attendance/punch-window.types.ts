@@ -1,5 +1,6 @@
 export type ResolvedPunchWindows = {
   shiftTypeId: string | null;
+  allowCheckInAfterBreakStart: boolean;
   shiftStartMin: number;
   shiftEndMin: number;
   checkInStartMin: number;

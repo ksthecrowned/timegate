@@ -88,20 +88,6 @@ function hasCheckIn(events: DayEvent[]): boolean {
   );
 }
 
-/** True once the scheduled shift end has passed (supports overnight shifts). */
-function shiftHasEnded(
-  nowMin: number,
-  shiftStartMin: number,
-  shiftEndMin: number,
-): boolean {
-  if (shiftEndMin > shiftStartMin) {
-    return nowMin >= shiftEndMin;
-  }
-  // Overnight: still on the start evening → not ended; after midnight → ended at endMin.
-  if (nowMin >= shiftStartMin) return false;
-  return nowMin >= shiftEndMin;
-}
-
 @Injectable()
 export class ManagerService {
   constructor(
@@ -250,14 +236,23 @@ export class ManagerService {
       } else if (
         workDateIso === todayIso &&
         scheduled &&
-        !shiftHasEnded(
-          dateToMinutes(new Date()),
-          scheduled.shiftStartMin,
-          scheduled.shiftEndMin,
-        )
+        dateToMinutes(new Date()) < scheduled.shiftStartMin
       ) {
-        // Today, shift not finished yet — expected, not absent
+        // Today, shift has not started yet — expected, not absent
         status = 'EXPECTED';
+      } else if (workDateIso === todayIso && scheduled) {
+        const nowMin = dateToMinutes(new Date());
+        const absentAfterMin =
+          scheduled.breakStartMin != null &&
+          scheduled.breakStartMin > scheduled.shiftStartMin
+            ? scheduled.breakStartMin
+            : scheduled.shiftEndMin;
+        if (nowMin < absentAfterMin) {
+          // After shift start and before break/start cutoff, still late rather than absent.
+          status = 'LATE';
+        } else {
+          status = 'ABSENT';
+        }
       } else {
         status = 'ABSENT';
       }

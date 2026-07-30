@@ -34,6 +34,7 @@ export function resolveAttendancePunch(
     breakStartMin,
     breakEndMin,
   } = windows;
+  const allowCheckInAfterBreakStart = windows.allowCheckInAfterBreakStart;
 
   const skipBreakResume =
     state.checkInAtMin != null &&
@@ -45,6 +46,17 @@ export function resolveAttendancePunch(
       return {
         action: 'REJECTED',
         message: "Pointage trop tôt. La fenêtre d'arrivée n'est pas encore ouverte.",
+      };
+    }
+    if (
+      !allowCheckInAfterBreakStart &&
+      breakStartMin != null &&
+      atMin >= breakStartMin
+    ) {
+      return {
+        action: 'REJECTED',
+        message:
+          "Pointage d'arrivée non autorisé après le début de la pause. Veuillez contacter le manager.",
       };
     }
     if (afterWindowEnd(atMin, checkInEndMin)) {

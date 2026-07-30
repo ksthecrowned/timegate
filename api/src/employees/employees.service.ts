@@ -26,11 +26,11 @@ export class EmployeesService {
     private readonly subscriptionQuota: SubscriptionQuotaService,
   ) {}
 
-  async create(dto: CreateEmployeeDto) {
-    return this.createOne(dto);
+  async create(dto: CreateEmployeeDto, user: JwtUser) {
+    return this.createOne(dto, user);
   }
 
-  async bulkCreate(employees: BulkEmployeeRowDto[]) {
+  async bulkCreate(employees: BulkEmployeeRowDto[], user: JwtUser) {
     const created: BulkImportResultDto['employees'] = [];
     const errors: BulkImportResultDto['errors'] = [];
     const seenEmails = new Set<string>();
@@ -49,7 +49,7 @@ export class EmployeesService {
       }
 
       try {
-        const employee = await this.createOne(dto as CreateEmployeeDto);
+        const employee = await this.createOne(dto as CreateEmployeeDto, user);
         created.push({
           row,
           id: employee.id,
@@ -72,13 +72,14 @@ export class EmployeesService {
     } satisfies BulkImportResultDto;
   }
 
-  private async createOne(dto: CreateEmployeeDto) {
+  private async createOne(dto: CreateEmployeeDto, user: JwtUser) {
     const branchId = dto.branchId;
     if (!branchId) {
       throw new BadRequestException('branchId is required');
     }
 
     const branch = await this.ensureBranch(branchId);
+    this.assertCompanyAccess(user, branch.companyId);
     await this.subscriptionQuota.assertCanAddEmployee(branch.companyId);
     if (dto.defaultShiftId) {
       await this.ensureShiftType(dto.defaultShiftId, branch.companyId, branchId);

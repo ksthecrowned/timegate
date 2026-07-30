@@ -52,7 +52,7 @@ export class AttendanceService {
   // EmployeeCheckin — route legacy GET/POST /attendance
   // ---------------------------------------------------------------------------
 
-  async createCheckin(dto: CreateAttendanceDto) {
+  async createCheckin(dto: CreateAttendanceDto, user: JwtUser) {
     const employee = await this.prisma.employee.findUnique({ where: { id: dto.employeeId } });
     if (!employee || employee.status !== EmployeeStatus.ACTIVE) {
       throw new NotFoundException('Employee not found or inactive');
@@ -61,6 +61,10 @@ export class AttendanceService {
     const kiosk = await this.prisma.timeGateKiosk.findUnique({ where: { id: dto.kioskId } });
     if (!kiosk) {
       throw new NotFoundException('Kiosk not found');
+    }
+    this.assertCompanyAccess(user, employee.companyId);
+    if (employee.companyId !== kiosk.companyId) {
+      throw new BadRequestException('Employee and kiosk must belong to the same company');
     }
     if (!employee.branchId) {
       throw new BadRequestException('Employee has no branch assignment');

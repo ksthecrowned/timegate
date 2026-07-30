@@ -156,6 +156,9 @@ export class PunchWindowService {
     const assignment = await this.findActiveAssignment(employeeId, day);
     const shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
     if (!shiftType) return null;
+    const allowCheckInAfterBreakStart = await this.resolveAllowCheckInAfterBreakStart(
+      shiftType.companyId,
+    );
 
     const exception = await this.findDayException(shiftType.id, day);
     if (exception?.isOff) return null;
@@ -164,7 +167,7 @@ export class PunchWindowService {
       const startMin = timeDateToMinutes(exception.startTime);
       const endMin = timeDateToMinutes(exception.endTime);
       if (startMin == null || endMin == null) return null;
-      return this.buildWindows(shiftType, startMin, endMin);
+      return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
     }
 
     const weekDays = shiftType.weekDays;
@@ -181,7 +184,7 @@ export class PunchWindowService {
         null,
         null,
       );
-      return this.buildWindows(shiftType, startMin, endMin);
+      return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
     }
 
     if (weekDays.length === 0 || !weekDayRow) return null;
@@ -193,13 +196,14 @@ export class PunchWindowService {
       weekDayRow.endTime,
     );
 
-    return this.buildWindows(shiftType, startMin, endMin);
+    return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
   }
 
   private buildWindows(
     shiftType: ShiftType,
     shiftStartMin: number,
     shiftEndMin: number,
+    allowCheckInAfterBreakStart: boolean,
   ): ResolvedPunchWindows {
     const checkInStartMin =
       timeDateToMinutes(shiftType.checkInWindowStart) ??
@@ -216,6 +220,7 @@ export class PunchWindowService {
 
     return {
       shiftTypeId: shiftType.id,
+      allowCheckInAfterBreakStart,
       shiftStartMin,
       shiftEndMin,
       checkInStartMin,
@@ -226,6 +231,20 @@ export class PunchWindowService {
       breakEndMin,
       breakDurationMinutes: shiftType.breakDurationMinutes ?? 60,
     };
+  }
+
+  private async resolveAllowCheckInAfterBreakStart(companyId: string | null): Promise<boolean> {
+    if (!companyId) {
+      return process.env.TIMEGATE_ALLOW_CHECKIN_AFTER_BREAK_START !== '0';
+    }
+    const settings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId },
+      select: { allowCheckInAfterBreakStart: true },
+    });
+    if (settings?.allowCheckInAfterBreakStart != null) {
+      return settings.allowCheckInAfterBreakStart;
+    }
+    return process.env.TIMEGATE_ALLOW_CHECKIN_AFTER_BREAK_START !== '0';
   }
 
   private async findDayException(shiftTypeId: string, day: Date) {

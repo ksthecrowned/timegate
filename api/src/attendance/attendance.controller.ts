@@ -86,8 +86,8 @@ export class AttendanceController {
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post()
-  create(@Body() dto: CreateAttendanceDto) {
-    return this.attendance.createCheckin(dto);
+  create(@Body() dto: CreateAttendanceDto, @CurrentUser() user: JwtUser) {
+    return this.attendance.createCheckin(dto, user);
   }
 
   @Get()

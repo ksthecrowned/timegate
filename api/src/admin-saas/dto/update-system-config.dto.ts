@@ -132,4 +132,8 @@ export class UpdateSystemConfigDto {
   @Min(0)
   @Max(24 * 60)
   defaultBreakDurationMinutes?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  allowCheckInAfterBreakStart?: boolean;
 }

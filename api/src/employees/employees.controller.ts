@@ -45,14 +45,14 @@ export class EmployeesController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post()
-  create(@Body() dto: CreateEmployeeDto) {
-    return this.employees.create(dto);
+  create(@Body() dto: CreateEmployeeDto, @CurrentUser() user: JwtUser) {
+    return this.employees.create(dto, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post('bulk')
-  bulkCreate(@Body() dto: BulkCreateEmployeesDto) {
-    return this.employees.bulkCreate(dto.employees);
+  bulkCreate(@Body() dto: BulkCreateEmployeesDto, @CurrentUser() user: JwtUser) {
+    return this.employees.bulkCreate(dto.employees, user);
   }
 
   @Get()

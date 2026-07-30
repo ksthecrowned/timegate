@@ -1,15 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import StatusBadge from '@/components/ui/StatusBadge'
-import ActionButtons from '@/components/ui/ActionButtons'
 import AddPageLink from '@/components/timegate/AddPageLink'
+import { dateTimeTableColumn } from '@/components/timegate/date-table-column'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { Column } from '@/components/ui/DataTable'
+import PageHeader from '@/components/ui/PageHeader'
+import StatusBadge from '@/components/ui/StatusBadge'
+import { HttpError } from '@/lib/http'
 import { formatMoney, listPayrollRuns, MONTH_LABELS } from '@/lib/timegate/payroll-runs'
 import type { PayrollRun } from '@/lib/timegate/types'
-import { dateTimeTableColumn } from '@/components/timegate/date-table-column'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 function payrollStatusBadge(status: string) {
   const map: Record<string, string> = {
@@ -99,30 +99,22 @@ export default function PayrollRunsPage() {
         breadcrumbs={[{ label: 'Cycles de paie' }]}
         action={<AddPageLink href="/payroll-runs/new" label="Nouveau cycle" />}
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Calcul mensuel à partir de la grille salariale, des majorations employé et du temps
-        travaillé. Bases contractuelles :{' '}
-        <a href="/compensation-grid" className="text-primary hover:underline">
-          Grille salariale
-        </a>
-        .
-      </p>
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
           {error}
         </div>
       )}
       <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="paies"
-          tableId="hs-payroll-runs-table"
-          emptyMessage="Aucune paie trouvée."
-          actions={(row) => (
-            <ActionButtons viewHref={`/payroll-runs/${row.id}`} />
-          )}
-        />
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="paies"
+        tableId="hs-payroll-runs-table"
+        emptyMessage="Aucune paie trouvée."
+        actions={(row) => (
+          <ActionButtons viewHref={`/payroll-runs/${row.id}`} />
+        )}
+      />
     </div>
   )
 }

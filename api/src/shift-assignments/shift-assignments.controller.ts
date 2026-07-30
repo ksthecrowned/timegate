@@ -1,5 +1,6 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { TimeGateUserRole } from '@prisma/client';
+import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -17,29 +18,29 @@ export class ShiftAssignmentsController {
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post()
-  create(@Body() dto: CreateShiftAssignmentDto) {
-    return this.service.create(dto);
+  create(@Body() dto: CreateShiftAssignmentDto, @CurrentUser() user: JwtUser) {
+    return this.service.create(dto, user);
   }
 
   @Get()
-  findAll(@Query() query: ShiftAssignmentQueryDto) {
-    return this.service.findAll(query);
+  findAll(@Query() query: ShiftAssignmentQueryDto, @CurrentUser() user: JwtUser) {
+    return this.service.findAll(query, user);
   }
 
   @Get(':id')
-  findOne(@Param('id', DocIdPipe) id: string) {
-    return this.service.findOne(id);
+  findOne(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.findOne(id, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Patch(':id')
-  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateShiftAssignmentDto) {
-    return this.service.update(id, dto);
+  update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateShiftAssignmentDto, @CurrentUser() user: JwtUser) {
+    return this.service.update(id, dto, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Delete(':id')
-  remove(@Param('id', DocIdPipe) id: string) {
-    return this.service.remove(id);
+  remove(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.remove(id, user);
   }
 }

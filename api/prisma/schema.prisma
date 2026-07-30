@@ -1241,6 +1241,7 @@ model TimeGateSystemSettings {
   defaultBreakWindowStart String? @default("12:00") @map("default_break_window_start") @db.VarChar(5)
   defaultBreakWindowEnd   String? @default("13:00") @map("default_break_window_end") @db.VarChar(5)
   defaultBreakDurationMinutes Int @default(60) @map("default_break_duration_minutes")
+  allowCheckInAfterBreakStart Boolean @default(true) @map("allow_checkin_after_break_start")
 
   @@map("timegate_system_settings")
 }

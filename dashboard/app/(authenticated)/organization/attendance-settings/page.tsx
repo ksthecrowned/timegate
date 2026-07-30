@@ -45,6 +45,7 @@ export default function TenantAttendanceSettingsPage() {
   const [defaultBreakWindowStart, setDefaultBreakWindowStart] = useState('12:00')
   const [defaultBreakWindowEnd, setDefaultBreakWindowEnd] = useState('13:00')
   const [defaultBreakDurationMinutes, setDefaultBreakDurationMinutes] = useState(60)
+  const [allowCheckInAfterBreakStart, setAllowCheckInAfterBreakStart] = useState(true)
   const [minConfidence, setMinConfidence] = useState(0.75)
   const [lateThreshold, setLateThreshold] = useState(10)
   const [veryLateThreshold, setVeryLateThreshold] = useState(30)
@@ -77,6 +78,7 @@ export default function TenantAttendanceSettingsPage() {
       setDefaultBreakWindowStart(settings.defaultBreakWindowStart ?? '12:00')
       setDefaultBreakWindowEnd(settings.defaultBreakWindowEnd ?? '13:00')
       setDefaultBreakDurationMinutes(settings.defaultBreakDurationMinutes ?? 60)
+      setAllowCheckInAfterBreakStart(settings.allowCheckInAfterBreakStart ?? true)
       setMinConfidence(settings.minConfidence ?? 0.75)
       setLateThreshold(settings.lateThreshold ?? 10)
       setVeryLateThreshold(settings.veryLateThreshold ?? 30)
@@ -117,6 +119,7 @@ export default function TenantAttendanceSettingsPage() {
         defaultBreakWindowStart: defaultBreakWindowStart.trim() || null,
         defaultBreakWindowEnd: defaultBreakWindowEnd.trim() || null,
         defaultBreakDurationMinutes,
+        allowCheckInAfterBreakStart,
         minConfidence,
         lateThreshold,
         veryLateThreshold,
@@ -338,6 +341,14 @@ export default function TenantAttendanceSettingsPage() {
                       }
                     />
                   </FormField>
+                </div>
+                <div className="mt-4 rounded-lg border border-slate-200/80 px-4 py-3 dark:border-border-dark">
+                  <SwitcherField
+                    label="Autoriser l'arrivée après début de pause"
+                    description="Si désactivé, un check-in sans arrivée préalable est refusé dès le début de la fenêtre pause."
+                    checked={allowCheckInAfterBreakStart}
+                    onCheckedChange={setAllowCheckInAfterBreakStart}
+                  />
                 </div>
               </SettingsFormSection>
 
