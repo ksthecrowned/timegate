@@ -174,8 +174,9 @@ export default function EmployeeForm({
     setLoading(true)
     setError('')
     try {
+      const { payGroupId, payDueDayOverride, ...baseForm } = form
       await onSubmit({
-        ...form,
+        ...baseForm,
         email: form.email?.trim() || undefined,
         phone: form.phone?.trim() || undefined,
         whatsappPhone: form.whatsappPhone?.trim() || undefined,
@@ -199,8 +200,12 @@ export default function EmployeeForm({
         designationId: form.designationId || undefined,
         employmentTypeId: form.employmentTypeId || undefined,
         holidayListId: form.holidayListId || null,
-        payGroupId: form.payGroupId || null,
-        payDueDayOverride: form.payDueDayOverride,
+        ...(employeeId
+          ? {
+              payGroupId: payGroupId || null,
+              payDueDayOverride,
+            }
+          : {}),
       })
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible.')
@@ -417,30 +422,34 @@ export default function EmployeeForm({
               isClearable
             />
           </FormField>
-          <FormField label="Groupe de paie">
-            <SelectSearch
-              instanceId="employee-pay-group"
-              options={payGroupOptions}
-              value={findOption(payGroupOptions, form.payGroupId ?? '')}
-              onChange={(opt) => set('payGroupId', opt?.value ?? '')}
-              placeholder="Optionnel"
-              isClearable
-            />
-          </FormField>
-          <FormField
-            label="Jour d’échéance de paie (override)"
-            hint="Remplace le jour du groupe de paie pour cet employé (1-28)."
-          >
-            <NumberInput
-              min={1}
-              max={28}
-              step={1}
-              value={form.payDueDayOverride ?? ''}
-              onValueChange={(raw) =>
-                set('payDueDayOverride', raw === '' ? null : Number(raw))
-              }
-            />
-          </FormField>
+          {employeeId && (
+            <>
+              <FormField label="Groupe de paie">
+                <SelectSearch
+                  instanceId="employee-pay-group"
+                  options={payGroupOptions}
+                  value={findOption(payGroupOptions, form.payGroupId ?? '')}
+                  onChange={(opt) => set('payGroupId', opt?.value ?? '')}
+                  placeholder="Optionnel"
+                  isClearable
+                />
+              </FormField>
+              <FormField
+                label="Jour d’échéance de paie (override)"
+                hint="Remplace le jour du groupe de paie pour cet employé (1-28)."
+              >
+                <NumberInput
+                  min={1}
+                  max={28}
+                  step={1}
+                  value={form.payDueDayOverride ?? ''}
+                  onValueChange={(raw) =>
+                    set('payDueDayOverride', raw === '' ? null : Number(raw))
+                  }
+                />
+              </FormField>
+            </>
+          )}
         </div>
       ),
     },
