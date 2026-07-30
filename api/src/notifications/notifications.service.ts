@@ -279,6 +279,72 @@ export class NotificationsService {
     };
   }
 
+  async notifyPayrollDueAlerts(now = new Date()) {
+    const dayStart = startOfUtcDay(now);
+    const dueSoonCutoff = addUtcDays(dayStart, 3);
+    const dayKey = dayStart.toISOString().slice(0, 10);
+    const lines = await this.prisma.timeGatePayrollLine.findMany({
+      where: {
+        paymentStatus: 'UNPAID',
+        dueDate: { not: null, lte: dueSoonCutoff },
+        payrollRun: { status: { not: 'DRAFT' } },
+      },
+      select: {
+        id: true,
+        companyId: true,
+        employeeId: true,
+        dueDate: true,
+        employee: { select: { employeeName: true, firstName: true, lastName: true } },
+        payrollRun: { select: { id: true, status: true } },
+      },
+    });
+    const adminIdsByCompany = new Map<string, string[]>();
+
+    for (const line of lines) {
+      if (!line.dueDate) continue;
+      const daysUntilDue = Math.round(
+        (startOfUtcDay(line.dueDate).getTime() - dayStart.getTime()) / 86_400_000,
+      );
+      const type =
+        daysUntilDue === 3 || daysUntilDue === 1
+          ? TimeGateNotificationType.PAYROLL_DUE_SOON
+          : daysUntilDue < 0
+            ? TimeGateNotificationType.PAYROLL_OVERDUE
+            : null;
+      if (!type) continue;
+
+      let adminIds = adminIdsByCompany.get(line.companyId);
+      if (!adminIds) {
+        adminIds = await this.resolveAdminUserIds(line.companyId);
+        adminIdsByCompany.set(line.companyId, adminIds);
+      }
+      if (adminIds.length === 0) continue;
+
+      const dueDateLabel = line.dueDate.toISOString().slice(0, 10);
+      const employeeName =
+        `${line.employee.firstName ?? ''} ${line.employee.lastName ?? ''}`.trim() ||
+        line.employee.employeeName;
+      const isOverdue = type === TimeGateNotificationType.PAYROLL_OVERDUE;
+      await this.emit({
+        companyId: line.companyId,
+        userIds: adminIds,
+        type,
+        title: isOverdue ? 'Paiement de paie en retard' : 'Échéance de paie proche',
+        body: isOverdue
+          ? `${employeeName} — paiement non réglé depuis l'échéance du ${dueDateLabel}.`
+          : `${employeeName} — paiement dû le ${dueDateLabel} (dans ${daysUntilDue} jour(s)).`,
+        meta: {
+          payrollLineId: line.id,
+          payrollRunId: line.payrollRun.id,
+          employeeId: line.employeeId,
+          dueDate: dueDateLabel,
+          alertDay: dayKey,
+        },
+        dedupeKey: `payroll-due-alert:${type}:${line.id}:${dayKey}`,
+      });
+    }
+  }
+
   async notifyPunchEvent(params: {
     companyId: string;
     branchId: string;
@@ -1004,4 +1070,14 @@ function flattenPushMeta(meta: Prisma.InputJsonValue | undefined): Record<string
     }
   }
   return out;
+}
+
+function startOfUtcDay(value: Date): Date {
+  return new Date(Date.UTC(value.getUTCFullYear(), value.getUTCMonth(), value.getUTCDate()));
+}
+
+function addUtcDays(value: Date, days: number): Date {
+  const result = new Date(value);
+  result.setUTCDate(result.getUTCDate() + days);
+  return result;
 }

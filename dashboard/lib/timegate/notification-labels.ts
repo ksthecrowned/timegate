@@ -27,6 +27,8 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   HR_DOCUMENT_MISSING: 'RH — document manquant',
   OVERTIME_THRESHOLD: 'Heures supplémentaires — seuil',
   MESSAGE_RECEIVED: 'Message reçu',
+  PAYROLL_DUE_SOON: 'Paie — échéance proche',
+  PAYROLL_OVERDUE: 'Paie — paiement en retard',
 }
 
 export function notificationTypeLabel(type: string): string {
