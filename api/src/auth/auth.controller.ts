@@ -5,6 +5,7 @@ import {
   Get,
   Header,
   Headers,
+  HttpCode,
   Logger,
   MessageEvent,
   Param,
@@ -42,6 +43,7 @@ import { VerifyResetCodeDto } from './dto/verify-reset-code.dto';
 import { SignupDto } from './dto/signup.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { EmployeeIdentifyDto, EmployeeLoginDto } from './dto/employee-auth.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -62,6 +64,20 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Public()
+  @Post('refresh')
+  @HttpCode(200)
+  refresh(@Body() dto: RefreshTokenDto) {
+    return this.auth.refresh(dto);
+  }
+
+  @Public()
+  @Post('logout')
+  @HttpCode(200)
+  logout(@Body() dto: RefreshTokenDto) {
+    return this.auth.revokeRefreshToken(dto.refresh_token);
   }
 
   @Public()

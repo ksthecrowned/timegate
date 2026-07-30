@@ -65,6 +65,12 @@ import {
   generateKioskQrChallengeSecret,
 } from '../common/utils/kiosk-qr-challenge.util';
 import { isWithinBranchRadius } from '../common/utils/geo.util';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import {
+  generateRefreshTokenRaw,
+  hashRefreshToken,
+  parseDurationToMs,
+} from './refresh-token.util';
 
 type MobileTokenPayload = {
   typ: 'mobile_device';
@@ -189,14 +195,16 @@ export class AuthService {
       return { company, user, subscription };
     });
 
+    const tokens = await this.issueAuthTokens({
+      id: created.user.id,
+      email: created.user.email,
+      role: created.user.timeGateRole!,
+      companyId: created.company.id,
+      kind: 'user',
+    });
+
     return {
-      access_token: await this.signToken(
-        created.user.id,
-        created.user.email,
-        created.user.timeGateRole!,
-        created.company.id,
-        { kind: 'user' },
-      ),
+      ...tokens,
       organization: {
         id: created.company.id,
         name: created.company.name,
@@ -215,15 +223,105 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const account = await this.validateCredentials(dto);
+    return this.issueAuthTokens(account);
+  }
+
+  /** Rotate refresh token and issue a new access JWT. */
+  async refresh(dto: RefreshTokenDto) {
+    const tokenHash = hashRefreshToken(dto.refresh_token.trim());
+    const now = new Date();
+    const newRaw = generateRefreshTokenRaw();
+    const newHash = hashRefreshToken(newRaw);
+    const newId = generateDocId();
+    const expiresAt = new Date(now.getTime() + this.getRefreshTokenTtlMs());
+
+    const rotated = await this.prisma.$transaction(async (tx) => {
+      const existing = await tx.timeGateRefreshToken.findUnique({
+        where: { tokenHash },
+      });
+      if (!existing) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      if (existing.expiresAt.getTime() <= now.getTime()) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Reuse of an already-rotated / revoked token → revoke the whole family.
+      if (existing.replacedById || existing.revokedAt) {
+        await tx.timeGateRefreshToken.updateMany({
+          where: {
+            subjectId: existing.subjectId,
+            kind: existing.kind,
+            revokedAt: null,
+          },
+          data: { revokedAt: now },
+        });
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      // Atomic claim — only one concurrent refresher wins.
+      const claimed = await tx.timeGateRefreshToken.updateMany({
+        where: {
+          id: existing.id,
+          revokedAt: null,
+          replacedById: null,
+        },
+        data: { revokedAt: now, replacedById: newId },
+      });
+      if (claimed.count !== 1) {
+        // Lost the race; do not family-revoke the winner's new token.
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+
+      await tx.timeGateRefreshToken.create({
+        data: {
+          id: newId,
+          tokenHash: newHash,
+          kind: existing.kind,
+          subjectId: existing.subjectId,
+          companyId: existing.companyId,
+          expiresAt,
+        },
+      });
+
+      return existing;
+    });
+
+    const account = await this.resolveRefreshSubject(rotated.kind, rotated.subjectId);
+    const access_token = await this.signToken(
+      account.id,
+      account.email,
+      account.role,
+      account.companyId,
+      { kind: account.kind },
+    );
+
     return {
-      access_token: await this.signToken(
-        account.id,
-        account.email,
-        account.role,
-        account.companyId,
-        { kind: account.kind },
-      ),
+      access_token,
+      refresh_token: newRaw,
+      expires_in: this.getAccessTokenExpiresInSeconds(),
     };
+  }
+
+  /** Best-effort revoke (logout). Missing / already-revoked tokens are ignored. */
+  async revokeRefreshToken(raw: string | undefined | null): Promise<{ ok: true }> {
+    const token = raw?.trim();
+    if (!token) {
+      return { ok: true };
+    }
+    const tokenHash = hashRefreshToken(token);
+    await this.prisma.timeGateRefreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return { ok: true };
+  }
+
+  private async revokeAllRefreshTokens(subjectId: string, kind: 'admin' | 'user') {
+    await this.prisma.timeGateRefreshToken.updateMany({
+      where: { subjectId, kind, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   /** Step 0: branch login flow for employee app (email only). */
@@ -994,6 +1092,10 @@ export class AuthService {
         where: { id: row.id },
         data: { usedAt: new Date() },
       }),
+      this.prisma.timeGateRefreshToken.updateMany({
+        where: { subjectId: user.id, kind: 'user', revokedAt: null },
+        data: { revokedAt: new Date() },
+      }),
       ...(user.companyId
         ? [
             this.prisma.timeGateAuditLog.create({
@@ -1041,6 +1143,7 @@ export class AuthService {
         where: { id: admin.id },
         data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
       });
+      await this.revokeAllRefreshTokens(admin.id, 'admin');
       return { ok: true as const };
     }
 
@@ -1060,6 +1163,7 @@ export class AuthService {
       where: { id: dbUser.id },
       data: { passwordHash },
     });
+    await this.revokeAllRefreshTokens(dbUser.id, 'user');
     const auditCompanyId = dbUser.companyId;
     if (auditCompanyId) {
       await this.prisma.timeGateAuditLog.create({
@@ -1174,6 +1278,93 @@ export class AuthService {
       .replace(/^-+|-+$/g, '')
       .toUpperCase();
     return (normalized || 'ORG').slice(0, 20);
+  }
+
+  private getAccessTokenExpiresInSeconds(): number {
+    return Math.floor(
+      parseDurationToMs(this.config.get<string>('JWT_EXPIRES_IN'), 8 * 3_600_000) / 1000,
+    );
+  }
+
+  private getRefreshTokenTtlMs(): number {
+    return parseDurationToMs(
+      this.config.get<string>('JWT_REFRESH_EXPIRES_IN'),
+      30 * 86_400_000,
+    );
+  }
+
+  private async issueRefreshToken(params: {
+    kind: 'admin' | 'user';
+    subjectId: string;
+    companyId: string | null;
+  }): Promise<string> {
+    const raw = generateRefreshTokenRaw();
+    const tokenHash = hashRefreshToken(raw);
+    await this.prisma.timeGateRefreshToken.create({
+      data: {
+        id: generateDocId(),
+        tokenHash,
+        kind: params.kind,
+        subjectId: params.subjectId,
+        companyId: params.companyId,
+        expiresAt: new Date(Date.now() + this.getRefreshTokenTtlMs()),
+      },
+    });
+    return raw;
+  }
+
+  private async issueAuthTokens(account: {
+    id: string;
+    email: string;
+    role: TimeGateUserRole | typeof PLATFORM_ADMIN;
+    companyId: string | null;
+    kind: 'admin' | 'user';
+  }) {
+    const access_token = await this.signToken(
+      account.id,
+      account.email,
+      account.role,
+      account.companyId,
+      { kind: account.kind },
+    );
+    const refresh_token = await this.issueRefreshToken({
+      kind: account.kind,
+      subjectId: account.id,
+      companyId: account.companyId,
+    });
+    return {
+      access_token,
+      refresh_token,
+      expires_in: this.getAccessTokenExpiresInSeconds(),
+    };
+  }
+
+  private async resolveRefreshSubject(kind: string, subjectId: string) {
+    if (kind === 'admin') {
+      const admin = await this.prisma.admin.findUnique({ where: { id: subjectId } });
+      if (!admin || !admin.enabled) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      return {
+        kind: 'admin' as const,
+        id: admin.id,
+        email: admin.email,
+        role: PLATFORM_ADMIN,
+        companyId: null as string | null,
+      };
+    }
+
+    const user = await this.prisma.user.findUnique({ where: { id: subjectId } });
+    if (!user || !user.timeGateRole || !user.passwordHash) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+    return {
+      kind: 'user' as const,
+      id: user.id,
+      email: user.email,
+      role: user.timeGateRole,
+      companyId: user.companyId,
+    };
   }
 
   private signToken(

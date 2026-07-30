@@ -20,6 +20,7 @@ declare module 'next-auth' {
 
   interface User extends SuperAdminSessionUser {
     accessToken: string
+    refreshToken: string
     accessTokenExpires: number
   }
 }
@@ -28,6 +29,7 @@ declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     user?: SuperAdminSessionUser
     accessToken?: string
+    refreshToken?: string
     accessTokenExpires?: number
     error?: 'RefreshAccessTokenError'
   }

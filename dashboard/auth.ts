@@ -12,6 +12,7 @@ import {
   fetchSubscriptionStatus,
   fetchTimeGateMe,
   loginTimeGate,
+  logoutAdmin,
 } from "@/lib/auth/timegate-auth";
 import { mapSubscriptionSessionFields } from "@/lib/auth/subscription-session";
 import { isDashboardRole } from "@/lib/timegate/roles";
@@ -43,6 +44,12 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
           });
 
           const accessToken = login.access_token;
+          const refreshToken = login.refresh_token;
+          if (!refreshToken) {
+            console.error("[auth] login missing refresh_token");
+            return null;
+          }
+
           const [me, subscription] = await Promise.all([
             fetchTimeGateMe(accessToken),
             fetchSubscriptionStatus(accessToken),
@@ -61,6 +68,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             companyId: me.companyId,
             ...mapSubscriptionSessionFields(subscription),
             accessToken,
+            refreshToken,
             accessTokenExpires: getAccessTokenExpiry(accessToken),
           };
         } catch (error) {
@@ -96,6 +104,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
             subscriptionStatus: user.subscriptionStatus,
           },
           accessToken: user.accessToken,
+          refreshToken: user.refreshToken,
           accessTokenExpires: user.accessTokenExpires,
         };
       }
@@ -107,7 +116,7 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
         return token;
       }
 
-      if (isRefreshEnabled() && token.accessToken) {
+      if (isRefreshEnabled() && token.refreshToken) {
         return refreshAccessToken(token);
       }
 
@@ -119,8 +128,13 @@ export const { handlers, auth, signIn, signOut, unstable_update } = NextAuth({
     },
   },
   events: {
-    async signOut() {
-      // TimeGate : pas de révocation serveur pour l'instant.
+    async signOut(message) {
+      const token = "token" in message ? message.token : undefined;
+      const refreshToken =
+        token && typeof token === "object" && "refreshToken" in token
+          ? (token.refreshToken as string | undefined)
+          : undefined;
+      await logoutAdmin(refreshToken);
     },
   },
 });

@@ -21,6 +21,8 @@ export type TimeGateUser = {
 
 export type LoginResponse = {
   access_token: string
+  refresh_token: string
+  expires_in?: number
 }
 
 export type SubscriptionStatus = {
@@ -61,6 +63,8 @@ export type SubscriptionStatus = {
 
 export type SignupResponse = {
   access_token: string
+  refresh_token: string
+  expires_in?: number
   organization: { id: string; name: string | null; sku: string | null }
   subscription: {
     status: string

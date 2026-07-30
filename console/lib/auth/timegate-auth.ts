@@ -14,3 +14,12 @@ export function loginTimeGate(payload: LoginPayload): Promise<LoginResponse> {
 export function fetchTimeGateMe(accessToken: string): Promise<TimeGateUser> {
   return http.get<TimeGateUser>(TIMEGATE_AUTH_ROUTES.me, { accessToken })
 }
+
+export async function logoutTimeGate(refreshToken?: string | null): Promise<void> {
+  if (!refreshToken) return
+  try {
+    await http.post(TIMEGATE_AUTH_ROUTES.logout, { refresh_token: refreshToken }, { skipAuth: true })
+  } catch {
+    // Ignore revoke failures on sign-out.
+  }
+}

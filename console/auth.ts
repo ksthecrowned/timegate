@@ -9,7 +9,7 @@ import {
   shouldRefreshAccessToken,
 } from '@/lib/auth/refresh-access-token'
 import { isRefreshEnabled } from '@/lib/auth/env'
-import { fetchTimeGateMe, loginTimeGate } from '@/lib/auth/timegate-auth'
+import { fetchTimeGateMe, loginTimeGate, logoutTimeGate } from '@/lib/auth/timegate-auth'
 import type { TimeGateRole } from '@/lib/api/types'
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -36,6 +36,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           })
 
           const accessToken = login.access_token
+          const refreshToken = login.refresh_token
+          if (!refreshToken) {
+            console.error('[console auth] login missing refresh_token')
+            return null
+          }
+
           const me = await fetchTimeGateMe(accessToken)
 
           if (me.role !== 'PLATFORM_ADMIN') {
@@ -50,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             role: me.role as TimeGateRole,
             companyId: me.companyId,
             accessToken,
+            refreshToken,
             accessTokenExpires: getAccessTokenExpiry(accessToken),
           }
         } catch (error) {
@@ -74,6 +81,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             companyId: user.companyId,
           },
           accessToken: user.accessToken,
+          refreshToken: user.refreshToken,
           accessTokenExpires: user.accessTokenExpires,
         }
       }
@@ -85,7 +93,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token
       }
 
-      if (isRefreshEnabled() && token.accessToken) {
+      if (isRefreshEnabled() && token.refreshToken) {
         return refreshAccessToken(token)
       }
 
@@ -94,6 +102,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
 
       return token
+    },
+  },
+  events: {
+    async signOut(message) {
+      const token = 'token' in message ? message.token : undefined
+      const refreshToken =
+        token && typeof token === 'object' && 'refreshToken' in token
+          ? (token.refreshToken as string | undefined)
+          : undefined
+      await logoutTimeGate(refreshToken)
     },
   },
 })

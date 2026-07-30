@@ -5,6 +5,8 @@ export const REFRESH_TOKEN_ERROR = 'RefreshAccessTokenError' as const
 export const TIMEGATE_AUTH_ROUTES = {
   login: '/auth/login',
   employeeLogin: '/auth/employee/login',
+  refresh: '/auth/refresh',
+  logout: '/auth/logout',
   me: '/auth/me',
   subscriptionStatus: '/auth/subscription-status',
   activate: '/auth/activate',

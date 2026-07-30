@@ -38,8 +38,8 @@ export function loginTimeGate(payload: LoginPayload): Promise<LoginResponse> {
 export function loginEmployeeTimeGate(payload: {
   email: string
   password: string
-}): Promise<LoginResponse> {
-  return http.post<LoginResponse>(TIMEGATE_AUTH_ROUTES.employeeLogin, payload, { skipAuth: true })
+}): Promise<{ access_token: string }> {
+  return http.post(TIMEGATE_AUTH_ROUTES.employeeLogin, payload, { skipAuth: true })
 }
 
 /** GET /auth/me */
@@ -68,6 +68,12 @@ export function activateSubscription(
 export const loginAdmin = (email: string, password: string, sku?: string) =>
   loginTimeGate({ email, password, sku })
 
-export async function logoutAdmin(): Promise<void> {
-  // TimeGate n'expose pas de route logout — session JWT côté client uniquement.
+/** POST /auth/logout — revoke refresh token (best-effort). */
+export async function logoutAdmin(refreshToken?: string | null): Promise<void> {
+  if (!refreshToken) return
+  try {
+    await http.post(TIMEGATE_AUTH_ROUTES.logout, { refresh_token: refreshToken }, { skipAuth: true })
+  } catch {
+    // Ignore revoke failures on sign-out.
+  }
 }

@@ -26,6 +26,7 @@ declare module 'next-auth' {
 
   interface User extends TimeGateSessionUser {
     accessToken: string
+    refreshToken: string
     accessTokenExpires: number
   }
 }
@@ -34,6 +35,7 @@ declare module 'next-auth/jwt' {
   interface JWT extends DefaultJWT {
     user?: TimeGateSessionUser
     accessToken?: string
+    refreshToken?: string
     accessTokenExpires?: number
     error?: 'RefreshAccessTokenError'
   }

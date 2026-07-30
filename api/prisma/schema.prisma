@@ -1758,6 +1758,24 @@ model PasswordResetToken {
   @@map("tabPasswordResetToken")
 }
 
+/// Opaque refresh token (dashboard / console). Only the SHA-256 hash is stored.
+model TimeGateRefreshToken {
+  id           String    @id @db.VarChar(140)
+  createdAt    DateTime  @default(now()) @map("creation")
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  /// admin | user
+  kind         String    @db.VarChar(16)
+  subjectId    String    @map("subject_id") @db.VarChar(140)
+  companyId    String?   @map("company") @db.VarChar(140)
+  expiresAt    DateTime  @map("expires_at")
+  revokedAt    DateTime? @map("revoked_at")
+  replacedById String?   @map("replaced_by") @db.VarChar(140)
+
+  @@index([subjectId, kind])
+  @@index([expiresAt])
+  @@map("timegate_refresh_token")
+}
+
 model AiUsageRecord {
   id           String   @id @db.VarChar(140)
   companyId    String   @map("company") @db.VarChar(140)
