@@ -21,7 +21,9 @@ import { fromDecimal, roundMoney, toDecimal } from '../common/utils/money.util';
 import { CompensationGridService } from '../compensation-grid/compensation-grid.service';
 import { EmployeeCompensationService } from '../employee-compensation/employee-compensation.service';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
+import { FindPayrollLinesQueryDto } from './dto/find-payroll-lines-query.dto';
 import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
+import { MarkLinesPaidDto } from './dto/mark-lines-paid.dto';
 import { resolveEmployeePayDay, resolvePayDueDate } from './payroll-due-date.util';
 import { PayrollRunTotals, sumPayrollLineTotals } from './payroll-run-totals.util';
 
@@ -108,13 +110,36 @@ export class PayrollRunsService {
     return this.toRunShape(run);
   }
 
-  async findLines(id: string, user: JwtUser) {
+  async findLines(id: string, user: JwtUser, query?: FindPayrollLinesQueryDto) {
     const run = await this.prisma.timeGatePayrollRun.findUnique({ where: { id } });
     if (!run) throw new NotFoundException('Payroll run not found');
     this.assertCompanyAccess(user, run.companyId);
 
+    const dueDateFilter: Prisma.DateTimeFilter | undefined =
+      query?.dueFrom || query?.dueTo
+        ? {
+            ...(query?.dueFrom ? { gte: new Date(query.dueFrom) } : {}),
+            ...(query?.dueTo ? { lte: new Date(query.dueTo) } : {}),
+          }
+        : undefined;
+
+    const employeeFilter: Prisma.EmployeeWhereInput | undefined =
+      query?.branchId || query?.payGroupId
+        ? {
+            ...(query?.branchId ? { branchId: query.branchId } : {}),
+            ...(query?.payGroupId ? { payGroupId: query.payGroupId } : {}),
+          }
+        : undefined;
+
+    const where: Prisma.TimeGatePayrollLineWhereInput = {
+      payrollRunId: id,
+      ...(query?.paymentStatus ? { paymentStatus: query.paymentStatus } : {}),
+      ...(dueDateFilter ? { dueDate: dueDateFilter } : {}),
+      ...(employeeFilter ? { employee: employeeFilter } : {}),
+    };
+
     const lines = await this.prisma.timeGatePayrollLine.findMany({
-      where: { payrollRunId: id },
+      where,
       orderBy: { employeeId: 'asc' },
       include: {
         employee: { select: employeeSummarySelect },
@@ -122,6 +147,61 @@ export class PayrollRunsService {
     });
 
     return lines.map((line) => this.toLineShape(line));
+  }
+
+  async paymentSummaryByBranch(id: string, user: JwtUser) {
+    const run = await this.prisma.timeGatePayrollRun.findUnique({ where: { id } });
+    if (!run) throw new NotFoundException('Payroll run not found');
+    this.assertCompanyAccess(user, run.companyId);
+
+    const lines = await this.prisma.timeGatePayrollLine.findMany({
+      where: { payrollRunId: id },
+      select: {
+        employeeId: true,
+        paymentStatus: true,
+        employee: {
+          select: { branchId: true, branch: { select: { branchName: true } } },
+        },
+      },
+    });
+
+    type BranchBucket = {
+      branchId: string | null;
+      branchName: string | null;
+      total: number;
+      paid: number;
+      unpaid: number;
+      unpaidEmployeeIds: string[];
+    };
+
+    const byBranch = new Map<string, BranchBucket>();
+
+    for (const line of lines) {
+      const branchId = line.employee?.branchId ?? null;
+      const key = branchId ?? '__unassigned__';
+      const bucket = byBranch.get(key) ?? {
+        branchId,
+        branchName: line.employee?.branch?.branchName ?? null,
+        total: 0,
+        paid: 0,
+        unpaid: 0,
+        unpaidEmployeeIds: [],
+      };
+
+      bucket.total += 1;
+      if (line.paymentStatus === PayrollLinePaymentStatus.PAID) {
+        bucket.paid += 1;
+      } else {
+        bucket.unpaid += 1;
+        bucket.unpaidEmployeeIds.push(line.employeeId);
+      }
+
+      byBranch.set(key, bucket);
+    }
+
+    return Array.from(byBranch.values()).sort((a, b) =>
+      (a.branchName ?? '').localeCompare(b.branchName ?? ''),
+    );
   }
 
   async lock(id: string, user: JwtUser) {
@@ -143,19 +223,88 @@ export class PayrollRunsService {
     return this.toRunShape(updated);
   }
 
+  /** Wrapper: pays every currently-unpaid line on the run, then re-derives run status. */
   async markPaid(id: string, user: JwtUser) {
     const run = await this.getRunForMutation(id, user);
-    if (run.status !== TimeGatePayrollRunStatus.LOCKED) {
-      throw new BadRequestException('Only LOCKED payroll runs can be marked paid');
+    this.assertPayable(run.status);
+
+    const unpaidLines = await this.prisma.timeGatePayrollLine.findMany({
+      where: { payrollRunId: id, paymentStatus: { not: PayrollLinePaymentStatus.PAID } },
+      select: { id: true },
+    });
+
+    if (!unpaidLines.length) {
+      return this.findOne(id, user);
     }
 
-    const updated = await this.prisma.timeGatePayrollRun.update({
-      where: { id },
-      data: { status: TimeGatePayrollRunStatus.PAID, paidAt: new Date() },
-      include: { _count: { select: { lines: true } } },
+    return this.markLinesPaid(id, user, { lineIds: unpaidLines.map((l) => l.id) });
+  }
+
+  async markLinesPaid(id: string, user: JwtUser, dto: MarkLinesPaidDto) {
+    const run = await this.getRunForMutation(id, user);
+    this.assertPayable(run.status);
+
+    const uniqueLineIds = Array.from(new Set(dto.lineIds));
+
+    const lines = await this.prisma.timeGatePayrollLine.findMany({
+      where: { id: { in: uniqueLineIds } },
+    });
+
+    const foundIds = new Set(lines.map((l) => l.id));
+    const missing = uniqueLineIds.filter((lineId) => !foundIds.has(lineId));
+    if (missing.length) {
+      throw new NotFoundException(`Payroll line(s) not found: ${missing.join(', ')}`);
+    }
+
+    const foreign = lines.filter((l) => l.payrollRunId !== id);
+    if (foreign.length) {
+      throw new BadRequestException('Payroll line(s) do not belong to this payroll run');
+    }
+
+    const paidAtDate = dto.paidAt ? new Date(dto.paidAt) : new Date();
+    const toPayIds = lines
+      .filter((l) => l.paymentStatus !== PayrollLinePaymentStatus.PAID)
+      .map((l) => l.id);
+
+    if (toPayIds.length) {
+      await this.prisma.timeGatePayrollLine.updateMany({
+        where: { id: { in: toPayIds } },
+        data: { paymentStatus: PayrollLinePaymentStatus.PAID, paidAt: paidAtDate },
+      });
+    }
+
+    const allLines = await this.prisma.timeGatePayrollLine.findMany({
+      where: { payrollRunId: id },
+    });
+    const linesCount = allLines.length;
+    const paidCount = allLines.filter(
+      (l) => l.paymentStatus === PayrollLinePaymentStatus.PAID,
+    ).length;
+
+    let newStatus: TimeGatePayrollRunStatus;
+    if (linesCount > 0 && paidCount === linesCount) {
+      newStatus = TimeGatePayrollRunStatus.PAID;
+    } else if (paidCount > 0) {
+      newStatus = TimeGatePayrollRunStatus.PARTIALLY_PAID;
+    } else {
+      newStatus = TimeGatePayrollRunStatus.LOCKED;
+    }
+
+    const updated = await this.updateRunTotals(id, allLines, {
+      status: newStatus,
+      ...(newStatus === TimeGatePayrollRunStatus.PAID ? { paidAt: paidAtDate } : {}),
     });
 
     return this.toRunShape(updated);
+  }
+
+  private assertPayable(status: TimeGatePayrollRunStatus) {
+    if (status === TimeGatePayrollRunStatus.DRAFT) {
+      throw new BadRequestException('DRAFT payroll runs cannot be paid; lock the run first');
+    }
+    if (status === TimeGatePayrollRunStatus.PAID) {
+      throw new BadRequestException('Payroll run is already fully paid');
+    }
   }
 
   async exportCsv(id: string, user: JwtUser) {
@@ -410,6 +559,7 @@ export class PayrollRunsService {
       netSalary?: Prisma.Decimal | null;
       paymentStatus: PayrollLinePaymentStatus;
     }[],
+    extra?: Pick<Prisma.TimeGatePayrollRunUpdateInput, 'status' | 'paidAt' | 'lockedAt'>,
   ) {
     const totals: PayrollRunTotals = sumPayrollLineTotals(
       lines.map((line) => ({
@@ -426,7 +576,7 @@ export class PayrollRunsService {
       })),
     );
 
-    await this.prisma.timeGatePayrollRun.update({
+    return this.prisma.timeGatePayrollRun.update({
       where: { id: payrollRunId },
       data: {
         totalBaseSalary: toDecimal(totals.totalBaseSalary),
@@ -441,7 +591,9 @@ export class PayrollRunsService {
         linesCount: totals.linesCount,
         paidCount: totals.paidCount,
         unpaidCount: totals.unpaidCount,
+        ...extra,
       },
+      include: { _count: { select: { lines: true } } },
     });
   }
 
