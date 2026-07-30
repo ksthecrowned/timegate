@@ -131,6 +131,46 @@ export function resolveShiftBounds(
   return { startMin, endMin };
 }
 
+/** True when the shift crosses midnight (end clock time ≤ start). */
+export function isOvernightShift(startMin: number, endMin: number): boolean {
+  return endMin <= startMin;
+}
+
+export function shiftDurationMinutes(startMin: number, endMin: number): number {
+  if (endMin > startMin) return endMin - startMin;
+  return endMin + 24 * 60 - startMin;
+}
+
+/** Minutes elapsed since `originMin` on a 24h circular clock (0..1439). */
+export function minutesSinceOrigin(atMin: number, originMin: number): number {
+  return (atMin - originMin + 24 * 60) % (24 * 60);
+}
+
+/** Inclusive wrap-aware interval (same semantics as punch `inWindow`). */
+export function inMinuteWindow(min: number, start: number, end: number): boolean {
+  if (end >= start) {
+    return min >= start && min <= end;
+  }
+  return min >= start || min <= end;
+}
+
+/**
+ * "Too early" for a (possibly wrapping) window: in the exterior gap and closer to
+ * the upcoming start than to the just-passed end.
+ */
+export function beforeMinuteWindowStart(min: number, start: number, end: number): boolean {
+  if (end >= start) return min < start;
+  if (!(min > end && min < start)) return false;
+  return start - min <= min - end;
+}
+
+/** "Too late" for a (possibly wrapping) window — exterior gap closer to end. */
+export function afterMinuteWindowEnd(min: number, start: number, end: number): boolean {
+  if (end >= start) return min > end;
+  if (!(min > end && min < start)) return false;
+  return min - end < start - min;
+}
+
 export function formatShiftTime(value: Date | null | undefined): string {
   return formatTimeOnly(value) || '08:00';
 }

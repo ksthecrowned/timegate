@@ -603,8 +603,9 @@ export class TimesheetsService {
   }
 
   private diffMinutes(start: Date, end: Date): number {
-    const ms = end.getTime() - start.getTime();
-    if (ms <= 0) return 0;
+    let ms = end.getTime() - start.getTime();
+    // Overnight shift stored as same-day clock times (end ≤ start) → add 24h.
+    if (ms <= 0) ms += 24 * 60 * 60_000;
     return Math.round(ms / 60_000);
   }
 

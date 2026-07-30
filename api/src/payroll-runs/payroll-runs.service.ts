@@ -49,20 +49,26 @@ export class PayrollRunsService {
     const companyId = this.requireCompanyId(user);
 
     try {
-      const run = await this.prisma.timeGatePayrollRun.create({
-        data: {
-          id: generateDocId('PRUN'),
-          companyId,
-          year: dto.year,
-          month: dto.month,
-          status: TimeGatePayrollRunStatus.DRAFT,
-          ruleVersion: RULE_VERSION,
+      const runId = await this.prisma.$transaction(
+        async (tx) => {
+          const run = await tx.timeGatePayrollRun.create({
+            data: {
+              id: generateDocId('PRUN'),
+              companyId,
+              year: dto.year,
+              month: dto.month,
+              status: TimeGatePayrollRunStatus.DRAFT,
+              ruleVersion: RULE_VERSION,
+            },
+          });
+
+          await this.generateLines(run.id, companyId, dto.year, dto.month, tx);
+          return run.id;
         },
-      });
+        { timeout: 60_000 },
+      );
 
-      await this.generateLines(run.id, companyId, dto.year, dto.month);
-
-      return this.findOne(run.id, user);
+      return this.findOne(runId, user);
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
         throw new ConflictException('Payroll run already exists for this period');
@@ -215,15 +221,29 @@ export class PayrollRunsService {
       throw new BadRequestException('Only DRAFT payroll runs can be locked');
     }
 
-    // Regenerate lines to incorporate variable items added after initial creation
-    await this.prisma.timeGatePayrollLine.deleteMany({ where: { payrollRunId: id } });
-    await this.generateLines(id, run.companyId, run.year, run.month);
+    const lockedAt = new Date();
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        // Atomic claim: only one concurrent lock wins.
+        const claimed = await tx.timeGatePayrollRun.updateMany({
+          where: { id, status: TimeGatePayrollRunStatus.DRAFT },
+          data: { status: TimeGatePayrollRunStatus.LOCKED, lockedAt },
+        });
+        if (claimed.count === 0) {
+          throw new ConflictException('Payroll run is already locked or no longer draft');
+        }
 
-    const updated = await this.prisma.timeGatePayrollRun.update({
-      where: { id },
-      data: { status: TimeGatePayrollRunStatus.LOCKED, lockedAt: new Date() },
-      include: { _count: { select: { lines: true } } },
-    });
+        // Regenerate lines to incorporate variable items added after initial creation
+        await tx.timeGatePayrollLine.deleteMany({ where: { payrollRunId: id } });
+        await this.generateLines(id, run.companyId, run.year, run.month, tx);
+
+        return tx.timeGatePayrollRun.findUniqueOrThrow({
+          where: { id },
+          include: { _count: { select: { lines: true } } },
+        });
+      },
+      { timeout: 60_000 },
+    );
 
     return this.toRunShape(updated);
   }
@@ -362,10 +382,11 @@ export class PayrollRunsService {
     companyId: string,
     year: number,
     month: number,
+    client: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const { from, to } = this.monthBounds(year, month);
 
-    const employees = await this.prisma.employee.findMany({
+    const employees = await client.employee.findMany({
       where: { companyId, status: EmployeeStatus.ACTIVE },
       select: {
         id: true,
@@ -378,14 +399,14 @@ export class PayrollRunsService {
     });
 
     if (!employees.length) {
-      await this.updateRunTotals(payrollRunId, []);
+      await this.updateRunTotals(payrollRunId, [], undefined, client);
       return;
     }
 
     const employeeIds = employees.map((e) => e.id);
 
     const [timesheets, absences, variableItems] = await Promise.all([
-      this.prisma.timeGateTimesheetDay.findMany({
+      client.timeGateTimesheetDay.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
@@ -393,7 +414,7 @@ export class PayrollRunsService {
         },
         select: { employeeId: true, lateMinutes: true, overtimeMinutes: true },
       }),
-      this.prisma.timeGateAbsenceRecord.findMany({
+      client.timeGateAbsenceRecord.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
@@ -402,7 +423,7 @@ export class PayrollRunsService {
         },
         select: { employeeId: true },
       }),
-      this.prisma.payrollVariableItem.findMany({
+      client.payrollVariableItem.findMany({
         where: { payrollRunId, companyId },
       }),
     ]);
@@ -555,8 +576,8 @@ export class PayrollRunsService {
       }),
     );
 
-    await this.prisma.timeGatePayrollLine.createMany({ data: lineData });
-    await this.updateRunTotals(payrollRunId, lineData);
+    await client.timeGatePayrollLine.createMany({ data: lineData });
+    await this.updateRunTotals(payrollRunId, lineData, undefined, client);
   }
 
   private async updateRunTotals(

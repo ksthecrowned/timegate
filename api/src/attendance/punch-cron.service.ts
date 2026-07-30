@@ -17,6 +17,7 @@ import {
   dateToMinutesInTimeZone,
   dayBoundsForDateKeyInTimeZone,
   resolveOrgTimeZone,
+  shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
 import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
@@ -251,10 +252,16 @@ export class PunchCronService {
           checkIn.employeeId,
           checkIn.occurredAt,
         );
+        const shiftStartMin = windows?.shiftStartMin ?? 8 * 60;
         const shiftEndMin = windows?.shiftEndMin ?? 17 * 60;
         const breakMinutes = windows?.breakDurationMinutes ?? 60;
         const checkInMin = dateToMinutesInTimeZone(checkIn.occurredAt, timeZone);
-        const inferredWorked = Math.max(0, shiftEndMin - checkInMin - breakMinutes);
+        const workedSpan = Math.max(
+          0,
+          shiftDurationMinutes(shiftStartMin, shiftEndMin) -
+            ((checkInMin - shiftStartMin + 24 * 60) % (24 * 60)),
+        );
+        const inferredWorked = Math.max(0, workedSpan - breakMinutes);
 
         await this.prisma.timeGateTimesheetDay.upsert({
           where: {

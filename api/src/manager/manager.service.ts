@@ -22,6 +22,7 @@ import {
   dateKeyInTimeZone,
   dateToMinutesInTimeZone,
   dayBoundsForDateKeyInTimeZone,
+  isOvernightShift,
   resolveOrgTimeZone,
 } from '../common/utils/punch-time.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
@@ -245,16 +246,21 @@ export class ManagerService {
         // Today, shift has not started yet — expected, not absent
         status = 'EXPECTED';
       } else if (workDateIso === todayIso && scheduled) {
-        const absentAfterMin =
-          scheduled.breakStartMin != null &&
-          scheduled.breakStartMin > scheduled.shiftStartMin
-            ? scheduled.breakStartMin
-            : scheduled.shiftEndMin;
-        if (nowMin < absentAfterMin) {
-          // After shift start and before break/start cutoff, still late rather than absent.
+        if (isOvernightShift(scheduled.shiftStartMin, scheduled.shiftEndMin)) {
+          // Start calendar day after shift start (evening): stay LATE until midnight.
+          // Morning after end is a different calendar day / "before tonight's start" → EXPECTED above.
           status = 'LATE';
         } else {
-          status = 'ABSENT';
+          const absentAfterMin =
+            scheduled.breakStartMin != null &&
+            scheduled.breakStartMin > scheduled.shiftStartMin
+              ? scheduled.breakStartMin
+              : scheduled.shiftEndMin;
+          if (nowMin < absentAfterMin) {
+            status = 'LATE';
+          } else {
+            status = 'ABSENT';
+          }
         }
       } else {
         status = 'ABSENT';

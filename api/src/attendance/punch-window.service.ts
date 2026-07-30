@@ -3,6 +3,7 @@ import { ShiftType, WeekDay } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   dateToMinutes,
+  isOvernightShift,
   resolveShiftBounds,
   timeDateToMinutes,
   toWeekDay,
@@ -205,16 +206,22 @@ export class PunchWindowService {
     shiftEndMin: number,
     allowCheckInAfterBreakStart: boolean,
   ): ResolvedPunchWindows {
+    const overnight = isOvernightShift(shiftStartMin, shiftEndMin);
     const checkInStartMin =
       timeDateToMinutes(shiftType.checkInWindowStart) ??
       Math.max(0, shiftStartMin - 60);
     const checkInEndMin =
       timeDateToMinutes(shiftType.checkInWindowEnd) ??
-      (shiftStartMin < 12 * 60 ? 12 * 60 : shiftStartMin + 120);
+      (overnight
+        ? (shiftStartMin + 120) % (24 * 60)
+        : shiftStartMin < 12 * 60
+          ? 12 * 60
+          : shiftStartMin + 120);
     const checkOutStartMin =
       timeDateToMinutes(shiftType.checkOutWindowStart) ?? shiftEndMin;
     const checkOutEndMin =
-      timeDateToMinutes(shiftType.checkOutWindowEnd) ?? 24 * 60;
+      timeDateToMinutes(shiftType.checkOutWindowEnd) ??
+      (overnight ? (shiftEndMin + 120) % (24 * 60) : 24 * 60);
     const breakStartMin = timeDateToMinutes(shiftType.breakWindowStart);
     const breakEndMin = timeDateToMinutes(shiftType.breakWindowEnd);
 

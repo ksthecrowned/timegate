@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -120,18 +121,27 @@ export class ShiftSwapsService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      const reviewedAt = new Date();
+      // Atomic claim: only one concurrent review wins.
+      const claimed = await tx.timeGateShiftSwapRequest.updateMany({
+        where: { id, status: TimeGateShiftSwapStatus.PENDING },
+        data: {
+          status: dto.status,
+          reviewedByUserId: user.sub,
+          reviewedAt,
+          reviewNote: dto.reviewNote?.trim() || null,
+        },
+      });
+      if (claimed.count === 0) {
+        throw new ConflictException('Shift swap request was already reviewed');
+      }
+
       if (dto.status === TimeGateShiftSwapStatus.APPROVED) {
         await this.applyApprovedSwap(tx, row);
       }
 
-      return tx.timeGateShiftSwapRequest.update({
+      return tx.timeGateShiftSwapRequest.findUniqueOrThrow({
         where: { id },
-        data: {
-          status: dto.status,
-          reviewedByUserId: user.sub,
-          reviewedAt: new Date(),
-          reviewNote: dto.reviewNote?.trim() || null,
-        },
         include: this.defaultInclude(),
       });
     });

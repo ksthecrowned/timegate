@@ -1,31 +1,24 @@
 import {
+  afterMinuteWindowEnd,
+  beforeMinuteWindowStart,
+  inMinuteWindow,
+  isOvernightShift,
+  minutesSinceOrigin,
+} from '../common/utils/punch-time.util';
+import {
   DayPunchState,
   PunchResolution,
   ResolvedPunchWindows,
 } from './punch-window.types';
 
-function inWindow(min: number, start: number, end: number): boolean {
-  if (end >= start) {
-    return min >= start && min <= end;
-  }
-  return min >= start || min <= end;
-}
-
-function afterWindowEnd(min: number, end: number): boolean {
-  return min > end;
-}
-
-function beforeWindowStart(min: number, start: number): boolean {
-  return min < start;
-}
-
-/** Machine à états pointage — Lot B (v1, sans chevauchement minuit). */
+/** Machine à états pointage — Lot B (fenêtres wrap-aware, y compris chevauchement minuit). */
 export function resolveAttendancePunch(
   atMin: number,
   windows: ResolvedPunchWindows,
   state: DayPunchState,
 ): PunchResolution {
   const {
+    shiftStartMin,
     shiftEndMin,
     checkInStartMin,
     checkInEndMin,
@@ -39,10 +32,11 @@ export function resolveAttendancePunch(
   const skipBreakResume =
     state.checkInAtMin != null &&
     breakEndMin != null &&
-    state.checkInAtMin > breakEndMin;
+    minutesSinceOrigin(state.checkInAtMin, shiftStartMin) >
+      minutesSinceOrigin(breakEndMin, shiftStartMin);
 
   if (!state.hasCheckIn) {
-    if (beforeWindowStart(atMin, checkInStartMin)) {
+    if (beforeMinuteWindowStart(atMin, checkInStartMin, checkInEndMin)) {
       return {
         action: 'REJECTED',
         message: "Pointage trop tôt. La fenêtre d'arrivée n'est pas encore ouverte.",
@@ -51,7 +45,8 @@ export function resolveAttendancePunch(
     if (
       !allowCheckInAfterBreakStart &&
       breakStartMin != null &&
-      atMin >= breakStartMin
+      minutesSinceOrigin(atMin, shiftStartMin) >=
+        minutesSinceOrigin(breakStartMin, shiftStartMin)
     ) {
       return {
         action: 'REJECTED',
@@ -59,14 +54,14 @@ export function resolveAttendancePunch(
           "Pointage d'arrivée non autorisé après le début de la pause. Veuillez contacter le manager.",
       };
     }
-    if (afterWindowEnd(atMin, checkInEndMin)) {
+    if (afterMinuteWindowEnd(atMin, checkInStartMin, checkInEndMin)) {
       return {
         action: 'CHECK_IN',
         message: "Pointage d'arrivée enregistré (retard — journée marquée à contrôler).",
         lateAbsent: true,
       };
     }
-    if (inWindow(atMin, checkInStartMin, checkInEndMin)) {
+    if (inMinuteWindow(atMin, checkInStartMin, checkInEndMin)) {
       return {
         action: 'CHECK_IN',
         message: "Pointage d'arrivée enregistré.",
@@ -88,7 +83,7 @@ export function resolveAttendancePunch(
   if (
     breakStartMin != null &&
     breakEndMin != null &&
-    inWindow(atMin, breakStartMin, breakEndMin)
+    inMinuteWindow(atMin, breakStartMin, breakEndMin)
   ) {
     return {
       action: 'NONE',
@@ -98,24 +93,27 @@ export function resolveAttendancePunch(
 
   if (
     !skipBreakResume &&
-    breakEndMin != null &&
-    atMin > breakEndMin &&
-    atMin < shiftEndMin
+    breakEndMin != null
   ) {
-    if (!state.hasBreakEnd) {
+    const sinceAt = minutesSinceOrigin(atMin, shiftStartMin);
+    const sinceBreakEnd = minutesSinceOrigin(breakEndMin, shiftStartMin);
+    const sinceShiftEnd = minutesSinceOrigin(shiftEndMin, shiftStartMin);
+    if (sinceAt > sinceBreakEnd && sinceAt < sinceShiftEnd) {
+      if (!state.hasBreakEnd) {
+        return {
+          action: 'BREAK_END',
+          message: 'Reprise de pause enregistrée.',
+        };
+      }
       return {
-        action: 'BREAK_END',
-        message: 'Reprise de pause enregistrée.',
+        action: 'NONE',
+        message: 'Reprise de pause déjà enregistrée.',
       };
     }
-    return {
-      action: 'NONE',
-      message: 'Reprise de pause déjà enregistrée.',
-    };
   }
 
-  if (atMin < checkOutStartMin) {
-    if (inWindow(atMin, checkInStartMin, checkInEndMin)) {
+  if (beforeMinuteWindowStart(atMin, checkOutStartMin, checkOutEndMin)) {
+    if (inMinuteWindow(atMin, checkInStartMin, checkInEndMin)) {
       return {
         action: 'NONE',
         message: 'Arrivée déjà enregistrée.',
@@ -127,13 +125,14 @@ export function resolveAttendancePunch(
     };
   }
 
-  if (inWindow(atMin, checkOutStartMin, checkOutEndMin)) {
+  if (inMinuteWindow(atMin, checkOutStartMin, checkOutEndMin)) {
     const inferBreakEnd =
       !skipBreakResume &&
       !state.hasBreakEnd &&
       breakEndMin != null &&
       state.checkInAtMin != null &&
-      state.checkInAtMin <= breakEndMin;
+      minutesSinceOrigin(state.checkInAtMin, shiftStartMin) <=
+        minutesSinceOrigin(breakEndMin, shiftStartMin);
 
     return {
       action: 'CHECK_OUT',
@@ -147,3 +146,6 @@ export function resolveAttendancePunch(
     message: "Hors fenêtre de pointage. Aucun enregistrement effectué.",
   };
 }
+
+// Re-export for call sites / tests that previously relied on local helpers.
+export { isOvernightShift };
