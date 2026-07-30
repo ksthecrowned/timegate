@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   EmployeeStatus,
+  PayrollLinePaymentStatus,
   Prisma,
   TimeGatePayrollRunStatus,
   TimeGateUserRole,
@@ -21,6 +22,8 @@ import { CompensationGridService } from '../compensation-grid/compensation-grid.
 import { EmployeeCompensationService } from '../employee-compensation/employee-compensation.service';
 import { CreatePayrollRunDto } from './dto/create-payroll-run.dto';
 import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
+import { resolveEmployeePayDay, resolvePayDueDate } from './payroll-due-date.util';
+import { PayrollRunTotals, sumPayrollLineTotals } from './payroll-run-totals.util';
 
 const RULE_VERSION = 'v1';
 const MONTHLY_HOURS = 173.33;
@@ -201,10 +204,20 @@ export class PayrollRunsService {
 
     const employees = await this.prisma.employee.findMany({
       where: { companyId, status: EmployeeStatus.ACTIVE },
-      select: { id: true, ctc: true, designationId: true, employmentTypeId: true },
+      select: {
+        id: true,
+        ctc: true,
+        designationId: true,
+        employmentTypeId: true,
+        payDueDayOverride: true,
+        payGroup: { select: { payDayOfMonth: true } },
+      },
     });
 
-    if (!employees.length) return;
+    if (!employees.length) {
+      await this.updateRunTotals(payrollRunId, []);
+      return;
+    }
 
     const employeeIds = employees.map((e) => e.id);
 
@@ -330,11 +343,20 @@ export class PayrollRunsService {
         const gross = roundMoney(baseSalary + bonusAmount + overtimeAmount);
         const netSalary = roundMoney(gross - penaltyAmount - totalDeductions);
 
+        // 6. Pay due date from pay group / employee override
+        const payDay = resolveEmployeePayDay(
+          employee.payGroup?.payDayOfMonth,
+          employee.payDueDayOverride,
+        );
+        const dueDate = payDay != null ? resolvePayDueDate(year, month, payDay) : null;
+
         return {
           id: generateDocId('PLINE'),
           payrollRunId,
           companyId,
           employeeId: employee.id,
+          dueDate,
+          paymentStatus: PayrollLinePaymentStatus.UNPAID,
           baseSalary: toDecimal(baseSalary),
           overtimeAmount: toDecimal(overtimeAmount),
           penaltyAmount: toDecimal(penaltyAmount),
@@ -371,6 +393,56 @@ export class PayrollRunsService {
     );
 
     await this.prisma.timeGatePayrollLine.createMany({ data: lineData });
+    await this.updateRunTotals(payrollRunId, lineData);
+  }
+
+  private async updateRunTotals(
+    payrollRunId: string,
+    lines: {
+      baseSalary?: Prisma.Decimal | null;
+      fixedAllowancesTotal?: Prisma.Decimal | null;
+      fixedDeductionsTotal?: Prisma.Decimal | null;
+      variableAllowancesTotal?: Prisma.Decimal | null;
+      variableDeductionsTotal?: Prisma.Decimal | null;
+      overtimeAmount?: Prisma.Decimal | null;
+      penaltyAmount?: Prisma.Decimal | null;
+      gross?: Prisma.Decimal | null;
+      netSalary?: Prisma.Decimal | null;
+      paymentStatus: PayrollLinePaymentStatus;
+    }[],
+  ) {
+    const totals: PayrollRunTotals = sumPayrollLineTotals(
+      lines.map((line) => ({
+        baseSalary: line.baseSalary,
+        fixedAllowancesTotal: line.fixedAllowancesTotal,
+        fixedDeductionsTotal: line.fixedDeductionsTotal,
+        variableAllowancesTotal: line.variableAllowancesTotal,
+        variableDeductionsTotal: line.variableDeductionsTotal,
+        overtimeAmount: line.overtimeAmount,
+        penaltyAmount: line.penaltyAmount,
+        gross: line.gross,
+        netSalary: line.netSalary,
+        paymentStatus: line.paymentStatus,
+      })),
+    );
+
+    await this.prisma.timeGatePayrollRun.update({
+      where: { id: payrollRunId },
+      data: {
+        totalBaseSalary: toDecimal(totals.totalBaseSalary),
+        totalFixedAllowances: toDecimal(totals.totalFixedAllowances),
+        totalFixedDeductions: toDecimal(totals.totalFixedDeductions),
+        totalVariableAllowances: toDecimal(totals.totalVariableAllowances),
+        totalVariableDeductions: toDecimal(totals.totalVariableDeductions),
+        totalOvertime: toDecimal(totals.totalOvertime),
+        totalPenalties: toDecimal(totals.totalPenalties),
+        totalGross: toDecimal(totals.totalGross),
+        totalNet: toDecimal(totals.totalNet),
+        linesCount: totals.linesCount,
+        paidCount: totals.paidCount,
+        unpaidCount: totals.unpaidCount,
+      },
+    });
   }
 
   private monthBounds(year: number, month: number) {
@@ -411,6 +483,10 @@ export class PayrollRunsService {
   private toRunShape(
     row: Prisma.TimeGatePayrollRunGetPayload<{ include: { _count: { select: { lines: true } } } }>,
   ) {
+    const linesCount = row.linesCount;
+    const paidCount = row.paidCount;
+    const unpaidCount = row.unpaidCount;
+
     return {
       id: row.id,
       companyId: row.companyId,
@@ -422,6 +498,23 @@ export class PayrollRunsService {
       lockedAt: row.lockedAt?.toISOString() ?? null,
       paidAt: row.paidAt?.toISOString() ?? null,
       _count: { lines: row._count.lines },
+      totals: {
+        baseSalary: fromDecimal(row.totalBaseSalary),
+        fixedAllowances: fromDecimal(row.totalFixedAllowances),
+        fixedDeductions: fromDecimal(row.totalFixedDeductions),
+        variableAllowances: fromDecimal(row.totalVariableAllowances),
+        variableDeductions: fromDecimal(row.totalVariableDeductions),
+        overtime: fromDecimal(row.totalOvertime),
+        penalties: fromDecimal(row.totalPenalties),
+        gross: fromDecimal(row.totalGross),
+        net: fromDecimal(row.totalNet),
+      },
+      paymentProgress: {
+        linesCount,
+        paidCount,
+        unpaidCount,
+        percentPaid: linesCount > 0 ? roundMoney((paidCount / linesCount) * 100) : 0,
+      },
     };
   }
 
@@ -446,6 +539,9 @@ export class PayrollRunsService {
       periodStart: row.periodStart?.toISOString?.() ?? null,
       periodEnd: row.periodEnd?.toISOString?.() ?? null,
       explainJson: row.explainJson,
+      dueDate: row.dueDate?.toISOString?.() ?? null,
+      paidAt: row.paidAt?.toISOString?.() ?? null,
+      paymentStatus: row.paymentStatus,
       createdAt: row.createdAt.toISOString(),
       employee: toEmployeeSummary(row.employee) ?? undefined,
     };

@@ -308,6 +308,9 @@ export class EmployeesService {
     if (dto.holidayListId) {
       await this.ensureHolidayList(dto.holidayListId, companyId);
     }
+    if (dto.payGroupId !== undefined && dto.payGroupId) {
+      await this.ensurePayGroup(dto.payGroupId, companyId);
+    }
 
     const updated = await this.prisma.employee.update({
       where: { id },
@@ -355,6 +358,10 @@ export class EmployeesService {
           ? { employmentTypeId: dto.employmentTypeId || null }
           : {}),
         ...(dto.holidayListId !== undefined ? { holidayListId: dto.holidayListId } : {}),
+        ...(dto.payGroupId !== undefined ? { payGroupId: dto.payGroupId || null } : {}),
+        ...(dto.payDueDayOverride !== undefined
+          ? { payDueDayOverride: dto.payDueDayOverride }
+          : {}),
         ...(dto.isActive !== undefined
           ? { status: dto.isActive ? EmployeeStatus.ACTIVE : EmployeeStatus.INACTIVE }
           : {}),
@@ -638,6 +645,14 @@ export class EmployeesService {
     return row;
   }
 
+  private async ensurePayGroup(payGroupId: string, companyId: string) {
+    const row = await this.prisma.payGroup.findUnique({ where: { id: payGroupId } });
+    if (!row || row.companyId !== companyId) {
+      throw new NotFoundException('Pay group not found');
+    }
+    return row;
+  }
+
   private async ensureShiftType(
     shiftTypeId: string,
     companyId: string | null,
@@ -692,6 +707,8 @@ export class EmployeesService {
     designationId: string | null;
     employmentTypeId: string | null;
     holidayListId: string | null;
+    payGroupId: string | null;
+    payDueDayOverride: number | null;
     status: EmployeeStatus;
     faceEmbedding: unknown;
     faceEnrollmentPhoto: string | null;
@@ -742,6 +759,8 @@ export class EmployeesService {
       designationId: employee.designationId,
       employmentTypeId: employee.employmentTypeId,
       holidayListId: employee.holidayListId,
+      payGroupId: employee.payGroupId,
+      payDueDayOverride: employee.payDueDayOverride,
       department: employee.department?.departmentName ?? null,
       designation: employee.designation?.designationName ?? null,
       employmentType: employee.employmentType?.employeeTypeName ?? null,
