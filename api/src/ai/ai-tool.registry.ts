@@ -687,22 +687,31 @@ export class AiToolRegistry {
     const cutoff = new Date(dayStart);
     cutoff.setUTCDate(cutoff.getUTCDate() + daysAhead);
 
-    const lines = await this.prisma.timeGatePayrollLine.findMany({
-      where: {
-        companyId,
-        paymentStatus: PayrollLinePaymentStatus.UNPAID,
-        dueDate: { not: null, lte: cutoff },
-        payrollRun: { status: { not: TimeGatePayrollRunStatus.DRAFT } },
-      },
-      select: {
-        id: true,
-        dueDate: true,
-        payrollRunId: true,
-        employee: { select: employeeSummarySelect },
-      },
-      orderBy: { dueDate: 'asc' },
-      take: 100,
-    });
+    const select = {
+      id: true,
+      dueDate: true,
+      payrollRunId: true,
+      employee: { select: employeeSummarySelect },
+    };
+    const baseWhere = {
+      companyId,
+      paymentStatus: PayrollLinePaymentStatus.UNPAID,
+      payrollRun: { status: { not: TimeGatePayrollRunStatus.DRAFT } },
+    };
+    const [dueSoonLines, overdueLines] = await Promise.all([
+      this.prisma.timeGatePayrollLine.findMany({
+        where: { ...baseWhere, dueDate: { gte: dayStart, lte: cutoff } },
+        select,
+        orderBy: { dueDate: 'asc' },
+        take: 100,
+      }),
+      this.prisma.timeGatePayrollLine.findMany({
+        where: { ...baseWhere, dueDate: { not: null, lt: dayStart } },
+        select,
+        orderBy: { dueDate: 'desc' },
+        take: 100,
+      }),
+    ]);
 
     const dueSoon: Array<{
       employee: { id?: string; name: string } | null;
@@ -712,17 +721,24 @@ export class AiToolRegistry {
     }> = [];
     const overdue: typeof dueSoon = [];
 
-    for (const line of lines) {
+    for (const line of dueSoonLines) {
       if (!line.dueDate) continue;
       const daysUntilDue = Math.round((line.dueDate.getTime() - dayStart.getTime()) / 86_400_000);
-      const entry = {
+      dueSoon.push({
         employee: this.sanitizeEmployee(line.employee),
         dueDate: line.dueDate.toISOString().slice(0, 10),
         payrollRunId: line.payrollRunId,
         daysUntilDue,
-      };
-      if (daysUntilDue < 0) overdue.push(entry);
-      else dueSoon.push(entry);
+      });
+    }
+    for (const line of overdueLines) {
+      if (!line.dueDate) continue;
+      overdue.push({
+        employee: this.sanitizeEmployee(line.employee),
+        dueDate: line.dueDate.toISOString().slice(0, 10),
+        payrollRunId: line.payrollRunId,
+        daysUntilDue: Math.round((line.dueDate.getTime() - dayStart.getTime()) / 86_400_000),
+      });
     }
 
     return {
