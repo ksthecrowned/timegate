@@ -4,6 +4,7 @@ import {
   KioskStatus,
   LeaveApplicationStatus,
   TimeGateAttendanceEventStatus,
+  TimeGatePayrollRunStatus,
   TimeGateUserRole,
   WeekDay,
 } from '@prisma/client';
@@ -14,6 +15,7 @@ import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from '../manager/dto/manager-query.dto';
 import { ManagerService } from '../manager/manager.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { fromDecimal } from '../common/utils/money.util';
 import { toWeekDay } from '../common/utils/punch-time.util';
 import { PlanningVsActualQueryDto } from './dto/planning-vs-actual-query.dto';
 
@@ -139,6 +141,10 @@ export class DashboardService {
 
     const role = user.role === TimeGateUserRole.MANAGER ? 'MANAGER' : 'ADMIN';
     const summary = team.summary;
+    const payrollMassData =
+      user.role === TimeGateUserRole.ADMIN
+        ? await this.getPayrollMassData(companyId)
+        : null;
 
     return {
       role,
@@ -171,6 +177,78 @@ export class DashboardService {
         workedMinutes: planning.workedMinutes,
       },
       planningVsActual: planning,
+      ...(payrollMassData ?? {}),
+    };
+  }
+
+  private async getPayrollMassData(companyId: string) {
+    const now = new Date();
+    const currentMonth = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+    const sixMonthsAgo = new Date(currentMonth);
+    sixMonthsAgo.setUTCMonth(sixMonthsAgo.getUTCMonth() - 5);
+    const eligibleStatuses = [
+      TimeGatePayrollRunStatus.LOCKED,
+      TimeGatePayrollRunStatus.PARTIALLY_PAID,
+      TimeGatePayrollRunStatus.PAID,
+    ];
+
+    const [latestRun, runs] = await Promise.all([
+      this.prisma.timeGatePayrollRun.findFirst({
+        where: { companyId, status: { in: eligibleStatuses } },
+        orderBy: [{ year: 'desc' }, { month: 'desc' }],
+        select: {
+          id: true,
+          year: true,
+          month: true,
+          status: true,
+          totalGross: true,
+          totalNet: true,
+        },
+      }),
+      this.prisma.timeGatePayrollRun.findMany({
+        where: {
+          companyId,
+          status: { in: eligibleStatuses },
+          OR: [
+            { year: { gt: sixMonthsAgo.getUTCFullYear() } },
+            {
+              year: sixMonthsAgo.getUTCFullYear(),
+              month: { gte: sixMonthsAgo.getUTCMonth() + 1 },
+            },
+          ],
+        },
+        select: { year: true, month: true, totalGross: true, status: true },
+      }),
+    ]);
+
+    const runsByPeriod = new Map(runs.map((run) => [`${run.year}-${run.month}`, run]));
+    const payrollMassSeries = Array.from({ length: 6 }, (_, index) => {
+      const date = new Date(sixMonthsAgo);
+      date.setUTCMonth(date.getUTCMonth() + index);
+      const year = date.getUTCFullYear();
+      const month = date.getUTCMonth() + 1;
+      const run = runsByPeriod.get(`${year}-${month}`);
+
+      return {
+        year,
+        month,
+        totalGross: fromDecimal(run?.totalGross),
+        status: run?.status ?? TimeGatePayrollRunStatus.DRAFT,
+      };
+    });
+
+    return {
+      payrollMass: latestRun
+        ? {
+            year: latestRun.year,
+            month: latestRun.month,
+            status: latestRun.status,
+            runId: latestRun.id,
+            totalGross: fromDecimal(latestRun.totalGross),
+            totalNet: fromDecimal(latestRun.totalNet),
+          }
+        : null,
+      payrollMassSeries,
     };
   }
 

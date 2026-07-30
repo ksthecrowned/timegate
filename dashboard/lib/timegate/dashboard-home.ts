@@ -39,12 +39,30 @@ export type DashboardHomeKpis = {
   workedMinutes: number
 }
 
+export type DashboardPayrollMass = {
+  year: number
+  month: number
+  status: string
+  runId: string
+  totalGross: number
+  totalNet: number
+}
+
+export type DashboardPayrollMassSeriesPoint = {
+  year: number
+  month: number
+  totalGross: number
+  status: string
+}
+
 export type DashboardHome = {
   role: DashboardHomeRole
   date: string
   today: DashboardHomeToday
   kpis: DashboardHomeKpis
   planningVsActual: PlanningVsActual
+  payrollMass?: DashboardPayrollMass | null
+  payrollMassSeries?: DashboardPayrollMassSeriesPoint[]
 }
 
 export function fetchDashboardHome() {
