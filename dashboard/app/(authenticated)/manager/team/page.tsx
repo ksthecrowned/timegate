@@ -20,7 +20,8 @@ import {
 } from '@/lib/timegate/manager'
 import { formatMinutes } from '@/lib/timegate/timesheets'
 import Link from 'next/link'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 
 function isoTodayLocal(): string {
   const d = new Date()
@@ -76,14 +77,29 @@ type SummaryCardDef = {
 }
 
 export default function ManagerTeamPage() {
+  return (
+    <Suspense fallback={<p className="text-sm text-slate-500">Chargement…</p>}>
+      <ManagerTeamView />
+    </Suspense>
+  )
+}
+
+function ManagerTeamView() {
   const today = useMemo(() => isoTodayLocal(), [])
-  const [date, setDate] = useState(today)
-  const [branchId, setBranchId] = useState('')
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const [date, setDate] = useState(searchParams.get('date') || today)
+  const [branchId, setBranchId] = useState(searchParams.get('branchId') || '')
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
   const [members, setMembers] = useState<TeamTodayMember[]>([])
   const [summary, setSummary] = useState<Record<string, number> | null>(null)
-  const [statusFilter, setStatusFilter] = useState<TeamMemberStatus | 'ALL'>('ALL')
-  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<TeamMemberStatus | 'ALL'>(() => {
+    const raw = searchParams.get('status')
+    if (raw === 'ALL') return 'ALL'
+    if (raw && raw in TEAM_STATUS_LABELS) return raw as TeamMemberStatus
+    return 'ALL'
+  })
+  const [query, setQuery] = useState(searchParams.get('q') || '')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -114,9 +130,25 @@ export default function ManagerTeamPage() {
     void load()
   }, [load])
 
+  // Keep shareable filters in the URL (date / branch / status / q).
   useEffect(() => {
-    setStatusFilter('ALL')
-  }, [date])
+    const params = new URLSearchParams()
+    if (date && date !== today) params.set('date', date)
+    if (branchId) params.set('branchId', branchId)
+    if (statusFilter !== 'ALL') params.set('status', statusFilter)
+    if (query.trim()) params.set('q', query.trim())
+    const qs = params.toString()
+    router.replace(qs ? `/manager/team?${qs}` : '/manager/team', { scroll: false })
+  }, [date, branchId, statusFilter, query, today, router])
+
+  // Live refresh while viewing today.
+  useEffect(() => {
+    if (date !== today) return
+    const id = window.setInterval(() => {
+      void load()
+    }, 60_000)
+    return () => window.clearInterval(id)
+  }, [date, today, load])
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -170,6 +202,14 @@ export default function ManagerTeamPage() {
       value: summary?.expected ?? 0,
       icon: 'fa-calendar-day',
       accent: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
+    })
+
+    cards.push({
+      key: 'OFF',
+      label: 'Repos / férié',
+      value: summary?.off ?? 0,
+      icon: 'fa-moon',
+      accent: 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300',
     })
 
     cards.push(
@@ -229,7 +269,7 @@ export default function ManagerTeamPage() {
 
       <ApiErrorBanner message={error} />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-9">
         {summaryCards.map((card) => (
           <TeamSummaryCard
             key={card.key}

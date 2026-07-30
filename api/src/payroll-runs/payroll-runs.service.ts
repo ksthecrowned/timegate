@@ -401,11 +401,11 @@ export class PayrollRunsService {
     companyId: string,
     year: number,
     month: number,
-    client: Prisma.TransactionClient | PrismaService = this.prisma,
+    tx: Prisma.TransactionClient,
   ) {
     const { from, to } = this.monthBounds(year, month);
 
-    const employees = await client.employee.findMany({
+    const employees = await tx.employee.findMany({
       where: { companyId, status: EmployeeStatus.ACTIVE },
       select: {
         id: true,
@@ -418,14 +418,14 @@ export class PayrollRunsService {
     });
 
     if (!employees.length) {
-      await this.updateRunTotals(payrollRunId, [], undefined, client);
+      await this.updateRunTotals(payrollRunId, [], undefined, tx);
       return;
     }
 
     const employeeIds = employees.map((e) => e.id);
 
     const [timesheets, absences, variableItems] = await Promise.all([
-      client.timeGateTimesheetDay.findMany({
+      tx.timeGateTimesheetDay.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
@@ -433,7 +433,7 @@ export class PayrollRunsService {
         },
         select: { employeeId: true, lateMinutes: true, overtimeMinutes: true },
       }),
-      client.timeGateAbsenceRecord.findMany({
+      tx.timeGateAbsenceRecord.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
@@ -442,7 +442,7 @@ export class PayrollRunsService {
         },
         select: { employeeId: true },
       }),
-      client.payrollVariableItem.findMany({
+      tx.payrollVariableItem.findMany({
         where: { payrollRunId, companyId },
       }),
     ]);
@@ -595,8 +595,10 @@ export class PayrollRunsService {
       }),
     );
 
-    await client.timeGatePayrollLine.createMany({ data: lineData });
-    await this.updateRunTotals(payrollRunId, lineData, undefined, client);
+    // createMany + denormalized totals must stay on the same transaction client
+    // so a crash between the two cannot leave lines without matching run totals.
+    await tx.timeGatePayrollLine.createMany({ data: lineData });
+    await this.updateRunTotals(payrollRunId, lineData, undefined, tx);
   }
 
   private async updateRunTotals(
@@ -614,7 +616,7 @@ export class PayrollRunsService {
       paymentStatus: PayrollLinePaymentStatus;
     }[],
     extra?: Pick<Prisma.TimeGatePayrollRunUpdateInput, 'status' | 'paidAt' | 'lockedAt'>,
-    client: Prisma.TransactionClient | PrismaService = this.prisma,
+    tx: Prisma.TransactionClient | PrismaService = this.prisma,
   ) {
     const totals: PayrollRunTotals = sumPayrollLineTotals(
       lines.map((line) => ({
@@ -631,7 +633,7 @@ export class PayrollRunsService {
       })),
     );
 
-    return client.timeGatePayrollRun.update({
+    return tx.timeGatePayrollRun.update({
       where: { id: payrollRunId },
       data: {
         totalBaseSalary: toDecimal(totals.totalBaseSalary),
