@@ -71,6 +71,7 @@ export class TimesheetsService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
     const companyId = this.resolveCompanyFilter(user);
+    const branchId = query.resolvedBranchId();
 
     if (query.from && query.to && new Date(query.from) > new Date(query.to)) {
       throw new BadRequestException('Invalid date range: from must be before to');
@@ -80,6 +81,7 @@ export class TimesheetsService {
       ...(companyId ? { companyId } : {}),
       ...(query.employeeId ? { employeeId: query.employeeId } : {}),
       ...(query.status ? { status: query.status } : {}),
+      ...(branchId ? { employee: { branchId } } : {}),
       ...(query.from || query.to
         ? {
             workDate: {
@@ -750,10 +752,26 @@ export class TimesheetsService {
       overtimeMinutes: row.overtimeMinutes,
       status: row.status,
       ruleVersion: row.ruleVersion,
-      anomalyFlags: row.anomalyFlags,
+      anomalyFlags: this.normalizeAnomalyFlags(row.anomalyFlags),
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       employee: toEmployeeSummary(row.employee) ?? undefined,
     };
+  }
+
+  private normalizeAnomalyFlags(value: Prisma.JsonValue | null): string[] | null {
+    if (!value) return null;
+    if (Array.isArray(value)) {
+      const flags = value.map(String).filter(Boolean);
+      return flags.length ? flags : null;
+    }
+    if (typeof value === 'object' && value !== null && 'flags' in value) {
+      const raw = (value as { flags?: unknown }).flags;
+      if (Array.isArray(raw)) {
+        const flags = raw.map(String).filter(Boolean);
+        return flags.length ? flags : null;
+      }
+    }
+    return null;
   }
 }

@@ -17,7 +17,6 @@ const STATUS_OPTIONS: SelectOption[] = [
   { value: 'HALF_DAY', label: 'Demi-journée' },
   { value: 'ON_LEAVE', label: 'En congé' },
   { value: 'ON_HOLIDAY', label: 'Jour férié' },
-  { value: 'WORK_FROM_HOME', label: 'Télétravail' },
 ]
 
 type AttendanceDayEditFormProps = {
@@ -27,7 +26,8 @@ type AttendanceDayEditFormProps = {
 
 export default function AttendanceDayEditForm({ day, onSaved }: AttendanceDayEditFormProps) {
   const [form, setForm] = useState<UpdateAttendanceDayPayload>({
-    status: day.status,
+    // Télétravail retiré : on propose Présent pour les lignes legacy.
+    status: day.status === 'WORK_FROM_HOME' ? 'PRESENT' : day.status,
     shiftId: day.shiftId ?? '',
     leaveTypeId: day.leaveTypeId ?? '',
   })

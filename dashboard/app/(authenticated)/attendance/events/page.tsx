@@ -1,6 +1,7 @@
 "use client";
 
 import { employeeTableColumn } from "@/components/timegate/employee-table-column";
+import { ApiErrorBanner } from "@/components/timegate/ui";
 import ActionButtons from "@/components/ui/ActionButtons";
 import DataTable, { Column } from "@/components/ui/DataTable";
 import PageHeader from "@/components/ui/PageHeader";
@@ -89,15 +90,8 @@ export default function AttendanceEventsPage() {
           { label: "Événements de pointage" }
       ]}
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Arrivées / départs acceptés ou à revoir. Les logs biométriques (debug) sont séparés.
-      </p>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <ApiErrorBanner message={error} />
 
       <DataTable
         loading={loading}

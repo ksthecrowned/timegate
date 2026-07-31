@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -48,7 +49,7 @@ export default function DepartmentDetailPage() {
       {loading ? <SkeletonDetailCard /> : row ? (
         <DetailCard title={row.name}>
           <DetailRow label="Nom" value={row.name} />
-          <DetailRow label="Créé le" value={new Date(row.createdAt).toLocaleString('fr-FR')} />
+          <DetailRow label="Créé le" value={formatApiDateTime(row.createdAt)} />
         </DetailCard>
       ) : null}
     </div>

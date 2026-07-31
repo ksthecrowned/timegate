@@ -1,19 +1,17 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import ActionButtons from '@/components/ui/ActionButtons'
 import AddPageLink from '@/components/timegate/AddPageLink'
 import { dateTableColumn } from '@/components/timegate/date-table-column'
+import { ApiErrorBanner } from '@/components/timegate/ui'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { Column } from '@/components/ui/DataTable'
+import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import { deleteCompensationGrid, listCompensationGrid } from '@/lib/timegate/compensation-grid'
 import { listDesignations, listEmploymentTypes } from '@/lib/timegate/refs'
 import type { CompensationGridEntry } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
-
-function formatMoney(value: number): string {
-  return value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
+import { formatMoney } from '@/lib/money'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 export default function CompensationGridPage() {
   const [data, setData] = useState<CompensationGridEntry[]>([])
@@ -76,15 +74,7 @@ export default function CompensationGridPage() {
         breadcrumbs={[{ label: 'Grille salariale' }]}
         action={<AddPageLink href="/compensation-grid/new" label="Nouvelle entrée" />}
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Salaire de base par poste et type de contrat, utilisé comme référence pour les salaires
-        mensuels.
-      </p>
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <ApiErrorBanner message={error} />
       <DataTable
         loading={loading}
         data={data}

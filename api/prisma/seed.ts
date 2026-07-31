@@ -4,6 +4,7 @@ import {
   EmployeeStatus,
   KioskStatus,
   LeaveApplicationStatus,
+  PayrollLinePaymentStatus,
   PrismaClient,
   SalaryComponentType,
   TimeGateAttendanceEventSource,
@@ -21,6 +22,8 @@ import { Pool } from 'pg';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
 import { generateDocId } from '../src/common/utils/doc-id.util';
+import { toDecimal } from '../src/common/utils/money.util';
+import { sumPayrollLineTotals } from '../src/payroll-runs/payroll-run-totals.util';
 import { createPrismaPg } from '../src/prisma/create-prisma-pg';
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL! });
@@ -50,6 +53,177 @@ function todayUtc() {
   return utcDate(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate());
 }
 
+function payrollPeriodBounds(year: number, month: number, payDayOfMonth = 25) {
+  const lastDayOfMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const day = Math.min(payDayOfMonth, lastDayOfMonth);
+  return {
+    periodStart: new Date(Date.UTC(year, month - 1, 1)),
+    periodEnd: new Date(Date.UTC(year, month, 0)),
+    dueDate: new Date(Date.UTC(year, month - 1, day)),
+  };
+}
+
+const DEMO_BASE_SALARIES = [420_000, 380_000, 450_000, 520_000, 360_000, 390_000, 410_000, 440_000];
+
+/** Lignes de démo cohérentes avec la formule paie (brut / net / pénalités). */
+function buildDemoPayrollLines(input: {
+  employees: Array<{ id: string; payDayOfMonth?: number }>;
+  payrollRunId: string;
+  companyId: string;
+  year: number;
+  month: number;
+  paymentStatus: PayrollLinePaymentStatus;
+  paidAt?: Date | null;
+  limit?: number;
+  /** Variantes allégées (brouillon) : pas de primes / pénalités. */
+  plain?: boolean;
+}) {
+  const employees = input.limit
+    ? input.employees.slice(0, input.limit)
+    : input.employees;
+
+  return employees.map((emp, idx) => {
+    const { periodStart, periodEnd, dueDate } = payrollPeriodBounds(
+      input.year,
+      input.month,
+      emp.payDayOfMonth ?? 25,
+    );
+    const baseSalary = DEMO_BASE_SALARIES[idx % DEMO_BASE_SALARIES.length]!;
+    if (input.plain) {
+      return {
+        id: generateDocId('PLINE'),
+        payrollRunId: input.payrollRunId,
+        companyId: input.companyId,
+        employeeId: emp.id,
+        baseSalary,
+        overtimeAmount: 0,
+        lateMinutesPenalty: 0,
+        absenceAmount: 0,
+        penaltyAmount: 0,
+        bonusAmount: 0,
+        fixedAllowancesTotal: 0,
+        fixedDeductionsTotal: 0,
+        variableAllowancesTotal: 0,
+        variableDeductionsTotal: 0,
+        gross: baseSalary,
+        netSalary: baseSalary,
+        periodStart,
+        periodEnd,
+        dueDate,
+        paymentStatus: input.paymentStatus,
+        paidAt: input.paidAt ?? null,
+        explainJson: { ruleVersion: 'v2', seeded: true, plain: true },
+      };
+    }
+
+    const lateMinutesPenalty = idx % 4 === 0 ? 5_000 : 0;
+    const absenceAmount = idx % 5 === 0 ? 8_000 : 0;
+    const penaltyAmount = lateMinutesPenalty + absenceAmount;
+    const overtimeAmount = idx % 3 === 0 ? 12_000 : 0;
+    const fixedAllowancesTotal = idx === 0 ? 25_000 : 0;
+    // Évite de cumuler prime transport (idx 0) + prime variable sur le même employé
+    const variableAllowancesTotal = idx > 0 && idx % 6 === 0 ? 15_000 : 0;
+    const bonusAmount = fixedAllowancesTotal + variableAllowancesTotal;
+    const gross = baseSalary + bonusAmount + overtimeAmount;
+    const netSalary = gross - penaltyAmount;
+
+    return {
+      id: generateDocId('PLINE'),
+      payrollRunId: input.payrollRunId,
+      companyId: input.companyId,
+      employeeId: emp.id,
+      baseSalary,
+      overtimeAmount,
+      lateMinutesPenalty,
+      absenceAmount,
+      penaltyAmount,
+      bonusAmount,
+      fixedAllowancesTotal,
+      fixedDeductionsTotal: 0,
+      variableAllowancesTotal,
+      variableDeductionsTotal: 0,
+      gross,
+      netSalary,
+      periodStart,
+      periodEnd,
+      dueDate,
+      paymentStatus: input.paymentStatus,
+      paidAt: input.paidAt ?? null,
+      explainJson: {
+        ruleVersion: 'v2',
+        seeded: true,
+        lateMinutesPenalty,
+        absenceAmount,
+        overtimeAmount,
+        fixedAllowancesTotal,
+        variableAllowancesTotal,
+      },
+    };
+  });
+}
+
+async function createPayrollRunWithLines(
+  prisma: PrismaClient,
+  input: {
+    companyId: string;
+    year: number;
+    month: number;
+    status: TimeGatePayrollRunStatus;
+    lockedAt?: Date | null;
+    paidAt?: Date | null;
+    lines: ReturnType<typeof buildDemoPayrollLines>;
+  },
+) {
+  const runId = generateDocId('PRUN');
+  const lines = input.lines.map((line) => ({ ...line, payrollRunId: runId }));
+  const totals = sumPayrollLineTotals(lines);
+
+  const run = await prisma.timeGatePayrollRun.create({
+    data: {
+      id: runId,
+      companyId: input.companyId,
+      year: input.year,
+      month: input.month,
+      status: input.status,
+      ruleVersion: 'v2',
+      lockedAt: input.lockedAt ?? null,
+      paidAt: input.paidAt ?? null,
+      totalBaseSalary: toDecimal(totals.totalBaseSalary),
+      totalFixedAllowances: toDecimal(totals.totalFixedAllowances),
+      totalFixedDeductions: toDecimal(totals.totalFixedDeductions),
+      totalVariableAllowances: toDecimal(totals.totalVariableAllowances),
+      totalVariableDeductions: toDecimal(totals.totalVariableDeductions),
+      totalOvertime: toDecimal(totals.totalOvertime),
+      totalPenalties: toDecimal(totals.totalPenalties),
+      totalGross: toDecimal(totals.totalGross),
+      totalNet: toDecimal(totals.totalNet),
+      linesCount: totals.linesCount,
+      paidCount: totals.paidCount,
+      unpaidCount: totals.unpaidCount,
+    },
+  });
+
+  await prisma.timeGatePayrollLine.createMany({
+    data: lines.map((line) => ({
+      ...line,
+      baseSalary: toDecimal(line.baseSalary),
+      overtimeAmount: toDecimal(line.overtimeAmount),
+      lateMinutesPenalty: toDecimal(line.lateMinutesPenalty),
+      absenceAmount: toDecimal(line.absenceAmount),
+      penaltyAmount: toDecimal(line.penaltyAmount),
+      bonusAmount: toDecimal(line.bonusAmount),
+      fixedAllowancesTotal: toDecimal(line.fixedAllowancesTotal),
+      fixedDeductionsTotal: toDecimal(line.fixedDeductionsTotal),
+      variableAllowancesTotal: toDecimal(line.variableAllowancesTotal),
+      variableDeductionsTotal: toDecimal(line.variableDeductionsTotal),
+      gross: toDecimal(line.gross),
+      netSalary: toDecimal(line.netSalary),
+    })),
+  });
+
+  return run;
+}
+
 function isWeekday(d: Date) {
   const day = d.getUTCDay();
   return day >= 1 && day <= 5;
@@ -59,8 +233,7 @@ function pickAttendanceStatus(seed: number, isHoliday: boolean): AttendanceStatu
   if (isHoliday) return AttendanceStatus.ON_HOLIDAY;
   if (seed < 5) return AttendanceStatus.ABSENT;
   if (seed < 9) return AttendanceStatus.ON_LEAVE;
-  if (seed < 13) return AttendanceStatus.WORK_FROM_HOME;
-  if (seed < 16) return AttendanceStatus.HALF_DAY;
+  if (seed < 12) return AttendanceStatus.HALF_DAY;
   return AttendanceStatus.PRESENT;
 }
 
@@ -74,6 +247,7 @@ type DemoEmployee = {
   designationId: string;
   defaultShiftId: string;
   faceSeed: number;
+  payDayOfMonth: number;
 };
 
 /**
@@ -214,7 +388,6 @@ async function seedRichDemoData(params: {
 
       const isWorked =
         status === AttendanceStatus.PRESENT ||
-        status === AttendanceStatus.WORK_FROM_HOME ||
         status === AttendanceStatus.HALF_DAY;
 
       if (isWorked) {
@@ -383,6 +556,7 @@ async function purgeCompany(company: { id: string }) {
   await prisma.shiftLocation.deleteMany({ where: { branch: { companyId: company.id } } });
   await prisma.employeeCheckin.deleteMany({ where: { employee: { companyId: company.id } } });
   await prisma.employee.deleteMany({ where: { companyId: company.id } });
+  await prisma.payGroup.deleteMany({ where: { companyId: company.id } });
   await prisma.designation.deleteMany({ where: { companyId: company.id } });
   await prisma.employmentType.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateKiosk.deleteMany({ where: { companyId: company.id } });
@@ -459,6 +633,27 @@ async function main() {
       email: 'contact@sotrafer.cg',
       website: 'https://www.sotrafer.cg',
       address: 'Avenue Amical Cabral, Brazzaville',
+    },
+  });
+
+  // Même consigne que le signup : un groupe de paie par défaut obligatoire.
+  const defaultPayGroup = await prisma.payGroup.create({
+    data: {
+      id: generateDocId('PGRP'),
+      companyId: company.id,
+      name: 'Paie mensuelle',
+      payDayOfMonth: 25,
+      isDefault: true,
+    },
+  });
+
+  const midMonthPayGroup = await prisma.payGroup.create({
+    data: {
+      id: generateDocId('PGRP'),
+      companyId: company.id,
+      name: 'Échéance 15',
+      payDayOfMonth: 15,
+      isDefault: false,
     },
   });
 
@@ -751,6 +946,8 @@ async function main() {
       employmentTypeId: cdiType.id,
       userId: employeeUser.id,
       status: EmployeeStatus.ACTIVE,
+      salaryCurrency: 'XAF',
+      payGroupId: defaultPayGroup.id,
       faceEmbedding: [0.01, 0.02, 0.03],
       faceEnrolledAt: new Date(),
       kioskPinHash: demoKioskPinHash,
@@ -915,6 +1112,8 @@ async function main() {
       designationId: developerDesignation.id,
       employmentTypeId: cdiType.id,
       status: EmployeeStatus.ACTIVE,
+      salaryCurrency: 'XAF',
+      payGroupId: midMonthPayGroup.id,
       faceEmbedding: [0.1, 0.2, 0.3],
       faceEnrolledAt: new Date(),
     },
@@ -994,7 +1193,8 @@ async function main() {
 
   const extraEmployees: DemoEmployee[] = [];
   for (const emp of extraEmployeeDefs) {
-    const created: DemoEmployee = { ...emp, id: generateDocId('EMP') };
+    const payDayOfMonth = emp.faceSeed % 3 === 0 ? midMonthPayGroup.payDayOfMonth : defaultPayGroup.payDayOfMonth;
+    const created: DemoEmployee = { ...emp, id: generateDocId('EMP'), payDayOfMonth };
     // Grace Hopper: portal user without password — demo OTP onboarding flow.
     const employeeUser = await ensureEmployeeUser(
       prisma,
@@ -1017,6 +1217,8 @@ async function main() {
         designationId: emp.designationId,
         employmentTypeId: cdiType.id,
         status: EmployeeStatus.ACTIVE,
+        salaryCurrency: 'XAF',
+        payGroupId: emp.faceSeed % 3 === 0 ? midMonthPayGroup.id : defaultPayGroup.id,
         faceEmbedding: [emp.faceSeed / 10, 0.2, 0.3],
         faceEnrolledAt: new Date(),
       },
@@ -1047,6 +1249,7 @@ async function main() {
       designationId: developerDesignation.id,
       defaultShiftId: hqSchedule.id,
       faceSeed: 1,
+      payDayOfMonth: defaultPayGroup.payDayOfMonth,
     },
     {
       id: alanEmployee.id,
@@ -1058,6 +1261,7 @@ async function main() {
       designationId: developerDesignation.id,
       defaultShiftId: westSchedule.id,
       faceSeed: 8,
+      payDayOfMonth: midMonthPayGroup.payDayOfMonth,
     },
     ...extraEmployees,
   ];
@@ -1117,59 +1321,72 @@ async function main() {
   const payrollYear = todayUtc().getUTCFullYear();
   const prevMonth = payrollMonth === 1 ? 12 : payrollMonth - 1;
   const prevYear = payrollMonth === 1 ? payrollYear - 1 : payrollYear;
+  const partialMonth = prevMonth === 1 ? 12 : prevMonth - 1;
+  const partialYear = prevMonth === 1 ? prevYear - 1 : prevYear;
 
-  const paidRun = await prisma.timeGatePayrollRun.create({
-    data: {
-      id: generateDocId('PRUN'),
+  const paidAt = addDays(todayUtc(), -5);
+  const lockedAt = addDays(todayUtc(), -8);
+
+  const paidRun = await createPayrollRunWithLines(prisma, {
+    companyId: company.id,
+    year: prevYear,
+    month: prevMonth,
+    status: TimeGatePayrollRunStatus.PAID,
+    lockedAt,
+    paidAt,
+    lines: buildDemoPayrollLines({
+      employees: demoEmployees,
+      payrollRunId: 'pending',
       companyId: company.id,
       year: prevYear,
       month: prevMonth,
-      status: TimeGatePayrollRunStatus.PAID,
-      paidAt: addDays(todayUtc(), -5),
-    },
-  });
-
-  const draftRun = await prisma.timeGatePayrollRun.create({
-    data: {
-      id: generateDocId('PRUN'),
-      companyId: company.id,
-      year: payrollYear,
-      month: payrollMonth,
-      status: TimeGatePayrollRunStatus.DRAFT,
-    },
-  });
-
-  const baseSalaries = [4200, 3800, 4500, 5200, 3600, 3900, 4100, 4400];
-  await prisma.timeGatePayrollLine.createMany({
-    data: demoEmployees.map((emp, idx) => {
-      const base = baseSalaries[idx % baseSalaries.length];
-      const penalty = idx % 4 === 0 ? 50 : 0;
-      const overtime = idx % 3 === 0 ? 120 : 0;
-      const net = base + overtime - penalty;
-      return {
-        id: generateDocId('PLINE'),
-        payrollRunId: paidRun.id,
-        companyId: company.id,
-        employeeId: emp.id,
-        baseSalary: base,
-        overtimeAmount: overtime,
-        penaltyAmount: penalty,
-        absenceAmount: idx % 5 === 0 ? 80 : 0,
-        bonusAmount: idx % 6 === 0 ? 150 : 0,
-        netSalary: net,
-      };
+      paymentStatus: PayrollLinePaymentStatus.PAID,
+      paidAt,
     }),
   });
 
-  await prisma.timeGatePayrollLine.createMany({
-    data: demoEmployees.slice(0, 5).map((emp, idx) => ({
-      id: generateDocId('PLINE'),
-      payrollRunId: draftRun.id,
+  const partialPaidAt = addDays(todayUtc(), -12);
+  const partialLockedAt = addDays(todayUtc(), -15);
+  const partialRun = await createPayrollRunWithLines(prisma, {
+    companyId: company.id,
+    year: partialYear,
+    month: partialMonth,
+    status: TimeGatePayrollRunStatus.PARTIALLY_PAID,
+    lockedAt: partialLockedAt,
+    paidAt: null,
+    lines: buildDemoPayrollLines({
+      employees: demoEmployees,
+      payrollRunId: 'pending',
       companyId: company.id,
-      employeeId: emp.id,
-      baseSalary: baseSalaries[idx % baseSalaries.length],
-      netSalary: baseSalaries[idx % baseSalaries.length],
-    })),
+      year: partialYear,
+      month: partialMonth,
+      paymentStatus: PayrollLinePaymentStatus.UNPAID,
+    }).map((line, idx) =>
+      idx < 3
+        ? {
+            ...line,
+            paymentStatus: PayrollLinePaymentStatus.PAID,
+            paidAt: partialPaidAt,
+          }
+        : line,
+    ),
+  });
+
+  const draftRun = await createPayrollRunWithLines(prisma, {
+    companyId: company.id,
+    year: payrollYear,
+    month: payrollMonth,
+    status: TimeGatePayrollRunStatus.DRAFT,
+    lines: buildDemoPayrollLines({
+      employees: demoEmployees,
+      payrollRunId: 'pending',
+      companyId: company.id,
+      year: payrollYear,
+      month: payrollMonth,
+      paymentStatus: PayrollLinePaymentStatus.UNPAID,
+      limit: 5,
+      plain: true,
+    }),
   });
 
   await prisma.compensationGrid.createMany({
@@ -1179,7 +1396,7 @@ async function main() {
         companyId: company.id,
         designationId: developerDesignation.id,
         employmentTypeId: cdiType.id,
-        baseSalary: 4200,
+        baseSalary: 420_000,
         effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
       },
       {
@@ -1187,7 +1404,7 @@ async function main() {
         companyId: company.id,
         designationId: hrDesignation.id,
         employmentTypeId: cdiType.id,
-        baseSalary: 5200,
+        baseSalary: 520_000,
         effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
       },
       {
@@ -1195,7 +1412,7 @@ async function main() {
         companyId: company.id,
         designationId: opsDesignation.id,
         employmentTypeId: cdiType.id,
-        baseSalary: 4500,
+        baseSalary: 450_000,
         effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
       },
     ],
@@ -1210,7 +1427,7 @@ async function main() {
         employeeId: transportEmployee.id,
         label: 'Prime de transport',
         kind: CompensationItemKind.ALLOWANCE,
-        amount: 150,
+        amount: 25_000,
         isRecurring: true,
         effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
         isActive: true,
@@ -1238,7 +1455,8 @@ async function main() {
     workSchedule: hqSchedule.id,
     leaveType: leaveType.id,
     holidayList: holidayList.id,
-    payrollRuns: [paidRun.id, draftRun.id],
+    payrollRuns: [paidRun.id, partialRun.id, draftRun.id],
+    payGroups: [defaultPayGroup.id, midMonthPayGroup.id],
     payrollAccount: payrollPayableAccount.id,
     salaryStructure: monthlyStructure.id,
     password: 'ChangeMe123!',

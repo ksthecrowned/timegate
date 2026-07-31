@@ -192,7 +192,6 @@ export type AttendanceDayStatus =
   | 'HALF_DAY'
   | 'ON_LEAVE'
   | 'ON_HOLIDAY'
-  | 'WORK_FROM_HOME'
 
 export type EmployeeContract = {
   id: string
@@ -401,7 +400,7 @@ export type TimesheetDay = {
   overtimeMinutes: number
   status: string
   ruleVersion?: string | null
-  anomalyFlags?: string[] | null
+  anomalyFlags?: string[] | { flags?: string[] } | null
   createdAt: string
   updatedAt: string
   employee?: EmployeeSummary | null
@@ -512,8 +511,33 @@ export type PayGroup = {
   companyId: string
   name: string
   payDayOfMonth: number
+  isDefault: boolean
   createdAt: string
   updatedAt: string
+}
+
+export type EmployeeCompensationSummary = {
+  currency: string
+  baseSalary: number
+  baseSource: 'GRID' | 'CTC' | 'NONE'
+  fixedAllowances: number
+  fixedDeductions: number
+  /** Base + indemnités fixes (avant retenues). */
+  fixedMonthly: number
+  /** Base + indemnités − retenues fixes. */
+  fixedMonthlyNet: number
+  allowances: Array<{ label: string; amount: number }>
+  deductions: Array<{ label: string; amount: number }>
+  lastMonth: {
+    year: number
+    month: number
+    runId: string | null
+    runStatus: string | null
+    gross: number | null
+    net: number | null
+    paymentStatus: string | null
+    paidAt: string | null
+  }
 }
 
 export type FaceRecognitionLog = {

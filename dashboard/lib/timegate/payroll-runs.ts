@@ -1,5 +1,6 @@
 import { http } from '@/lib/http'
 import type { PaginatedResponse } from '@/lib/http/types'
+import { formatMoney } from '@/lib/money'
 import type {
   PayrollBranchPaymentSummary,
   PayrollLine,
@@ -60,6 +61,10 @@ export function lockPayrollRun(id: string) {
   return http.patch<PayrollRun>(`/payroll-runs/${id}/lock`, {})
 }
 
+export function regeneratePayrollRun(id: string) {
+  return http.patch<PayrollRun>(`/payroll-runs/${id}/regenerate`, {})
+}
+
 export function markLinesPaid(id: string, body: MarkLinesPaidPayload) {
   return http.post<PayrollRun>(`/payroll-runs/${id}/mark-lines-paid`, body)
 }
@@ -68,9 +73,7 @@ export function getPaymentSummaryByBranch(id: string) {
   return http.get<PayrollBranchPaymentSummary[]>(`/payroll-runs/${id}/payment-summary-by-branch`)
 }
 
-export function formatMoney(value: number | undefined | null): string {
-  return (value ?? 0).toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
+export { formatMoney }
 
 export const MONTH_LABELS = [
   'Janvier',

@@ -2,35 +2,34 @@
 
 import AddPageLink from '@/components/timegate/AddPageLink'
 import { dateTimeTableColumn } from '@/components/timegate/date-table-column'
-import { secondaryBtnClass } from '@/components/timegate/ui'
+import { ApiErrorBanner } from '@/components/timegate/ui'
 import ActionButtons from '@/components/ui/ActionButtons'
 import DataTable, { Column } from '@/components/ui/DataTable'
 import PageHeader from '@/components/ui/PageHeader'
-import { SelectSearch } from '@/components/ui/SelectSearch'
-import type { SelectOption } from '@/components/ui/select-search-types'
 import StatusBadge from '@/components/ui/StatusBadge'
-import { findOption } from '@/lib/select-options'
 import { HttpError } from '@/lib/http'
 import { formatMoney, listPayrollRuns, MONTH_LABELS } from '@/lib/timegate/payroll-runs'
 import type { PayrollRun } from '@/lib/timegate/types'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-const STATUS_OPTIONS: SelectOption[] = [
-  { value: '', label: 'Tous les statuts' },
-  { value: 'DRAFT', label: 'Brouillon' },
-  { value: 'LOCKED', label: 'Verrouillé' },
-  { value: 'PARTIALLY_PAID', label: 'Partiellement payé' },
-  { value: 'PAID', label: 'Payé' },
+type StatusFilter = PayrollRun['status'] | 'ALL'
+
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string; icon: string }> = [
+  { key: 'ALL', label: 'Tous', icon: 'fa-layer-group' },
+  { key: 'DRAFT', label: 'Brouillon', icon: 'fa-file-pen' },
+  { key: 'LOCKED', label: 'Verrouillé', icon: 'fa-lock' },
+  { key: 'PARTIALLY_PAID', label: 'Partiellement payé', icon: 'fa-circle-half-stroke' },
+  { key: 'PAID', label: 'Payé', icon: 'fa-circle-check' },
 ]
 
 function payrollStatusBadge(status: string) {
   const map: Record<string, string> = {
-    DRAFT: 'pending',
-    LOCKED: 'processing',
-    PARTIALLY_PAID: 'processing',
-    PAID: 'completed',
+    DRAFT: 'Brouillon',
+    LOCKED: 'Verrouillé',
+    PARTIALLY_PAID: 'Partiellement payé',
+    PAID: 'Payé',
   }
-  return <StatusBadge status={map[status] ?? status.toLowerCase()} />
+  return <StatusBadge status={map[status] ?? status} />
 }
 
 function paymentProgressCell(row: PayrollRun) {
@@ -86,7 +85,7 @@ const columns: Column<PayrollRun>[] = [
 
 export default function PayrollRunsPage() {
   const [data, setData] = useState<PayrollRun[]>([])
-  const [status, setStatus] = useState('')
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -94,25 +93,34 @@ export default function PayrollRunsPage() {
     setLoading(true)
     setError('')
     try {
-      setData(
-        (
-          await listPayrollRuns({
-            page: 1,
-            limit: 100,
-            ...(status ? { status } : {}),
-          })
-        ).data,
-      )
+      setData((await listPayrollRuns({ page: 1, limit: 100 })).data)
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Erreur de chargement')
     } finally {
       setLoading(false)
     }
-  }, [status])
+  }, [])
 
   useEffect(() => {
     void load()
   }, [load])
+
+  const filtered = useMemo(
+    () => (statusFilter === 'ALL' ? data : data.filter((row) => row.status === statusFilter)),
+    [data, statusFilter],
+  )
+
+  const counts = useMemo(() => {
+    const base: Record<StatusFilter, number> = {
+      ALL: data.length,
+      DRAFT: 0,
+      LOCKED: 0,
+      PARTIALLY_PAID: 0,
+      PAID: 0,
+    }
+    for (const row of data) base[row.status] += 1
+    return base
+  }, [data])
 
   return (
     <div>
@@ -120,37 +128,54 @@ export default function PayrollRunsPage() {
         breadcrumbs={[{ label: 'Cycles de paie' }]}
         action={<AddPageLink href="/payroll-runs/new" label="Nouveau cycle" />}
       />
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
-      <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="min-w-48 sm:max-w-56">
-          <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
-            Statut
-          </label>
-          <SelectSearch
-            instanceId="payroll-runs-status"
-            variant="toolbar"
-            options={STATUS_OPTIONS}
-            value={findOption(STATUS_OPTIONS, status) ?? STATUS_OPTIONS[0]}
-            onChange={(opt) => setStatus(opt?.value ?? '')}
-          />
-        </div>
-        {status ? (
-          <button type="button" onClick={() => setStatus('')} className={`${secondaryBtnClass} py-2! px-3! text-xs`}>
-            Réinitialiser
-          </button>
-        ) : null}
+      <ApiErrorBanner message={error} />
+
+      <div className="overflow-x-auto border-b border-slate-200/80 dark:border-border-dark mb-4">
+        <nav
+          className="flex min-w-max gap-0 px-1"
+          role="tablist"
+          aria-label="Filtrer par statut"
+        >
+          {STATUS_FILTERS.map((f) => {
+            const active = statusFilter === f.key
+            const count = counts[f.key]
+            return (
+              <button
+                key={f.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setStatusFilter(f.key)}
+                className={`relative inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  active
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100'
+                }`}
+              >
+                <i className={`fa-solid ${f.icon} text-xs opacity-70`} aria-hidden />
+                {f.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                    active
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
       </div>
+
       <DataTable
         loading={loading}
-        data={data}
+        data={filtered}
         columns={columns}
         entityLabel="paies"
         tableId="hs-payroll-runs-table"
-        emptyMessage="Aucune paie trouvée."
+        emptyMessage="Aucune paie trouvée pour ce filtre."
         actions={(row) => <ActionButtons viewHref={`/payroll-runs/${row.id}`} />}
       />
     </div>

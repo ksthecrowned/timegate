@@ -9,7 +9,7 @@ import ActionButtons from '@/components/ui/ActionButtons'
 import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
 import { deleteLateRecord, getLateRecord } from '@/lib/timegate/late-records'
 import type { LateRecord } from '@/lib/timegate/types'
-import { formatApiDate } from '@/lib/date-utils'
+import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
 
@@ -92,7 +92,7 @@ export default function LateRecordDetailPage() {
           />
           <DetailRow
             label="Créé le"
-            value={new Date(row.createdAt).toLocaleString('fr-FR')}
+            value={formatApiDateTime(row.createdAt)}
           />
         </DetailCard>
       ) : null}

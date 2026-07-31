@@ -10,6 +10,7 @@ import EmployeeTrustedDevicesCard from '@/components/timegate/EmployeeTrustedDev
 import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccessCard'
 import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
 import EmployeeCompensationItemsCard from '@/components/timegate/EmployeeCompensationItemsCard'
+import EmployeeCompensationSummaryCard from '@/components/timegate/EmployeeCompensationSummaryCard'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
 import ResourceProfileHeader from '@/components/timegate/ResourceProfileHeader'
@@ -27,6 +28,7 @@ export default function EmployeeDetailPage() {
   const [employee, setEmployee] = useState<Employee | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [compRefreshKey, setCompRefreshKey] = useState(0)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -147,7 +149,15 @@ export default function EmployeeDetailPage() {
 
           <EmployeeContractsCard employeeId={employee.id} />
 
-          <EmployeeCompensationItemsCard employeeId={employee.id} />
+          <EmployeeCompensationSummaryCard
+            employeeId={employee.id}
+            refreshKey={compRefreshKey}
+          />
+
+          <EmployeeCompensationItemsCard
+            employeeId={employee.id}
+            onChanged={() => setCompRefreshKey((k) => k + 1)}
+          />
         </div>
       ) : null}
     </div>

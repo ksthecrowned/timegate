@@ -60,7 +60,11 @@ function employeeDisplayName(employee: {
 
 function parseAnomalyFlags(value: Prisma.JsonValue | null): string[] {
   if (!value) return [];
-  if (Array.isArray(value)) return value.map(String);
+  if (Array.isArray(value)) return value.map(String).filter(Boolean);
+  if (typeof value === 'object' && value !== null && 'flags' in value) {
+    const raw = (value as { flags?: unknown }).flags;
+    if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
+  }
   return [];
 }
 

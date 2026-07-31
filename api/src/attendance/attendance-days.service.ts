@@ -267,6 +267,12 @@ export class AttendanceDaysService {
     const companyId = existing.companyId ?? existing.employee.companyId;
     this.assertCompanyAccess(user, companyId);
 
+    if (dto.status === AttendanceStatus.WORK_FROM_HOME) {
+      throw new BadRequestException(
+        'Le statut Télétravail n’est plus disponible. Utilisez Présent ou un congé.',
+      );
+    }
+
     if (dto.leaveTypeId) {
       const leaveType = await this.prisma.leaveType.findUnique({ where: { id: dto.leaveTypeId } });
       if (!leaveType) throw new NotFoundException('Leave type not found');
@@ -465,6 +471,42 @@ export class AttendanceDaysService {
             },
           });
           created += 1;
+        }
+
+        // Congé / férié : pas de retenue paie (supprimer absence auto + late minutes).
+        if (
+          status === AttendanceStatus.ON_LEAVE ||
+          status === AttendanceStatus.ON_HOLIDAY
+        ) {
+          await this.prisma.timeGateAbsenceRecord.deleteMany({
+            where: { employeeId: employee.id, recordDate: day },
+          });
+          await this.prisma.timeGateTimesheetDay.updateMany({
+            where: { employeeId: employee.id, workDate: day },
+            data: { lateMinutes: 0 },
+          });
+        } else if (status === AttendanceStatus.ABSENT && employee.companyId) {
+          // Après annulation de congé, recréer l'absence non justifiée si absente.
+          const existingAbsence = await this.prisma.timeGateAbsenceRecord.findUnique({
+            where: {
+              employeeId_recordDate: {
+                employeeId: employee.id,
+                recordDate: day,
+              },
+            },
+          });
+          if (!existingAbsence) {
+            await this.prisma.timeGateAbsenceRecord.create({
+              data: {
+                id: generateDocId('ABS'),
+                companyId: employee.companyId,
+                employeeId: employee.id,
+                recordDate: day,
+                justified: false,
+                reason: 'Absence automatique',
+              },
+            });
+          }
         }
       }
     }

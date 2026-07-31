@@ -33,7 +33,7 @@ export default function PayrollRunMassBanner({ run }: { run: PayrollRun }) {
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Masse salariale</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Masse salariale</h2>
       </div>
 
       <div className="grid gap-3 p-4 sm:grid-cols-2 md:p-5 lg:grid-cols-4">
@@ -65,7 +65,7 @@ export default function PayrollRunMassBanner({ run }: { run: PayrollRun }) {
       <div className="flex flex-col gap-3 border-t border-slate-200/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between md:px-5 dark:border-border-dark">
         <div className="flex-1">
           <div className="mb-1 flex items-center justify-between text-sm">
-            <span className="font-medium text-slate-700 dark:text-slate-200">Paiement des lignes</span>
+            <span className="font-medium text-slate-700 dark:text-slate-200">Avancement des paiements</span>
             <span className="text-slate-500 dark:text-slate-400">
               {progress.paidCount}/{progress.linesCount} payées ({percent}%)
             </span>

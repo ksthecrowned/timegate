@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import WriteLink from '@/components/timegate/WriteLink'
 import ActionButtons from '@/components/ui/ActionButtons'
@@ -130,7 +131,7 @@ export default function KioskDetailPage() {
             label="Dernière activité"
             value={
               kiosk.lastSeenAt
-                ? new Date(kiosk.lastSeenAt).toLocaleString('fr-FR')
+                ? formatApiDateTime(kiosk.lastSeenAt)
                 : null
             }
           />

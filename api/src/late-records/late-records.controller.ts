@@ -1,4 +1,17 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { TimeGateUserRole } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -22,6 +35,17 @@ export class LateRecordsController {
   @Post()
   create(@Body() dto: CreateLateRecordDto, @CurrentUser() user: JwtUser) {
     return this.service.create(dto, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Post('upload-justification')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  uploadJustification(
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Body('employeeId') employeeId: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.uploadJustification(file, user, employeeId);
   }
 
   @Get()

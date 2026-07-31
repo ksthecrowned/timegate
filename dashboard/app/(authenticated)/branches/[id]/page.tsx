@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -92,7 +93,7 @@ export default function BranchDetailPage() {
                 { label: 'Siège social', value: branch.isHeadOffice ? 'Oui' : 'Non' },
                 {
                   label: 'Créée le',
-                  value: new Date(branch.createdAt).toLocaleString('fr-FR'),
+                  value: formatApiDateTime(branch.createdAt),
                 },
               ]}
             />

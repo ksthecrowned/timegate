@@ -1,13 +1,13 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
 import AddPageLink from '@/components/timegate/AddPageLink'
 import HolidayCalendar from '@/components/timegate/HolidayCalendar'
+import { ApiErrorBanner } from '@/components/timegate/ui'
+import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import { deleteHoliday, listHolidaysForYear } from '@/lib/timegate/holidays'
 import type { Holiday } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
-import { ApiErrorBanner } from '@/components/timegate/ui'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function HolidaysPage() {
   const [year, setYear] = useState(() => new Date().getFullYear())
@@ -46,10 +46,6 @@ export default function HolidaysPage() {
         breadcrumbs={[{ label: 'Temps' }, { label: 'Jours fériés' }]}
         action={<AddPageLink href="/holidays/new" label="Ajouter un jour férié" />}
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Calendrier légal / entreprise. Distinct des congés individuels et des exceptions
-        d&apos;horaire.
-      </p>
 
       <ApiErrorBanner message={error} />
 

@@ -129,14 +129,21 @@ export default function EmployeeForm({
       listCountries({ limit: 100 }),
       // Pay groups are ADMIN-only; MANAGER can reach this form (e.g. via kiosk-pin/nfc
       // sub-actions) but must not fail loading the other option lists if this 403s.
-      listPayGroups({ limit: 100 }).catch(() => ({ data: [] })),
+      listPayGroups({ limit: 100 }).catch(() => ({ data: [] as import('@/lib/timegate/types').PayGroup[] })),
     ]).then(([branches, departments, designations, employmentTypes, holidayLists, countries, payGroups]) => {
       setBranchOptions(toSelectOptions(branches.data))
       setDepartmentOptions(toSelectOptions(departments.data))
       setDesignationOptions(toSelectOptions(designations.data))
       setEmploymentTypeOptions(toSelectOptions(employmentTypes.data))
       setHolidayListOptions(toSelectOptions(holidayLists.data))
-      setPayGroupOptions(toSelectOptions(payGroups.data))
+      setPayGroupOptions(
+        toSelectOptions(
+          payGroups.data.map((g) => ({
+            id: g.id,
+            name: g.isDefault ? `${g.name} (défaut)` : g.name,
+          })),
+        ),
+      )
       setCountryOptions(countries.data.map((c) => ({ value: c.id, label: c.name })))
       setCountryMetaById(
         Object.fromEntries(
@@ -146,6 +153,13 @@ export default function EmployeeForm({
           ]),
         ),
       )
+      setForm((prev) => {
+        if (prev.payGroupId) return prev
+        const defaultGroup =
+          payGroups.data.find((g) => g.isDefault) ?? payGroups.data[0] ?? null
+        if (!defaultGroup) return prev
+        return { ...prev, payGroupId: defaultGroup.id }
+      })
     })
   }, [])
 
@@ -177,6 +191,11 @@ export default function EmployeeForm({
     setError('')
     try {
       const { payGroupId, payDueDayOverride, ...baseForm } = form
+      if (!payGroupId) {
+        setTab('assignment')
+        setError('Le groupe de paie est obligatoire.')
+        return
+      }
       await onSubmit({
         ...baseForm,
         email: form.email?.trim() || undefined,
@@ -202,12 +221,8 @@ export default function EmployeeForm({
         designationId: form.designationId || undefined,
         employmentTypeId: form.employmentTypeId || undefined,
         holidayListId: form.holidayListId || null,
-        ...(employeeId
-          ? {
-              payGroupId: payGroupId || null,
-              payDueDayOverride,
-            }
-          : {}),
+        payGroupId,
+        payDueDayOverride,
       })
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible.')
@@ -424,34 +439,29 @@ export default function EmployeeForm({
               isClearable
             />
           </FormField>
-          {employeeId && (
-            <>
-              <FormField label="Groupe de paie">
-                <SelectSearch
-                  instanceId="employee-pay-group"
-                  options={payGroupOptions}
-                  value={findOption(payGroupOptions, form.payGroupId ?? '')}
-                  onChange={(opt) => set('payGroupId', opt?.value ?? '')}
-                  placeholder="Optionnel"
-                  isClearable
-                />
-              </FormField>
-              <FormField
-                label="Jour d’échéance de paie (override)"
-                hint="Remplace le jour du groupe de paie pour cet employé (1-28)."
-              >
-                <NumberInput
-                  min={1}
-                  max={28}
-                  step={1}
-                  value={form.payDueDayOverride ?? ''}
-                  onValueChange={(raw) =>
-                    set('payDueDayOverride', raw === '' ? null : Number(raw))
-                  }
-                />
-              </FormField>
-            </>
-          )}
+          <FormField label="Groupe de paie *" hint="Obligatoire — les nouveaux employés prennent le groupe par défaut.">
+            <SelectSearch
+              instanceId="employee-pay-group"
+              options={payGroupOptions}
+              value={findOption(payGroupOptions, form.payGroupId ?? '')}
+              onChange={(opt) => set('payGroupId', opt?.value ?? '')}
+              placeholder="Choisir un groupe"
+            />
+          </FormField>
+          <FormField
+            label="Jour de paie (override)"
+            hint="Remplace le jour du groupe pour cet employé (1–28)."
+          >
+            <NumberInput
+              min={1}
+              max={28}
+              step={1}
+              value={form.payDueDayOverride ?? ''}
+              onValueChange={(raw) =>
+                set('payDueDayOverride', raw === '' ? null : Number(raw))
+              }
+            />
+          </FormField>
         </div>
       ),
     },

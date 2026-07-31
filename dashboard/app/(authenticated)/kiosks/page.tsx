@@ -9,6 +9,7 @@ import AddPageLink from '@/components/timegate/AddPageLink'
 import { deleteKiosk, listKiosks, updateKiosk } from '@/lib/timegate/kiosks'
 import type { Kiosk } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { formatApiDateTime } from '@/lib/date-utils'
 
 const columns: Column<Kiosk>[] = [
   { key: 'name', label: 'Nom', sortable: true },
@@ -30,7 +31,7 @@ const columns: Column<Kiosk>[] = [
   {
     key: 'lastSeenAt',
     label: 'Dernière activité',
-    render: (v) => (v ? new Date(String(v)).toLocaleString('fr-FR') : '—'),
+    render: (v) => formatApiDateTime(v == null ? null : String(v)),
   },
 ]
 

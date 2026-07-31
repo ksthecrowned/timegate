@@ -1,16 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import DataTable, { Column } from '@/components/ui/DataTable'
-import ActionButtons from '@/components/ui/ActionButtons'
 import AddPageLink from '@/components/timegate/AddPageLink'
-import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import { dateTableColumn } from '@/components/timegate/date-table-column'
+import { employeeTableColumn } from '@/components/timegate/employee-table-column'
 import { ApiErrorBanner, primaryBtnClass } from '@/components/timegate/ui'
+import ActionButtons from '@/components/ui/ActionButtons'
+import DataTable, { Column } from '@/components/ui/DataTable'
+import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import { deleteLateRecord, listLateRecords, syncLateRecords } from '@/lib/timegate/late-records'
 import type { LateRecord } from '@/lib/timegate/types'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 function last30DaysRange() {
   const to = new Date()
@@ -109,13 +109,6 @@ export default function LateRecordsPage() {
           </div>
         }
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Dossier RH pour justifier un retard. Les minutes de retard brutes sont aussi sur{' '}
-        <a href="/timesheets" className="text-primary hover:underline">
-          Temps travaillé
-        </a>
-        .
-      </p>
       <ApiErrorBanner message={error} />
       {syncMessage && (
         <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">
@@ -123,22 +116,22 @@ export default function LateRecordsPage() {
         </div>
       )}
       <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="retards"
-          tableId="hs-late-records-table"
-          emptyMessage="Aucun retard trouvé."
-          actions={(row) => (
-            <ActionButtons
-              viewHref={`/late-records/${row.id}`}
-              editHref={`/late-records/${row.id}/edit`}
-              onDelete={() => {
-                void deleteLateRecord(row.id).then(load)
-              }}
-            />
-          )}
-        />
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="retards"
+        tableId="hs-late-records-table"
+        emptyMessage="Aucun retard trouvé."
+        actions={(row) => (
+          <ActionButtons
+            viewHref={`/late-records/${row.id}`}
+            editHref={`/late-records/${row.id}/edit`}
+            onDelete={() => {
+              void deleteLateRecord(row.id).then(load)
+            }}
+          />
+        )}
+      />
     </div>
   )
 }

@@ -13,10 +13,7 @@ import {
   listPayrollVariableItems,
   type PayrollVariableItem,
 } from '@/lib/timegate/payroll-variable-items'
-
-function formatMoney(value: number): string {
-  return value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
+import { formatMoney } from '@/lib/money'
 
 const KIND_LABELS: Record<string, string> = {
   ALLOWANCE: 'Indemnité',

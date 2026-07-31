@@ -5,6 +5,7 @@ import type { PayGroup } from '@/lib/timegate/types'
 export type PayGroupPayload = {
   name: string
   payDayOfMonth: number
+  isDefault?: boolean
 }
 
 export function listPayGroups(params?: { page?: number; limit?: number }) {

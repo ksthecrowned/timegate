@@ -170,6 +170,16 @@ export class AuthService {
         },
       });
 
+      await tx.payGroup.create({
+        data: {
+          id: generateDocId('PGRP'),
+          companyId: company.id,
+          name: 'Paie mensuelle',
+          payDayOfMonth: 25,
+          isDefault: true,
+        },
+      });
+
       const user = await tx.user.create({
         data: {
           id: generateDocId('USR'),
@@ -758,12 +768,24 @@ export class AuthService {
   }
 
   async createOrganization(dto: CreateOrganizationDto) {
-    return this.prisma.company.create({
-      data: {
-        id: generateDocId('CO'),
-        name: dto.name.trim(),
-        sku: dto.sku.trim().toUpperCase(),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      const company = await tx.company.create({
+        data: {
+          id: generateDocId('CO'),
+          name: dto.name.trim(),
+          sku: dto.sku.trim().toUpperCase(),
+        },
+      });
+      await tx.payGroup.create({
+        data: {
+          id: generateDocId('PGRP'),
+          companyId: company.id,
+          name: 'Paie mensuelle',
+          payDayOfMonth: 25,
+          isDefault: true,
+        },
+      });
+      return company;
     });
   }
 

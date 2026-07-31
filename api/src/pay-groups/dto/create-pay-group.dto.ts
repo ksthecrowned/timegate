@@ -1,4 +1,14 @@
-import { IsInt, IsNotEmpty, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsBoolean,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 
 export class CreatePayGroupDto {
   @IsString()
@@ -11,4 +21,9 @@ export class CreatePayGroupDto {
   @Min(1)
   @Max(28)
   payDayOfMonth!: number;
+
+  /** When true (or when this is the first group), becomes the company default. */
+  @IsOptional()
+  @IsBoolean()
+  isDefault?: boolean;
 }

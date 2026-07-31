@@ -9,8 +9,8 @@ import {
   TimeGateAttendanceEventType,
   TimeGateTimesheetDayStatus,
 } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
+import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import {
   dateKeyAddDays,
   dateKeyInTimeZone,
@@ -21,10 +21,10 @@ import {
   resolveOrgTimeZone,
   shiftDurationMinutes,
 } from '../common/utils/punch-time.util';
-import { isEmployeeHoliday } from '../common/utils/holiday-calendar.util';
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
-import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { PunchWindowService, buildDayPunchStateFromEvents } from './punch-window.service';
 
 const KIOSK_OFFLINE_THRESHOLD_MS = 15 * 60 * 1000;
 /** Délai minimum par défaut avant la première relance manager (Lot D #13). */
@@ -46,7 +46,7 @@ export class PunchCronService {
     private readonly punchWindows: PunchWindowService,
     private readonly notifications: NotificationsService,
     private readonly holidayCalendar: HolidayCalendarService,
-  ) {}
+  ) { }
 
   /** Fin fenêtre arrivée : absent auto si pas de CHECK_IN. */
   @Cron(CronExpression.EVERY_HOUR)
@@ -171,11 +171,11 @@ export class PunchCronService {
           recordDate: dayStart,
           attendanceId: attendance.id,
           justified: false,
-          reason: 'Absence automatique (fenêtre arrivée expirée)',
+          reason: 'Absence automatique',
         },
         update: {
           attendanceId: attendance.id,
-          reason: 'Absence automatique (fenêtre arrivée expirée)',
+          reason: 'Absence automatique',
         },
       });
       marked += 1;
@@ -269,7 +269,7 @@ export class PunchCronService {
         const workedSpan = Math.max(
           0,
           shiftDurationMinutes(shiftStartMin, shiftEndMin) -
-            ((checkInMin - shiftStartMin + 24 * 60) % (24 * 60)),
+          ((checkInMin - shiftStartMin + 24 * 60) % (24 * 60)),
         );
         const inferredWorked = Math.max(0, workedSpan - breakMinutes);
 
@@ -499,7 +499,7 @@ export class PunchCronService {
         state.checkInAtMin != null &&
         windows.breakEndMin != null &&
         (state.checkInAtMin - windows.shiftStartMin + 24 * 60) % (24 * 60) >
-          sinceBreakEnd
+        sinceBreakEnd
       ) {
         continue;
       }
@@ -656,8 +656,7 @@ export class PunchCronService {
         });
       } catch (err) {
         this.logger.warn(
-          `Kiosk offline notification failed for ${kiosk.id}: ${
-            err instanceof Error ? err.message : err
+          `Kiosk offline notification failed for ${kiosk.id}: ${err instanceof Error ? err.message : err
           }`,
         );
       }
@@ -729,8 +728,7 @@ export class PunchCronService {
         sent += 1;
       } catch (err) {
         this.logger.warn(
-          `Verify failure spike notification failed for ${spike.kioskId}: ${
-            err instanceof Error ? err.message : err
+          `Verify failure spike notification failed for ${spike.kioskId}: ${err instanceof Error ? err.message : err
           }`,
         );
       }

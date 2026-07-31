@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import {
   EmployeeStatus,
+  LeaveApplicationStatus,
   PayrollLinePaymentStatus,
   Prisma,
   TimeGatePayrollRunStatus,
@@ -26,10 +27,12 @@ import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
 import { MarkLinesPaidDto } from './dto/mark-lines-paid.dto';
 import { resolveEmployeePayDay, resolvePayDueDate } from './payroll-due-date.util';
 import { PayrollRunTotals, sumPayrollLineTotals } from './payroll-run-totals.util';
+import { PunchWindowService } from '../attendance/punch-window.service';
 
-const RULE_VERSION = 'v1';
+const RULE_VERSION = 'v2';
 const MONTHLY_HOURS = 173.33;
-const WORKING_DAYS_PER_MONTH = 22;
+/** Fallback only when the employee has no scheduled work days in the period. */
+const WORKING_DAYS_PER_MONTH_FALLBACK = 22;
 
 type PayrollLineRow = Prisma.TimeGatePayrollLineGetPayload<{
   include: {
@@ -43,6 +46,7 @@ export class PayrollRunsService {
     private prisma: PrismaService,
     private compensationGrid: CompensationGridService,
     private employeeCompensation: EmployeeCompensationService,
+    private punchWindows: PunchWindowService,
   ) {}
 
   async create(dto: CreatePayrollRunDto, user: JwtUser) {
@@ -267,6 +271,38 @@ export class PayrollRunsService {
     return this.toRunShape(updated);
   }
 
+  /** Recompute lines with current attendance / leave / timesheet data. */
+  async regenerate(id: string, user: JwtUser) {
+    const run = await this.getRunForMutation(id, user);
+    const unpaidOnly =
+      run.status === TimeGatePayrollRunStatus.LOCKED &&
+      run.linesCount > 0 &&
+      run.paidCount === 0;
+    if (run.status !== TimeGatePayrollRunStatus.DRAFT && !unpaidOnly) {
+      throw new BadRequestException(
+        'Only DRAFT (or LOCKED with no paid lines) payroll runs can be regenerated',
+      );
+    }
+
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        await tx.timeGatePayrollRun.update({
+          where: { id },
+          data: { ruleVersion: RULE_VERSION },
+        });
+        await tx.timeGatePayrollLine.deleteMany({ where: { payrollRunId: id } });
+        await this.generateLines(id, run.companyId, run.year, run.month, tx);
+        return tx.timeGatePayrollRun.findUniqueOrThrow({
+          where: { id },
+          include: { _count: { select: { lines: true } } },
+        });
+      },
+      { timeout: 60_000 },
+    );
+
+    return this.toRunShape(updated);
+  }
+
   /** Wrapper: pays every currently-unpaid line on the run, then re-derives run status. */
   async markPaid(id: string, user: JwtUser) {
     const run = await this.getRunForMutation(id, user);
@@ -424,14 +460,19 @@ export class PayrollRunsService {
 
     const employeeIds = employees.map((e) => e.id);
 
-    const [timesheets, absences, variableItems] = await Promise.all([
+    const [timesheets, absences, approvedLeaves, variableItems] = await Promise.all([
       tx.timeGateTimesheetDay.findMany({
         where: {
           companyId,
           employeeId: { in: employeeIds },
           workDate: { gte: from, lte: to },
         },
-        select: { employeeId: true, lateMinutes: true, overtimeMinutes: true },
+        select: {
+          employeeId: true,
+          workDate: true,
+          lateMinutes: true,
+          overtimeMinutes: true,
+        },
       }),
       tx.timeGateAbsenceRecord.findMany({
         where: {
@@ -440,29 +481,52 @@ export class PayrollRunsService {
           recordDate: { gte: from, lte: to },
           justified: false,
         },
-        select: { employeeId: true },
+        select: { employeeId: true, recordDate: true },
+      }),
+      tx.leaveApplication.findMany({
+        where: {
+          employeeId: { in: employeeIds },
+          status: LeaveApplicationStatus.APPROVED,
+          fromDate: { lte: to },
+          toDate: { gte: from },
+        },
+        select: { employeeId: true, fromDate: true, toDate: true },
       }),
       tx.payrollVariableItem.findMany({
         where: { payrollRunId, companyId },
       }),
     ]);
 
+    const leaveCoversDay = (employeeId: string, day: Date) =>
+      approvedLeaves.some(
+        (l) =>
+          l.employeeId === employeeId &&
+          l.fromDate != null &&
+          l.toDate != null &&
+          l.fromDate <= day &&
+          l.toDate >= day,
+      );
+
     const timesheetByEmployee = new Map<
       string,
       { lateMinutes: number; overtimeMinutes: number }
     >();
     for (const row of timesheets) {
+      const onLeave = leaveCoversDay(row.employeeId, row.workDate);
       const bucket = timesheetByEmployee.get(row.employeeId) ?? {
         lateMinutes: 0,
         overtimeMinutes: 0,
       };
-      bucket.lateMinutes += row.lateMinutes;
+      // Congé : pas de retenue retard ; les heures supp. éventuelles restent comptées.
+      if (!onLeave) bucket.lateMinutes += row.lateMinutes;
       bucket.overtimeMinutes += row.overtimeMinutes;
       timesheetByEmployee.set(row.employeeId, bucket);
     }
 
     const absenceCountByEmployee = new Map<string, number>();
     for (const row of absences) {
+      // Congé approuvé : aucune retenue même si une absence auto trainait.
+      if (leaveCoversDay(row.employeeId, row.recordDate)) continue;
       absenceCountByEmployee.set(
         row.employeeId,
         (absenceCountByEmployee.get(row.employeeId) ?? 0) + 1,
@@ -477,7 +541,6 @@ export class PayrollRunsService {
     }
 
     const hourlyRate = (base: number) => (base > 0 ? base / MONTHLY_HOURS : 0);
-    const dailyRate = (base: number) => (base > 0 ? base / WORKING_DAYS_PER_MONTH : 0);
 
     const lineData = await Promise.all(
       employees.map(async (employee) => {
@@ -534,10 +597,19 @@ export class PayrollRunsService {
         const overtimeMinutes = ts?.overtimeMinutes ?? 0;
         const unjustifiedAbsences = absenceCountByEmployee.get(employee.id) ?? 0;
 
+        const scheduledWorkDays = await this.punchWindows.countScheduledWorkDays(
+          employee.id,
+          from,
+          to,
+        );
+        const workDaysDivisor =
+          scheduledWorkDays > 0 ? scheduledWorkDays : WORKING_DAYS_PER_MONTH_FALLBACK;
+        const dailyRate = baseSalary > 0 ? baseSalary / workDaysDivisor : 0;
+
         const rate = hourlyRate(baseSalary);
         const overtimeAmount = roundMoney((overtimeMinutes / 60) * rate);
-        const lateMinutesPenalty = roundMoney((lateMinutes / 60) * rate * 0.5);
-        const absenceAmount = roundMoney(unjustifiedAbsences * dailyRate(baseSalary));
+        const lateMinutesPenalty = roundMoney((lateMinutes / 60) * rate);
+        const absenceAmount = roundMoney(unjustifiedAbsences * dailyRate);
         const penaltyAmount = roundMoney(lateMinutesPenalty + absenceAmount);
 
         // 5. Totals
@@ -579,6 +651,9 @@ export class PayrollRunsService {
             lateMinutes,
             overtimeMinutes,
             unjustifiedAbsences,
+            scheduledWorkDays,
+            workDaysDivisor,
+            dailyRate: roundMoney(dailyRate),
             hourlyRate: roundMoney(rate),
             fixedItems: fixedItems.map((i) => ({
               label: i.label,

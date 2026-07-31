@@ -1,7 +1,7 @@
 'use client'
 
-import { HintTooltip } from '@/components/ui/HintTooltip'
 import { useSubscriptionAccess } from '@/components/providers/SubscriptionAccessProvider'
+import { HintTooltip } from '@/components/ui/HintTooltip'
 import Link from 'next/link'
 
 export function ApiErrorBanner({ message }: { message: string }) {
@@ -25,7 +25,7 @@ export function DetailCard({
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="flex items-center justify-between gap-3 border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{title}</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">{title}</h2>
         {actions}
       </div>
       <dl className="divide-y divide-slate-200/80 dark:divide-border-dark">{children}</dl>
@@ -36,8 +36,8 @@ export function DetailCard({
 export function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="grid gap-1 px-4 py-4 md:grid-cols-3 md:px-5">
-      <dt className="text-sm font-medium text-gray-500 dark:text-neutral-400">{label}</dt>
-      <dd className="text-sm text-gray-900 md:col-span-2 dark:text-neutral-200">{value ?? '—'}</dd>
+      <dt className="text-sm font-medium text-slate-500 dark:text-slate-400">{label}</dt>
+      <dd className="text-sm text-slate-900 md:col-span-2 dark:text-slate-200">{value ?? '—'}</dd>
     </div>
   )
 }
@@ -58,7 +58,7 @@ export function FormCard({
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-white">
+        <h2 className="inline-flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
           {title}
           {hint ? <HintTooltip text={hint} /> : null}
         </h2>
@@ -79,7 +79,13 @@ export function FormCard({
               </Link>
             </p>
           ) : null}
-          <div className={!canWrite ? 'pointer-events-none opacity-50' : undefined}>{footer}</div>
+          <div
+            className={`flex flex-wrap items-center justify-end gap-2 ${
+              !canWrite ? 'pointer-events-none opacity-50' : ''
+            }`}
+          >
+            {footer}
+          </div>
         </div>
       )}
     </div>
@@ -87,7 +93,7 @@ export function FormCard({
 }
 
 export const primaryBtnClass =
-  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-primary text-white shadow-sm hover:bg-secondary disabled:opacity-50 transition-colors'
+  'py-2 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-transparent bg-primary text-white shadow-sm hover:bg-secondary disabled:opacity-50 transition-colors'
 
 export const secondaryBtnClass =
-  'py-3 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'
+  'py-2 px-4 inline-flex items-center gap-x-2 text-sm font-semibold rounded-lg border border-slate-200 bg-surface-card text-slate-700 hover:bg-slate-50 dark:bg-surface-dark dark:border-border-dark dark:text-slate-200 dark:hover:bg-surface-card-dark'

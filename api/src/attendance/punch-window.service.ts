@@ -206,6 +206,83 @@ export class PunchWindowService {
   }
 
   /**
+   * Number of days in [from, to] where the employee has a planned work shift
+   * (assignment + week days / day exceptions). Used for absence daily rate.
+   */
+  async countScheduledWorkDays(
+    employeeId: string,
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    const start = toUtcDay(from);
+    const end = toUtcDay(to);
+    if (start > end) return 0;
+
+    const assignments = await this.prisma.shiftAssignment.findMany({
+      where: { employeeId },
+      include: { shiftType: { include: { weekDays: true } } },
+      orderBy: { startDate: 'desc' },
+    });
+    if (assignments.length === 0) return 0;
+
+    const shiftTypeIds = [
+      ...new Set(assignments.map((a) => a.shiftTypeId).filter(Boolean)),
+    ] as string[];
+    const exceptions = await this.prisma.timeGateScheduleDayException.findMany({
+      where: {
+        shiftTypeId: { in: shiftTypeIds },
+        workDate: { gte: start, lte: end },
+      },
+    });
+    const exceptionByKey = new Map(
+      exceptions.map((e) => [`${e.shiftTypeId}|${e.workDate.toISOString().slice(0, 10)}`, e]),
+    );
+
+    let count = 0;
+    for (
+      let cursor = new Date(start);
+      cursor.getTime() <= end.getTime();
+      cursor = new Date(
+        Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1),
+      )
+    ) {
+      const covering = assignments.filter((row) =>
+        this.coversDate(row.startDate, row.endDate, cursor),
+      );
+      if (covering.length === 0) continue;
+
+      const singleDay = covering.find((row) =>
+        this.isSingleDayAssignment(row.startDate, row.endDate, cursor),
+      );
+      const bounded = covering.find((row) => row.startDate != null && row.endDate != null);
+      const assignment = singleDay ?? bounded ?? covering[0];
+      if (!assignment?.shiftType) continue;
+
+      const shiftType = assignment.shiftType as ShiftTypeWithWeekDays;
+      const dayKey = cursor.toISOString().slice(0, 10);
+      const exception = exceptionByKey.get(`${shiftType.id}|${dayKey}`);
+      if (exception?.isOff) continue;
+      if (exception && !exception.isOff) {
+        const startMin = timeDateToMinutes(exception.startTime);
+        const endMin = timeDateToMinutes(exception.endTime);
+        if (startMin != null && endMin != null) count += 1;
+        continue;
+      }
+
+      const weekDay = toWeekDay(cursor);
+      const weekDayRow = shiftType.weekDays.find((row) => row.day === weekDay);
+      const isSingle = this.isSingleDayAssignment(
+        assignment.startDate,
+        assignment.endDate,
+        cursor,
+      );
+      if (weekDayRow || isSingle) count += 1;
+    }
+
+    return count;
+  }
+
+  /**
    * Resolve the punch work date (previous local day when still in an overnight
    * morning segment), windows for that day, and event query bounds spanning midnight.
    */

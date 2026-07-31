@@ -45,7 +45,8 @@ const STATUS_LABELS: Record<string, string> = {
   HALF_DAY: 'Demi-journée',
   ON_LEAVE: 'Congé',
   ON_HOLIDAY: 'Férié',
-  WORK_FROM_HOME: 'Télétravail',
+  // Legacy — télétravail retiré de l’UI ; on affiche comme Présent.
+  WORK_FROM_HOME: 'Présent',
 }
 
 function shortDateLabel(iso: string): string {

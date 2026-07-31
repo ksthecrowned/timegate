@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import { useCallback, useEffect, useState } from 'react'
 import {
   listEmployeeTrustedDevices,
@@ -72,7 +73,7 @@ export default function EmployeeTrustedDevicesCard({ employeeId }: { employeeId:
               </p>
               <p className="text-xs text-gray-500">
                 {d.status} · dernière activité{' '}
-                {new Date(d.lastSeenAt).toLocaleString('fr-FR')}
+                {formatApiDateTime(d.lastSeenAt)}
               </p>
             </div>
             <div className="flex gap-2">

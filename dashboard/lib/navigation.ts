@@ -165,7 +165,7 @@ export const timegateNavSections: NavSection[] = [
             faIcon: 'fa-solid fa-calendar-day',
           },
           {
-            label: 'Événements de pointage',
+            label: 'Év...ents de pointage',
             href: '/attendance/events',
             faIcon: 'fa-solid fa-list-check',
           },
@@ -221,7 +221,7 @@ export const timegateNavSections: NavSection[] = [
             roles: ['ADMIN'],
           },
           {
-            label: 'Paramètres de pointage',
+            label: 'Par...tres de pointage',
             href: '/organization/attendance-settings',
             faIcon: 'fa-solid fa-sliders',
             roles: ['ADMIN'],

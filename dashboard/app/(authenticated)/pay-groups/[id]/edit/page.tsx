@@ -44,6 +44,7 @@ export default function EditPayGroupPage() {
           initial={{
             name: row.name,
             payDayOfMonth: row.payDayOfMonth,
+            isDefault: row.isDefault,
           }}
           onCancel={() => router.push('/pay-groups')}
           onSubmit={async (values) => {

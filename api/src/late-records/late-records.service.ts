@@ -15,7 +15,7 @@ import { generateDocId } from '../common/utils/doc-id.util';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
 import { CreateLateRecordDto } from './dto/create-late-record.dto';
 import { UpdateLateRecordDto } from './dto/update-late-record.dto';
-import { TimeGateUserRole } from '@prisma/client';
+import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
 type LateRow = Prisma.TimeGateLateRecordGetPayload<{
   include: {
@@ -25,7 +25,10 @@ type LateRow = Prisma.TimeGateLateRecordGetPayload<{
 
 @Injectable()
 export class LateRecordsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private storage: CloudflareR2Service,
+  ) {}
 
   async create(dto: CreateLateRecordDto, user: JwtUser) {
     const employee = await this.prisma.employee.findUnique({
@@ -58,6 +61,12 @@ export class LateRecordsService {
           employee: { select: employeeSummarySelect },
         },
       });
+      const justified = dto.justified ?? false;
+      await this.syncTimesheetLateMinutes(
+        created.employeeId,
+        created.recordDate,
+        justified ? 0 : created.latenessMinutes,
+      );
       return this.toApiShape(created);
     } catch (e) {
       if (this.isUniqueViolation(e)) {
@@ -162,6 +171,27 @@ export class LateRecordsService {
       },
     });
 
+    const justifiedChanged =
+      typeof dto.justified === 'boolean' && dto.justified !== existing.justified;
+    const minutesChanged =
+      dto.latenessMinutes !== undefined && dto.latenessMinutes !== existing.latenessMinutes;
+    const dateChanged = Boolean(dto.date);
+    if (justifiedChanged || minutesChanged || dateChanged) {
+      await this.syncTimesheetLateMinutes(
+        updated.employeeId,
+        updated.recordDate,
+        updated.justified ? 0 : updated.latenessMinutes,
+      );
+      // If the work date moved, clear late minutes on the previous timesheet day.
+      if (
+        dateChanged &&
+        existing.recordDate.toISOString().slice(0, 10) !==
+          updated.recordDate.toISOString().slice(0, 10)
+      ) {
+        await this.syncTimesheetLateMinutes(existing.employeeId, existing.recordDate, 0);
+      }
+    }
+
     return this.toApiShape(updated);
   }
 
@@ -171,6 +201,36 @@ export class LateRecordsService {
     this.assertCompanyAccess(user, existing.companyId);
     await this.prisma.timeGateLateRecord.delete({ where: { id } });
     return { id, deleted: true };
+  }
+
+  async uploadJustification(
+    file: Express.Multer.File | undefined,
+    user: JwtUser,
+    employeeId: string,
+  ) {
+    if (!employeeId?.trim()) {
+      throw new BadRequestException('employeeId is required');
+    }
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Fichier justificatif requis');
+    }
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { id: true, companyId: true },
+    });
+    if (!employee?.companyId) throw new NotFoundException('Employee not found');
+    this.assertCompanyAccess(user, employee.companyId);
+
+    const url = await this.storage.uploadLateJustification({
+      organizationId: employee.companyId,
+      employeeId: employee.id,
+      contentType: file.mimetype,
+      buffer: file.buffer,
+    });
+    if (!url) {
+      throw new BadRequestException('Stockage indisponible — réessayez plus tard');
+    }
+    return { url };
   }
 
   /** Sync late records from computed timesheet days (lateMinutes > 0). */
@@ -230,14 +290,19 @@ export class LateRecordsService {
       });
 
       if (existing) {
-        await this.prisma.timeGateLateRecord.update({
-          where: { id: existing.id },
-          data: {
-            latenessMinutes: day.lateMinutes,
-            timesheetDayId: day.id,
-            recordAt: existing.justified ? existing.recordAt : recordAt,
-          },
-        });
+        if (existing.justified) {
+          // Justification owns payroll: keep stored minutes, clear timesheet penalty.
+          await this.syncTimesheetLateMinutes(day.employeeId, day.workDate, 0);
+        } else {
+          await this.prisma.timeGateLateRecord.update({
+            where: { id: existing.id },
+            data: {
+              latenessMinutes: day.lateMinutes,
+              timesheetDayId: day.id,
+              recordAt,
+            },
+          });
+        }
         updated += 1;
       } else {
         await this.prisma.timeGateLateRecord.create({
@@ -281,6 +346,18 @@ export class LateRecordsService {
   private toDateOnly(value: string | Date): Date {
     const d = value instanceof Date ? value : new Date(value);
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  }
+
+  /** Keep timesheet late minutes in sync with justification for payroll. */
+  private async syncTimesheetLateMinutes(
+    employeeId: string,
+    workDate: Date,
+    lateMinutes: number,
+  ) {
+    await this.prisma.timeGateTimesheetDay.updateMany({
+      where: { employeeId, workDate },
+      data: { lateMinutes: Math.max(0, lateMinutes) },
+    });
   }
 
   private toApiShape(row: LateRow) {

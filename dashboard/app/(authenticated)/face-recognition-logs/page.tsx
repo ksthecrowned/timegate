@@ -8,13 +8,15 @@ import { employeeTableColumn } from '@/components/timegate/employee-table-column
 import { listFaceRecognitionLogs } from '@/lib/timegate/face-recognition-logs'
 import type { FaceRecognitionLog } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { formatApiDateTime } from '@/lib/date-utils'
+import { ApiErrorBanner } from '@/components/timegate/ui'
 
 const columns: Column<FaceRecognitionLog>[] = [
   {
     key: 'capturedAt',
     label: 'Capturé le',
     sortable: true,
-    render: (v) => (v ? new Date(String(v)).toLocaleString('fr-FR') : '—'),
+    render: (v) => formatApiDateTime(v == null ? null : String(v)),
   },
   employeeTableColumn<FaceRecognitionLog>(),
   {
@@ -64,19 +66,10 @@ export default function FaceRecognitionLogsPage() {
 
   return (
     <div>
-      <PageHeader breadcrumbs={[{ label: 'Présence' }, { label: 'Logs biométriques' }]} />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Debug reconnaissance faciale (confiance, photo). La source RH des pointages reste{' '}
-        <a href="/attendance/events" className="text-primary hover:underline">
-          Événements de pointage
-        </a>
-        .
-      </p>
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <PageHeader
+        breadcrumbs={[{ label: 'Présence' }, { label: 'Logs biométriques' }]}
+      />
+      <ApiErrorBanner message={error} />
       <DataTable
           loading={loading}
           data={data}

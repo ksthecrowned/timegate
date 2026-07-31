@@ -99,6 +99,19 @@ export class CloudflareR2Service {
     });
   }
 
+  async uploadLateJustification(params: {
+    organizationId: string;
+    employeeId: string;
+    contentType?: string;
+    buffer: Buffer;
+  }): Promise<string | null> {
+    return this.upload({
+      folder: `late-justifications/${params.organizationId}/${params.employeeId}`,
+      contentType: params.contentType,
+      buffer: params.buffer,
+    });
+  }
+
   async deleteByPublicUrl(url: string): Promise<boolean> {
     if (!this.client || !this.bucket || !this.publicBaseUrl) return false;
     const normalizedBase = `${this.publicBaseUrl}/`;

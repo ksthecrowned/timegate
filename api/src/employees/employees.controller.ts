@@ -111,6 +111,14 @@ export class EmployeesController {
     );
   }
 
+  @Get(':id/compensation-summary')
+  getCompensationSummary(
+    @Param('id', DocIdPipe) id: string,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.getCompensationSummary(id, user);
+  }
+
   @Roles(TimeGateUserRole.ADMIN)
   @Post(':id/leave-allocations')
   upsertLeaveAllocation(

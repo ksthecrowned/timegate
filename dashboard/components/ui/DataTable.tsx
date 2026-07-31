@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { Fragment, useState, useMemo } from 'react'
 import { SkeletonBlock, SkeletonDataTableBody } from '@/components/ui/Skeleton'
 import { http, HttpError } from '@/lib/http'
 import { ApiErrorBanner } from '../timegate/ui'
@@ -31,6 +31,9 @@ interface DataTableProps<T> {
   onRowClick?: (row: T) => void
   selectedRowId?: string
   rowIdKey?: keyof T
+  /** Id de la ligne développée (détail sous la ligne). */
+  expandedRowId?: string | null
+  renderExpandedRow?: (row: T) => React.ReactNode
 }
 
 const toolbarBtnClass =
@@ -65,6 +68,7 @@ export default function DataTable<T extends Record<string, unknown>>({
   data, columns, searchPlaceholder = 'Recherche...', pageSize: defaultPageSize = 20,
   emptyMessage = 'Aucune donnée disponible.', actions, entityLabel = 'entrées', tableId = 'table',
   apiBaseUrl, periodeRange, loading = false, onRowClick, selectedRowId, rowIdKey = 'id' as keyof T,
+  expandedRowId = null, renderExpandedRow,
 }: DataTableProps<T>) {
   const safeData = data ?? []
   const [search, setSearch] = useState('')
@@ -262,13 +266,15 @@ export default function DataTable<T extends Record<string, unknown>>({
                   ) : paginated.map((row,i) => {
                     const rowId = String(row[rowIdKey] ?? '')
                     const isSelected = !!onRowClick && !!selectedRowId && rowId === selectedRowId
+                    const isExpanded = !!renderExpandedRow && !!expandedRowId && rowId === expandedRowId
+                    const colSpan = columns.length + (actions ? 1 : 0)
                     return (
+                    <Fragment key={rowId || i}>
                     <tr
-                      key={i}
                       onClick={onRowClick ? () => onRowClick(row) : undefined}
                       className={[
                         onRowClick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-surface-elevated-dark/50' : '',
-                        isSelected ? 'bg-primary/5 dark:bg-primary/10' : '',
+                        isSelected || isExpanded ? 'bg-primary/5 dark:bg-primary/10' : '',
                       ].filter(Boolean).join(' ')}
                     >
                       {columns.map((col, colIndex) => (
@@ -278,6 +284,16 @@ export default function DataTable<T extends Record<string, unknown>>({
                       ))}
                       {actions && <td className="p-3 whitespace-nowrap text-end text-sm font-medium"><div className="inline-flex gap-x-2">{actions(row)}</div></td>}
                     </tr>
+                    {isExpanded ? (
+                      <tr className="bg-slate-50/70 dark:bg-white/3">
+                        <td colSpan={colSpan} className="p-0">
+                          <div className="border-t border-slate-200/80 px-4 py-3 dark:border-border-dark">
+                            {renderExpandedRow(row)}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    </Fragment>
                   )})}
                 </tbody>
               </table>

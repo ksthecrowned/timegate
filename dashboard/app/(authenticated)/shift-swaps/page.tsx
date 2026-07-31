@@ -8,6 +8,7 @@ import PageHeader from '@/components/ui/PageHeader'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { REVIEW_STATUS } from '@/constants'
 import { HttpError } from '@/lib/http'
+import { formatApiDate } from '@/lib/date-utils'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import {
   listShiftSwaps,
@@ -19,23 +20,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type StatusFilter = ShiftSwapRequest['status'] | 'ALL'
 
-const STATUS_FILTERS: Array<{ key: StatusFilter; label: string }> = [
-  { key: 'ALL', label: 'Tous' },
-  { key: 'PENDING', label: 'En attente' },
-  { key: 'APPROVED', label: 'Approuvés' },
-  { key: 'REJECTED', label: 'Refusés' },
-  { key: 'CANCELLED', label: 'Annulés' },
+const STATUS_FILTERS: Array<{ key: StatusFilter; label: string; icon: string }> = [
+  { key: 'ALL', label: 'Tous', icon: 'fa-layer-group' },
+  { key: 'PENDING', label: 'En attente', icon: 'fa-clock' },
+  { key: 'APPROVED', label: 'Approuvés', icon: 'fa-circle-check' },
+  { key: 'REJECTED', label: 'Refusés', icon: 'fa-circle-xmark' },
+  { key: 'CANCELLED', label: 'Annulés', icon: 'fa-ban' },
 ]
 
 function formatSwapDate(iso: string): string {
-  const d = new Date(`${iso.slice(0, 10)}T12:00:00`)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleDateString('fr-FR', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
+  return formatApiDate(iso)
 }
 
 function statusBadgeKey(status: ShiftSwapRequest['status']): string {
@@ -151,33 +145,43 @@ export default function ShiftSwapsPage() {
 
       <ApiErrorBanner message={error} />
 
-      <div className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => {
-          const active = statusFilter === f.key
-          return (
-            <button
-              key={f.key}
-              type="button"
-              onClick={() => setStatusFilter(f.key)}
-              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                active
-                  ? 'bg-primary text-white'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-300 dark:hover:bg-white/15'
-              }`}
-            >
-              {f.label}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+      <div className="overflow-x-auto border-b border-slate-200/80 dark:border-border-dark">
+        <nav
+          className="flex min-w-max gap-0 px-1"
+          role="tablist"
+          aria-label="Filtrer par statut"
+        >
+          {STATUS_FILTERS.map((f) => {
+            const active = statusFilter === f.key
+            const count = counts[f.key]
+            return (
+              <button
+                key={f.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setStatusFilter(f.key)}
+                className={`relative inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
                   active
-                    ? 'bg-white/20 text-white'
-                    : 'bg-white text-slate-500 dark:bg-black/20 dark:text-slate-300'
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100'
                 }`}
               >
-                {counts[f.key]}
-              </span>
-            </button>
-          )
-        })}
+                <i className={`fa-solid ${f.icon} text-xs opacity-70`} aria-hidden />
+                {f.label}
+                <span
+                  className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                    active
+                      ? 'bg-primary/15 text-primary'
+                      : 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </nav>
       </div>
 
       <DataTable<ShiftSwapRequest>

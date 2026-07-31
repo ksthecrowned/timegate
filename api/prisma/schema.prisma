@@ -477,7 +477,7 @@ model Employee {
   holidayListId    String? @map("holiday_list") @db.VarChar(140)
   holidayList      HolidayList? @relation(fields: [holidayListId], references: [id], onDelete: SetNull)
   payGroupId         String?   @map("pay_group") @db.VarChar(140)
-  payGroup           PayGroup? @relation(fields: [payGroupId], references: [id], onDelete: SetNull)
+  payGroup           PayGroup? @relation(fields: [payGroupId], references: [id], onDelete: Restrict)
   payDueDayOverride  Int?      @map("pay_due_day_override")
 
   cellNumber     String? @map("cell_number") @db.VarChar(140)
@@ -1595,15 +1595,17 @@ model PayGroup {
   createdAt DateTime @default(now()) @map("creation")
   updatedAt DateTime @updatedAt @map("modified")
 
-  companyId     String @map("company") @db.VarChar(140)
+  companyId     String  @map("company") @db.VarChar(140)
   company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  name          String @db.VarChar(140)
-  payDayOfMonth Int    @map("pay_day_of_month")
+  name          String  @db.VarChar(140)
+  payDayOfMonth Int     @map("pay_day_of_month")
+  isDefault     Boolean @default(false) @map("is_default")
 
   employees Employee[]
 
   @@unique([companyId, name])
   @@index([companyId])
+  @@index([companyId, isDefault])
   @@map("timegate_pay_group")
 }
 

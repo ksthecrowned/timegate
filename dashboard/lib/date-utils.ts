@@ -1,11 +1,13 @@
-/** Formate une date pour l'affichage (fr-FR). */
+/** Mois long fr-FR avec majuscule initiale (ex. « Mars »). */
+function formatMonthLongCapitalized(date: Date): string {
+  const month = date.toLocaleDateString('fr-FR', { month: 'long' })
+  return month.charAt(0).toUpperCase() + month.slice(1)
+}
+
+/** Formate une date pour l'affichage (ex. « 26 Mars 2026 »). */
 export function formatDisplayDate(date: Date | null | undefined): string {
   if (!date) return ''
-  return date.toLocaleDateString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  })
+  return `${date.getDate()} ${formatMonthLongCapitalized(date)} ${date.getFullYear()}`
 }
 
 /** Convertit une Date en chaîne ISO `YYYY-MM-DD` (format API). */
@@ -43,23 +45,16 @@ export function parseApiDate(value: string | null | undefined): Date | null {
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate())
 }
 
-/** Affiche une date API au format `jj/mm/aaaa`. */
+/** Affiche une date API au format « 26 Mars 2026 ». */
 export function formatApiDate(value: string | null | undefined): string {
   const date = parseApiDate(value)
   if (!date) return '—'
   return formatDisplayDate(date)
 }
 
-/** Affiche une date API au format long (ex. « mercredi 1 janvier 2026 »). */
+/** Alias de `formatApiDate` (même plafond d’affichage). */
 export function formatApiDateLong(value: string | null | undefined): string {
-  const date = parseApiDate(value)
-  if (!date) return '—'
-  return date.toLocaleDateString('fr-FR', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+  return formatApiDate(value)
 }
 
 /** Affiche une date API au format court (ex. « mer. 1 janv. »). */
@@ -73,16 +68,14 @@ export function formatApiDateShort(value: string | null | undefined): string {
   })
 }
 
-/** Affiche une date/heure API au format `jj/mm/aaaa, hh:mm`. */
+/** Affiche une date/heure API au format « 26 Mars 2026, 14:30 ». */
 export function formatApiDateTime(value: string | null | undefined): string {
   if (!value) return '—'
   const parsed = new Date(value)
   if (Number.isNaN(parsed.getTime())) return '—'
-  return parsed.toLocaleString('fr-FR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
+  const time = parsed.toLocaleTimeString('fr-FR', {
     hour: '2-digit',
     minute: '2-digit',
   })
+  return `${formatDisplayDate(parsed)}, ${time}`
 }

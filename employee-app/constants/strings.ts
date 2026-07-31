@@ -347,7 +347,6 @@ export const STRINGS = {
     statusHalfDay: 'Demi-journée',
     statusOnLeave: 'En congé',
     statusOnHoliday: 'Jour férié',
-    statusWorkFromHome: 'Télétravail',
     noRecords: 'Aucun pointage trouvé',
     dateRange: 'Période',
     last7: '7 derniers jours',

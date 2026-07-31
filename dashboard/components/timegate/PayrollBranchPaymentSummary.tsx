@@ -2,6 +2,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from 'react'
 import { ApiErrorBanner } from '@/components/timegate/ui'
+import { Tooltip } from '@/components/ui/HintTooltip'
 import { HttpError } from '@/lib/http'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import { formatMoney, getPaymentSummaryByBranch } from '@/lib/timegate/payroll-runs'
@@ -44,7 +45,7 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Paiements par branche</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Paiements par branche</h2>
       </div>
 
       <div className="px-4 pt-4 md:px-5">
@@ -89,13 +90,20 @@ export default function PayrollBranchPaymentSummary({ runId, refreshKey, employe
                       <td className="py-2 pr-3 font-semibold">{formatMoney(branch.net)}</td>
                       <td className="py-2 text-right">
                         {branch.unpaid > 0 ? (
-                          <button
-                            type="button"
-                            className="text-primary hover:underline text-sm"
-                            onClick={() => setExpandedKey(isExpanded ? null : key)}
-                          >
-                            {isExpanded ? 'Masquer' : 'Détails'}
-                          </button>
+                          <Tooltip content={isExpanded ? 'Masquer' : 'Détails'}>
+                            <button
+                              type="button"
+                              className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
+                              aria-expanded={isExpanded}
+                              aria-label={isExpanded ? 'Masquer' : 'Détails'}
+                              onClick={() => setExpandedKey(isExpanded ? null : key)}
+                            >
+                              <i
+                                className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs`}
+                                aria-hidden
+                              />
+                            </button>
+                          </Tooltip>
                         ) : null}
                       </td>
                     </tr>

@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiErrorBanner, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 import EmployeeTableCell from '@/components/timegate/EmployeeTableCell'
+import PayrollLineExplainPanel from '@/components/timegate/PayrollLineExplainPanel'
 import { SelectSearch } from '@/components/ui/SelectSearch'
 import type { SelectOption } from '@/components/ui/select-search-types'
 import { DatePicker } from '@/components/ui/DatePicker'
@@ -29,7 +30,18 @@ const PAYMENT_STATUS_OPTIONS: SelectOption[] = [
 ]
 
 function paymentStatusBadge(status?: PayrollLinePaymentStatus) {
-  return status === 'PAID' ? <StatusBadge status="completed" /> : <StatusBadge status="pending" />
+  return status === 'PAID' ? <StatusBadge status="Payé" /> : <StatusBadge status="pending" />
+}
+
+function formatSigned(value: number): string {
+  if (!value) return '—'
+  const formatted = formatMoney(Math.abs(value))
+  return value > 0 ? `+${formatted}` : `-${formatted}`
+}
+
+function signedClass(value: number): string {
+  if (!value) return 'text-slate-500 dark:text-slate-400'
+  return value > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
 }
 
 type Props = {
@@ -37,9 +49,16 @@ type Props = {
   runStatus?: PayrollRunStatus
   refreshKey?: number
   onChanged?: () => void
+  onLinesLoaded?: (lines: PayrollLine[]) => void
 }
 
-export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey, onChanged }: Props) {
+export default function PayrollLinesPaymentTable({
+  runId,
+  runStatus,
+  refreshKey,
+  onChanged,
+  onLinesLoaded,
+}: Props) {
   const [lines, setLines] = useState<PayrollLine[]>([])
   const [branchOptions, setBranchOptions] = useState<SelectOption[]>([ALL_BRANCH_OPTION])
   const [payGroupOptions, setPayGroupOptions] = useState<SelectOption[]>([ALL_PAY_GROUP_OPTION])
@@ -54,6 +73,7 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
   const [marking, setMarking] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   useEffect(() => {
     void listBranches({ limit: 100 }).then((res) =>
@@ -75,18 +95,19 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
       if (dueFrom) query.dueFrom = toIsoDate(dueFrom)
       if (dueTo) query.dueTo = toIsoDate(dueTo)
       const res = await getPayrollRunLines(runId, query)
-      setLines(Array.isArray(res) ? res : [])
+      const next = Array.isArray(res) ? res : []
+      setLines(next)
       setSelected(new Set())
+      onLinesLoaded?.(next)
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Chargement des lignes impossible.')
     } finally {
       setLoading(false)
     }
-  }, [runId, branchId, payGroupId, paymentStatus, dueFrom, dueTo])
+  }, [runId, branchId, payGroupId, paymentStatus, dueFrom, dueTo, onLinesLoaded])
 
   useEffect(() => {
     void load()
-    // refreshKey forces a reload after external actions (e.g. mark-all-unpaid).
   }, [load, refreshKey])
 
   const selectableLines = useMemo(() => lines.filter((l) => l.paymentStatus !== 'PAID'), [lines])
@@ -136,7 +157,8 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
     }
   }
 
-  const columnCount = canMarkPaid ? 8 : 6
+  // Employé + calc (7) + Brut/Net + échéance/statut/payée + détail (+ checkbox/payer)
+  const columnCount = (canMarkPaid ? 2 : 0) + 12
 
   function isOverdue(line: PayrollLine): boolean {
     if (line.paymentStatus === 'PAID' || !line.dueDate) return false
@@ -168,7 +190,7 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
   return (
     <div className="tg-card border-t-4 border-t-primary mb-4">
       <div className="border-b border-slate-200/80 px-4 py-4 md:px-5 dark:border-border-dark">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Paiement des lignes</h2>
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Lignes de paie</h2>
       </div>
 
       <div className="px-4 pt-4 md:px-5">
@@ -275,13 +297,19 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
         <table className="min-w-full border-collapse text-sm">
           <thead>
             <tr className="border-b border-slate-200 text-left dark:border-slate-700">
-              {canMarkPaid ? <th className="w-8 py-2 pr-3 font-semibold" /> : null}
+              {canMarkPaid ? <th className="w-8 py-2 pr-2 font-semibold" /> : null}
               <th className="py-2 pr-3 font-semibold">Employé</th>
-              <th className="py-2 pr-3 font-semibold">Échéance</th>
+              <th className="py-2 pr-3 font-semibold">Base</th>
+              <th className="py-2 pr-3 font-semibold">Maj. fixes</th>
+              <th className="py-2 pr-3 font-semibold">Variables</th>
+              <th className="py-2 pr-3 font-semibold">Retards</th>
+              <th className="py-2 pr-3 font-semibold">Absences</th>
+              <th className="py-2 pr-3 font-semibold">HS</th>
               <th className="py-2 pr-3 font-semibold">Brut</th>
               <th className="py-2 pr-3 font-semibold">Net</th>
-              <th className="py-2 pr-3 font-semibold">Statut</th>
-              <th className="py-2 pr-3 font-semibold">Payée le</th>
+              <th className="py-2 pr-3 font-semibold">Échéance</th>
+              <th className="py-2 pr-3 font-semibold">Paiement</th>
+              <th className="w-10 py-2 font-semibold" />
               {canMarkPaid ? <th className="py-2 font-semibold" /> : null}
             </tr>
           </thead>
@@ -302,56 +330,113 @@ export default function PayrollLinesPaymentTable({ runId, runStatus, refreshKey,
               lines.map((line) => {
                 const isPaid = line.paymentStatus === 'PAID'
                 const overdue = isOverdue(line)
+                const isExpanded = expandedId === line.id
+                const fixedNet =
+                  (line.fixedAllowancesTotal ?? 0) - (line.fixedDeductionsTotal ?? 0)
+                const variableNet =
+                  (line.variableAllowancesTotal ?? 0) - (line.variableDeductionsTotal ?? 0)
                 return (
-                  <tr key={line.id} className="border-b border-slate-100 dark:border-slate-800">
-                    {canMarkPaid ? (
-                      <td className="py-2 pr-3">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(line.id)}
-                          disabled={isPaid}
-                          onChange={() => toggleLine(line.id)}
-                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary disabled:opacity-40"
-                          aria-label={`Sélectionner la ligne de ${line.employeeId}`}
-                        />
-                      </td>
-                    ) : null}
-                    <td className="py-2 pr-3">
-                      <EmployeeTableCell employee={line.employee ?? null} />
-                    </td>
-                    <td
-                      className={`py-2 pr-3 ${
-                        overdue
-                          ? 'font-medium text-amber-700 dark:text-amber-300'
-                          : 'text-slate-600 dark:text-slate-300'
+                  <Fragment key={line.id}>
+                    <tr
+                      className={`border-b border-slate-100 dark:border-slate-800 ${
+                        isExpanded ? 'bg-primary/5 dark:bg-primary/10' : ''
                       }`}
                     >
-                      {formatApiDate(line.dueDate)}
-                      {overdue ? (
-                        <span className="ml-1 text-xs uppercase tracking-wide">retard</span>
+                      {canMarkPaid ? (
+                        <td className="py-2 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={selected.has(line.id)}
+                            disabled={isPaid}
+                            onChange={() => toggleLine(line.id)}
+                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary disabled:opacity-40"
+                            aria-label={`Sélectionner la ligne de ${line.employeeId}`}
+                          />
+                        </td>
                       ) : null}
-                    </td>
-                    <td className="py-2 pr-3">{formatMoney(line.gross)}</td>
-                    <td className="py-2 pr-3 font-semibold">{formatMoney(line.netSalary)}</td>
-                    <td className="py-2 pr-3">{paymentStatusBadge(line.paymentStatus)}</td>
-                    <td className="py-2 pr-3 text-slate-600 dark:text-slate-300">
-                      {line.paidAt ? formatApiDate(line.paidAt) : '—'}
-                    </td>
-                    {canMarkPaid ? (
-                      <td className="py-2 text-right">
-                        {!isPaid ? (
-                          <button
-                            type="button"
-                            disabled={marking}
-                            onClick={() => void handleMarkOne(line.id)}
-                            className="text-sm text-primary hover:underline disabled:opacity-50"
-                          >
-                            Payer
-                          </button>
+                      <td className="py-2 pr-3">
+                        <EmployeeTableCell employee={line.employee ?? null} />
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums">{formatMoney(line.baseSalary)}</td>
+                      <td className={`py-2 pr-3 tabular-nums ${signedClass(fixedNet)}`}>
+                        {formatSigned(fixedNet)}
+                      </td>
+                      <td className={`py-2 pr-3 tabular-nums ${signedClass(variableNet)}`}>
+                        {formatSigned(variableNet)}
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-red-600 dark:text-red-400">
+                        {line.lateMinutesPenalty
+                          ? `-${formatMoney(line.lateMinutesPenalty)}`
+                          : '—'}
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-red-600 dark:text-red-400">
+                        {line.absenceAmount ? `-${formatMoney(line.absenceAmount)}` : '—'}
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums text-emerald-600 dark:text-emerald-400">
+                        {line.overtimeAmount ? `+${formatMoney(line.overtimeAmount)}` : '—'}
+                      </td>
+                      <td className="py-2 pr-3 tabular-nums">{formatMoney(line.gross)}</td>
+                      <td className="py-2 pr-3 font-semibold tabular-nums">
+                        {formatMoney(line.netSalary)}
+                      </td>
+                      <td
+                        className={`py-2 pr-3 ${
+                          overdue
+                            ? 'font-medium text-amber-700 dark:text-amber-300'
+                            : 'text-slate-600 dark:text-slate-300'
+                        }`}
+                      >
+                        {formatApiDate(line.dueDate)}
+                        {overdue ? (
+                          <span className="ml-1 text-xs uppercase tracking-wide">retard</span>
                         ) : null}
                       </td>
+                      <td className="py-2 pr-3">{paymentStatusBadge(line.paymentStatus)}</td>
+                      <td className="py-2 text-right">
+                        {line.explainJson ? (
+                          <button
+                            type="button"
+                            className="inline-flex size-8 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-slate-100"
+                            aria-expanded={isExpanded}
+                            aria-label={isExpanded ? 'Masquer' : 'Détails'}
+                            onClick={() =>
+                              setExpandedId((prev) => (prev === line.id ? null : line.id))
+                            }
+                          >
+                            <i
+                              className={`fa-solid ${isExpanded ? 'fa-chevron-up' : 'fa-chevron-down'} text-xs`}
+                              aria-hidden
+                            />
+                          </button>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                      {canMarkPaid ? (
+                        <td className="py-2 text-right">
+                          {!isPaid ? (
+                            <button
+                              type="button"
+                              disabled={marking}
+                              onClick={() => void handleMarkOne(line.id)}
+                              className="text-sm text-primary hover:underline disabled:opacity-50"
+                            >
+                              Payer
+                            </button>
+                          ) : null}
+                        </td>
+                      ) : null}
+                    </tr>
+                    {isExpanded ? (
+                      <tr className="bg-slate-50/70 dark:bg-white/3">
+                        <td colSpan={columnCount} className="p-0">
+                          <div className="border-t border-slate-200/80 px-4 py-3 dark:border-border-dark">
+                            <PayrollLineExplainPanel line={line} />
+                          </div>
+                        </td>
+                      </tr>
                     ) : null}
-                  </tr>
+                  </Fragment>
                 )
               })
             )}

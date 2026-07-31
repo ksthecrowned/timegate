@@ -60,6 +60,11 @@ export class PayrollRunsController {
     return this.service.lock(id, user);
   }
 
+  @Patch(':id/regenerate')
+  regenerate(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
+    return this.service.regenerate(id, user);
+  }
+
   @Patch(':id/mark-paid')
   markPaid(@Param('id', DocIdPipe) id: string, @CurrentUser() user: JwtUser) {
     return this.service.markPaid(id, user);

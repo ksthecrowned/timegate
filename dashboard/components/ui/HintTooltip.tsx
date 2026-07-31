@@ -1,13 +1,24 @@
 'use client'
 
 import { Info } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 
 type HintTooltipProps = {
   text: string
   label?: string
   className?: string
 }
+
+type TooltipProps = {
+  content: string
+  children: ReactNode
+  className?: string
+  /** Preline placement, ex. `top` / `bottom`. */
+  placement?: 'top' | 'bottom' | 'left' | 'right'
+}
+
+const tooltipContentClass =
+  'hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible invisible absolute z-50 inline-block max-w-[14rem] rounded-md bg-slate-800/90 px-2 py-0.5 text-[11px] font-normal leading-snug text-slate-100 opacity-0 shadow-none transition-opacity dark:bg-slate-700/95'
 
 function initPrelineTooltips() {
   if (typeof window === 'undefined') return
@@ -16,6 +27,27 @@ function initPrelineTooltips() {
     HSTooltip?: { autoInit: () => void }
   }
   w.HSTooltip?.autoInit?.() ?? w.HSStaticMethods?.autoInit?.()
+}
+
+/** Tooltip Preline autour d’un déclencheur quelconque (icônes d’action, etc.). */
+export function Tooltip({
+  content,
+  children,
+  className = '',
+  placement = 'top',
+}: TooltipProps) {
+  useEffect(() => {
+    initPrelineTooltips()
+  }, [content])
+
+  return (
+    <div className={`hs-tooltip inline-flex [--placement:${placement}] ${className}`}>
+      <span className="hs-tooltip-toggle inline-flex">{children}</span>
+      <span className={tooltipContentClass} role="tooltip">
+        {content}
+      </span>
+    </div>
+  )
 }
 
 export function HintTooltip({ text, label = 'Aide', className = '' }: HintTooltipProps) {
@@ -32,10 +64,7 @@ export function HintTooltip({ text, label = 'Aide', className = '' }: HintToolti
       >
         <Info className="size-3.5" strokeWidth={2} aria-hidden />
       </button>
-      <span
-        className="hs-tooltip-content hs-tooltip-shown:opacity-100 hs-tooltip-shown:visible invisible absolute z-20 inline-block max-w-xs rounded-lg border border-border-dark bg-surface-elevated-dark px-2.5 py-1.5 text-xs font-normal text-slate-100 opacity-0 shadow-sm transition-opacity"
-        role="tooltip"
-      >
+      <span className={tooltipContentClass} role="tooltip">
         {text}
       </span>
     </div>

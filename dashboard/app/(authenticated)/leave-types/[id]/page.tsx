@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import WriteLink from '@/components/timegate/WriteLink'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -66,7 +67,7 @@ export default function LeaveTypeDetailPage() {
           <DetailRow label="Reportable" value={row.isCarryForward ? 'Oui' : 'Non'} />
           <DetailRow
             label="Créé le"
-            value={new Date(row.createdAt).toLocaleString('fr-FR')}
+            value={formatApiDateTime(row.createdAt)}
           />
         </DetailCard>
       ) : null}

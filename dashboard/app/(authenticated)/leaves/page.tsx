@@ -3,6 +3,7 @@
 import AddPageLink from '@/components/timegate/AddPageLink'
 import { dateTableColumn } from '@/components/timegate/date-table-column'
 import { employeeTableColumn } from '@/components/timegate/employee-table-column'
+import { ApiErrorBanner } from '@/components/timegate/ui'
 import ActionButtons from '@/components/ui/ActionButtons'
 import DataTable, { Column } from '@/components/ui/DataTable'
 import PageHeader from '@/components/ui/PageHeader'
@@ -56,35 +57,24 @@ export default function LeavesPage() {
         breadcrumbs={[{ label: 'Demandes de congé' }]}
         action={<AddPageLink href="/leaves/new" label="Ajouter un congé" />}
       />
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Demandes RH (congés payés, maladie…). Les no-shows sans demande sont dans{' '}
-        <a href="/absences" className="text-primary hover:underline">
-          Absences
-        </a>
-        .
-      </p>
-      {error && (
-        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-600 dark:bg-red-900/20 dark:border-red-800 dark:text-red-400">
-          {error}
-        </div>
-      )}
+      <ApiErrorBanner message={error} />
       <DataTable
-          loading={loading}
-          data={data}
-          columns={columns}
-          entityLabel="congés"
-          tableId="hs-leaves-table"
-          emptyMessage="Aucun congé trouvé."
-          actions={(row) => (
-            <ActionButtons
-              viewHref={`/leaves/${row.id}`}
-              editHref={`/leaves/${row.id}/edit`}
-              onDelete={() => {
-                void deleteLeave(row.id).then(load)
-              }}
-            />
-          )}
-        />
+        loading={loading}
+        data={data}
+        columns={columns}
+        entityLabel="congés"
+        tableId="hs-leaves-table"
+        emptyMessage="Aucun congé trouvé."
+        actions={(row) => (
+          <ActionButtons
+            viewHref={`/leaves/${row.id}`}
+            editHref={`/leaves/${row.id}/edit`}
+            onDelete={() => {
+              void deleteLeave(row.id).then(load)
+            }}
+          />
+        )}
+      />
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { http } from '@/lib/http'
 import type { PaginatedResponse } from '@/lib/http/types'
-import type { Employee } from '@/lib/timegate/types'
+import type { Employee, EmployeeCompensationSummary } from '@/lib/timegate/types'
 
 export type EmployeeQuery = {
   page?: number
@@ -37,7 +37,7 @@ export type EmployeePayload = {
   designationId?: string
   employmentTypeId?: string
   holidayListId?: string | null
-  payGroupId?: string | null
+  payGroupId?: string
   payDueDayOverride?: number | null
   isActive?: boolean
 }
@@ -93,4 +93,10 @@ export function getEmployeeLeaveBalances(id: string, year?: number): Promise<Emp
   return http.get<EmployeeLeaveBalances>(`/employees/${id}/leave-balances`, {
     params: year ? { year } : undefined,
   })
+}
+
+export function getEmployeeCompensationSummary(
+  id: string,
+): Promise<EmployeeCompensationSummary> {
+  return http.get<EmployeeCompensationSummary>(`/employees/${id}/compensation-summary`)
 }

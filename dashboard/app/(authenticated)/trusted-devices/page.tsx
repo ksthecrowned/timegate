@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
 import { ApiErrorBanner, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
@@ -81,7 +82,7 @@ export default function TrustedDevicesPage() {
                 <p className="text-xs text-gray-500 mt-2">
                   {d.platform}
                   {d.sharedDevice ? ' · appareil partagé' : ''} ·{' '}
-                  {new Date(d.lastSeenAt).toLocaleString('fr-FR')}
+                  {formatApiDateTime(d.lastSeenAt)}
                 </p>
               </div>
               <div className="flex gap-2 items-center">

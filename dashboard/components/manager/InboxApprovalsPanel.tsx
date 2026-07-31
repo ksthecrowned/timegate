@@ -131,6 +131,7 @@ export default function InboxApprovalsPanel() {
   )
 
   const eventItems = filtered.filter((i) => i.type === 'ATTENDANCE_EVENT')
+  const showSelectColumn = tab === 'ATTENDANCE_EVENT' || eventItems.length > 0
   const allEventsSelected =
     eventItems.length > 0 && eventItems.every((i) => selectedEvents.has(i.id))
 
@@ -315,23 +316,25 @@ export default function InboxApprovalsPanel() {
                     role="link"
                     tabIndex={0}
                   >
-                    <div
-                      className="flex items-center px-1"
-                      onClick={(e) => e.stopPropagation()}
-                      onKeyDown={(e) => e.stopPropagation()}
-                    >
-                      {isEvent ? (
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleEvent(item.id)}
-                          className="size-4 rounded border-slate-300 text-primary focus:ring-primary"
-                          aria-label={`Sélectionner ${item.title}`}
-                        />
-                      ) : (
-                        <span className="inline-block size-4" aria-hidden />
-                      )}
-                    </div>
+                    {showSelectColumn ? (
+                      <div
+                        className="flex items-center px-1"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        {isEvent ? (
+                          <input
+                            type="checkbox"
+                            checked={selected}
+                            onChange={() => toggleEvent(item.id)}
+                            className="size-4 rounded border-slate-300 text-primary focus:ring-primary"
+                            aria-label={`Sélectionner ${item.title}`}
+                          />
+                        ) : (
+                          <span className="inline-block size-4" aria-hidden />
+                        )}
+                      </div>
+                    ) : null}
 
                     <div className="flex min-w-0 flex-1 items-center gap-3 py-2.5">
                       <div

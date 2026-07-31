@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
-import { FormField, Input, NumberInput } from '@/components/ui/FormField'
+import { FormField, Input, NumberInput, SwitcherField } from '@/components/ui/FormField'
 import { HttpError } from '@/lib/http'
 import type { PayGroupPayload } from '@/lib/timegate/pay-groups'
 
@@ -21,7 +21,8 @@ export default function PayGroupForm({
 }: PayGroupFormProps) {
   const [form, setForm] = useState({
     name: initial?.name ?? '',
-    payDayOfMonth: initial?.payDayOfMonth ?? 1,
+    payDayOfMonth: initial?.payDayOfMonth ?? 25,
+    isDefault: initial?.isDefault ?? false,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -38,6 +39,7 @@ export default function PayGroupForm({
       await onSubmit({
         name: form.name.trim(),
         payDayOfMonth: form.payDayOfMonth,
+        isDefault: form.isDefault,
       })
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible.')
@@ -72,7 +74,7 @@ export default function PayGroupForm({
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </FormField>
-          <FormField label="Jour d'échéance de paie *" hint="Jour du mois (1-28)">
+          <FormField label="Jour de paie *" hint="Jour du mois, chaque mois (1–28). Ex. 25 = le 25.">
             <NumberInput
               required
               min={1}
@@ -82,6 +84,14 @@ export default function PayGroupForm({
               onChange={(value) => setForm((f) => ({ ...f, payDayOfMonth: value }))}
             />
           </FormField>
+          <div className="md:col-span-2">
+            <SwitcherField
+              label="Groupe par défaut"
+              description="Les nouveaux employés sont rattachés à ce groupe si aucun autre n’est choisi."
+              checked={form.isDefault}
+              onCheckedChange={(checked) => setForm((f) => ({ ...f, isDefault: checked }))}
+            />
+          </div>
         </div>
       </FormCard>
     </form>

@@ -7,6 +7,7 @@ import DataTable, { type Column } from '@/components/ui/DataTable'
 import { AdminRoleBadge } from '@/components/users/AdminRoleBadge'
 import { listAdminUsers, type AdminUser } from '@/lib/timegate/auth-admin'
 import { HttpError } from '@/lib/http'
+import { formatApiDate } from '@/lib/date-utils'
 
 const columns: Column<AdminUser>[] = [
   { key: 'email', label: 'Email', sortable: true },
@@ -39,7 +40,7 @@ const columns: Column<AdminUser>[] = [
     key: 'createdAt',
     label: 'Créé le',
     sortable: true,
-    render: (v) => new Date(String(v)).toLocaleDateString('fr-FR'),
+    render: (v) => formatApiDate(v == null ? null : String(v)),
   },
 ]
 

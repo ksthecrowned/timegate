@@ -8,13 +8,14 @@ import AddPageLink from '@/components/timegate/AddPageLink'
 import { deleteDepartment, listDepartments } from '@/lib/timegate/departments'
 import type { Department } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { formatApiDate } from '@/lib/date-utils'
 
 const columns: Column<Department>[] = [
   { key: 'name', label: 'Nom', sortable: true },
   {
     key: 'createdAt',
     label: 'Créé le',
-    render: (v) => (v ? new Date(String(v)).toLocaleDateString('fr-FR') : '—'),
+    render: (v) => formatApiDate(v == null ? null : String(v)),
   },
 ]
 

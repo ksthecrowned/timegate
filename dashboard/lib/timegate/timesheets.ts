@@ -60,3 +60,40 @@ export function formatMinutes(minutes: number): string {
   const m = minutes % 60
   return `${h}h${m.toString().padStart(2, '0')}`
 }
+
+const ANOMALY_LABELS: Record<string, string> = {
+  UNCLOSED_CHECKIN: 'Sortie manquante',
+  CHECKOUT_INFERRED: 'Sortie estimée',
+  UNCLOSED_BREAK: 'Pause non clôturée',
+  BREAK_OVERRUN: 'Pause dépassée',
+  INSUFFICIENT_REST: 'Repos insuffisant',
+  OVERTIME_THRESHOLD: 'Heures supp. élevées',
+  HOLIDAY: 'Jour férié',
+}
+
+export function parseTimesheetAnomalyFlags(
+  value: string[] | { flags?: string[] } | null | undefined,
+): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value.map(String).filter(Boolean)
+  if (Array.isArray(value.flags)) return value.flags.map(String).filter(Boolean)
+  return []
+}
+
+export function formatTimesheetAnomalyLabel(flag: string): string {
+  return ANOMALY_LABELS[flag] ?? flag
+}
+
+/** Motif lisible si la feuille n’est pas fermée (anomalies / en cours / à valider). */
+export function timesheetStatusReason(row: {
+  status: string
+  anomalyFlags?: string[] | { flags?: string[] } | null
+}): string {
+  const flags = parseTimesheetAnomalyFlags(row.anomalyFlags)
+  if (flags.length > 0) {
+    return flags.map(formatTimesheetAnomalyLabel).join(' · ')
+  }
+  if (row.status === 'REVIEW_REQUIRED') return 'Validation manager requise'
+  if (row.status === 'OPEN') return 'Journée en cours ou non figée'
+  return '—'
+}

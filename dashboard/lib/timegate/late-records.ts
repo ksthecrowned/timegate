@@ -45,3 +45,10 @@ export function syncLateRecords(body: SyncRecordsPayload) {
     body,
   )
 }
+
+export function uploadLateJustification(employeeId: string, file: File) {
+  const body = new FormData()
+  body.append('employeeId', employeeId)
+  body.append('file', file)
+  return http.post<{ url: string }>('/late-records/upload-justification', body)
+}

@@ -139,6 +139,12 @@ export class CreateEmployeeDto {
   @MaxLength(140)
   holidayListId?: string;
 
+  /** Pay group; omitted → company default. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  payGroupId?: string;
+
   @IsOptional()
   @IsBoolean()
   isActive?: boolean;

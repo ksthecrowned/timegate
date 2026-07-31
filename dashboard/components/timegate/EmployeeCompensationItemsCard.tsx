@@ -12,17 +12,20 @@ import {
   updateEmployeeCompensationItem,
   type EmployeeCompensationItem,
 } from '@/lib/timegate/employee-compensation'
-
-function formatMoney(value: number): string {
-  return value.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
-}
+import { formatMoney } from '@/lib/money'
 
 const KIND_LABELS: Record<string, string> = {
   ALLOWANCE: 'Indemnité',
   DEDUCTION: 'Retenue',
 }
 
-export default function EmployeeCompensationItemsCard({ employeeId }: { employeeId: string }) {
+export default function EmployeeCompensationItemsCard({
+  employeeId,
+  onChanged,
+}: {
+  employeeId: string
+  onChanged?: () => void
+}) {
   const [items, setItems] = useState<EmployeeCompensationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,6 +54,7 @@ export default function EmployeeCompensationItemsCard({ employeeId }: { employee
     try {
       await deleteEmployeeCompensationItem(employeeId, id)
       await load()
+      onChanged?.()
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Suppression impossible.')
     }
@@ -58,7 +62,7 @@ export default function EmployeeCompensationItemsCard({ employeeId }: { employee
 
   return (
     <DetailCard
-      title="Rémunération"
+      title="Indemnités & retenues"
       actions={
         <button
           type="button"
@@ -85,6 +89,7 @@ export default function EmployeeCompensationItemsCard({ employeeId }: { employee
               await createEmployeeCompensationItem(employeeId, values)
               setShowCreate(false)
               await load()
+              onChanged?.()
             }}
           />
         </div>
@@ -163,6 +168,7 @@ export default function EmployeeCompensationItemsCard({ employeeId }: { employee
               await updateEmployeeCompensationItem(employeeId, editingItem.id, values)
               setEditingItem(null)
               await load()
+              onChanged?.()
             }}
           />
         </div>

@@ -15,6 +15,10 @@ import { CreatePayGroupDto } from './dto/create-pay-group.dto';
 import { UpdatePayGroupDto } from './dto/update-pay-group.dto';
 
 type PayGroupRow = Prisma.PayGroupGetPayload<object>;
+type DbClient = Prisma.TransactionClient | PrismaService;
+
+const DEFAULT_PAY_GROUP_NAME = 'Paie mensuelle';
+const DEFAULT_PAY_DAY = 25;
 
 @Injectable()
 export class PayGroupsService {
@@ -27,13 +31,26 @@ export class PayGroupsService {
     await this.assertUniqueName(companyId, name);
 
     try {
-      const created = await this.prisma.payGroup.create({
-        data: {
-          id: generateDocId('PGRP'),
-          companyId,
-          name,
-          payDayOfMonth: dto.payDayOfMonth,
-        },
+      const created = await this.prisma.$transaction(async (tx) => {
+        const existingCount = await tx.payGroup.count({ where: { companyId } });
+        const makeDefault = dto.isDefault === true || existingCount === 0;
+
+        if (makeDefault) {
+          await tx.payGroup.updateMany({
+            where: { companyId, isDefault: true },
+            data: { isDefault: false },
+          });
+        }
+
+        return tx.payGroup.create({
+          data: {
+            id: generateDocId('PGRP'),
+            companyId,
+            name,
+            payDayOfMonth: dto.payDayOfMonth,
+            isDefault: makeDefault,
+          },
+        });
       });
       return this.toShape(created);
     } catch (error) {
@@ -56,7 +73,7 @@ export class PayGroupsService {
     const [items, total] = await Promise.all([
       this.prisma.payGroup.findMany({
         where,
-        orderBy: { name: 'asc' },
+        orderBy: [{ isDefault: 'desc' }, { name: 'asc' }],
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -89,12 +106,33 @@ export class PayGroupsService {
       }
     }
 
-    const updated = await this.prisma.payGroup.update({
-      where: { id },
-      data: {
-        ...(dto.name !== undefined ? { name: this.normalizeName(dto.name) } : {}),
-        ...(dto.payDayOfMonth !== undefined ? { payDayOfMonth: dto.payDayOfMonth } : {}),
-      },
+    if (dto.isDefault === false && existing.isDefault) {
+      const otherDefault = await this.prisma.payGroup.findFirst({
+        where: { companyId: existing.companyId, isDefault: true, NOT: { id } },
+      });
+      if (!otherDefault) {
+        throw new BadRequestException(
+          'Impossible de retirer le statut par défaut sans désigner un autre groupe.',
+        );
+      }
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault === true) {
+        await tx.payGroup.updateMany({
+          where: { companyId: existing.companyId, isDefault: true, NOT: { id } },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.payGroup.update({
+        where: { id },
+        data: {
+          ...(dto.name !== undefined ? { name: this.normalizeName(dto.name) } : {}),
+          ...(dto.payDayOfMonth !== undefined ? { payDayOfMonth: dto.payDayOfMonth } : {}),
+          ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
+        },
+      });
     });
 
     return this.toShape(updated);
@@ -104,8 +142,79 @@ export class PayGroupsService {
     const existing = await this.prisma.payGroup.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException('Pay group not found');
     this.assertCompanyAccess(user, existing.companyId);
-    await this.prisma.payGroup.delete({ where: { id } });
+
+    const total = await this.prisma.payGroup.count({ where: { companyId: existing.companyId } });
+    if (total <= 1) {
+      throw new BadRequestException('Impossible de supprimer le dernier groupe de paie.');
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      let fallback = await tx.payGroup.findFirst({
+        where: {
+          companyId: existing.companyId,
+          NOT: { id },
+          isDefault: true,
+        },
+      });
+      if (!fallback) {
+        fallback = await tx.payGroup.findFirst({
+          where: { companyId: existing.companyId, NOT: { id } },
+          orderBy: { createdAt: 'asc' },
+        });
+      }
+      if (!fallback) {
+        throw new BadRequestException('Impossible de supprimer le dernier groupe de paie.');
+      }
+
+      if (existing.isDefault && !fallback.isDefault) {
+        await tx.payGroup.update({
+          where: { id: fallback.id },
+          data: { isDefault: true },
+        });
+      }
+
+      await tx.employee.updateMany({
+        where: { companyId: existing.companyId, payGroupId: id },
+        data: { payGroupId: fallback.id },
+      });
+
+      await tx.payGroup.delete({ where: { id } });
+    });
+
     return { id, deleted: true };
+  }
+
+  /**
+   * Ensures the company has a default pay group (creates « Paie mensuelle » / day 25 if needed).
+   * Used by signup and employee assignment.
+   */
+  async ensureDefaultForCompany(companyId: string, client: DbClient = this.prisma) {
+    const existingDefault = await client.payGroup.findFirst({
+      where: { companyId, isDefault: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (existingDefault) return existingDefault;
+
+    const anyGroup = await client.payGroup.findFirst({
+      where: { companyId },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (anyGroup) {
+      return client.payGroup.update({
+        where: { id: anyGroup.id },
+        data: { isDefault: true },
+      });
+    }
+
+    return client.payGroup.create({
+      data: {
+        id: generateDocId('PGRP'),
+        companyId,
+        name: DEFAULT_PAY_GROUP_NAME,
+        payDayOfMonth: DEFAULT_PAY_DAY,
+        isDefault: true,
+      },
+    });
   }
 
   private normalizeName(value: string): string {
@@ -127,6 +236,7 @@ export class PayGroupsService {
       companyId: row.companyId,
       name: row.name,
       payDayOfMonth: row.payDayOfMonth,
+      isDefault: row.isDefault,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

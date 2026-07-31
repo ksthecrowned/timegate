@@ -6,6 +6,7 @@ import ActionButtons from '@/components/ui/ActionButtons'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
+import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import {
   createScheduleDayException,
   deleteScheduleDayException,
@@ -127,7 +128,7 @@ export default function ShiftTypeDetailPage() {
           />
           <DetailRow
             label="Créé le"
-            value={new Date(row.createdAt).toLocaleString('fr-FR')}
+            value={formatApiDateTime(row.createdAt)}
           />
         </DetailCard>
       ) : null}
@@ -207,9 +208,7 @@ export default function ShiftTypeDetailPage() {
                 <tbody>
                   {exceptions.map((item) => (
                     <tr key={item.id} className="border-b border-slate-100 dark:border-slate-800">
-                      <td className="py-2 pr-3">
-                        {new Date(item.workDate).toLocaleDateString('fr-FR')}
-                      </td>
+                      <td className="py-2 pr-3">{formatApiDate(item.workDate)}</td>
                       <td className="py-2 pr-3">{item.isOff ? 'Non travaillé' : 'Horaires modifiés'}</td>
                       <td className="py-2 pr-3">
                         {item.isOff ? '—' : `${item.startTime ?? '—'} — ${item.endTime ?? '—'}`}

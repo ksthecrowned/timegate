@@ -85,10 +85,6 @@ const cfg: Record<string, { label: string; cls: string }> = {
     label: "Jour férié",
     cls: "bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-500",
   },
-  ["Télétravail"]: {
-    label: "Télétravail",
-    cls: "bg-purple-100 text-purple-800 dark:bg-purple-500/10 dark:text-purple-500",
-  },
   ["Accepté"]: {
     label: "Accepté",
     cls: "bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-500",
@@ -99,11 +95,31 @@ const cfg: Record<string, { label: string; cls: string }> = {
   },
   ["Ouverte"]: {
     label: "Ouverte",
-    cls: "bg-green-100 text-green-800 dark:bg-green-500/10 dark:text-green-500",
+    cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400",
   },
   ["Fermée"]: {
     label: "Fermée",
-    cls: "bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-500",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
+  },
+  ["À valider"]: {
+    label: "À valider",
+    cls: "bg-orange-100 text-orange-800 dark:bg-orange-500/10 dark:text-orange-400",
+  },
+  ["Brouillon"]: {
+    label: "Brouillon",
+    cls: "bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-300",
+  },
+  ["Verrouillé"]: {
+    label: "Verrouillé",
+    cls: "bg-blue-100 text-blue-800 dark:bg-blue-500/10 dark:text-blue-400",
+  },
+  ["Partiellement payé"]: {
+    label: "Partiellement payé",
+    cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400",
+  },
+  ["Payé"]: {
+    label: "Payé",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
   },
 };
 

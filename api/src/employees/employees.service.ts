@@ -17,6 +17,10 @@ import { SetNfcBadgeDto } from './dto/set-nfc-badge.dto';
 import { UpdateEmployeeContractDto } from './dto/update-employee-contract.dto';
 
 import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
+import { PayGroupsService } from '../pay-groups/pay-groups.service';
+import { CompensationGridService } from '../compensation-grid/compensation-grid.service';
+import { EmployeeCompensationService } from '../employee-compensation/employee-compensation.service';
+import { fromDecimal, roundMoney } from '../common/utils/money.util';
 
 @Injectable()
 export class EmployeesService {
@@ -24,6 +28,9 @@ export class EmployeesService {
     private prisma: PrismaService,
     private readonly storage: CloudflareR2Service,
     private readonly subscriptionQuota: SubscriptionQuotaService,
+    private readonly payGroups: PayGroupsService,
+    private readonly compensationGrid: CompensationGridService,
+    private readonly employeeCompensation: EmployeeCompensationService,
   ) {}
 
   async create(dto: CreateEmployeeDto, user: JwtUser) {
@@ -107,6 +114,14 @@ export class EmployeesService {
       }
     }
 
+    let payGroupId = dto.payGroupId?.trim() || null;
+    if (payGroupId) {
+      await this.ensurePayGroup(payGroupId, branch.companyId);
+    } else {
+      const defaultGroup = await this.payGroups.ensureDefaultForCompany(branch.companyId);
+      payGroupId = defaultGroup.id;
+    }
+
     const created = await this.prisma.employee.create({
       data: {
         id: generateDocId('EMP'),
@@ -137,6 +152,7 @@ export class EmployeesService {
         designationId: dto.designationId,
         employmentTypeId: dto.employmentTypeId,
         holidayListId: dto.holidayListId,
+        payGroupId,
         status: dto.isActive === false ? EmployeeStatus.INACTIVE : EmployeeStatus.ACTIVE,
         faceEmbedding: dto.faceEmbedding as Prisma.InputJsonValue | undefined,
       },
@@ -235,6 +251,123 @@ export class EmployeesService {
     };
   }
 
+  /**
+   * Rémunération mensuelle fixe (grille + indemnités) et résultat du mois civil précédent.
+   */
+  async getCompensationSummary(id: string, user: JwtUser) {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        companyId: true,
+        designationId: true,
+        employmentTypeId: true,
+        ctc: true,
+        salaryCurrency: true,
+      },
+    });
+    if (!employee) throw new NotFoundException('Employee not found');
+    this.assertCompanyAccess(user, employee.companyId);
+
+    const asOf = new Date();
+    let baseSalary = 0;
+    let baseSource: 'GRID' | 'CTC' | 'NONE' = 'NONE';
+
+    if (employee.designationId && employee.employmentTypeId) {
+      const grid = await this.compensationGrid.findEffective(
+        employee.companyId,
+        employee.designationId,
+        employee.employmentTypeId,
+        asOf,
+      );
+      if (grid) {
+        baseSalary = fromDecimal(grid.baseSalary);
+        baseSource = 'GRID';
+      }
+    }
+    if (baseSource === 'NONE' && employee.ctc != null) {
+      baseSalary = roundMoney(fromDecimal(employee.ctc) / 12);
+      baseSource = 'CTC';
+    }
+
+    const fixedItems = await this.employeeCompensation.findActiveForEmployee(
+      employee.companyId,
+      employee.id,
+      asOf,
+    );
+    let fixedAllowances = 0;
+    let fixedDeductions = 0;
+    const allowances: { label: string; amount: number }[] = [];
+    const deductions: { label: string; amount: number }[] = [];
+    for (const item of fixedItems) {
+      const amount = fromDecimal(item.amount);
+      if (item.kind === 'ALLOWANCE') {
+        fixedAllowances += amount;
+        allowances.push({ label: item.label, amount });
+      } else {
+        fixedDeductions += amount;
+        deductions.push({ label: item.label, amount });
+      }
+    }
+    fixedAllowances = roundMoney(fixedAllowances);
+    fixedDeductions = roundMoney(fixedDeductions);
+    baseSalary = roundMoney(baseSalary);
+
+    const fixedMonthly = roundMoney(baseSalary + fixedAllowances);
+    const fixedMonthlyNet = roundMoney(fixedMonthly - fixedDeductions);
+
+    const now = new Date();
+    const lastMonthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+    const lastYear = lastMonthDate.getUTCFullYear();
+    const lastMonth = lastMonthDate.getUTCMonth() + 1;
+
+    const lastMonthLine = await this.prisma.timeGatePayrollLine.findFirst({
+      where: {
+        employeeId: id,
+        companyId: employee.companyId,
+        payrollRun: { year: lastYear, month: lastMonth },
+      },
+      include: {
+        payrollRun: {
+          select: { id: true, year: true, month: true, status: true },
+        },
+      },
+    });
+
+    return {
+      currency: employee.salaryCurrency?.trim() || 'XAF',
+      baseSalary,
+      baseSource,
+      fixedAllowances,
+      fixedDeductions,
+      fixedMonthly,
+      fixedMonthlyNet,
+      allowances,
+      deductions,
+      lastMonth: lastMonthLine
+        ? {
+            year: lastMonthLine.payrollRun.year,
+            month: lastMonthLine.payrollRun.month,
+            runId: lastMonthLine.payrollRun.id,
+            runStatus: lastMonthLine.payrollRun.status,
+            gross: fromDecimal(lastMonthLine.gross),
+            net: fromDecimal(lastMonthLine.netSalary),
+            paymentStatus: lastMonthLine.paymentStatus,
+            paidAt: lastMonthLine.paidAt?.toISOString() ?? null,
+          }
+        : {
+            year: lastYear,
+            month: lastMonth,
+            runId: null,
+            runStatus: null,
+            gross: null,
+            net: null,
+            paymentStatus: null,
+            paidAt: null,
+          },
+    };
+  }
+
   async setNfcBadge(id: string, dto: SetNfcBadgeDto, user: JwtUser) {
     const current = await this.findOne(id, user);
     const raw = dto.badgeUid?.trim();
@@ -310,8 +443,18 @@ export class EmployeesService {
     if (dto.holidayListId) {
       await this.ensureHolidayList(dto.holidayListId, companyId);
     }
-    if (dto.payGroupId !== undefined && dto.payGroupId) {
-      await this.ensurePayGroup(dto.payGroupId, companyId);
+
+    let nextPayGroupId: string | undefined;
+    if (dto.payGroupId !== undefined) {
+      const requested = dto.payGroupId?.trim() || '';
+      if (requested) {
+        await this.ensurePayGroup(requested, companyId);
+        nextPayGroupId = requested;
+      } else {
+        nextPayGroupId = (await this.payGroups.ensureDefaultForCompany(companyId)).id;
+      }
+    } else if (!current.payGroupId) {
+      nextPayGroupId = (await this.payGroups.ensureDefaultForCompany(companyId)).id;
     }
 
     const updated = await this.prisma.employee.update({
@@ -360,7 +503,7 @@ export class EmployeesService {
           ? { employmentTypeId: dto.employmentTypeId || null }
           : {}),
         ...(dto.holidayListId !== undefined ? { holidayListId: dto.holidayListId } : {}),
-        ...(dto.payGroupId !== undefined ? { payGroupId: dto.payGroupId || null } : {}),
+        ...(nextPayGroupId !== undefined ? { payGroupId: nextPayGroupId } : {}),
         ...(dto.payDueDayOverride !== undefined
           ? { payDueDayOverride: dto.payDueDayOverride }
           : {}),

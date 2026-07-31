@@ -10,7 +10,7 @@ import StatusBadge from '@/components/ui/StatusBadge'
 import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
 import { deleteLeave, getLeave } from '@/lib/timegate/leaves'
 import type { Leave } from '@/lib/timegate/types'
-import { formatApiDate } from '@/lib/date-utils'
+import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
 
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
@@ -84,7 +84,7 @@ export default function LeaveDetailPage() {
           <DetailRow label="Motif" value={row.reason ?? '—'} />
           <DetailRow
             label="Créé le"
-            value={new Date(row.createdAt).toLocaleString('fr-FR')}
+            value={formatApiDateTime(row.createdAt)}
           />
         </DetailCard>
       ) : null}

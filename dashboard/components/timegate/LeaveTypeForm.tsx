@@ -67,7 +67,7 @@ export default function LeaveTypeForm({
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             />
           </FormField>
-          <FormField label="Sans solde (LWP)">
+          <FormField label="Sans solde">
             <SwitcherField
               label="Congé sans solde"
               checked={!!form.isLwp}

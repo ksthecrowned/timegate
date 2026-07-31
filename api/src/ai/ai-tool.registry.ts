@@ -912,6 +912,7 @@ export class AiToolRegistry {
       id: g.id,
       name: g.name,
       payDayOfMonth: g.payDayOfMonth,
+      isDefault: g.isDefault,
       employeeCount: countByGroup.get(g.id) ?? 0,
     }));
 

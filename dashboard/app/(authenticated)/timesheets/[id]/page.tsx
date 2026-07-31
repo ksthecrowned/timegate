@@ -21,10 +21,14 @@ import {
   getTimesheet,
   getTimesheetOverrides,
   overrideTimesheet,
+  parseTimesheetAnomalyFlags,
+  timesheetStatusReason,
 } from '@/lib/timegate/timesheets'
 import type { TimesheetDay, TimesheetOverride } from '@/lib/timegate/types'
 import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
+import { findOption } from '@/lib/select-options'
+import { STATUS_OPTIONS } from '@/constants'
 
 export default function TimesheetDetailPage() {
   const params = useParams<{ id: string }>()
@@ -87,19 +91,20 @@ export default function TimesheetDetailPage() {
   }
 
   return (
-    <div>
+    <div className="space-y-4" data-tour="timesheet-detail">
       <PageHeader
         breadcrumbs={[
+          { label: 'Présence', href: '/timesheets' },
           { label: 'Temps travaillé', href: '/timesheets' },
           { label: row ? formatApiDate(row.date) : 'Détail' },
         ]}
       />
       <ApiErrorBanner message={error} />
-      {success && (
-        <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-lg text-sm text-teal-700 dark:bg-teal-900/20 dark:border-teal-800 dark:text-teal-400">
+      {success ? (
+        <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-700 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400">
           {success}
         </div>
-      )}
+      ) : null}
       {loading ? (
         <div className="space-y-6">
           <SkeletonDetailCard rows={7} />
@@ -107,16 +112,15 @@ export default function TimesheetDetailPage() {
         </div>
       ) : row ? (
         <div className="space-y-6">
-          {row.status === 'REVIEW_REQUIRED' &&
-            row.anomalyFlags?.includes('UNCLOSED_CHECKIN') && (
-              <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
-                <p className="font-semibold">Check-out oublié</p>
-                <p className="mt-1">
-                  Les heures affichées sont inférées (fin de shift). Validez ou corrigez ci-dessous
-                  puis enregistrez — la journée passera en statut fermé.
-                </p>
-              </div>
-            )}
+          {parseTimesheetAnomalyFlags(row.anomalyFlags).includes('UNCLOSED_CHECKIN') ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+              <p className="font-semibold">Sortie manquante</p>
+              <p className="mt-1 text-amber-800/90 dark:text-amber-200/90">
+                Les heures affichées peuvent être estimées. Validez ou corrigez ci-dessous puis
+                enregistrez — la journée passera en statut fermé.
+              </p>
+            </div>
+          ) : null}
 
           <DetailCard title={`Feuille de temps — ${formatApiDate(row.date)}`}>
             <DetailRow label="Employé" value={employeeLabel(row.employee)} />
@@ -127,11 +131,15 @@ export default function TimesheetDetailPage() {
             <DetailRow label="Heures sup." value={formatMinutes(row.overtimeMinutes)} />
             <DetailRow
               label="Statut"
-              value={<StatusBadge status={row.status.toLowerCase()} />}
+              value={
+                <StatusBadge
+                  status={findOption(STATUS_OPTIONS, row.status)?.label ?? row.status}
+                />
+              }
             />
-            {row.anomalyFlags && row.anomalyFlags.length > 0 && (
-              <DetailRow label="Anomalies" value={row.anomalyFlags.join(', ')} />
-            )}
+            {row.status !== 'CLOSED' ? (
+              <DetailRow label="Motif" value={timesheetStatusReason(row)} />
+            ) : null}
           </DetailCard>
 
           <form onSubmit={handleOverride}>
@@ -207,17 +215,17 @@ export default function TimesheetDetailPage() {
           </form>
 
           <div>
-            <h3 className="mb-3 text-base font-semibold text-gray-900 dark:text-white">
+            <h3 className="mb-3 text-base font-semibold text-slate-900 dark:text-white">
               Historique des corrections
             </h3>
             <RecordCardList
               items={overrides}
               emptyMessage="Aucune correction enregistrée."
-              keyFn={(row) => row.id}
-              renderItem={(row) => (
-                <RecordCard title={formatApiDateTime(row.createdAt)}>
-                  <RecordCardField label="Motif" value={row.reason} />
-                  <RecordCardField label="Gestionnaire" value={row.manager?.email ?? '—'} />
+              keyFn={(item) => item.id}
+              renderItem={(item) => (
+                <RecordCard title={formatApiDateTime(item.createdAt)}>
+                  <RecordCardField label="Motif" value={item.reason} />
+                  <RecordCardField label="Gestionnaire" value={item.manager?.email ?? '—'} />
                 </RecordCard>
               )}
             />

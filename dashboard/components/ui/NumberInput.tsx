@@ -27,6 +27,8 @@ export interface NumberInputProps
   onValueChange?: (value: string) => void
   error?: boolean
   wrapperClassName?: string
+  /** `toolbar` : hauteur réduite pour barres d’outils (filtres). */
+  variant?: 'default' | 'toolbar'
 }
 
 export function NumberInput({
@@ -40,6 +42,7 @@ export function NumberInput({
   disabled,
   className = '',
   wrapperClassName = '',
+  variant = 'default',
   id: idProp,
   ...props
 }: NumberInputProps) {
@@ -47,6 +50,7 @@ export function NumberInput({
   const id = idProp ?? autoId
   const [internal, setInternal] = useState('')
   const display = value !== undefined && value !== null ? String(value) : internal
+  const isToolbar = variant === 'toolbar'
 
   const emit = useCallback(
     (raw: string) => {
@@ -73,15 +77,20 @@ export function NumberInput({
   const minNum = min !== undefined ? Number(min) : undefined
   const maxNum = max !== undefined ? Number(max) : undefined
   const stepNum = Number(step) || 1
+  const stepBtnClass = isToolbar
+    ? 'size-5 inline-flex items-center justify-center rounded-full border border-slate-200/80 bg-surface-card text-slate-700 hover:bg-primary/10 hover:text-primary focus:outline-none disabled:pointer-events-none disabled:opacity-50 dark:border-border-dark dark:bg-surface-elevated-dark dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300'
+    : btnClass
 
   return (
     <div
-      className={`py-2 px-3 bg-surface border border-slate-200/80 rounded-lg dark:bg-surface-dark dark:border-border-dark ${
+      className={`${
+        isToolbar ? 'py-2 px-3' : 'py-2 px-3'
+      } bg-surface border border-slate-200/80 rounded-lg dark:bg-surface-dark dark:border-border-dark ${
         error ? 'border-red-400' : ''
       } ${wrapperClassName}`}
       data-hs-input-number=""
     >
-      <div className="w-full flex justify-between items-center gap-x-3">
+      <div className="w-full flex justify-between items-center gap-x-2">
         <input
           {...props}
           id={id}
@@ -92,21 +101,21 @@ export function NumberInput({
           step={step}
           value={display}
           onChange={handleChange}
-          className={`${inputClass} ${className}`}
+          className={`${inputClass} ${isToolbar ? 'text-sm' : ''} ${className}`}
           style={{ MozAppearance: 'textfield' }}
         />
-        <div className="flex justify-end items-center gap-x-1.5 shrink-0">
+        <div className="flex justify-end items-center gap-x-1 shrink-0">
           <button
             type="button"
             tabIndex={-1}
             aria-label="Diminuer"
             data-hs-input-number-decrement=""
-            className={btnClass}
+            className={stepBtnClass}
             disabled={disabled || (minNum !== undefined && current <= minNum)}
             onClick={() => applyStep(-stepNum)}
           >
             <svg
-              className="shrink-0 size-3.5"
+              className={`shrink-0 ${isToolbar ? 'size-3' : 'size-3.5'}`}
               xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"
@@ -126,12 +135,12 @@ export function NumberInput({
             tabIndex={-1}
             aria-label="Augmenter"
             data-hs-input-number-increment=""
-            className={btnClass}
+            className={stepBtnClass}
             disabled={disabled || (maxNum !== undefined && current >= maxNum)}
             onClick={() => applyStep(stepNum)}
           >
             <svg
-              className="shrink-0 size-3.5"
+              className={`shrink-0 ${isToolbar ? 'size-3' : 'size-3.5'}`}
               xmlns="http://www.w3.org/2000/svg"
               width="24"
               height="24"

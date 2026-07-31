@@ -2,9 +2,12 @@
 
 import { ApiErrorBanner, secondaryBtnClass } from '@/components/timegate/ui'
 import WriteLink from '@/components/timegate/WriteLink'
-import { FormField, Input } from '@/components/ui/FormField'
+import { SelectSearch } from '@/components/ui/FormField'
+import { NumberInput } from '@/components/ui/NumberInput'
 import PageHeader from '@/components/ui/PageHeader'
+import type { SelectOption } from '@/components/ui/select-search-types'
 import { HttpError } from '@/lib/http'
+import { findOption, toSelectOptions } from '@/lib/select-options'
 import { listBranches } from '@/lib/timegate/branches'
 import { getPlanningCalendar, type PlanningCalendarDay } from '@/lib/timegate/planning'
 import Link from 'next/link'
@@ -37,7 +40,7 @@ export default function ManagerLeavesCalendarPage() {
   const [month, setMonth] = useState(now.getUTCMonth() + 1)
   const [branchId, setBranchId] = useState('')
   const [days, setDays] = useState<PlanningCalendarDay[]>([])
-  const [branches, setBranches] = useState<Array<{ id: string; name: string }>>([])
+  const [branchOptions, setBranchOptions] = useState<SelectOption[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -62,7 +65,7 @@ export default function ManagerLeavesCalendarPage() {
 
   useEffect(() => {
     void listBranches({ limit: 100 })
-      .then((res) => setBranches(res.data.map((b) => ({ id: b.id, name: b.name }))))
+      .then((res) => setBranchOptions(toSelectOptions(res.data)))
       .catch(() => {})
   }, [])
 
@@ -102,144 +105,181 @@ export default function ManagerLeavesCalendarPage() {
     return rows.sort((a, b) => (a.fromDate ?? '').localeCompare(b.fromDate ?? ''))
   }, [days])
 
+  const monthLabel = useMemo(() => {
+    const d = new Date(Date.UTC(year, month - 1, 1))
+    return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  }, [year, month])
+
   return (
     <div className="space-y-4" data-tour="manager-leaves">
       <PageHeader
         breadcrumbs={[{ label: 'Manager', href: '/' }, { label: 'Absences équipe' }]}
         action={
-          <Link href="/manager/inbox" className={secondaryBtnClass}>
-            Boite de réception
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/planning" className={secondaryBtnClass}>
+              <i className="fa-solid fa-calendar-days" />
+              Planning prévu
+            </Link>
+            <Link href="/manager/inbox" className={secondaryBtnClass}>
+              Boite de réception
+            </Link>
+          </div>
         }
       />
 
       <ApiErrorBanner message={error} />
 
-      <div className="flex flex-wrap items-end gap-3">
-        <div className="w-28">
-          <FormField label="Année">
-            <Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} />
-          </FormField>
-        </div>
-        <div className="w-28">
-          <FormField label="Mois">
-            <Input
-              type="number"
+      <div className="overflow-hidden rounded-xl border border-slate-200/80 bg-surface-card shadow-sm dark:border-border-dark dark:bg-surface-card-dark">
+        <div className="flex flex-wrap items-end gap-3 border-b border-slate-200/80 px-4 py-3 dark:border-border-dark">
+          <div className="w-28">
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+              Année
+            </label>
+            <NumberInput
+              variant="toolbar"
+              min={2000}
+              max={2100}
+              step={1}
+              value={year}
+              onChange={(value) => setYear(value)}
+            />
+          </div>
+
+          <div className="w-28">
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+              Mois
+            </label>
+            <NumberInput
+              variant="toolbar"
               min={1}
               max={12}
+              step={1}
               value={month}
-              onChange={(e) => setMonth(Number(e.target.value))}
+              onChange={(value) => setMonth(value)}
             />
-          </FormField>
-        </div>
-        <div className="min-w-[220px]">
-          <FormField label="Branche">
-            <select
-              className="block w-full rounded-lg border border-slate-200/80 bg-surface px-4 py-3 text-sm text-slate-800 focus:border-primary focus:ring-primary disabled:pointer-events-none disabled:opacity-50 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200"
-              value={branchId}
-              onChange={(e) => setBranchId(e.target.value)}
-            >
-              <option value="">Toutes</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-          </FormField>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-400">
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-3 rounded bg-emerald-200 dark:bg-emerald-800/80" /> Approuvé
-        </span>
-        <span className="inline-flex items-center gap-1.5">
-          <span className="size-3 rounded bg-amber-200 dark:bg-amber-800/80" /> En attente
-        </span>
-      </div>
-
-      {loading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Chargement…</p>
-      ) : null}
-
-      <div className="grid grid-cols-7 gap-2">
-        {weekdayLabels().map((label) => (
-          <div
-            key={label}
-            className="py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
-          >
-            {label}
           </div>
-        ))}
-        {cells.map(({ iso, inMonth, day }) => (
-          <div
-            key={iso}
-            className={`min-h-28 rounded-lg border p-2 text-xs ${
-              inMonth
-                ? 'border-slate-200/80 bg-surface-card dark:border-border-dark dark:bg-surface-card-dark'
-                : 'border-transparent bg-surface text-slate-400 dark:bg-surface-dark dark:text-slate-600'
-            }`}
-          >
-            <div
-              className={`mb-1 font-semibold ${
-                inMonth ? 'text-slate-800 dark:text-slate-100' : 'text-slate-400 dark:text-slate-600'
-              }`}
-            >
-              {iso.slice(8)}
-            </div>
-            {day?.leaves.map((leave) => (
-              <WriteLink
-                key={`${iso}-${leave.id}`}
-                href={`/leaves/${leave.id}/edit`}
-                className={`mb-0.5 block truncate rounded px-1 py-0.5 text-[10px] hover:opacity-80 ${leaveStatusClass(leave.status)}`}
-                title={`${leave.employee.firstName} ${leave.employee.lastName} — ${leave.leaveType}`}
+
+          <div className="min-w-48 flex-1 sm:max-w-xs">
+            <label className="mb-1 block text-xs font-medium text-slate-500 dark:text-slate-400">
+              Branche
+            </label>
+            <SelectSearch
+              instanceId="manager-leaves-branch"
+              variant="toolbar"
+              options={branchOptions}
+              value={findOption(branchOptions, branchId)}
+              onChange={(opt) => setBranchId(opt?.value ?? '')}
+              placeholder="Toutes"
+              isClearable={Boolean(branchId)}
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 px-4 py-2.5 dark:border-border-dark">
+          <p className="text-sm capitalize text-slate-600 dark:text-slate-300">
+            <span className="font-semibold text-slate-900 dark:text-white">{monthLabel}</span>
+            <span className="text-slate-400"> · </span>
+            {monthLeaves.length} congé{monthLeaves.length === 1 ? '' : 's'}
+            {loading ? <span className="text-slate-400"> · Chargement…</span> : null}
+          </p>
+          <div className="flex flex-wrap gap-4 text-xs text-slate-600 dark:text-slate-400">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-3 rounded bg-emerald-200 dark:bg-emerald-800/80" /> Approuvé
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-3 rounded bg-amber-200 dark:bg-amber-800/80" /> En attente
+            </span>
+          </div>
+        </div>
+
+        <div className="border-b border-slate-200/80 p-4 dark:border-border-dark">
+          <div className="grid grid-cols-7 gap-2">
+            {weekdayLabels().map((label) => (
+              <div
+                key={label}
+                className="py-1 text-center text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400"
               >
-                {leave.employee.firstName} {leave.employee.lastName?.[0]}.
-              </WriteLink>
+                {label}
+              </div>
             ))}
-          </div>
-        ))}
-      </div>
-
-      <div className="tg-card p-4 shadow-2xs">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900 dark:text-white">
-          Congés du mois ({monthLeaves.length})
-        </h3>
-        {monthLeaves.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Aucun congé sur cette période.</p>
-        ) : (
-          <ul className="space-y-2">
-            {monthLeaves.map((leave) => (
-              <li
-                key={leave.id}
-                className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 text-sm last:border-0 dark:border-border-dark"
+            {cells.map(({ iso, inMonth, day }) => (
+              <div
+                key={iso}
+                className={`min-h-28 rounded-lg border p-2 text-xs ${
+                  inMonth
+                    ? 'border-slate-200/80 bg-surface dark:border-border-dark dark:bg-surface-elevated-dark/40'
+                    : 'border-transparent bg-surface/50 text-slate-400 dark:bg-surface-dark/40 dark:text-slate-600'
+                }`}
               >
-                <div>
-                  <p className="font-medium text-slate-900 dark:text-slate-100">
-                    {leave.employee.firstName} {leave.employee.lastName}
-                  </p>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    {leave.leaveType} · {leave.fromDate} → {leave.toDate}
-                  </p>
+                <div
+                  className={`mb-1 font-semibold ${
+                    inMonth
+                      ? 'text-slate-800 dark:text-slate-100'
+                      : 'text-slate-400 dark:text-slate-600'
+                  }`}
+                >
+                  {iso.slice(8)}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${leaveStatusClass(leave.status)}`}
-                  >
-                    {leaveStatusLabel(leave.status)}
-                  </span>
+                {day?.leaves.map((leave) => (
                   <WriteLink
+                    key={`${iso}-${leave.id}`}
                     href={`/leaves/${leave.id}/edit`}
-                    className="text-xs font-medium text-primary hover:underline dark:text-accent"
+                    className={`mb-0.5 block truncate rounded px-1 py-0.5 text-[10px] hover:opacity-80 ${leaveStatusClass(leave.status)}`}
+                    title={`${leave.employee.firstName} ${leave.employee.lastName} — ${leave.leaveType}`}
                   >
-                    Voir
+                    {leave.employee.firstName} {leave.employee.lastName?.[0]}.
                   </WriteLink>
-                </div>
-              </li>
+                ))}
+              </div>
             ))}
-          </ul>
-        )}
+          </div>
+        </div>
+
+        <div>
+          <div className="border-b border-slate-200/80 px-4 py-3 dark:border-border-dark">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+              Congés du mois ({monthLeaves.length})
+            </h3>
+          </div>
+          <div className="p-4">
+            {monthLeaves.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                Aucun congé sur cette période.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {monthLeaves.map((leave) => (
+                  <li
+                    key={leave.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-2 text-sm last:border-0 dark:border-border-dark"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-slate-100">
+                        {leave.employee.firstName} {leave.employee.lastName}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {leave.leaveType} · {leave.fromDate} → {leave.toDate}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${leaveStatusClass(leave.status)}`}
+                      >
+                        {leaveStatusLabel(leave.status)}
+                      </span>
+                      <WriteLink
+                        href={`/leaves/${leave.id}/edit`}
+                        className="text-xs font-medium text-primary hover:underline dark:text-accent"
+                      >
+                        Voir
+                      </WriteLink>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )

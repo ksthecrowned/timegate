@@ -8,6 +8,7 @@ import AddPageLink from '@/components/timegate/AddPageLink'
 import { deleteBranch, listBranches } from '@/lib/timegate/branches'
 import type { Branch } from '@/lib/timegate/types'
 import { HttpError } from '@/lib/http'
+import { formatApiDate } from '@/lib/date-utils'
 
 const columns: Column<Branch>[] = [
   { key: 'name', label: 'Nom', sortable: true },
@@ -16,7 +17,7 @@ const columns: Column<Branch>[] = [
   {
     key: 'createdAt',
     label: 'Créée le',
-    render: (v) => (v ? new Date(String(v)).toLocaleDateString('fr-FR') : '—'),
+    render: (v) => formatApiDate(v == null ? null : String(v)),
   },
 ]
 

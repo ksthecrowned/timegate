@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
+import { HttpError } from '@/lib/http'
 import {
   getAnalyticsFunnel,
   type AnalyticsFunnelResponse,
 } from '@/lib/timegate/analytics'
-import { HttpError } from '@/lib/http'
+import { useEffect, useState } from 'react'
 
 const EVENT_LABELS: Record<string, string> = {
   'employee.login_success': 'Connexions',
@@ -45,11 +45,6 @@ export default function ProductAnalyticsPage() {
           { label: 'Analytics produit' },
         ]}
       />
-
-      <p className="text-sm text-gray-500 dark:text-neutral-400">
-        Funnel app employé : connexion → pointage QR → demande de congé. Aucune donnée personnelle
-        dans les événements (ids techniques uniquement).
-      </p>
 
       <div className="flex gap-2">
         {[7, 30, 90].map((d) => (

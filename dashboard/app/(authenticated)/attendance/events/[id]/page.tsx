@@ -1,5 +1,6 @@
 'use client'
 
+import { formatApiDateTime } from '@/lib/date-utils'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
@@ -116,12 +117,12 @@ export default function AttendanceEventDetailPage() {
             <DetailRow label="Branche" value={event.branch?.name} />
             <DetailRow
               label="Horodatage"
-              value={new Date(event.occurredAt).toLocaleString('fr-FR')}
+              value={formatApiDateTime(event.occurredAt)}
             />
             {event.receivedAt && (
               <DetailRow
                 label="Reçu le"
-                value={new Date(event.receivedAt).toLocaleString('fr-FR')}
+                value={formatApiDateTime(event.receivedAt)}
               />
             )}
             {event.rejectReason && (
@@ -173,7 +174,7 @@ export default function AttendanceEventDetailPage() {
               {reviews.map((review) => (
                 <DetailRow
                   key={review.id}
-                  label={new Date(review.createdAt).toLocaleString('fr-FR')}
+                  label={formatApiDateTime(review.createdAt)}
                   value={`${review.action}${review.user?.email ? ` — ${review.user.email}` : ''}`}
                 />
               ))}
