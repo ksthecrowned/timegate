@@ -113,7 +113,7 @@ function WelcomeBlock({ onSelect }: { onSelect: (text: string) => void }) {
       <CopilotMark className="size-12 text-xs" />
       <div className="space-y-1.5">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">TMG Copilot</h3>
-        <p className="mx-auto max-w-[17rem] text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        <p className="mx-auto max-w-68 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
           Demandez-moi comment se porte l’entreprise, votre équipe, ou ce qui mérite votre attention.
         </p>
       </div>
@@ -269,7 +269,7 @@ export default function CopilotPanel() {
               }}
               placeholder="Écrire un message…"
               disabled={loading || quotaBlocked || !canUseCopilot}
-              className="max-h-[7.5rem] min-h-[2.5rem] flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-50 dark:text-slate-100"
+              className="max-h-30 min-h-10 flex-1 resize-none bg-transparent px-2.5 py-2 text-sm text-slate-800 outline-none placeholder:text-slate-400 disabled:opacity-50 dark:text-slate-100"
             />
             <button
               type="submit"

@@ -73,7 +73,7 @@ export function DatePicker({
               e.stopPropagation()
               onChange?.(null)
             }}
-            className="absolute end-10 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500"
+            className="absolute inset-e-10 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-red-500"
             aria-label="Effacer la date"
           >
             <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -86,7 +86,7 @@ export function DatePicker({
           tabIndex={-1}
           disabled={disabled}
           onClick={() => !disabled && setOpen((o) => !o)}
-          className="absolute end-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-primary disabled:opacity-50"
+          className="absolute inset-e-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-primary disabled:opacity-50"
           aria-label="Ouvrir le calendrier"
         >
           <svg className="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
