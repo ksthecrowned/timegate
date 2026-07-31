@@ -5,6 +5,7 @@ import { DetailCard, DetailRow } from './ui'
 
 type Props = {
   employee: Employee
+  bare?: boolean
 }
 
 function punchMethods(employee: Employee): string[] {
@@ -12,11 +13,10 @@ function punchMethods(employee: Employee): string[] {
   if (employee.hasFaceEmbedding) methods.push('Visage')
   if (employee.hasNfcBadge) methods.push('NFC')
   if (employee.linkedUser || employee.userId) methods.push('QR (app)')
-  if (employee.hasKioskPin) methods.push('PIN')
   return methods
 }
 
-export default function EmployeePunchEligibilityCard({ employee }: Props) {
+export default function EmployeePunchEligibilityCard({ employee, bare = false }: Props) {
   const methods = punchMethods(employee)
   const reasons: string[] = []
 
@@ -33,7 +33,7 @@ export default function EmployeePunchEligibilityCard({ employee }: Props) {
   const canPunch = reasons.length === 0
 
   return (
-    <DetailCard title="Pointage kiosk">
+    <DetailCard title="Pointage kiosk" bare={bare}>
       <DetailRow
         label="Peut pointer"
         value={

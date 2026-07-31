@@ -560,15 +560,38 @@ export class EmployeesService {
 
     const companyId =
       user?.role === PLATFORM_ADMIN ? undefined : user?.companyId ?? undefined;
+
+    const today = new Date();
+    const todayUtc = new Date(
+      Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+    );
+    const expiringUntil = new Date(todayUtc);
+    expiringUntil.setUTCDate(expiringUntil.getUTCDate() + 30);
+
+    const statusWhere: Prisma.TimeGateEmployeeContractWhereInput =
+      query.status === 'current'
+        ? { isCurrent: true }
+        : query.status === 'past'
+          ? { isCurrent: false }
+          : query.status === 'expired'
+            ? { expiresAt: { lt: todayUtc } }
+            : query.status === 'expiring'
+              ? {
+                  isCurrent: true,
+                  expiresAt: { gte: todayUtc, lte: expiringUntil },
+                }
+              : {};
+
     const where: Prisma.TimeGateEmployeeContractWhereInput = {
       ...(query.employeeId ? { employeeId: query.employeeId } : {}),
       ...(companyId ? { companyId } : {}),
+      ...statusWhere,
     };
 
     const [items, total] = await Promise.all([
       this.prisma.timeGateEmployeeContract.findMany({
         where,
-        orderBy: [{ isCurrent: 'desc' }, { signedAt: 'desc' }],
+        orderBy: [{ isCurrent: 'desc' }, { expiresAt: 'asc' }, { signedAt: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
         include: {

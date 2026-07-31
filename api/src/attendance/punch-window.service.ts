@@ -10,6 +10,7 @@ import {
   punchEventBoundsForWorkDate,
   resolvePunchWorkDateKey,
   resolveShiftBounds,
+  shiftDurationMinutes,
   timeDateToMinutes,
   toWeekDay,
 } from '../common/utils/punch-time.util';
@@ -343,6 +344,10 @@ export class PunchWindowService {
       (overnight ? (shiftEndMin + 120) % (24 * 60) : 24 * 60);
     const breakStartMin = timeDateToMinutes(shiftType.breakWindowStart);
     const breakEndMin = timeDateToMinutes(shiftType.breakWindowEnd);
+    const breakDurationMinutes =
+      breakStartMin != null && breakEndMin != null
+        ? shiftDurationMinutes(breakStartMin, breakEndMin)
+        : 0;
 
     return {
       shiftTypeId: shiftType.id,
@@ -355,7 +360,7 @@ export class PunchWindowService {
       checkOutEndMin,
       breakStartMin,
       breakEndMin,
-      breakDurationMinutes: shiftType.breakDurationMinutes ?? 60,
+      breakDurationMinutes,
     };
   }
 

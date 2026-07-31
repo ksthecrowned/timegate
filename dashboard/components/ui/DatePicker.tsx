@@ -155,20 +155,30 @@ export function DatePicker({
             }}
             classNames={{
               root: 'rdp-root text-sm',
-              month_caption: 'mb-2 flex items-center justify-center font-semibold text-slate-800 dark:text-slate-100 capitalize',
-              nav: 'flex items-center justify-between absolute inset-x-3 top-3',
-              button_previous: 'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
-              button_next: 'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
+              month_caption:
+                'relative mb-2 flex items-center justify-center font-semibold capitalize text-slate-800 dark:text-slate-100',
+              dropdowns: 'rdp-dropdowns flex items-center justify-center gap-1.5',
+              dropdown_root: 'rdp-dropdown_root',
+              dropdown: 'rdp-dropdown',
+              years_dropdown: 'rdp-years_dropdown',
+              months_dropdown: 'rdp-months_dropdown',
+              caption_label: 'rdp-caption_label',
+              chevron: 'rdp-chevron',
+              nav: 'absolute -inset-x-3 top-3 flex items-center justify-between',
+              button_previous:
+                'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
+              button_next:
+                'rounded-md p-1 text-slate-600 hover:bg-primary/10 hover:text-primary dark:text-slate-300 dark:hover:bg-primary/15 dark:hover:text-teal-300',
               weekdays: 'text-xs text-slate-500 dark:text-slate-400',
               weekday: 'w-9 font-medium',
               day: 'w-9 h-9 text-sm',
               day_button:
-                'h-9 w-9 rounded-lg hover:bg-primary/10 hover:text-primary dark:hover:bg-primary/15 dark:hover:text-teal-300 focus:outline-none focus:ring-2 focus:ring-primary',
+                'h-9 w-9 rounded-lg text-slate-800 hover:bg-primary/10 hover:text-primary focus:outline-none focus:ring-2 focus:ring-primary dark:text-slate-200 dark:hover:bg-primary/15 dark:hover:text-teal-300',
               selected:
-                '[&>button]:bg-primary [&>button]:text-white [&>button]:hover:bg-primary [&>button]:font-semibold',
+                '[&>button]:bg-primary [&>button]:font-semibold [&>button]:text-white [&>button]:hover:bg-primary',
               today: '[&>button]:font-bold [&>button]:text-primary',
               outside: 'text-slate-300 dark:text-slate-600',
-              disabled: 'opacity-40 pointer-events-none',
+              disabled: 'pointer-events-none opacity-40',
             }}
           />
         </div>

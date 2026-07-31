@@ -16,6 +16,11 @@ export { HttpClient } from '@/lib/http/client'
 export { HttpError, HttpSessionError } from '@/lib/http/errors'
 export { getApiBaseUrl } from '@/lib/http/config'
 export { parseResponse } from '@/lib/http/parse-response'
+export {
+  clearUnauthorizedSessionLock,
+  notifyUnauthorizedSession,
+  UNAUTHORIZED_SESSION_EVENT,
+} from '@/lib/http/unauthorized-session'
 export type {
   ApiEnvelope,
   HttpMethod,

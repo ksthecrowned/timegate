@@ -65,6 +65,7 @@ type EmployeeFormProps = {
   onCancel?: () => void
   employeeId?: string
   hasFaceEmbedding?: boolean
+  faceEnrolledAt?: string | null
 }
 
 export default function EmployeeForm({
@@ -74,6 +75,7 @@ export default function EmployeeForm({
   onCancel,
   employeeId,
   hasFaceEmbedding,
+  faceEnrolledAt,
 }: EmployeeFormProps) {
   const { company } = useOrganization()
   const [tab, setTab] = useState<EmployeeFormTab>('identity')
@@ -470,7 +472,11 @@ export default function EmployeeForm({
       label: 'Reconnaissance faciale',
       content: () =>
         employeeId ? (
-          <FaceEnrollContent employeeId={employeeId} hasFaceEmbedding={hasFaceEmbedding} />
+          <FaceEnrollContent
+            employeeId={employeeId}
+            hasFaceEmbedding={hasFaceEmbedding}
+            faceEnrolledAt={faceEnrolledAt}
+          />
         ) : (
           <EmployeeFormPlaceholder message="Enregistrez l’employé pour configurer la reconnaissance faciale." />
         ),

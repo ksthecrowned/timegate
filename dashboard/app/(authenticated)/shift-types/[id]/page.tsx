@@ -119,10 +119,10 @@ export default function ShiftTypeDetailPage() {
             }
           />
           <DetailRow
-            label="Plage pause"
+            label="Pause"
             value={
               row.breakWindowStart && row.breakWindowEnd
-                ? `${formatTime(row.breakWindowStart)} — ${formatTime(row.breakWindowEnd)} (${row.breakDurationMinutes ?? 60} min)`
+                ? `${formatTime(row.breakWindowStart)} — ${formatTime(row.breakWindowEnd)}`
                 : 'Défaut'
             }
           />

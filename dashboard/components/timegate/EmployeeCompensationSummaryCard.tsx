@@ -30,9 +30,11 @@ function runStatusBadge(status: string | null) {
 export default function EmployeeCompensationSummaryCard({
   employeeId,
   refreshKey,
+  bare = false,
 }: {
   employeeId: string
   refreshKey?: number
+  bare?: boolean
 }) {
   const [summary, setSummary] = useState<EmployeeCompensationSummary | null>(null)
   const [loading, setLoading] = useState(true)
@@ -61,10 +63,10 @@ export default function EmployeeCompensationSummaryCard({
       : null
 
   return (
-    <DetailCard title="Rémunération mensuelle">
+    <DetailCard title="Rémunération mensuelle" bare={bare}>
       <ApiErrorBanner message={error} />
       {loading ? (
-        <div className="px-4 py-4 text-sm text-slate-500 dark:text-slate-400 md:px-5">
+        <div className={`text-sm text-slate-500 dark:text-slate-400 ${bare ? 'py-3' : 'px-4 py-4 md:px-5'}`}>
           Chargement…
         </div>
       ) : summary ? (

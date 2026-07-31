@@ -250,6 +250,44 @@ type DemoEmployee = {
   payDayOfMonth: number;
 };
 
+type SeedEmployeeProfile = {
+  gender: string;
+  maritalStatus: string;
+  dateOfBirth: Date;
+  dateOfJoining: Date;
+  cellNumber: string;
+  nationality: string;
+  nationalIdNumber: string;
+  passportNumber: string;
+  addressLine1: string;
+  addressLine2?: string;
+  province: string;
+  postalCode: string;
+  cityId: string;
+  countryId: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  employmentTypeId: string;
+  holidayListId: string;
+  ctc: number;
+  nfcBadgeUid?: string;
+};
+
+function utcYmd(year: number, monthIndex: number, day: number): Date {
+  return new Date(Date.UTC(year, monthIndex, day));
+}
+
+function monthsFromNow(months: number): Date {
+  const d = new Date();
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return utcYmd(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+}
+
+function yearsAgo(years: number, monthIndex = 0, day = 15): Date {
+  const y = new Date().getUTCFullYear() - years;
+  return utcYmd(y, monthIndex, day);
+}
+
 /**
  * Idempotently create (or return) a self-service `User` account for an
  * employee demo. Each demo employee gets a User with `timeGateRole: EMPLOYEE`
@@ -629,7 +667,7 @@ async function main() {
       abbr: 'SOTR',
       timeZone: 'Africa/Brazzaville',
       logoUrl: ORG_LOGO_URL,
-      phone: '+242 06 123 4567',
+      phone: "+242061234567",
       email: 'contact@sotrafer.cg',
       website: 'https://www.sotrafer.cg',
       address: 'Avenue Amical Cabral, Brazzaville',
@@ -740,7 +778,7 @@ async function main() {
       latitude: -4.2634,
       longitude: 15.2429,
       checkinRadius: 150,
-      phone: '+242 06 000 0001',
+      phone: "+242060000001",
       email: 'brazzaville@sotrafer.cg',
       isHeadOffice: true,
       isActive: true,
@@ -760,7 +798,7 @@ async function main() {
       latitude: -4.7692,
       longitude: 11.8636,
       checkinRadius: 120,
-      phone: '+242 06 000 0002',
+      phone: "+242060000002",
       email: 'pointe-noire@sotrafer.cg',
       isActive: true,
     },
@@ -854,7 +892,7 @@ async function main() {
     data: {
       id: generateDocId('DESIG'),
       designationName: 'Agent logistique',
-      grade: 'Senior',
+      grade: 'Confirmé',
       companyId: company.id,
     },
   });
@@ -866,7 +904,7 @@ async function main() {
       companyId: company.id,
     },
   });
-  await prisma.employmentType.create({
+  const cddType = await prisma.employmentType.create({
     data: {
       id: generateDocId('EMPT'),
       employeeTypeName: 'CDD',
@@ -894,7 +932,7 @@ async function main() {
     data: {
       id: generateDocId('DESIG'),
       designationName: 'Responsable RH',
-      grade: 'Manager',
+      grade: 'Cadre',
       companyId: company.id,
     },
   });
@@ -912,7 +950,7 @@ async function main() {
     data: {
       id: generateDocId('DESIG'),
       designationName: 'Comptable',
-      grade: 'Junior',
+      grade: 'Débutant',
       companyId: company.id,
     },
   });
@@ -934,10 +972,22 @@ async function main() {
       firstName: 'Patrick',
       lastName: 'Mukendi',
       personalEmail: 'patrick.mukendi@sotrafer.cg',
-      cellNumber: '+242 06 123 4567',
+      cellNumber: "+242061234567",
       nationality: 'Congolaise',
       gender: 'Male',
+      maritalStatus: 'Married',
+      dateOfBirth: utcYmd(1988, 2, 14),
+      dateOfJoining: yearsAgo(4, 0, 10),
       nationalIdNumber: 'CG-BZV-2019-45821',
+      passportNumber: 'CGP884521',
+      addressLine1: 'Avenue de la Paix',
+      addressLine2: 'Immeuble Sotrafer, apt. 12',
+      province: 'Brazzaville',
+      postalCode: 'BP 1234',
+      cityId: cityBrazzaville.id,
+      countryId: countryCg.id,
+      emergencyContactName: 'Amina Mukendi',
+      emergencyContactPhone: "+242069876543",
       companyId: company.id,
       branchId: hq.id,
       defaultShiftId: hqSchedule.id,
@@ -947,17 +997,14 @@ async function main() {
       userId: employeeUser.id,
       status: EmployeeStatus.ACTIVE,
       salaryCurrency: 'XAF',
+      ctc: 420_000,
       payGroupId: defaultPayGroup.id,
       faceEmbedding: [0.01, 0.02, 0.03],
       faceEnrolledAt: new Date(),
       kioskPinHash: demoKioskPinHash,
+      nfcBadgeUid: 'A1B2C3D4',
     },
   });
-
-  const contractSignedAt = new Date();
-  contractSignedAt.setFullYear(contractSignedAt.getFullYear() - 1);
-  const contractExpiresAt = new Date();
-  contractExpiresAt.setMonth(contractExpiresAt.getMonth() + 2);
 
   await prisma.shiftAssignment.create({
     data: {
@@ -968,51 +1015,54 @@ async function main() {
     },
   });
 
-  await prisma.timeGateEmployeeContract.create({
-    data: {
-      id: generateDocId('CTR'),
-      companyId: company.id,
-      employeeId: adaEmployee.id,
-      signedAt: contractSignedAt,
-      expiresAt: contractExpiresAt,
-      renewalsCount: 0,
-      notes: 'Contrat CDI demo (expire dans ~2 mois pour alertes RH)',
-      isCurrent: true,
-    },
-  });
-
   const leaveType = await prisma.leaveType.create({
     data: {
       id: generateDocId('LT'),
-      leaveTypeName: 'Annual Leave',
+      leaveTypeName: 'Congés annuels',
       companyId: company.id,
       maxDaysPerYear: 22,
+      isCarryForward: true,
     },
   });
 
-  await prisma.leaveType.create({
+  const sickLeaveType = await prisma.leaveType.create({
     data: {
       id: generateDocId('LT'),
-      leaveTypeName: 'Sick Leave',
+      leaveTypeName: 'Congé maladie',
       companyId: company.id,
       isLwp: true,
       maxDaysPerYear: 10,
     },
   });
 
+  await prisma.leaveType.create({
+    data: {
+      id: generateDocId('LT'),
+      leaveTypeName: 'Congé sans solde',
+      companyId: company.id,
+      isLwp: true,
+      maxDaysPerYear: null,
+    },
+  });
+
   const holidayList = await prisma.holidayList.create({
     data: {
       id: generateDocId('HLIST'),
-      holidayListName: `${ORG_NAME} Holidays`,
+      holidayListName: `Jours fériés — ${ORG_NAME}`,
       companyId: company.id,
     },
+  });
+
+  await prisma.employee.update({
+    where: { id: adaEmployee.id },
+    data: { holidayListId: holidayList.id },
   });
 
   await prisma.holiday.create({
     data: {
       id: generateDocId('HOL'),
       parentId: holidayList.id,
-      description: 'New Year',
+      description: 'Jour de l’an',
       holidayDate: utcDate(new Date().getUTCFullYear(), 0, 1),
     },
   });
@@ -1043,7 +1093,7 @@ async function main() {
   const payrollPayableAccount = await prisma.account.create({
     data: {
       id: generateDocId('ACC'),
-      accountName: 'Payroll Payable',
+      accountName: 'Salaires à payer',
       companyId: company.id,
       accountType: 'Payable',
     },
@@ -1056,7 +1106,7 @@ async function main() {
   const basicPayComponent = await prisma.salaryComponent.create({
     data: {
       id: generateDocId('SC'),
-      salaryComponentName: 'Basic',
+      salaryComponentName: 'Salaire de base',
       type: SalaryComponentType.EARNING,
       companyId: company.id,
     },
@@ -1065,9 +1115,9 @@ async function main() {
   const monthlyStructure = await prisma.salaryStructure.create({
     data: {
       id: generateDocId('SS'),
-      name: 'Monthly Standard',
+      name: 'Grille mensuelle standard',
       companyId: company.id,
-      payrollFrequency: 'Monthly',
+      payrollFrequency: 'Mensuel',
     },
   });
 
@@ -1104,6 +1154,21 @@ async function main() {
       firstName: 'Alan',
       lastName: 'Turing',
       personalEmail: 'alan.turing@example.com',
+      cellNumber: "+242051112233",
+      nationality: 'Congolaise',
+      gender: 'Male',
+      maritalStatus: 'Single',
+      dateOfBirth: utcYmd(1992, 5, 23),
+      dateOfJoining: yearsAgo(2, 3, 1),
+      nationalIdNumber: 'CG-PNR-2022-11045',
+      passportNumber: 'CGP221104',
+      addressLine1: 'Boulevard du Général de Gaulle',
+      province: 'Pointe-Noire',
+      postalCode: 'BP 450',
+      cityId: cityPointeNoire.id,
+      countryId: countryCg.id,
+      emergencyContactName: 'Sarah Turing',
+      emergencyContactPhone: "+242054445566",
       userId: alanUser.id,
       companyId: company.id,
       branchId: west.id,
@@ -1111,11 +1176,14 @@ async function main() {
       departmentId: engineeringDept.id,
       designationId: developerDesignation.id,
       employmentTypeId: cdiType.id,
+      holidayListId: holidayList.id,
       status: EmployeeStatus.ACTIVE,
       salaryCurrency: 'XAF',
+      ctc: 400_000,
       payGroupId: midMonthPayGroup.id,
       faceEmbedding: [0.1, 0.2, 0.3],
       faceEnrolledAt: new Date(),
+      nfcBadgeUid: 'B2C3D4E5',
     },
   });
 
@@ -1128,7 +1196,11 @@ async function main() {
     },
   });
 
-  const extraEmployeeDefs: Omit<DemoEmployee, 'id'>[] = [
+  type ExtraEmployeeDef = Omit<DemoEmployee, 'id' | 'payDayOfMonth'> & {
+    profile: SeedEmployeeProfile;
+  };
+
+  const extraEmployeeDefs: ExtraEmployeeDef[] = [
     {
       firstName: 'Grace',
       lastName: 'Hopper',
@@ -1138,6 +1210,27 @@ async function main() {
       designationId: developerDesignation.id,
       defaultShiftId: hqSchedule.id,
       faceSeed: 2,
+      profile: {
+        gender: 'Female',
+        maritalStatus: 'Single',
+        dateOfBirth: utcYmd(1990, 11, 9),
+        dateOfJoining: yearsAgo(3, 5, 15),
+        cellNumber: "+242062001001",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-BZV-2021-20001',
+        passportNumber: 'CGP200001',
+        addressLine1: 'Rue Matsoua',
+        province: 'Brazzaville',
+        postalCode: 'BP 210',
+        cityId: cityBrazzaville.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Paul Hopper',
+        emergencyContactPhone: "+242062001002",
+        employmentTypeId: cdiType.id,
+        holidayListId: holidayList.id,
+        ctc: 410_000,
+        nfcBadgeUid: 'C3D4E5F6',
+      },
     },
     {
       firstName: 'Linus',
@@ -1148,6 +1241,27 @@ async function main() {
       designationId: developerDesignation.id,
       defaultShiftId: hqSchedule.id,
       faceSeed: 3,
+      profile: {
+        gender: 'Male',
+        maritalStatus: 'Married',
+        dateOfBirth: utcYmd(1987, 7, 1),
+        dateOfJoining: yearsAgo(5, 8, 1),
+        cellNumber: "+242062002002",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-BZV-2018-30022',
+        passportNumber: 'CGP300022',
+        addressLine1: 'Quartier Bacongo',
+        addressLine2: 'Lot 45',
+        province: 'Brazzaville',
+        postalCode: 'BP 310',
+        cityId: cityBrazzaville.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Tove Torvalds',
+        emergencyContactPhone: "+242062002003",
+        employmentTypeId: cdiType.id,
+        holidayListId: holidayList.id,
+        ctc: 430_000,
+      },
     },
     {
       firstName: 'Marie',
@@ -1158,6 +1272,27 @@ async function main() {
       designationId: hrDesignation.id,
       defaultShiftId: hqSchedule.id,
       faceSeed: 4,
+      profile: {
+        gender: 'Female',
+        maritalStatus: 'Married',
+        dateOfBirth: utcYmd(1985, 10, 7),
+        dateOfJoining: yearsAgo(6, 1, 20),
+        cellNumber: "+242063004004",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-BZV-2017-40033',
+        passportNumber: 'CGP400033',
+        addressLine1: 'Avenue Félix Éboué',
+        province: 'Brazzaville',
+        postalCode: 'BP 88',
+        cityId: cityBrazzaville.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Pierre Curie',
+        emergencyContactPhone: "+242063004005",
+        employmentTypeId: cdiType.id,
+        holidayListId: holidayList.id,
+        ctc: 520_000,
+        nfcBadgeUid: 'D4E5F6A7',
+      },
     },
     {
       firstName: 'Katherine',
@@ -1168,6 +1303,26 @@ async function main() {
       designationId: opsDesignation.id,
       defaultShiftId: westSchedule.id,
       faceSeed: 5,
+      profile: {
+        gender: 'Female',
+        maritalStatus: 'Widowed',
+        dateOfBirth: utcYmd(1994, 0, 18),
+        dateOfJoining: yearsAgo(1, 6, 1),
+        cellNumber: "+242055006006",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-PNR-2024-50044',
+        passportNumber: 'CGP500044',
+        addressLine1: 'Avenue Patrice Lumumba',
+        province: 'Pointe-Noire',
+        postalCode: 'BP 77',
+        cityId: cityPointeNoire.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'James Johnson',
+        emergencyContactPhone: "+242055006007",
+        employmentTypeId: cddType.id,
+        holidayListId: holidayList.id,
+        ctc: 380_000,
+      },
     },
     {
       firstName: 'Nikola',
@@ -1178,6 +1333,27 @@ async function main() {
       designationId: opsDesignation.id,
       defaultShiftId: westSchedule.id,
       faceSeed: 6,
+      profile: {
+        gender: 'Male',
+        maritalStatus: 'Single',
+        dateOfBirth: utcYmd(1991, 6, 10),
+        dateOfJoining: yearsAgo(2, 9, 12),
+        cellNumber: "+242057008008",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-PNR-2023-60055',
+        passportNumber: 'CGP600055',
+        addressLine1: 'Rue du Commerce',
+        province: 'Pointe-Noire',
+        postalCode: 'BP 199',
+        cityId: cityPointeNoire.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Djordje Tesla',
+        emergencyContactPhone: "+242057008009",
+        employmentTypeId: cddType.id,
+        holidayListId: holidayList.id,
+        ctc: 390_000,
+        nfcBadgeUid: 'E5F6A7B8',
+      },
     },
     {
       firstName: 'Rosalind',
@@ -1188,13 +1364,44 @@ async function main() {
       designationId: developerDesignation.id,
       defaultShiftId: hqSchedule.id,
       faceSeed: 7,
+      profile: {
+        gender: 'Female',
+        maritalStatus: 'Single',
+        dateOfBirth: utcYmd(1993, 3, 25),
+        dateOfJoining: yearsAgo(1, 2, 5),
+        cellNumber: "+242069001010",
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-BZV-2024-70066',
+        passportNumber: 'CGP700066',
+        addressLine1: 'Rue de la Science',
+        province: 'Brazzaville',
+        postalCode: 'BP 512',
+        cityId: cityBrazzaville.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Jenifer Franklin',
+        emergencyContactPhone: "+242069001011",
+        employmentTypeId: cdiType.id,
+        holidayListId: holidayList.id,
+        ctc: 405_000,
+      },
     },
   ];
 
   const extraEmployees: DemoEmployee[] = [];
   for (const emp of extraEmployeeDefs) {
     const payDayOfMonth = emp.faceSeed % 3 === 0 ? midMonthPayGroup.payDayOfMonth : defaultPayGroup.payDayOfMonth;
-    const created: DemoEmployee = { ...emp, id: generateDocId('EMP'), payDayOfMonth };
+    const created: DemoEmployee = {
+      id: generateDocId('EMP'),
+      firstName: emp.firstName,
+      lastName: emp.lastName,
+      email: emp.email,
+      branchId: emp.branchId,
+      departmentId: emp.departmentId,
+      designationId: emp.designationId,
+      defaultShiftId: emp.defaultShiftId,
+      faceSeed: emp.faceSeed,
+      payDayOfMonth,
+    };
     // Grace Hopper: portal user without password — demo OTP onboarding flow.
     const employeeUser = await ensureEmployeeUser(
       prisma,
@@ -1202,6 +1409,7 @@ async function main() {
       emp.email,
       emp.email === 'grace.hopper@example.com' ? null : passwordHash,
     );
+    const p = emp.profile;
     await prisma.employee.create({
       data: {
         id: created.id,
@@ -1209,18 +1417,37 @@ async function main() {
         firstName: emp.firstName,
         lastName: emp.lastName,
         personalEmail: emp.email,
+        cellNumber: p.cellNumber,
+        nationality: p.nationality,
+        gender: p.gender,
+        maritalStatus: p.maritalStatus,
+        dateOfBirth: p.dateOfBirth,
+        dateOfJoining: p.dateOfJoining,
+        nationalIdNumber: p.nationalIdNumber,
+        passportNumber: p.passportNumber,
+        addressLine1: p.addressLine1,
+        addressLine2: p.addressLine2,
+        province: p.province,
+        postalCode: p.postalCode,
+        cityId: p.cityId,
+        countryId: p.countryId,
+        emergencyContactName: p.emergencyContactName,
+        emergencyContactPhone: p.emergencyContactPhone,
         userId: employeeUser.id,
         companyId: company.id,
         branchId: emp.branchId,
         defaultShiftId: emp.defaultShiftId,
         departmentId: emp.departmentId,
         designationId: emp.designationId,
-        employmentTypeId: cdiType.id,
+        employmentTypeId: p.employmentTypeId,
+        holidayListId: p.holidayListId,
         status: EmployeeStatus.ACTIVE,
         salaryCurrency: 'XAF',
+        ctc: p.ctc,
         payGroupId: emp.faceSeed % 3 === 0 ? midMonthPayGroup.id : defaultPayGroup.id,
         faceEmbedding: [emp.faceSeed / 10, 0.2, 0.3],
         faceEnrolledAt: new Date(),
+        ...(p.nfcBadgeUid ? { nfcBadgeUid: p.nfcBadgeUid } : {}),
       },
     });
     extraEmployees.push(created);
@@ -1241,8 +1468,8 @@ async function main() {
   const demoEmployees: DemoEmployee[] = [
     {
       id: adaEmployee.id,
-      firstName: 'Ada',
-      lastName: 'Lovelace',
+      firstName: 'Patrick',
+      lastName: 'Mukendi',
       email: 'patrick.mukendi@sotrafer.cg',
       branchId: hq.id,
       departmentId: engineeringDept.id,
@@ -1272,6 +1499,83 @@ async function main() {
     return found;
   };
 
+  // Contrats : historique + courant pour chaque employé (variés pour démo RH).
+  for (const [idx, emp] of demoEmployees.entries()) {
+    const isCdd = idx === 4 || idx === 5; // Katherine, Nikola
+    const hireYears = 1 + (idx % 5);
+    const previousSigned = yearsAgo(hireYears + 1, idx % 6, 1 + idx);
+    const previousExpires = yearsAgo(hireYears, (idx + 2) % 12, 15);
+    const currentSigned = yearsAgo(hireYears, (idx + 1) % 12, 1);
+    const currentExpires = isCdd
+      ? monthsFromNow(3 + (idx % 4))
+      : idx % 3 === 0
+        ? monthsFromNow(2) // expire bientôt (alertes)
+        : monthsFromNow(14 + idx);
+
+    await prisma.timeGateEmployeeContract.create({
+      data: {
+        id: generateDocId('CTR'),
+        companyId: company.id,
+        employeeId: emp.id,
+        signedAt: previousSigned,
+        expiresAt: previousExpires,
+        renewalsCount: 0,
+        notes: `Ancien contrat ${isCdd ? 'CDD' : 'CDI'} — remplacé`,
+        isCurrent: false,
+      },
+    });
+
+    await prisma.timeGateEmployeeContract.create({
+      data: {
+        id: generateDocId('CTR'),
+        companyId: company.id,
+        employeeId: emp.id,
+        signedAt: currentSigned,
+        expiresAt: currentExpires,
+        renewalsCount: idx % 4,
+        notes: isCdd
+          ? 'Contrat CDD en cours — renouvellement à anticiper'
+          : idx % 3 === 0
+            ? 'Contrat CDI courant — échéance proche (démo alertes RH)'
+            : 'Contrat CDI courant',
+        isCurrent: true,
+      },
+    });
+
+    await prisma.leaveAllocation.create({
+      data: {
+        id: generateDocId('LALLOC'),
+        employeeId: emp.id,
+        leaveTypeId: leaveType.id,
+        year,
+        allocatedDays: 22,
+      },
+    });
+
+    if (emp.id !== adaEmployee.id) {
+      await prisma.salaryStructureAssignment.create({
+        data: {
+          id: generateDocId('SSA'),
+          employeeId: emp.id,
+          salaryStructureId: monthlyStructure.id,
+          companyId: company.id,
+          fromDate: utcYmd(year, 0, 1),
+        },
+      });
+    }
+
+    if (emp.id !== adaEmployee.id && emp.id !== alanEmployee.id && emp.email !== 'grace.hopper@example.com') {
+      await prisma.shiftAssignment.create({
+        data: {
+          id: generateDocId('SASN'),
+          employeeId: emp.id,
+          shiftTypeId: emp.defaultShiftId,
+          companyId: company.id,
+        },
+      });
+    }
+  }
+
   await prisma.leaveApplication.createMany({
     data: [
       {
@@ -1292,7 +1596,7 @@ async function main() {
         fromDate: addDays(todayUtc(), 5),
         toDate: addDays(todayUtc(), 7),
         status: LeaveApplicationStatus.OPEN,
-        reason: 'Conférence tech',
+        reason: 'Congés personnels',
       },
       {
         id: generateDocId('LEAVE'),
@@ -1313,6 +1617,16 @@ async function main() {
         toDate: addDays(todayUtc(), 14),
         status: LeaveApplicationStatus.OPEN,
         reason: 'Vacances familiales',
+      },
+      {
+        id: generateDocId('LEAVE'),
+        employeeId: employeeByEmail('linus.torvalds@example.com').id,
+        leaveTypeId: sickLeaveType.id,
+        companyId: company.id,
+        fromDate: addDays(todayUtc(), -4),
+        toDate: addDays(todayUtc(), -3),
+        status: LeaveApplicationStatus.APPROVED,
+        reason: 'Arrêt maladie',
       },
     ],
   });

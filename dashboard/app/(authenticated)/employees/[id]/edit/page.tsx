@@ -6,9 +6,8 @@ import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import EmployeeForm from '@/components/timegate/EmployeeForm'
 import { ApiErrorBanner } from '@/components/timegate/ui'
-import { getEmployee, updateEmployee } from '@/lib/timegate/employees'
+import { employeeToFormValues, getEmployee, updateEmployee } from '@/lib/timegate/employees'
 import type { Employee } from '@/lib/timegate/types'
-import { normalizeApiDate } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
 
 export default function EditEmployeePage() {
@@ -35,12 +34,14 @@ export default function EditEmployeePage() {
     void load()
   }, [load])
 
+  const fullName = employee ? `${employee.firstName} ${employee.lastName}`.trim() : 'Employé'
+
   return (
     <div>
       <PageHeader
         breadcrumbs={[
           { label: 'Employés', href: '/employees' },
-          { label: employee?.firstName ?? 'Employé', href: `/employees/${id}` },
+          { label: fullName, href: `/employees/${id}` },
           { label: 'Modifier' },
         ]}
       />
@@ -51,25 +52,10 @@ export default function EditEmployeePage() {
         <EmployeeForm
           employeeId={id}
           hasFaceEmbedding={employee.hasFaceEmbedding}
+          faceEnrolledAt={employee.faceEnrolledAt}
           submitLabel="Enregistrer"
           onCancel={() => router.push(`/employees/${id}`)}
-          initial={{
-            firstName: employee.firstName,
-            lastName: employee.lastName,
-            email: employee.email ?? '',
-            phone: employee.phone ?? '',
-            whatsappPhone: employee.whatsappPhone ?? '',
-            hireDate: normalizeApiDate(employee.hireDate),
-            birthDate: normalizeApiDate(employee.birthDate),
-            branchId: employee.branchId ?? '',
-            departmentId: employee.departmentId ?? '',
-            designationId: employee.designationId ?? '',
-            employmentTypeId: employee.employmentTypeId ?? '',
-            holidayListId: employee.holidayListId ?? '',
-            payGroupId: employee.payGroupId ?? '',
-            payDueDayOverride: employee.payDueDayOverride ?? null,
-            isActive: employee.isActive,
-          }}
+          initial={employeeToFormValues(employee)}
           onSubmit={async (values) => {
             await updateEmployee(id, values)
             router.push(`/employees/${id}`)

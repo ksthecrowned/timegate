@@ -121,7 +121,7 @@ export function DatePicker({
             classNames={{
               root: 'rdp-root text-sm',
               month_caption: 'flex justify-center items-center font-semibold text-gray-800 dark:text-white mb-2 capitalize',
-              nav: 'flex items-center justify-between absolute inset-x-3 top-3',
+              nav: 'flex items-center justify-between absolute -inset-x-3 top-3',
               button_previous: 'p-1 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-300',
               button_next: 'p-1 rounded-md hover:bg-gray-100 dark:hover:bg-neutral-800 text-gray-600 dark:text-neutral-300',
               weekdays: 'text-xs text-gray-500 dark:text-neutral-400',

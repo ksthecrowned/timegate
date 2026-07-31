@@ -1,4 +1,4 @@
-import { HttpError } from '@/lib/http/errors'
+import { HttpError, HttpSessionError } from '@/lib/http/errors'
 import type { ApiEnvelope } from '@/lib/http/types'
 
 function extractMessage(payload: unknown): string | undefined {
@@ -26,6 +26,9 @@ export async function parseResponse<T>(res: Response): Promise<T> {
   const payload: unknown = isJson ? await res.json() : await res.text()
 
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new HttpSessionError()
+    }
     throw new HttpError(
       extractMessage(payload) ?? res.statusText ?? 'Erreur API',
       res.status,

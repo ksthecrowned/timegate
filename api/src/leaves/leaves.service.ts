@@ -12,7 +12,7 @@ import { LeaveBalancesService } from './leave-balances.service';
 import { CreateLeaveDto, LegacyLeaveStatus } from './dto/create-leave.dto';
 import { UpdateLeaveDto } from './dto/update-leave.dto';
 
-const DEFAULT_LEAVE_TYPE_NAME = 'Annual Leave';
+const DEFAULT_LEAVE_TYPE_NAME = 'Congés annuels';
 
 type LeaveRow = Prisma.LeaveApplicationGetPayload<{
   include: {

@@ -87,7 +87,7 @@ export function resolveAttendancePunch(
   ) {
     return {
       action: 'NONE',
-      message: 'Pause en cours. Reprise possible après la fin de la plage pause.',
+      message: 'Pause en cours. Reprise possible à la fin de la pause.',
     };
   }
 

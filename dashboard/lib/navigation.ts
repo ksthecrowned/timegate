@@ -121,6 +121,12 @@ export const timegateNavSections: NavSection[] = [
     items: [
       { label: 'Employés', href: '/employees', faIcon: 'fa-solid fa-users' },
       {
+        label: 'Contrats',
+        href: '/contracts',
+        faIcon: 'fa-solid fa-file-contract',
+        roles: ['ADMIN'],
+      },
+      {
         label: 'Congés',
         faIcon: 'fa-solid fa-umbrella-beach',
         roles: ['ADMIN'],

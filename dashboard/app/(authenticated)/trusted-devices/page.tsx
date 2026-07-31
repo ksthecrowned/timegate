@@ -1,15 +1,15 @@
 'use client'
 
-import { formatApiDateTime } from '@/lib/date-utils'
-import { useCallback, useEffect, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
 import { ApiErrorBanner, primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
+import PageHeader from '@/components/ui/PageHeader'
+import { formatApiDateTime } from '@/lib/date-utils'
+import { HttpError } from '@/lib/http'
 import {
   listPendingTrustedDevices,
   updateTrustedDeviceStatus,
   type TrustedDevice,
 } from '@/lib/timegate/trusted-devices'
-import { HttpError } from '@/lib/http'
+import { useCallback, useEffect, useState } from 'react'
 
 export default function TrustedDevicesPage() {
   const [devices, setDevices] = useState<TrustedDevice[]>([])
@@ -53,14 +53,6 @@ export default function TrustedDevicesPage() {
           { label: 'Téléphones employés' },
         ]}
       />
-
-      <p className="mb-4 text-sm text-gray-500 dark:text-neutral-400">
-        Approuvez les téléphones pour le pointage mobile. Les bornes physiques sont dans{' '}
-        <a href="/kiosks" className="text-primary hover:underline">
-          Bornes / kiosques
-        </a>
-        .
-      </p>
 
       <ApiErrorBanner message={error} />
 

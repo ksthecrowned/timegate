@@ -1,16 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { FormField, Input } from '@/components/ui/FormField'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+import StatusBadge from '@/components/ui/StatusBadge'
 import { setEmployeeNfcBadge } from '@/lib/timegate/employee-identity'
 import { HttpError } from '@/lib/http'
-import { DetailCard } from './ui'
+import { ApiErrorBanner, FormCard, primaryBtnClass, secondaryBtnClass } from './ui'
 
 type Props = {
   employeeId: string
   hasNfcBadge?: boolean
   nfcBadgeUid?: string | null
   onUpdated?: () => void
+  bare?: boolean
 }
 
 export default function EmployeeNfcBadgeCard({
@@ -18,11 +21,17 @@ export default function EmployeeNfcBadgeCard({
   hasNfcBadge,
   nfcBadgeUid,
   onUpdated,
+  bare = false,
 }: Props) {
   const [uid, setUid] = useState(nfcBadgeUid ?? '')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
+
+  useEffect(() => {
+    setUid(nfcBadgeUid ?? '')
+  }, [nfcBadgeUid])
 
   async function save(nextUid?: string | null) {
     setSaving(true)
@@ -37,16 +46,19 @@ export default function EmployeeNfcBadgeCard({
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible')
     } finally {
       setSaving(false)
+      setConfirmRemove(false)
     }
   }
 
   return (
-    <DetailCard title="Carte NFC">
-      <div className="px-5 py-4 flex flex-col gap-4">
-        <p className="text-sm text-gray-500 dark:text-neutral-400">
+    <FormCard title="Carte NFC" bare={bare}>
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={hasNfcBadge ? 'Badge actif' : 'Sans badge'} />
+        </div>
+        <p className="text-sm text-gray-600 dark:text-neutral-400">
           Identifiant UID de la carte (hex, min. 4 caractères). Un badge ne peut être lié qu’à un
           seul employé.
-          {hasNfcBadge ? ' Badge actif.' : ' Aucun badge configuré.'}
         </p>
         <FormField label="UID badge">
           <Input
@@ -55,29 +67,44 @@ export default function EmployeeNfcBadgeCard({
             placeholder="A1B2C3D4"
           />
         </FormField>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="text-sm text-emerald-600">{message}</p> : null}
+        <ApiErrorBanner message={error} />
+        {message ? (
+          <div className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm text-teal-700 dark:border-teal-800 dark:bg-teal-900/20 dark:text-teal-400">
+            {message}
+          </div>
+        ) : null}
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             disabled={saving || uid.replace(/[\s:-]/g, '').length < 4}
             onClick={() => void save(uid)}
-            className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            className={primaryBtnClass}
           >
-            Enregistrer UID
+            {saving ? 'Enregistrement…' : 'Enregistrer UID'}
           </button>
           {hasNfcBadge ? (
             <button
               type="button"
               disabled={saving}
-              onClick={() => void save(null)}
-              className="rounded-lg border px-3 py-2 text-sm dark:border-neutral-700"
+              onClick={() => setConfirmRemove(true)}
+              className={secondaryBtnClass}
             >
               Retirer le badge
             </button>
           ) : null}
         </div>
       </div>
-    </DetailCard>
+
+      <ConfirmModal
+        open={confirmRemove}
+        title="Retirer le badge NFC ?"
+        message="L’employé ne pourra plus pointer avec cette carte jusqu’à ce qu’un nouvel UID soit enregistré."
+        confirmLabel="Retirer"
+        cancelLabel="Annuler"
+        danger
+        onConfirm={() => void save(null)}
+        onCancel={() => setConfirmRemove(false)}
+      />
+    </FormCard>
   )
 }

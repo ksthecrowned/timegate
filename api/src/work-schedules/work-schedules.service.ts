@@ -138,7 +138,7 @@ export class WorkSchedulesService {
           ...(dto.startTime !== undefined ? { startTime: toTimeOnlyDate(dto.startTime) } : {}),
           ...(dto.endTime !== undefined ? { endTime: toTimeOnlyDate(dto.endTime) } : {}),
           ...(dto.lateGraceMinutes !== undefined ? { lateGraceMinutes: dto.lateGraceMinutes } : {}),
-          ...mapPunchWindowFields(dto),
+          ...mapPunchWindowFields(dto, current),
         },
       });
 

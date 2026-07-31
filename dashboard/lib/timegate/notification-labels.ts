@@ -31,6 +31,51 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   PAYROLL_OVERDUE: 'Paie — paiement en retard',
 }
 
+export type NotificationRuleGroupId =
+  | 'punch'
+  | 'leave'
+  | 'subscription'
+  | 'hr'
+  | 'payroll'
+  | 'other'
+
+export type NotificationRuleGroup = {
+  id: NotificationRuleGroupId
+  label: string
+}
+
+const NOTIFICATION_GROUPS: NotificationRuleGroup[] = [
+  { id: 'punch', label: 'Pointage' },
+  { id: 'leave', label: 'Congés' },
+  { id: 'payroll', label: 'Paie' },
+  { id: 'hr', label: 'RH' },
+  { id: 'subscription', label: 'Abonnement' },
+  { id: 'other', label: 'Autres' },
+]
+
 export function notificationTypeLabel(type: string): string {
   return NOTIFICATION_TYPE_LABELS[type] ?? type.replaceAll('_', ' ').toLowerCase()
+}
+
+export function notificationTypeGroup(type: string): NotificationRuleGroupId {
+  if (
+    type.startsWith('PUNCH_') ||
+    type.startsWith('UNCLOSED_') ||
+    type.startsWith('BREAK_') ||
+    type === 'ABSENCE_AUTO' ||
+    type === 'KIOSK_OFFLINE' ||
+    type === 'VERIFY_FAILURE_SPIKE' ||
+    type === 'OVERTIME_THRESHOLD'
+  ) {
+    return 'punch'
+  }
+  if (type.startsWith('LEAVE_')) return 'leave'
+  if (type.startsWith('SUBSCRIPTION_')) return 'subscription'
+  if (type.startsWith('HR_')) return 'hr'
+  if (type.startsWith('PAYROLL_')) return 'payroll'
+  return 'other'
+}
+
+export function notificationRuleGroups(): NotificationRuleGroup[] {
+  return NOTIFICATION_GROUPS
 }

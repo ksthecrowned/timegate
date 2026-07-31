@@ -5,7 +5,13 @@ import { DetailCard } from '@/components/timegate/ui'
 import { getEmployeeLeaveBalances, type EmployeeLeaveBalances } from '@/lib/timegate/employees'
 import { HttpError } from '@/lib/http'
 
-export default function EmployeeLeaveBalancesCard({ employeeId }: { employeeId: string }) {
+export default function EmployeeLeaveBalancesCard({
+  employeeId,
+  bare = false,
+}: {
+  employeeId: string
+  bare?: boolean
+}) {
   const [data, setData] = useState<EmployeeLeaveBalances | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -20,7 +26,10 @@ export default function EmployeeLeaveBalancesCard({ employeeId }: { employeeId: 
   }, [employeeId])
 
   return (
-    <DetailCard title={`Soldes congés ${data?.year ?? new Date().getFullYear()}`}>
+    <DetailCard
+      bare={bare}
+      title={`Soldes congés ${data?.year ?? new Date().getFullYear()}`}
+    >
       {loading && <p className="text-sm text-slate-500 px-5 py-3">Chargement…</p>}
       {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
       {!loading && !error && data && (

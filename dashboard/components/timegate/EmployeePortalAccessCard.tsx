@@ -9,9 +9,14 @@ import { primaryBtnClass, secondaryBtnClass } from '@/components/timegate/ui'
 type Props = {
   employee: Employee
   onUpdated: () => void
+  bare?: boolean
 }
 
-export default function EmployeePortalAccessCard({ employee, onUpdated }: Props) {
+export default function EmployeePortalAccessCard({
+  employee,
+  onUpdated,
+  bare = false,
+}: Props) {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
@@ -44,12 +49,24 @@ export default function EmployeePortalAccessCard({ employee, onUpdated }: Props)
   }
 
   return (
-    <div className="tg-card shadow-2xs p-6 space-y-4">
+    <div
+      className={
+        bare
+          ? 'flex flex-col gap-4 rounded-xl border border-slate-200/70 bg-slate-50/60 p-4 dark:border-border-dark dark:bg-white/3'
+          : 'tg-card space-y-4 p-6 shadow-2xs'
+      }
+    >
       <div>
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+        <h3
+          className={
+            bare
+              ? 'text-sm font-semibold tracking-wide text-slate-800 dark:text-slate-100'
+              : 'text-lg font-semibold text-gray-900 dark:text-white'
+          }
+        >
           Accès application employé
         </h3>
-        <p className="text-sm text-gray-500 dark:text-neutral-400 mt-1">
+        <p className="mt-1 text-sm text-gray-500 dark:text-neutral-400">
           Compte de connexion à l’app mobile TimeGate (e-mail personnel de l’employé).
         </p>
       </div>

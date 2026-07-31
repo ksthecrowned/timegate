@@ -13,6 +13,7 @@ export function listEmployeeContracts(params?: {
   page?: number
   limit?: number
   employeeId?: string
+  status?: 'current' | 'expiring' | 'expired' | 'past'
 }) {
   return http.get<PaginatedResponse<EmployeeContract>>('/employees/contracts', { params })
 }

@@ -107,6 +107,7 @@ export function RecordCardField({ label, value }: { label: string; value: ReactN
 type RecordCardListProps<T> = {
   items: T[]
   emptyMessage?: string
+  emptyContent?: ReactNode
   loading?: boolean
   loadingSkeleton?: ReactNode
   renderItem: (item: T) => ReactNode
@@ -116,6 +117,7 @@ type RecordCardListProps<T> = {
 export function RecordCardList<T>({
   items,
   emptyMessage = 'Aucun élément.',
+  emptyContent,
   loading = false,
   loadingSkeleton,
   renderItem,
@@ -129,6 +131,7 @@ export function RecordCardList<T>({
 
   const safeItems = items ?? []
   if (safeItems.length === 0) {
+    if (emptyContent) return <>{emptyContent}</>
     return (
       <p className="py-6 text-center text-sm text-gray-500 dark:text-neutral-400">{emptyMessage}</p>
     )

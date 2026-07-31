@@ -79,7 +79,6 @@ export default function ShiftTypeForm({
     checkOutWindowEnd: toTimeInput(initial?.checkOutWindowEnd),
     breakWindowStart: toTimeInput(initial?.breakWindowStart),
     breakWindowEnd: toTimeInput(initial?.breakWindowEnd),
-    breakDurationMinutes: initial?.breakDurationMinutes ?? 60,
   })
   const [days, setDays] = useState<Record<WeekDayName, DayRow>>(() =>
     buildDayState(initial?.weekDays, startDefault, endDefault, isCreate),
@@ -105,7 +104,6 @@ export default function ShiftTypeForm({
           ...prev,
           breakWindowStart: toTimeInput(settings.defaultBreakWindowStart) || '12:00',
           breakWindowEnd: toTimeInput(settings.defaultBreakWindowEnd) || '13:00',
-          breakDurationMinutes: settings.defaultBreakDurationMinutes ?? 60,
         }))
       })
       .catch(() => {
@@ -316,31 +314,18 @@ export default function ShiftTypeForm({
               onChange={(e) => setForm((f) => ({ ...f, checkOutWindowEnd: e.target.value }))}
             />
           </FormField>
-          <FormField label="Pause — début">
+          <FormField label="Début de pause" hint="Début de la pause automatique figée.">
             <Input
               type="time"
               value={form.breakWindowStart ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, breakWindowStart: e.target.value }))}
             />
           </FormField>
-          <FormField label="Pause — fin">
+          <FormField label="Fin de pause" hint="Fin de la pause — ex. début 12:50 ⇒ reprise à cette heure.">
             <Input
               type="time"
               value={form.breakWindowEnd ?? ''}
               onChange={(e) => setForm((f) => ({ ...f, breakWindowEnd: e.target.value }))}
-            />
-          </FormField>
-          <FormField label="Durée pause (min)">
-            <Input
-              type="number"
-              min={0}
-              value={form.breakDurationMinutes ?? 60}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  breakDurationMinutes: Number(e.target.value) || 0,
-                }))
-              }
             />
           </FormField>
         </div>

@@ -105,6 +105,50 @@ const cfg: Record<string, { label: string; cls: string }> = {
     label: "Payé",
     cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
   },
+  ["Courant"]: {
+    label: "Courant",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
+  },
+  ["Expiré"]: {
+    label: "Expiré",
+    cls: "bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-400",
+  },
+  ["Expire bientôt"]: {
+    label: "Expire bientôt",
+    cls: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400",
+  },
+  ["Historique"]: {
+    label: "Historique",
+    cls: "bg-slate-100 text-slate-700 dark:bg-slate-500/10 dark:text-slate-300",
+  },
+  ["Enrolé"]: {
+    label: "Enrolé",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
+  },
+  ["Non enrolé"]: {
+    label: "Non enrolé",
+    cls: "bg-gray-100 text-gray-800 dark:bg-neutral-700 dark:text-neutral-300",
+  },
+  ["Badge actif"]: {
+    label: "Badge actif",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
+  },
+  ["Sans badge"]: {
+    label: "Sans badge",
+    cls: "bg-gray-100 text-gray-800 dark:bg-neutral-700 dark:text-neutral-300",
+  },
+  TRUSTED: {
+    label: "De confiance",
+    cls: "bg-teal-100 text-teal-800 dark:bg-teal-500/10 dark:text-teal-400",
+  },
+  PENDING: {
+    label: "En attente",
+    cls: "bg-yellow-100 text-yellow-800 dark:bg-yellow-500/10 dark:text-yellow-500",
+  },
+  REVOKED: {
+    label: "Révoqué",
+    cls: "bg-red-100 text-red-800 dark:bg-red-500/10 dark:text-red-400",
+  },
 };
 
 export default function StatusBadge({ status }: { status: Status }) {

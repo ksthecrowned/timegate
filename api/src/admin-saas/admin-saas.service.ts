@@ -6,6 +6,7 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { UpdateSystemConfigDto } from './dto/update-system-config.dto';
+import { breakDurationFromBounds } from '../work-schedules/punch-window.mapper';
 
 @Injectable()
 export class AdminSaasService {
@@ -51,7 +52,7 @@ export class AdminSaasService {
     await this.validateDefaultShiftType(companyId, dto.defaultShiftTypeId);
     const updated = await this.prisma.timeGateSystemSettings.update({
       where: { id: row.id },
-      data: this.buildSystemConfigUpdate(dto),
+      data: this.buildSystemConfigUpdate(dto, row),
       include: {
         company: { select: { id: true, name: true, sku: true } },
         defaultShiftType: { select: { id: true, shiftName: true } },
@@ -67,7 +68,7 @@ export class AdminSaasService {
     await this.validateDefaultShiftType(row.companyId, dto.defaultShiftTypeId);
     const updated = await this.prisma.timeGateSystemSettings.update({
       where: { id },
-      data: this.buildSystemConfigUpdate(dto),
+      data: this.buildSystemConfigUpdate(dto, row),
       include: {
         company: { select: { id: true, name: true, sku: true } },
         defaultShiftType: { select: { id: true, shiftName: true } },
@@ -271,7 +272,22 @@ export class AdminSaasService {
     }
   }
 
-  private buildSystemConfigUpdate(dto: UpdateSystemConfigDto): Prisma.TimeGateSystemSettingsUpdateInput {
+  private buildSystemConfigUpdate(
+    dto: UpdateSystemConfigDto,
+    current?: {
+      defaultBreakWindowStart?: string | null;
+      defaultBreakWindowEnd?: string | null;
+    },
+  ): Prisma.TimeGateSystemSettingsUpdateInput {
+    const breakStartTouched = dto.defaultBreakWindowStart !== undefined;
+    const breakEndTouched = dto.defaultBreakWindowEnd !== undefined;
+    const nextBreakStart = breakStartTouched
+      ? normalizeHhMm(dto.defaultBreakWindowStart)
+      : (current?.defaultBreakWindowStart ?? null);
+    const nextBreakEnd = breakEndTouched
+      ? normalizeHhMm(dto.defaultBreakWindowEnd)
+      : (current?.defaultBreakWindowEnd ?? null);
+
     return {
       ...(dto.minConfidence !== undefined ? { minConfidence: dto.minConfidence } : {}),
       ...(dto.lateThreshold !== undefined ? { lateThreshold: dto.lateThreshold } : {}),
@@ -323,14 +339,13 @@ export class AdminSaasService {
       ...(dto.webhookSecret !== undefined
         ? { webhookSecret: dto.webhookSecret?.trim() || null }
         : {}),
-      ...(dto.defaultBreakWindowStart !== undefined
-        ? { defaultBreakWindowStart: normalizeHhMm(dto.defaultBreakWindowStart) }
-        : {}),
-      ...(dto.defaultBreakWindowEnd !== undefined
-        ? { defaultBreakWindowEnd: normalizeHhMm(dto.defaultBreakWindowEnd) }
-        : {}),
-      ...(dto.defaultBreakDurationMinutes !== undefined
-        ? { defaultBreakDurationMinutes: dto.defaultBreakDurationMinutes }
+      ...(breakStartTouched ? { defaultBreakWindowStart: nextBreakStart } : {}),
+      ...(breakEndTouched ? { defaultBreakWindowEnd: nextBreakEnd } : {}),
+      ...(breakStartTouched || breakEndTouched || dto.defaultBreakDurationMinutes !== undefined
+        ? {
+            defaultBreakDurationMinutes:
+              breakDurationFromBounds(nextBreakStart, nextBreakEnd) ?? 0,
+          }
         : {}),
       ...(dto.allowCheckInAfterBreakStart !== undefined
         ? { allowCheckInAfterBreakStart: dto.allowCheckInAfterBreakStart }

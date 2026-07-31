@@ -174,7 +174,7 @@ export class HolidaysService {
     return this.prisma.holidayList.create({
       data: {
         id: generateDocId('HLIST'),
-        holidayListName: `${companyName} Holidays`,
+        holidayListName: `Jours fériés — ${companyName}`,
         companyId,
       },
     });

@@ -1,6 +1,7 @@
 import { resolveAccessToken } from '@/lib/http/access-token'
 import { getApiBaseUrl } from '@/lib/http/config'
 import { parseResponse } from '@/lib/http/parse-response'
+import { notifyUnauthorizedSession } from '@/lib/http/unauthorized-session'
 import type { HttpMethod, HttpQueryParams, HttpRequestOptions } from '@/lib/http/types'
 
 type TokenResolver = () => Promise<string | null | undefined>
@@ -78,6 +79,11 @@ export class HttpClient {
       body: serialized,
       cache,
     })
+
+    // 401 = session invalide → logout. 403 = droits insuffisants → pas de logout.
+    if (res.status === 401 && !skipAuth) {
+      notifyUnauthorizedSession()
+    }
 
     if (raw) {
       return res as T

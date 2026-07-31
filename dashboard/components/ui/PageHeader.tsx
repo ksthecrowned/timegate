@@ -35,7 +35,7 @@ export default function PageHeader({ breadcrumbs, action }: PageHeaderProps) {
     <div className="mb-5 rounded-xl border border-slate-200/80 bg-surface-card px-4 py-3 shadow-xs dark:border-border-dark dark:bg-surface-card-dark md:px-5 md:py-4">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <ol className="flex min-w-0 items-center whitespace-nowrap text-xs text-slate-500 dark:text-slate-400">
+          <ol className="flex min-w-0 items-center whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
             <li className="inline-flex items-center">
               <Link
                 href="/"

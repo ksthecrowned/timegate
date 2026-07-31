@@ -21,7 +21,6 @@ const columns: Column<SystemConfig>[] = [
     render: (v) => Number(v).toFixed(2),
   },
   { key: 'lateThreshold', label: 'Tolérance retard (min)' },
-  { key: 'veryLateThreshold', label: 'Retard majeur (min)' },
 ]
 
 export default function SystemConfigPage() {
@@ -30,7 +29,6 @@ export default function SystemConfigPage() {
   const [form, setForm] = useState({
     minConfidence: '0.75',
     lateThreshold: '10',
-    veryLateThreshold: '30',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -54,7 +52,6 @@ export default function SystemConfigPage() {
         setForm({
           minConfidence: String(first.minConfidence),
           lateThreshold: String(first.lateThreshold),
-          veryLateThreshold: String(first.veryLateThreshold),
         })
       }
     } catch (err) {
@@ -73,7 +70,6 @@ export default function SystemConfigPage() {
     setForm({
       minConfidence: String(row.minConfidence),
       lateThreshold: String(row.lateThreshold),
-      veryLateThreshold: String(row.veryLateThreshold),
     })
     setSuccess('')
     setError('')
@@ -89,7 +85,6 @@ export default function SystemConfigPage() {
       const updated = await updateSystemConfig(selected.id, {
         minConfidence: Number(form.minConfidence),
         lateThreshold: Number(form.lateThreshold),
-        veryLateThreshold: Number(form.veryLateThreshold),
       })
       setRows((prev) => prev.map((row) => (row.id === updated.id ? updated : row)))
       setSuccess('Seuils enregistrés.')
@@ -138,7 +133,7 @@ export default function SystemConfigPage() {
               </button>
             }
           >
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-2">
               <FormField label="Confiance faciale min.">
                 <Input
                   type="number"
@@ -155,14 +150,6 @@ export default function SystemConfigPage() {
                   min={0}
                   value={form.lateThreshold}
                   onChange={(e) => setForm((f) => ({ ...f, lateThreshold: e.target.value }))}
-                />
-              </FormField>
-              <FormField label="Retard majeur (min)">
-                <Input
-                  type="number"
-                  min={0}
-                  value={form.veryLateThreshold}
-                  onChange={(e) => setForm((f) => ({ ...f, veryLateThreshold: e.target.value }))}
                 />
               </FormField>
             </div>

@@ -119,19 +119,78 @@
 
 @layer components {
   .tg-phone-input {
-    @apply flex items-center gap-2 rounded-lg border border-slate-200/80 bg-surface px-3 py-2.5 text-sm focus-within:border-primary focus-within:ring-1 focus-within:ring-primary dark:border-border-dark dark:bg-surface-dark;
+    @apply flex w-full items-center gap-2 rounded-lg border border-slate-200/80 bg-surface px-3 py-2.5 text-sm text-slate-800 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary disabled:opacity-50 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200 dark:focus-within:ring-neutral-600;
+    --PhoneInput-color--focus: var(--color-primary, #0d9488);
+    --PhoneInputCountrySelectArrow-color: #64748b;
+    --PhoneInputCountrySelectArrow-color--focus: var(--color-primary, #0d9488);
+    --PhoneInputCountryFlag-borderColor: rgb(148 163 184 / 0.45);
+    --PhoneInputCountryFlag-borderColor--focus: var(--color-primary, #0d9488);
+    --PhoneInputCountryFlag-backgroundColor--loading: rgb(148 163 184 / 0.2);
+    --PhoneInputInternationalIconPhone-opacity: 0.7;
+    --PhoneInputInternationalIconGlobe-opacity: 0.55;
+  }
+
+  .dark .tg-phone-input {
+    --PhoneInputCountrySelectArrow-color: #94a3b8;
+    --PhoneInputCountrySelectArrow-color--focus: #5eead4;
+    --PhoneInputCountryFlag-borderColor: rgb(148 163 184 / 0.35);
+    --PhoneInputCountryFlag-borderColor--focus: #5eead4;
+    --PhoneInputCountryFlag-backgroundColor--loading: rgb(148 163 184 / 0.15);
+    --PhoneInputInternationalIconPhone-opacity: 0.85;
+    --PhoneInputInternationalIconGlobe-opacity: 0.7;
   }
 
   .tg-phone-input .PhoneInputCountry {
-    @apply m-0;
+    @apply m-0 shrink-0;
   }
 
   .tg-phone-input .PhoneInputCountrySelect {
     @apply cursor-pointer rounded-md bg-transparent text-slate-700 outline-none dark:text-slate-200;
   }
 
+  .dark .tg-phone-input .PhoneInputCountrySelect {
+    color-scheme: dark;
+  }
+
+  /* Options du <select> natif — fond/texte lisibles en dark */
+  .tg-phone-input .PhoneInputCountrySelect option {
+    @apply bg-white text-slate-800 dark:bg-surface-card-dark dark:text-slate-100;
+  }
+
+  .tg-phone-input .PhoneInputCountryIcon {
+    @apply text-slate-600 dark:text-slate-300;
+  }
+
+  .tg-phone-input .PhoneInputCountrySelectArrow {
+    @apply opacity-70;
+    color: var(--PhoneInputCountrySelectArrow-color);
+    border-color: var(--PhoneInputCountrySelectArrow-color);
+  }
+
   .tg-phone-input .PhoneInputInput {
-    @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-slate-800 outline-none ring-0 placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500;
+    @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-slate-800 shadow-none outline-none ring-0 placeholder:text-slate-400 focus:outline-none focus:ring-0 dark:text-slate-200 dark:placeholder:text-slate-500;
+  }
+
+  .tg-phone-input .PhoneInputInput:-webkit-autofill,
+  .tg-phone-input .PhoneInputInput:-webkit-autofill:hover,
+  .tg-phone-input .PhoneInputInput:-webkit-autofill:focus {
+    -webkit-text-fill-color: #1e293b;
+    caret-color: #1e293b;
+    box-shadow: 0 0 0 1000px #eef2f7 inset;
+    transition: background-color 99999s ease-out;
+  }
+
+  .dark .tg-phone-input .PhoneInputInput:-webkit-autofill,
+  .dark .tg-phone-input .PhoneInputInput:-webkit-autofill:hover,
+  .dark .tg-phone-input .PhoneInputInput:-webkit-autofill:focus {
+    -webkit-text-fill-color: #e2e8f0;
+    caret-color: #e2e8f0;
+    box-shadow: 0 0 0 1000px #0b1120 inset;
+  }
+
+  .tg-phone-input.PhoneInput--disabled,
+  .tg-phone-input:has(.PhoneInputInput:disabled) {
+    @apply cursor-not-allowed opacity-50;
   }
 
   .input {
@@ -372,10 +431,41 @@
   .rdp-root {
     --rdp-accent-color: var(--color-primary, #0d9488);
     --rdp-accent-background-color: #ccfbf1;
+    color: #1e293b;
   }
 
   .dark .rdp-root {
     --rdp-accent-background-color: rgb(13 148 136 / 0.15);
+    color: #e2e8f0;
+    color-scheme: dark;
+  }
+
+  .rdp-root .rdp-dropdown_root {
+    @apply rounded-md border border-slate-200/80 bg-surface px-2 py-1 text-sm text-slate-800 dark:border-border-dark dark:bg-surface-dark dark:text-slate-200;
+  }
+
+  .rdp-root .rdp-caption_label {
+    @apply inline-flex items-center gap-1 font-medium capitalize text-slate-800 dark:text-slate-100;
+  }
+
+  .rdp-root .rdp-chevron {
+    @apply fill-slate-500 dark:fill-slate-400;
+  }
+
+  .rdp-root .rdp-dropdown {
+    @apply cursor-pointer text-slate-800 dark:text-slate-100;
+  }
+
+  .dark .rdp-root .rdp-dropdown {
+    color-scheme: dark;
+  }
+
+  .rdp-root .rdp-dropdown option {
+    @apply bg-white text-slate-800 dark:bg-surface-card-dark dark:text-slate-100;
+  }
+
+  .rdp-root .rdp-dropdowns {
+    @apply gap-1.5;
   }
 
   /* Cartes & panneaux — fonds cohérents */

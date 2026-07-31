@@ -50,6 +50,41 @@ export function getEmployee(id: string): Promise<Employee> {
   return http.get<Employee>(`/employees/${id}`)
 }
 
+/** Mappe un employé API vers les valeurs du formulaire (édition). */
+export function employeeToFormValues(employee: Employee): EmployeePayload {
+  return {
+    firstName: employee.firstName,
+    lastName: employee.lastName,
+    email: employee.email ?? '',
+    phone: employee.phone ?? '',
+    whatsappPhone: employee.whatsappPhone ?? '',
+    hireDate: employee.hireDate ?? undefined,
+    birthDate: employee.birthDate ?? undefined,
+    gender: employee.gender ?? '',
+    nationality: employee.nationality ?? '',
+    maritalStatus: employee.maritalStatus ?? '',
+    addressLine1: employee.addressLine1 ?? '',
+    addressLine2: employee.addressLine2 ?? '',
+    cityId: employee.cityId ?? '',
+    countryId: employee.countryId ?? '',
+    province: employee.province ?? '',
+    postalCode: employee.postalCode ?? '',
+    emergencyContactName: employee.emergencyContactName ?? '',
+    emergencyContactPhone: employee.emergencyContactPhone ?? '',
+    nationalIdNumber: employee.nationalIdNumber ?? '',
+    passportNumber: employee.passportNumber ?? '',
+    branchId: employee.branchId ?? '',
+    defaultShiftId: employee.defaultShiftId ?? undefined,
+    departmentId: employee.departmentId ?? '',
+    designationId: employee.designationId ?? '',
+    employmentTypeId: employee.employmentTypeId ?? '',
+    holidayListId: employee.holidayListId ?? '',
+    payGroupId: employee.payGroupId ?? '',
+    payDueDayOverride: employee.payDueDayOverride ?? null,
+    isActive: employee.isActive,
+  }
+}
+
 export function createEmployee(body: EmployeePayload): Promise<Employee> {
   return http.post<Employee>('/employees', body)
 }

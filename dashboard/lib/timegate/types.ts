@@ -628,8 +628,6 @@ export type TenantAttendanceSettings = Pick<
   SystemConfig,
   | 'id'
   | 'companyId'
-  | 'pinFailureThreshold'
-  | 'pinFailureCooldownSeconds'
   | 'timesheetRoundingMinutes'
   | 'overtimeAlertThresholdMinutes'
   | 'minMinutesBetweenShifts'
@@ -648,9 +646,7 @@ export type TenantAttendanceSettings = Pick<
   | 'defaultShiftType'
   | 'defaultBreakWindowStart'
   | 'defaultBreakWindowEnd'
-  | 'defaultBreakDurationMinutes'
   | 'allowCheckInAfterBreakStart'
   | 'minConfidence'
   | 'lateThreshold'
-  | 'veryLateThreshold'
 >

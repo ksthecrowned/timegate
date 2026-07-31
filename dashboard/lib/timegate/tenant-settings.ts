@@ -3,8 +3,6 @@ import type { SystemConfig, TenantAttendanceSettings } from '@/lib/timegate/type
 
 export type TenantAttendanceSettingsPayload = {
   defaultShiftTypeId?: string | null
-  pinFailureThreshold?: number
-  pinFailureCooldownSeconds?: number
   timesheetRoundingMinutes?: number
   overtimeAlertThresholdMinutes?: number
   minMinutesBetweenShifts?: number
@@ -21,16 +19,14 @@ export type TenantAttendanceSettingsPayload = {
   webhookSecret?: string | null
   defaultBreakWindowStart?: string | null
   defaultBreakWindowEnd?: string | null
-  defaultBreakDurationMinutes?: number
   allowCheckInAfterBreakStart?: boolean
   minConfidence?: number
   lateThreshold?: number
-  veryLateThreshold?: number
 }
 
 export type TenantSystemConfigPayload = Pick<
   SystemConfig,
-  'minConfidence' | 'lateThreshold' | 'veryLateThreshold'
+  'minConfidence' | 'lateThreshold'
 >
 
 export function getTenantAttendanceSettings(): Promise<TenantAttendanceSettings> {

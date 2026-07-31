@@ -22,9 +22,11 @@ const KIND_LABELS: Record<string, string> = {
 export default function EmployeeCompensationItemsCard({
   employeeId,
   onChanged,
+  bare = false,
 }: {
   employeeId: string
   onChanged?: () => void
+  bare?: boolean
 }) {
   const [items, setItems] = useState<EmployeeCompensationItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -62,6 +64,7 @@ export default function EmployeeCompensationItemsCard({
 
   return (
     <DetailCard
+      bare={bare}
       title="Indemnités & retenues"
       actions={
         <button
@@ -76,7 +79,7 @@ export default function EmployeeCompensationItemsCard({
         </button>
       }
     >
-      <div className="px-4 pt-4 md:px-5">
+      <div className={bare ? 'pt-1' : 'px-4 pt-4 md:px-5'}>
         <ApiErrorBanner message={error} />
       </div>
 

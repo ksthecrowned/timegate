@@ -26,10 +26,7 @@ export function updateSystemConfig(
       SystemConfig,
       | 'minConfidence'
       | 'lateThreshold'
-      | 'veryLateThreshold'
       | 'defaultShiftTypeId'
-      | 'pinFailureThreshold'
-      | 'pinFailureCooldownSeconds'
     >
   >,
 ) {
