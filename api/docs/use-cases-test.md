@@ -275,7 +275,7 @@ GET   /timesheets/:id/overrides    # manager.email présent
 
 ## UC-07 — Paie
 
-**Automatisé CI :** oui (liste, lignes, export, lock/mark-paid, salaires) — DataTable UI : manuel
+**Automatisé CI :** oui (liste, lignes, export, lock/mark-paid) — DataTable UI : manuel
 
 **Rôle :** ADMIN
 
@@ -286,7 +286,6 @@ GET   /timesheets/:id/overrides    # manager.email présent
 | 3 | Lignes de paie (DataTable) | Employés par nom, montants, « Voir » explainJson |
 | 4 | Verrouiller / Marquer payée | Statut mis à jour |
 | 5 | Exporter CSV | Fichier téléchargé |
-| 6 | Salaires → liste / fiche | PENDING et PAID du seed |
 
 **API :**
 
@@ -296,7 +295,6 @@ GET  /payroll-runs/:id
 GET  /payroll-runs/:id/lines
 POST /payroll-runs/:id/lock
 POST /payroll-runs/:id/mark-paid
-GET  /salaries
 ```
 
 ---
@@ -412,9 +410,9 @@ Parcours complet (~30 min), rôle ADMIN :
 
 ---
 
-## UC-14 — Moteur facial
+## UC-14 — Moteur facial (`face_recognition` / dlib)
 
-**Automatisé CI :** oui (refus image invalide ; **soft-skip** si moteur Python/`dlib` absent sur la machine CI)
+**Automatisé CI :** oui (refus image invalide ; **soft-skip** si moteur Python/`face_recognition` absent sur la machine CI)
 
 | Étape | Attendu |
 |-------|---------|
@@ -505,4 +503,5 @@ Parcours complet (~30 min), rôle ADMIN :
 
 - Seed : [`../prisma/seed.ts`](../prisma/seed.ts)
 - Navigation dashboard : [`../../dashboard/lib/navigation.ts`](../../dashboard/lib/navigation.ts)
-- Roadmap API : [`roadmap-1.2.0.md`](roadmap-1.2.0.md)
+- Capacités API : [`roadmap-1.2.0.md`](roadmap-1.2.0.md)
+- Formes JSON : [`api-json-shapes.md`](api-json-shapes.md)

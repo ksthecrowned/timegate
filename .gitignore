@@ -23,6 +23,8 @@ employee-app/.env.*
 # TimeGate: misc
 api-deprecation.log
 .aider*
+graphify-out/
+**/graphify-out/
 
 # Node / build artifacts
 node_modules/

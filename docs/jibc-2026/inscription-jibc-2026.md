@@ -145,6 +145,6 @@ TimeGate centralise et automatise ce flux, depuis le terrain jusqu'au bureau.
 | Présentation HTML (export PDF) | `docs/jibc-2026/presentation.html` + `presentation.css` |
 | Vision produit | `README.md` |
 | Backlog & roadmap | `TODOS.md` |
-| Roadmap API | `api/docs/roadmap-1.2.0.md` |
+| Capacités API | `api/docs/roadmap-1.2.0.md` |
 
 <!-- Dernière mise à jour : 2026-06-24 -->

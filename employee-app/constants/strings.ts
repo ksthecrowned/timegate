@@ -170,8 +170,6 @@ export const STRINGS = {
     locationDenied: 'Autorisez la localisation pour reprendre la pause sur site.',
     successTitle: 'Pause reprise',
     errorTitle: 'Reprise impossible',
-    kioskFallback:
-      'Vous pouvez aussi reprendre la pause au kiosk TimeGate (même règle horaire).',
     webGeoNote:
       'Sur navigateur, la géolocalisation peut être moins précise qu’en application native.',
   },

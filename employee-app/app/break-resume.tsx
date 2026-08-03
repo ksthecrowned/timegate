@@ -1,21 +1,21 @@
+import { Ionicons } from '@expo/vector-icons';
+import * as Location from 'expo-location';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  Pressable,
   ActivityIndicator,
   Alert,
   Platform,
+  Pressable,
+  Text,
+  View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import * as Location from 'expo-location';
 
-import { MinTouchTarget, Radius, Spacing } from '@/constants/theme';
-import { STRINGS } from '@/constants/strings';
-import { ScreenLayout } from '@/components/ScreenLayout';
 import { PendingDeviceBlock } from '@/components/PendingDeviceBlock';
+import { ScreenLayout } from '@/components/ScreenLayout';
+import { STRINGS } from '@/constants/strings';
+import { MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
-import { employeeApi, ApiError } from '@/lib/api';
+import { ApiError, employeeApi } from '@/lib/api';
 import type { BreakResumeStatus } from '@/lib/types';
 
 export default function BreakResumeScreen() {
@@ -209,10 +209,6 @@ export default function BreakResumeScreen() {
               </>
             )}
           </View>
-
-          <Text style={{ fontSize: 13, color: theme.textSecondary, lineHeight: 20 }}>
-            {STRINGS.breakResume.kioskFallback}
-          </Text>
         </View>
       </PendingDeviceBlock>
       </View>

@@ -1,9 +1,10 @@
-# Schéma JSON canonique — API TimeGate 1.2.0 (vocabulaire Frappe)
+# Formes JSON — API TimeGate v1
 
-Référence des **formes JSON** exposées par l’API après migration vocabulaire (`plan-vocabulaire-frappe.md`).  
-Les champs legacy (`organizationId`, `siteId`, `deviceId` en sortie, `scheduleId` employé) ne sont **plus** renvoyés.
+Référence des **formes JSON** exposées par l’API.  
+Identifiants tenant : `companyId`, `branchId`, `kioskId`, `defaultShiftId` (pas d’alias legacy en sortie).
 
-Base URL : `http://localhost:4001/api/v1` (dev).
+Base URL : `http://localhost:4001/api/v1` (dev).  
+Doc interactive : `/api/v1/docs` (voir aussi `public-api.md`).
 
 ---
 
@@ -20,11 +21,10 @@ Payload signé à la connexion (`POST /auth/login`) :
 }
 ```
 
-**Coupure** : les tokens émis avant la migration (claim `organizationId`) sont invalides côté clients — **reconnexion obligatoire**.
+Token mobile opérateur (`POST /auth/mobile/bootstrap`) : même shape (`companyId`).  
+Token lifetime kiosk (`POST /auth/mobile/provision`) : JWT kiosk (verify / heartbeat).
 
-Token mobile opérateur (`POST /auth/mobile/bootstrap`) : même shape (`companyId`).
-
-Token lifetime kiosk (`POST /auth/mobile/provision`) : JWT kiosk (usage interne verify/heartbeat).
+Super-admin : URLs `/super-admin/organizations/:organizationId/…` — le paramètre de route vaut un `companyId`.
 
 ---
 
@@ -137,7 +137,7 @@ Token lifetime kiosk (`POST /auth/mobile/provision`) : JWT kiosk (usage interne 
 
 ## Pointage
 
-### Check-in legacy — `GET /attendance`, `POST /attendance`
+### Check-in — `GET /attendance`, `POST /attendance`
 
 ```json
 {
@@ -257,23 +257,18 @@ Réponse :
 
 ---
 
-## Routes retirées (404)
+## Routes & ressources à ne pas confondre
 
-| Ancienne route | Remplacement |
-|----------------|--------------|
-| `/sites` | `/branches` |
-| `/devices` | `/kiosks` |
-| `/work-schedules` | `/shift-types` |
+| Route | Rôle |
+|-------|------|
+| `/kiosks` | Bornes de pointage (`TimeGateKiosk`) |
+| `/devices` | Tokens push mobile (`TimeGateDevice`) — **actif**, pas un alias kiosk |
+| `/branches` | Succursales (pas `/sites`) |
+| `/shift-types` | Plannings (pas `/work-schedules`) |
 
----
+`POST /work-days` conserve le champ corps `scheduleId` (= id de `ShiftType`).
 
-## DTO entrée — champs retirés
-
-Ne plus envoyer : `organizationId`, `siteId`, `deviceId` (sauf colonne Prisma interne non exposée), `scheduleId` sur employé (utiliser `defaultShiftId`).
-
-**Exception** : `POST /work-days` conserve `scheduleId` (= `shiftTypeId` en base).
-
-Super-admin : URLs `/super-admin/organizations/:organizationId/…` — paramètre de route historique, valeur = `companyId`.
+Ne pas envoyer en DTO : `organizationId`, `siteId`, `deviceId` (hors push `/devices`), `scheduleId` sur employé (utiliser `defaultShiftId`).
 
 ---
 

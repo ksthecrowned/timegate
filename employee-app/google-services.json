@@ -7,6 +7,25 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:243972435553:android:963505781155cec58ac420",
+        "android_client_info": {
+          "package_name": "com.timegate.employee"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBjrNBpoSDFqlBK_8QdRgy190qS9Th3O3Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:243972435553:android:b096bdc16cf3548c8ac420",
         "android_client_info": {
           "package_name": "com.timegate.employeeapp"

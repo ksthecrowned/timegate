@@ -443,7 +443,8 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 | Document | Contenu |
 |----------|---------|
-| `api/docs/roadmap-1.2.0.md` | Roadmap officielle 1.2.x / 1.3.x |
+| `api/docs/roadmap-1.2.0.md` | Capacités API déjà livrées (synthèse) |
+| `api/docs/api-json-shapes.md` | Formes JSON API v1 |
 | `docs/superpowers/specs/` | Specs design validées |
 | `docs/metier/positionnement-marche.md` | Positionnement vs Lucca / UKG / bornes (ex-`totos.md`) |
 | Brainstorming 2026-06-24 | Multi-méthodes, notifications, pauses, SaaS |
