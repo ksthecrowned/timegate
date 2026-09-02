@@ -4,52 +4,53 @@ import { useRouter } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Image,
-    Pressable,
-    StyleSheet,
-    Text,
-    View,
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
 } from "react-native";
 import {
-    CameraView,
-    FaceDetectorClassifications,
-    FaceDetectorLandmarks,
-    FaceDetectorMode,
-    useCameraPermissions,
-    type FaceDetectionResult,
+  CameraView,
+  FaceDetectorClassifications,
+  FaceDetectorLandmarks,
+  FaceDetectorMode,
+  useCameraPermissions,
+  type FaceDetectionResult,
 } from "react-native-face-detector-camera";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CoachLabel } from "../components/scan/CoachLabel";
 import { FaceRing } from "../components/scan/FaceRing";
 import { OvalScrimOverlay } from "../components/scan/OvalScrimOverlay";
 import { StatusDock } from "../components/scan/StatusDock";
+import { PunchModeHeader } from "../components/shared/PunchModeHeader";
 import {
-    FacePresenceSmoother,
-    faceQualityMessage,
-    FaceStabilityTracker,
-    faceToDebugSnapshot,
-    getFaceQualityIssue,
-    hasFaceLandmarks,
-    logFaceCaptureDebug,
+  FacePresenceSmoother,
+  faceQualityMessage,
+  FaceStabilityTracker,
+  faceToDebugSnapshot,
+  getFaceQualityIssue,
+  hasFaceLandmarks,
+  logFaceCaptureDebug,
 } from "../lib/face-capture-gate";
 import {
-    enqueueOfflineVerification,
-    getPendingVerifyCount,
-    syncOfflineVerifications,
+  enqueueOfflineVerification,
+  getPendingVerifyCount,
+  syncOfflineVerifications,
 } from "../lib/offline-verify-queue";
 import {
-    resolveCoachMessage,
-    resolveFaceRingMode,
-    type ScanCoachSignal,
+  resolveCoachMessage,
+  resolveFaceRingMode,
+  type ScanCoachSignal,
 } from "../lib/scan-ui-state";
 import {
-    createKioskIdempotencyKey,
-    getKioskFeatures,
-    getProvisionState,
-    getVerificationUserMessage,
-    isLikelyNetworkError,
-    verifyFacePhoto,
+  createKioskIdempotencyKey,
+  getKioskFeatures,
+  getProvisionState,
+  getVerificationUserMessage,
+  isLikelyNetworkError,
+  verifyFacePhoto,
 } from "../lib/timegate";
 import { colors, Radius, Spacing } from "../theme/colors";
 
@@ -65,9 +66,15 @@ const OFFLINE_SYNC_INTERVAL_MS = 15000;
 // Vertical bands reserved for the fixed overlays — the CaptureStage is
 // placed in the remaining space so the dark scrim never overlaps the
 // header or the footer card.
-const HEADER_HEIGHT = 64; // back/PIN/title row
+const HEADER_HEIGHT_FALLBACK = 120;
 const FOOTER_HEIGHT = 130; // status dock
 const SPACER = 8;
+
+function resolveBannerVariant(state: VerifyState): "error" | "success" | "info" {
+  if (state === "success") return "success";
+  if (state === "error") return "error";
+  return "info";
+}
 
 function speakMessage(message: string, useFallback = false) {
   const text = message.trim();
@@ -124,6 +131,7 @@ export default function ScanScreen() {
     width: number;
     height: number;
   } | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(HEADER_HEIGHT_FALLBACK);
   const stabilityTrackerRef = useRef(new FaceStabilityTracker());
   const facePresenceRef = useRef(new FacePresenceSmoother());
 
@@ -556,16 +564,13 @@ export default function ScanScreen() {
           onFacesDetected={processFacesDetected}
         />
       )}
-
-      {/* Capture area definition: a centered oval. onLayout feeds the absolute
-          rectangle to ovalBoundsRef so the face detection callback can
-          validate that the face is inside. */}
       <CaptureStage
         onLayoutOval={(rect) => {
           ovalBoundsRef.current = rect;
           setOvalLayout(rect);
         }}
         state={verifyState}
+        headerHeight={headerHeight}
       />
 
       {ovalLayout ? (
@@ -602,34 +607,20 @@ export default function ScanScreen() {
         </View>
       ) : null}
 
-      {/* Header (back + PIN) — fixed at the top, never overlaps the oval. */}
+      {/* Header — fixed at the top, transparent over the camera feed. */}
       <View
-        style={[
-          styles.headerWrap,
-          { paddingTop: insets.top + Spacing[2] },
-        ]}
+        style={[styles.headerOverlay, { paddingTop: insets.top }]}
+        onLayout={(event) => {
+          setHeaderHeight(event.nativeEvent.layout.height);
+        }}
       >
-        <Pressable
-          style={({ pressed }) => [
-            styles.iconBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          onPress={() => router.back()}
-          hitSlop={8}
-        >
-          <Ionicons name="close" size={22} color="#FFF" />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>
-            {verifyState === "verifying"
-              ? "Vérification en cours..."
-              : verifyState === "success"
-                ? "Vérification réussie"
-                : verifyState === "error"
-                  ? "Vérification échouée"
-                  : "Vérification faciale"}
-          </Text>
-        </View>
+        <PunchModeHeader
+          transparent
+          title="Pointage visage"
+          bannerMessage={statusMessage}
+          bannerVariant={resolveBannerVariant(verifyState)}
+          onBack={() => router.back()}
+        />
       </View>
 
       {/* Status dock — fixed at the bottom, never overlaps the oval. */}
@@ -658,6 +649,7 @@ export default function ScanScreen() {
 function CaptureStage({
   onLayoutOval,
   state,
+  headerHeight,
 }: {
   onLayoutOval: (rect: {
     x: number;
@@ -666,6 +658,7 @@ function CaptureStage({
     height: number;
   }) => void;
   state: VerifyState;
+  headerHeight: number;
 }) {
   const ovalRef = useRef<View>(null);
   const [stageSize, setStageSize] = useState<{
@@ -695,7 +688,13 @@ function CaptureStage({
 
   return (
     <View
-      style={styles.captureStage}
+      style={[
+        styles.captureStage,
+        {
+          paddingTop: headerHeight,
+          paddingBottom: FOOTER_HEIGHT + SPACER,
+        },
+      ]}
       onLayout={(e) => {
         const { width, height } = e.nativeEvent.layout;
         setStageSize({ width, height });
@@ -756,36 +755,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: Spacing[2],
   },
-  /** Header band — fixed at the top, height reserved via HEADER_HEIGHT. */
-  headerWrap: {
+  /** Header overlay — transparent, height measured for capture stage inset. */
+  headerOverlay: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: HEADER_HEIGHT,
-    paddingHorizontal: Spacing[4],
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing[2],
-  },
-  iconBtn: {
-    position: "absolute",
-    left: 16,
-    top: 30,
-    width: 36,
-    height: 36,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
+    zIndex: 2,
   },
   title: { color: colors.text, fontSize: 22, fontWeight: "700", textAlign: "center" },
   sub: {
@@ -801,16 +777,16 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    paddingTop: HEADER_HEIGHT,
-    paddingBottom: FOOTER_HEIGHT + SPACER,
   },
   ovalOverlay: {
     position: "absolute",
+    marginTop: Spacing[8],
   },
   coachWrap: {
     position: "absolute",
     left: Spacing[4],
     right: Spacing[4],
+    marginTop: Spacing[8],
   },
   footerWrap: {
     position: "absolute",

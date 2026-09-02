@@ -18,7 +18,7 @@ import {
   type ErrorCategory,
 } from "../lib/timegate";
 import { enqueueOfflineNfcVerification } from "../lib/offline-verify-queue";
-import { MessageBox } from "../components/shared/MessageBox";
+import { PunchModeHeader } from "../components/shared/PunchModeHeader";
 import { colors, Radius, Spacing } from "../theme/colors";
 
 type NfcState = "idle" | "reading" | "verifying" | "success" | "error";
@@ -368,28 +368,23 @@ export default function NfcScreen() {
 
   const isPulsing = nfcState === "idle" || nfcState === "reading";
 
+  const bannerVariant =
+    statusVariant === "success"
+      ? "success"
+      : statusVariant === "warn"
+        ? "warn"
+        : statusVariant === "error"
+          ? "error"
+          : "info";
+
   return (
     <SafeAreaView style={styles.root}>
-      <View style={styles.headerRow}>
-        <Pressable
-          onPress={handleCancel}
-          style={({ pressed }) => [
-            styles.iconBtn,
-            pressed && { opacity: 0.7 },
-          ]}
-          hitSlop={8}
-        >
-          <Ionicons name="chevron-back" size={22} color="#FFF" />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Pointage par badge</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {lastBadgeUid
-              ? `Dernier UID: ${lastBadgeUid}`
-              : "Approchez votre badge du lecteur"}
-          </Text>
-        </View>
-      </View>
+      <PunchModeHeader
+        title="Pointage NFC"
+        bannerMessage={statusMessage}
+        bannerVariant={bannerVariant}
+        onBack={handleCancel}
+      />
 
       <View style={styles.stage}>
         <Animated.View
@@ -420,27 +415,14 @@ export default function NfcScreen() {
                   ? "Pointage enregistré"
                   : "Échec de la lecture"}
         </Text>
-        <Text style={styles.stageSub} numberOfLines={2}>
-          {statusMessage}
-        </Text>
+        {lastBadgeUid ? (
+          <Text style={styles.stageSub} numberOfLines={1}>
+            Dernier UID: {lastBadgeUid}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.footer}>
-        {statusMessage && nfcState !== "idle" && nfcState !== "reading" ? (
-          <MessageBox
-            variant={
-              statusVariant === "success"
-                ? "success"
-                : statusVariant === "warn"
-                  ? "warn"
-                  : statusVariant === "error"
-                    ? "error"
-                    : "info"
-            }
-            message={statusMessage}
-          />
-        ) : null}
-
         <View style={styles.attemptsRow}>
           {Array.from({ length: VERIFY_FAILURE_LIMIT }, (_, i) => i).map((i) => (
             <View
@@ -481,33 +463,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 21,
     fontSize: 14,
-  },
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: Spacing[4],
-    paddingVertical: Spacing[3],
-    gap: Spacing[2],
-  },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.35)",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-  headerTitle: {
-    color: "#FFF",
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  headerSub: {
-    color: "rgba(255,255,255,0.7)",
-    fontSize: 13,
-    marginTop: 2,
   },
   stage: {
     flex: 1,

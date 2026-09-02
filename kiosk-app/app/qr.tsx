@@ -12,6 +12,7 @@ import {
 import QRCode from "react-native-qrcode-svg";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageBox } from "../components/shared/MessageBox";
+import { PunchModeHeader } from "../components/shared/PunchModeHeader";
 import {
   createQrChallenge,
   pollQrChallengeResult,
@@ -188,17 +189,14 @@ export default function QrScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.replace("/")} hitSlop={12}>
-          <Ionicons name="arrow-back" size={28} color={colors.text} />
-        </Pressable>
-        <Text style={styles.headerTitle}>Pointage QR</Text>
-        <View style={{ width: 28 }} />
-      </View>
+      <PunchModeHeader
+        title="Pointage QR"
+        bannerMessage={statusMessage}
+        bannerVariant={statusVariant}
+        onBack={() => router.replace("/")}
+      />
 
       <View style={styles.body}>
-        <MessageBox variant={statusVariant} message={statusMessage} />
-
         {qrState === "loading" && !challenge && (
           <ActivityIndicator
             size="large"
@@ -246,18 +244,6 @@ export default function QrScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: Spacing[6],
-    paddingVertical: Spacing[4],
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: colors.text,
-  },
   body: {
     flex: 1,
     alignItems: "center",

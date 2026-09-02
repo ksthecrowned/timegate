@@ -297,6 +297,24 @@ export async function clearProvisioning(): Promise<void> {
   emitKioskSessionChanged(false);
 }
 
+export type KioskDetails = {
+  id: string | null;
+  name: string | null;
+  apiBase: string;
+};
+
+export async function getStoredKioskDetails(): Promise<KioskDetails> {
+  const [id, name] = await Promise.all([
+    SecureStore.getItemAsync(DEVICE_ID_KEY),
+    SecureStore.getItemAsync(DEVICE_NAME_KEY),
+  ]);
+  return {
+    id: id?.trim() || null,
+    name: name?.trim() || null,
+    apiBase: getTimeGateApiBase(),
+  };
+}
+
 export async function getProvisionState(): Promise<ProvisionState> {
   const [token, deviceName] = await Promise.all([
     getLifetimeToken(),
