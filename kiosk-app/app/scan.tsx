@@ -4,20 +4,20 @@ import { useRouter } from "expo-router";
 import * as Speech from "expo-speech";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
+    ActivityIndicator,
+    Image,
+    Pressable,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import {
-  CameraView,
-  FaceDetectorClassifications,
-  FaceDetectorLandmarks,
-  FaceDetectorMode,
-  useCameraPermissions,
-  type FaceDetectionResult,
+    CameraView,
+    FaceDetectorClassifications,
+    FaceDetectorLandmarks,
+    FaceDetectorMode,
+    useCameraPermissions,
+    type FaceDetectionResult,
 } from "react-native-face-detector-camera";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { CoachLabel } from "../components/scan/CoachLabel";
@@ -25,31 +25,31 @@ import { FaceRing } from "../components/scan/FaceRing";
 import { OvalScrimOverlay } from "../components/scan/OvalScrimOverlay";
 import { StatusDock } from "../components/scan/StatusDock";
 import {
-  FacePresenceSmoother,
-  faceQualityMessage,
-  FaceStabilityTracker,
-  faceToDebugSnapshot,
-  getFaceQualityIssue,
-  hasFaceLandmarks,
-  logFaceCaptureDebug,
+    FacePresenceSmoother,
+    faceQualityMessage,
+    FaceStabilityTracker,
+    faceToDebugSnapshot,
+    getFaceQualityIssue,
+    hasFaceLandmarks,
+    logFaceCaptureDebug,
 } from "../lib/face-capture-gate";
 import {
-  enqueueOfflineVerification,
-  getPendingVerifyCount,
-  syncOfflineVerifications,
+    enqueueOfflineVerification,
+    getPendingVerifyCount,
+    syncOfflineVerifications,
 } from "../lib/offline-verify-queue";
 import {
-  resolveCoachMessage,
-  resolveFaceRingMode,
-  type ScanCoachSignal,
+    resolveCoachMessage,
+    resolveFaceRingMode,
+    type ScanCoachSignal,
 } from "../lib/scan-ui-state";
 import {
-  createMobileIdempotencyKey,
-  getKioskFeatures,
-  getProvisionState,
-  getVerificationUserMessage,
-  isLikelyNetworkError,
-  verifyFacePhoto,
+    createMobileIdempotencyKey,
+    getKioskFeatures,
+    getProvisionState,
+    getVerificationUserMessage,
+    isLikelyNetworkError,
+    verifyFacePhoto,
 } from "../lib/timegate";
 import { colors, Radius, Spacing } from "../theme/colors";
 
@@ -76,19 +76,19 @@ function speakMessage(message: string, useFallback = false) {
     rate: 0.96,
     pitch: 1,
     onStart: () =>
-      console.log("[TimeGateMobile][speech] start", {
+      console.log("[TimeGateKiosk][speech] start", {
         language: language ?? "default",
       }),
-    onDone: () => console.log("[TimeGateMobile][speech] done"),
+    onDone: () => console.log("[TimeGateKiosk][speech] done"),
     onError: () => {
       if (!useFallback) {
         console.warn(
-          "[TimeGateMobile][speech] failed with fr-FR, retrying with default voice",
+          "[TimeGateKiosk][speech] failed with fr-FR, retrying with default voice",
         );
         speakMessage(text, true);
         return;
       }
-      console.warn("[TimeGateMobile][speech] failed with default voice");
+      console.warn("[TimeGateKiosk][speech] failed with default voice");
     },
   });
 }
@@ -156,7 +156,7 @@ export default function ScanScreen() {
   const runVerification = useCallback(async () => {
     if (!cameraRef.current || captureInFlight.current || verifyState === "verifying") return;
 
-    console.log("[TimeGateMobile][scan] live detection triggered verification");
+    console.log("[TimeGateKiosk][scan] live detection triggered verification");
     captureInFlight.current = true;
     let shouldAutoReset = false;
     let shouldRedirectHome = false;
@@ -187,12 +187,12 @@ export default function ScanScreen() {
           : "Vérification échouée. Réessayez.";
       setStatusMessage(resultMessage);
 
-      console.log("[TimeGateMobile][scan] verification result", result);
+      console.log("[TimeGateKiosk][scan] verification result", result);
 
       if (result.success) {
         setVerifyState("success");
         shouldRedirectHome = true;
-        console.log("[TimeGateMobile][scan] verification success", {
+        console.log("[TimeGateKiosk][scan] verification success", {
           confidence: result.confidence,
           message: result.message,
         });
@@ -201,7 +201,7 @@ export default function ScanScreen() {
         setVerifyState("error");
         shouldAutoReset = true;
         speakMessage(resultMessage);
-        console.warn("[TimeGateMobile][scan] verification failed (not matched)", {
+        console.warn("[TimeGateKiosk][scan] verification failed (not matched)", {
           confidence: result.confidence,
           message: resultMessage,
         });
@@ -216,7 +216,7 @@ export default function ScanScreen() {
         setStatusMessage(
           `Mode hors ligne: capture enregistrée. Synchronisation automatique dès que le réseau revient (${pending} en attente).`,
         );
-        console.warn("[TimeGateMobile][scan] network unavailable, verification queued offline", {
+        console.warn("[TimeGateKiosk][scan] network unavailable, verification queued offline", {
           pending,
         });
       } else {
@@ -226,7 +226,7 @@ export default function ScanScreen() {
         const friendlyMessage = getVerificationUserMessage(error, features);
         setStatusMessage(friendlyMessage);
         speakMessage(friendlyMessage);
-        console.warn("[TimeGateMobile][scan] verification failed", { message: friendlyMessage });
+        console.warn("[TimeGateKiosk][scan] verification failed", { message: friendlyMessage });
       }
     } finally {
       captureInFlight.current = false;

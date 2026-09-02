@@ -176,5 +176,5 @@ export function logFaceCaptureDebug(
   const now = Date.now();
   if (!options?.force && now - lastDebugLogAt < DEBUG_LOG_INTERVAL_MS) return;
   lastDebugLogAt = now;
-  console.log("[TimeGateMobile][face-gate]", payload);
+  console.log("[TimeGateKiosk][face-gate]", payload);
 }

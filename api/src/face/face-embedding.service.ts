@@ -1,15 +1,52 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, InternalServerErrorException, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { spawn } from 'child_process';
 import { resolve } from 'path';
 
 @Injectable()
-export class FaceEmbeddingService {
+export class FaceEmbeddingService implements OnModuleInit {
   private readonly logger = new Logger(FaceEmbeddingService.name);
   /** One Python face_engine process at a time (parallel spawns cause timeouts). */
   private embedChain: Promise<void> = Promise.resolve();
+  private resolvedPythonBin: string | null = null;
 
   constructor(private readonly config: ConfigService) { }
+
+  onModuleInit(): void {
+    const venvPy = this.defaultVenvPython();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    const venvExists = (() => {
+      try {
+        fs.accessSync(venvPy, fs.constants.F_OK);
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+    this.logger.log(
+      `[face-embed] cwd=${process.cwd()} venvPython=${venvPy} exists=${venvExists} ` +
+        `FACE_ENGINE_PYTHON_BIN=${this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? '(unset)'}`,
+    );
+  }
+
+  private defaultVenvPython(): string {
+    return process.platform === 'win32'
+      ? resolve(process.cwd(), '.venv', 'Scripts', 'python.exe')
+      : resolve(process.cwd(), '.venv', 'bin', 'python');
+  }
+
+  private normalizePythonBin(bin: string): string {
+    if (bin.includes('/') || bin.includes('\\')) {
+      return resolve(process.cwd(), bin);
+    }
+    return bin;
+  }
+
+  private isBuiltVenvPython(bin: string): boolean {
+    const normalized = bin.replace(/\\/g, '/').toLowerCase();
+    return normalized.includes('/.venv/') || normalized.includes('/venv/');
+  }
 
   /**
    * Uses Python dlib/face_recognition engine.
@@ -86,9 +123,14 @@ export class FaceEmbeddingService {
    *  3. Fall back to `python3` / `python` on PATH.
    */
   private async resolvePythonBin(configured: string): Promise<string> {
+    if (this.resolvedPythonBin) {
+      return this.resolvedPythonBin;
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const fs = require('fs') as typeof import('fs');
     const isWin = process.platform === 'win32';
+    const probeTimeoutMs = Number(this.config.get<string>('FACE_ENGINE_PROBE_TIMEOUT_MS') ?? 45000);
 
     const pathExists = (bin: string) => {
       try {
@@ -110,9 +152,7 @@ export class FaceEmbeddingService {
         );
         return false;
       }
-      // Relative / absolute path that clearly does not exist — skip early.
-      if ((bin.includes('/') || bin.includes('\\') || bin.includes('.')) && !pathExists(bin)) {
-        // Bare commands like "python3" have no slash — leave them for PATH spawn.
+      if ((bin.includes('/') || bin.includes('\\') || bin.endsWith('.exe')) && !pathExists(bin)) {
         if (bin.includes('/') || bin.includes('\\') || bin.endsWith('.exe')) {
           this.logger.warn(
             `[face-embed] FACE_ENGINE_PYTHON_BIN=${bin} not found on disk; trying fallbacks`,
@@ -128,21 +168,28 @@ export class FaceEmbeddingService {
         const child = spawn(bin, ['-c', 'import face_recognition'], {
           stdio: ['ignore', 'ignore', 'pipe'],
         });
-        child.on('error', () => resolveProbe(false));
-        child.on('close', (code) => resolveProbe(code === 0));
+        let settled = false;
+        const finish = (ok: boolean) => {
+          if (settled) return;
+          settled = true;
+          resolveProbe(ok);
+        };
+        child.on('error', () => finish(false));
+        child.on('close', (code) => finish(code === 0));
         setTimeout(() => {
           try {
             child.kill('SIGKILL');
           } catch {
             /* already exited */
           }
-          resolveProbe(false);
-        }, 5000);
+          finish(false);
+        }, probeTimeoutMs);
       });
 
+    const configuredAbs = this.normalizePythonBin(configured);
     const candidates: string[] = [];
-    if (isUsableConfiguredPath(configured)) {
-      candidates.push(configured);
+    if (isUsableConfiguredPath(configuredAbs)) {
+      candidates.push(configuredAbs);
     }
     if (isWin) {
       candidates.push(
@@ -169,18 +216,26 @@ export class FaceEmbeddingService {
         candidate.includes('\\') ||
         candidate.endsWith('.exe');
       if (needsDisk && !pathExists(candidate)) continue;
+
+      // Build-time venv on Render: first import loads ~100MB models and exceeds 5s probes.
+      if (this.isBuiltVenvPython(candidate)) {
+        this.logger.log(`[face-embed] Using venv Python at ${candidate} (skipping slow import probe)`);
+        this.resolvedPythonBin = candidate;
+        return candidate;
+      }
+
       if (await hasFaceRec(candidate)) {
-        if (candidate !== configured) {
+        if (candidate !== configuredAbs) {
           this.logger.log(
             `[face-embed] Using Python at ${candidate} (configured was ${configured})`,
           );
         }
+        this.resolvedPythonBin = candidate;
         return candidate;
       }
     }
 
-    // Last resort: prefer a PATH python over a broken Windows path on Linux.
-    const fallback = !isWin ? 'python3' : configured;
+    const fallback = !isWin ? 'python3' : configuredAbs;
     this.logger.warn(
       `[face-embed] No interpreter with face_recognition found; spawning ${fallback} (will fail loudly if missing)`,
     );
@@ -188,7 +243,8 @@ export class FaceEmbeddingService {
   }
 
   private async embedWithPython(buffer: Buffer): Promise<number[]> {
-    const configured = this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? 'python';
+    const configured =
+      this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? this.defaultVenvPython();
     const pythonBin = await this.resolvePythonBin(configured);
     const scriptPath =
       this.config.get<string>('FACE_ENGINE_SCRIPT_PATH') ?? resolve(process.cwd(), 'python', 'face_engine.py');

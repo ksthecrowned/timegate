@@ -3,14 +3,14 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  ActivityIndicator,
-  DeviceEventEmitter,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
+    ActivityIndicator,
+    DeviceEventEmitter,
+    Image,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { KioskSetupShell } from "../components/setup/KioskSetupShell";
@@ -20,16 +20,16 @@ import { PrimaryButton } from "../components/shared/PrimaryButton";
 import { KIOSK_ACCESS_REVOKED } from "../lib/kiosk-sse";
 import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-verify-queue";
 import {
-  bootstrapOperator,
-  fetchKiosksForBranch,
-  fetchMobileConfig,
-  getKioskFeatures,
-  getProvisionState,
-  getTimeGateApiBase,
-  provisionKiosk,
-  type KioskFeatures,
-  type TimeGateBranch,
-  type TimeGateKiosk
+    bootstrapOperator,
+    fetchKiosksForBranch,
+    fetchMobileConfig,
+    getKioskFeatures,
+    getProvisionState,
+    getTimeGateApiBase,
+    provisionKiosk,
+    type KioskFeatures,
+    type TimeGateBranch,
+    type TimeGateKiosk
 } from "../lib/timegate";
 import { colors, Radius, Spacing } from "../theme/colors";
 
@@ -85,12 +85,12 @@ export default function HomeScreen() {
         if (state.hasToken) {
           setPendingOfflineCount(await getPendingVerifyCount());
         }
-        console.log("[TimeGateMobile] home ready", {
+        console.log("[TimeGateKiosk] home ready", {
           configured: state.hasToken,
           apiBase: getTimeGateApiBase(),
         });
       } catch (error) {
-        console.error("[TimeGateMobile] bootstrap failed", error);
+        console.error("[TimeGateKiosk] bootstrap failed", error);
         setFeedback({
           kind: "error",
           message:

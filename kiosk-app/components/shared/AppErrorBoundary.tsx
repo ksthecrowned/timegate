@@ -18,7 +18,7 @@ export class AppErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("[TimeGateMobile] render error", error, info.componentStack);
+    console.error("[TimeGateKiosk] render error", error, info.componentStack);
   }
 
   render() {

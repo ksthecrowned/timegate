@@ -152,7 +152,7 @@ function mobileLog(
   if (!__DEV__) return;
   const payload = meta ? ` ${JSON.stringify(meta)}` : "";
   // eslint-disable-next-line no-console
-  console[level](`[TimeGateMobile] ${message}${payload}`);
+  console[level](`[TimeGateKiosk] ${message}${payload}`);
 }
 
 export type VerifyFaceResult = {

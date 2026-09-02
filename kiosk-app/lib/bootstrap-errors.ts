@@ -9,7 +9,7 @@ export function installGlobalErrorLogging() {
   const previousHandler = ErrorUtils.getGlobalHandler();
   ErrorUtils.setGlobalHandler((error, isFatal) => {
     console.error(
-      `[TimeGateMobile] ${isFatal ? "fatal" : "non-fatal"} JS error`,
+      `[TimeGateKiosk] ${isFatal ? "fatal" : "non-fatal"} JS error`,
       error?.message ?? error,
       error?.stack,
     );
