@@ -47,7 +47,8 @@ else
   "${PY_BIN}" -m venv .venv
 fi
 ./.venv/Scripts/python.exe -m pip install -U pip setuptools wheel
-./.venv/Scripts/python.exe -m pip install -r python/requirements.txt
+./.venv/Scripts/python.exe -m pip install "dlib-bin==20.0.1"
+./.venv/Scripts/python.exe -m pip install -r python/requirements.txt --no-deps
 
 echo
 echo "Done."

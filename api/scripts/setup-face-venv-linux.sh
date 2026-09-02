@@ -43,8 +43,10 @@ fi
 echo "[face-venv] Creating venv with ${PY_BIN}"
 "${PY_BIN}" -m venv .venv
 "${VENV_PY}" -m pip install -U pip setuptools wheel
-echo "[face-venv] Installing python/requirements.txt (dlib + face_recognition; may take a few minutes)"
-"${VENV_PY}" -m pip install -r python/requirements.txt
+echo "[face-venv] Installing dlib-bin (prebuilt wheel, no compile)"
+"${VENV_PY}" -m pip install "dlib-bin==20.0.1"
+echo "[face-venv] Installing face_recognition stack from python/requirements.txt"
+"${VENV_PY}" -m pip install -r python/requirements.txt --no-deps
 "${VENV_PY}" -c "import face_recognition; print('[face-venv] face_recognition import OK')"
 
 echo "[face-venv] Done. Interpreter: ${VENV_PY}"
