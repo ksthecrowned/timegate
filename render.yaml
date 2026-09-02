@@ -1,0 +1,25 @@
+# Render Blueprint — API TimeGate (moteur facial inclus).
+#
+# Fichier à la RACINE du repo (TimeGate/render.yaml), pas dans api/.
+# Si le service Render a déjà Root Directory = api/ dans le dashboard, c’est le même
+# paramètre que rootDir: api ci-dessous (pas un doublon api/api). Les commandes et
+# .venv/bin/python sont relatifs à api/ dans les deux cas.
+#
+# Sans Blueprint : ce fichier n’est pas appliqué auto — reproduire build/env dans le dashboard.
+# aptPackages n’existe pas dans render.yaml ; le runtime natif inclut gcc/g++/make/python3-dev.
+# Si le build dlib échoue, passer à runtime: docker + Dockerfile.
+services:
+  - type: web
+    name: timegate-api
+    runtime: node
+    rootDir: api
+    # face_recognition: venv créé pendant bun run build (scripts/setup-face-venv-linux.sh)
+    buildCommand: bun run build
+    startCommand: bun run start:prod
+    envVars:
+      - key: FACE_ENGINE_PYTHON_BIN
+        value: .venv/bin/python
+      - key: FACE_ENGINE_TIMEOUT_MS
+        value: "45000"
+      - key: NODE_ENV
+        value: production

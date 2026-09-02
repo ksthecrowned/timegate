@@ -4,7 +4,7 @@
   "private": true,
   "packageManager": "bun@1.3.0",
   "scripts": {
-    "build": "NODE_ENV=development bun install --frozen-lockfile && bunx prisma generate && bunx nest build",
+    "build": "NODE_ENV=development bun install --frozen-lockfile && node scripts/setup-face-venv-if-linux.mjs && bunx prisma generate && bunx nest build",
     "start": "bun dist/main.js",
     "start:dev": "nest start --watch",
     "start:prod": "bun dist/main.js",
