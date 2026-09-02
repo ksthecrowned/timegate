@@ -58,7 +58,14 @@ export class AdminSaasService {
         defaultShiftType: { select: { id: true, shiftName: true } },
       },
     });
-    return this.toSystemConfigShape(updated);
+    const kiosksUpdated = this.kioskMethodDefaultsTouched(dto)
+      ? await this.syncCompanyKioskMethods(companyId, {
+          faceEnabled: updated.defaultFaceEnabled,
+          nfcEnabled: updated.defaultNfcEnabled,
+          qrEnabled: updated.defaultQrEnabled,
+        })
+      : 0;
+    return { ...this.toSystemConfigShape(updated), kiosksUpdated };
   }
 
   async updateSystemConfig(id: string, dto: UpdateSystemConfigDto, user: JwtUser) {
@@ -74,7 +81,14 @@ export class AdminSaasService {
         defaultShiftType: { select: { id: true, shiftName: true } },
       },
     });
-    return this.toSystemConfigShape(updated);
+    const kiosksUpdated = this.kioskMethodDefaultsTouched(dto)
+      ? await this.syncCompanyKioskMethods(row.companyId, {
+          faceEnabled: updated.defaultFaceEnabled,
+          nfcEnabled: updated.defaultNfcEnabled,
+          qrEnabled: updated.defaultQrEnabled,
+        })
+      : 0;
+    return { ...this.toSystemConfigShape(updated), kiosksUpdated };
   }
 
   async findSubscriptions(query: PaginationQueryDto, user: JwtUser) {
@@ -421,6 +435,36 @@ export class AdminSaasService {
           }
         : undefined,
     };
+  }
+
+  private kioskMethodDefaultsTouched(dto: UpdateSystemConfigDto): boolean {
+    return (
+      dto.defaultFaceEnabled !== undefined ||
+      dto.defaultNfcEnabled !== undefined ||
+      dto.defaultQrEnabled !== undefined
+    );
+  }
+
+  private async syncCompanyKioskMethods(
+    companyId: string,
+    methods: { faceEnabled: boolean; nfcEnabled: boolean; qrEnabled: boolean },
+  ): Promise<number> {
+    const enabled =
+      methods.faceEnabled || methods.nfcEnabled || methods.qrEnabled;
+    if (!enabled) {
+      throw new BadRequestException(
+        'At least one verification method must be enabled (face, NFC or QR).',
+      );
+    }
+    const result = await this.prisma.timeGateKiosk.updateMany({
+      where: { companyId },
+      data: {
+        faceEnabled: methods.faceEnabled,
+        nfcEnabled: methods.nfcEnabled,
+        qrEnabled: methods.qrEnabled,
+      },
+    });
+    return result.count;
   }
 
   private resolveCompanyFilter(user: JwtUser): string | undefined {

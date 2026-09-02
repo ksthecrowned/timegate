@@ -91,7 +91,7 @@ export default function TenantAttendanceSettingsPage() {
     setError('')
     setSuccess('')
     try {
-      await updateTenantAttendanceSettings({
+      const saved = await updateTenantAttendanceSettings({
         timesheetRoundingMinutes,
         overtimeAlertThresholdMinutes,
         minMinutesBetweenShifts,
@@ -112,7 +112,11 @@ export default function TenantAttendanceSettingsPage() {
         minConfidence,
         lateThreshold,
       })
-      setSuccess('Paramètres enregistrés.')
+      const kioskMsg =
+        saved.kiosksUpdated && saved.kiosksUpdated > 0
+          ? ` ${saved.kiosksUpdated} kiosque(s) mis à jour.`
+          : ''
+      setSuccess(`Paramètres enregistrés.${kioskMsg}`)
       await load()
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Enregistrement impossible')
@@ -143,7 +147,7 @@ export default function TenantAttendanceSettingsPage() {
         <form onSubmit={handleSave}>
           <FormCard
             title="Paramètres de pointage"
-            hint="Ces réglages s'appliquent à tous les kiosques de votre organisation. Les méthodes (visage, NFC, QR) se configurent par kiosque."
+            hint="Réglages globaux de l'organisation. Les méthodes de pointage ci-dessous sont propagées à tous les kiosques existants à l'enregistrement."
             footer={
               <button type="submit" disabled={saving} className={primaryBtnClass}>
                 {saving ? 'Enregistrement…' : 'Enregistrer'}
@@ -225,28 +229,28 @@ export default function TenantAttendanceSettingsPage() {
 
               <SettingsFormSection
                 className="lg:col-span-2"
-                title="Méthodes kiosque par défaut"
-                hint="Appliquées automatiquement à la création d’un nouveau kiosque. Modifiables ensuite au cas par cas."
+                title="Méthodes de pointage (kiosques)"
+                hint="À l'enregistrement, ces options sont appliquées à tous les kiosques de l'organisation (y compris ceux déjà créés). Vous pouvez encore ajuster un kiosque individuellement ensuite."
               >
                 <div className="grid gap-1 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-slate-200/80 dark:sm:divide-border-dark">
                   <SwitcherField
                     className="rounded-lg px-3 py-2 sm:rounded-none"
                     label="Reconnaissance faciale"
-                    description="Activée par défaut sur les nouveaux kiosques"
+                    description="Visage activé sur les kiosques"
                     checked={defaultFaceEnabled}
                     onCheckedChange={setDefaultFaceEnabled}
                   />
                   <SwitcherField
                     className="rounded-lg px-3 py-2 sm:rounded-none sm:px-4"
                     label="Badge NFC"
-                    description="Lecture de badge sur la borne"
+                    description="NFC activé sur les kiosques"
                     checked={defaultNfcEnabled}
                     onCheckedChange={setDefaultNfcEnabled}
                   />
                   <SwitcherField
                     className="rounded-lg px-3 py-2 sm:rounded-none sm:px-4"
                     label="QR-code"
-                    description="Scan du QR employé"
+                    description="QR activé sur les kiosques"
                     checked={defaultQrEnabled}
                     onCheckedChange={setDefaultQrEnabled}
                   />

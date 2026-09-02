@@ -361,15 +361,6 @@ function ManagerTeamView() {
               </span>
             ) : null}
           </p>
-          {isFuture ? (
-            <p className="text-xs text-indigo-600 dark:text-indigo-300">
-              Jour à venir — les absences ne sont pas encore calculées
-            </p>
-          ) : date === today ? (
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Absent uniquement après l&apos;heure de fin de vacation
-            </p>
-          ) : null}
         </div>
 
         <div className="min-h-96">

@@ -649,4 +649,6 @@ export type TenantAttendanceSettings = Pick<
   | 'allowCheckInAfterBreakStart'
   | 'minConfidence'
   | 'lateThreshold'
->
+> & {
+  kiosksUpdated?: number
+}
