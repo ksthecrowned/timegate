@@ -1,13 +1,12 @@
 'use client'
 
-import StartTourButton from '@/components/tour/StartTourButton'
-import OrgSetupReminderBanner from '@/components/tour/OrgSetupReminderBanner'
 import DashboardAnalytics from '@/components/dashboard/DashboardAnalytics'
 import {
-  DashboardStatCard,
-  DashboardTodayMetric,
+  DashboardStatCard
 } from '@/components/dashboard/DashboardStatCards'
 import { ApiErrorBanner } from '@/components/timegate/ui'
+import OrgSetupReminderBanner from '@/components/tour/OrgSetupReminderBanner'
+import StartTourButton from '@/components/tour/StartTourButton'
 import { SkeletonChartCard, SkeletonDashboard } from '@/components/ui/Skeleton'
 import { HttpError } from '@/lib/http'
 import {
@@ -121,7 +120,7 @@ export default function DashboardPage() {
         <SkeletonDashboard />
       ) : home ? (
         <>
-          <section
+          {/* <section
             data-tour="home-today"
             className={`tg-card space-y-4 p-4 md:p-5 ${loading ? 'opacity-60' : ''}`}
           >
@@ -171,7 +170,7 @@ export default function DashboardPage() {
                 Voir les kiosques
               </Link>
             </div>
-          </section>
+          </section> */}
 
           <div
             data-tour="home-kpis"
