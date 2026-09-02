@@ -304,13 +304,13 @@ Return PENDING if not redeemed and not expired; EXPIRED if past expiresAt and no
 
 ```typescript
 @Public()
-@Post('mobile/qr-challenge')
+@Post('kiosk/qr-challenge')
 createQrChallenge(@Headers('authorization') authorization?: string) {
   return this.auth.createQrChallenge(this.extractBearerToken(authorization));
 }
 
 @Public()
-@Get('mobile/qr-challenge/:challengeId/result')
+@Get('kiosk/qr-challenge/:challengeId/result')
 getQrChallengeResult(
   @Param('challengeId', DocIdPipe) challengeId: string,
   @Headers('authorization') authorization?: string,
@@ -546,5 +546,5 @@ None intentional — offline create-on-redeem called out explicitly in Task 4.
 ## Type consistency
 
 - Prefix `TGQR:v3:` shared API + kiosk port
-- Routes `/employee/qr-punch/scan|sync`, `/auth/mobile/qr-challenge`
+- Routes `/employee/qr-punch/scan|sync`, `/auth/kiosk/qr-challenge`
 - Model `TimeGateQrChallenge` with `(kioskId, nonce)` unique

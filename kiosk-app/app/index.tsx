@@ -22,7 +22,7 @@ import { getPendingVerifyCount, syncOfflineVerifications } from "../lib/offline-
 import {
     bootstrapOperator,
     fetchKiosksForBranch,
-    fetchMobileConfig,
+    fetchKioskConfig,
     getKioskFeatures,
     getProvisionState,
     getTimeGateApiBase,
@@ -77,7 +77,7 @@ export default function HomeScreen() {
         const state = await getProvisionState();
         let fetchedFeatures = await getKioskFeatures();
         if (state.hasToken) {
-          fetchedFeatures = (await fetchMobileConfig()) ?? fetchedFeatures;
+          fetchedFeatures = (await fetchKioskConfig()) ?? fetchedFeatures;
         }
         setConfigured(state.hasToken);
         setDeviceName(state.deviceName);
@@ -128,7 +128,7 @@ export default function HomeScreen() {
     useCallback(() => {
       if (!configured) return;
       void getPendingVerifyCount().then(setPendingOfflineCount);
-      void fetchMobileConfig()
+      void fetchKioskConfig()
         .then((next) => {
           if (next) setFeatures(next);
           else void getKioskFeatures().then(setFeatures);

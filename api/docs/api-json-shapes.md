@@ -24,8 +24,6 @@ Payload signé à la connexion (`POST /auth/login`) :
 Token opérateur kiosk (`POST /auth/kiosk/bootstrap`) : même shape (`companyId`).
 Token lifetime kiosk (`POST /auth/kiosk/provision`) : JWT kiosk (verify / heartbeat).
 
-Les routes `/auth/mobile/*` restent disponibles comme alias deprecated.
-
 Super-admin : URLs `/super-admin/organizations/:organizationId/…` — le paramètre de route vaut un `companyId`.
 
 ---
@@ -198,7 +196,7 @@ Filtres liste : `branchId`, `kioskId`, `employeeId`, `from`, `to`, `status`.
 
 ## Kiosk (app borne)
 
-Routes principales sous `/auth/kiosk/*`. Alias deprecated : `/auth/mobile/*`.
+Routes sous `/auth/kiosk/*`.
 
 ### `POST /auth/kiosk/bootstrap`
 

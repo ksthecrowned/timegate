@@ -14,7 +14,7 @@ L’espace employé (congés, soldes, pointages personnels) est sur **`employee-
 ## Configuration
 
 ```bash
-cd mobile-app
+cd kiosk-app
 cp .env.example .env
 # Éditer EXPO_PUBLIC_TIMEGATE_API_URL (IP LAN sur appareil réel)
 bun install

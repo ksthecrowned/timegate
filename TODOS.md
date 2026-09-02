@@ -165,7 +165,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 **Priorité P1** · **Vague 2**
 
 1. [x] **1 kiosk = 1 appareil actif** — verrou strict sur `deviceToken` / provision
-2. [x] **Feature flags serveur** — `GET /auth/mobile/config` + réponse provision
+2. [x] **Feature flags serveur** — `GET /auth/kiosk/config` + réponse provision
 3. [x] **Config méthodes par kiosk** — visage / QR / NFC ; au moins une obligatoire
 4. [x] **PIN = fallback uniquement** — seuils `pinFailureThreshold` / cooldown tenant
 5. [x] **Alerte kiosk hors ligne** — cron `lastSeenAt` + heartbeat
@@ -263,7 +263,7 @@ Les sections du fichier suivent cet ordre. Au sein d'une vague, traiter les lots
 
 ### NFC
 
-6. [x] **Backend `POST /auth/mobile/verify-nfc`** — kiosk avec `react-native-nfc-manager`
+6. [x] **Backend `POST /auth/kiosk/verify-nfc`** — kiosk avec `react-native-nfc-manager`
 7. [x] **Enregistrement carte NFC** — UID ↔ employé (`PATCH /employees/:id/nfc-badge`)
 8. [x] **Pointage NFC offline** — résolution sur `capturedAt` (comme visage)
 9. [x] **PIN kiosk** — **online uniquement** (pas de file offline)

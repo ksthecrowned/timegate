@@ -59,7 +59,7 @@ export function setKioskFeatures(features: KioskFeatures): Promise<void> {
   return SecureStore.setItemAsync(KIOSK_FEATURES_KEY, JSON.stringify(features));
 }
 
-export async function fetchMobileConfig(): Promise<KioskFeatures | null> {
+export async function fetchKioskConfig(): Promise<KioskFeatures | null> {
   const token = await getLifetimeToken();
   if (!token) return null;
   const res = await fetch(`${API_BASE}/auth/kiosk/config`, {
@@ -144,7 +144,7 @@ export function getTimeGateApiBase(): string {
   return API_BASE;
 }
 
-function mobileLog(
+function kioskLog(
   level: "log" | "warn" | "error",
   message: string,
   meta?: Record<string, unknown>,
@@ -198,7 +198,7 @@ export type TimeGateKiosk = {
   status: "ONLINE" | "OFFLINE";
 };
 
-class MobileApiError extends Error {
+class KioskApiError extends Error {
   status: number;
 
   constructor(message: string, status: number) {
@@ -245,7 +245,7 @@ export async function bootstrapOperator(
   });
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(`Echec connexion API: ${message}`, res.status);
+    throw new KioskApiError(`Echec connexion API: ${message}`, res.status);
   }
   const json = (await res.json()) as {
     operator_token?: string;
@@ -273,7 +273,7 @@ export async function fetchKiosksForBranch(
   });
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(
+    throw new KioskApiError(
       `Impossible de charger les kiosks: ${message}`,
       res.status,
     );
@@ -325,7 +325,7 @@ export async function provisionKiosk(
   });
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(message, res.status);
+    throw new KioskApiError(message, res.status);
   }
   const json = (await res.json()) as {
     lifetime_token: string;
@@ -363,14 +363,14 @@ export async function sendKioskHeartbeat(): Promise<void> {
   });
   if (res.status === 401) {
     await clearProvisioning();
-    throw new MobileApiError(
+    throw new KioskApiError(
       "Session expiree. Un administrateur doit reinitialiser les acces puis provisionner la borne.",
       401,
     );
   }
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(message, res.status);
+    throw new KioskApiError(message, res.status);
   }
 }
 
@@ -413,7 +413,7 @@ export function isLikelyNetworkError(error: unknown): boolean {
 
 export function isRetryableVerificationError(error: unknown): boolean {
   if (isLikelyNetworkError(error)) return true;
-  if (error instanceof MobileApiError) {
+  if (error instanceof KioskApiError) {
     return error.status >= 500 || error.status === 429;
   }
   return false;
@@ -429,7 +429,7 @@ export function isRetryableVerificationError(error: unknown): boolean {
 export type ErrorCategory = "error" | "warn" | "info";
 
 export function classifyError(error: unknown): ErrorCategory {
-  if (error instanceof MobileApiError) {
+  if (error instanceof KioskApiError) {
     if (error.status === 401) return "warn";
     if (error.status === 403) return "warn";
     if (error.status === 404) return "warn";
@@ -451,7 +451,7 @@ export function classifyError(error: unknown): ErrorCategory {
 
 export function isFaceEngineUnavailableError(error: unknown): boolean {
   const raw =
-    error instanceof MobileApiError || error instanceof Error
+    error instanceof KioskApiError || error instanceof Error
       ? (error.message ?? "")
       : String(error);
   const msg = raw.toLowerCase();
@@ -492,7 +492,7 @@ export function getVerificationUserMessage(
   features?: Pick<KioskFeatures, "nfcEnabled" | "qrEnabled">,
 ): string {
   const raw =
-    error instanceof MobileApiError || error instanceof Error
+    error instanceof KioskApiError || error instanceof Error
       ? (error.message ?? "")
       : String(error);
   const msg = raw.toLowerCase();
@@ -538,7 +538,7 @@ export function getVerificationUserMessage(
   if (msg.includes("non provisionne") || msg.includes("missing bearer")) {
     return "Appareil non configuré. Contactez un administrateur pour provisionner la borne.";
   }
-  if (error instanceof MobileApiError) {
+  if (error instanceof KioskApiError) {
     if (error.status === 401) {
       return "Session expirée. Un administrateur doit réinitialiser les accès puis re-provisionner la borne.";
     }
@@ -567,7 +567,7 @@ export function getVerificationUserMessage(
   return "Vérification échouée. Veuillez réessayer.";
 }
 
-export function createMobileIdempotencyKey(prefix = "verify"): string {
+export function createKioskIdempotencyKey(prefix = "verify"): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
@@ -577,16 +577,16 @@ export async function verifyFacePhoto(
   options?: VerifyFaceOptions,
 ): Promise<VerifyFaceResult> {
   const startedAt = Date.now();
-  mobileLog("log", "verifyFacePhoto started", { timeoutMs, apiBase: API_BASE });
+  kioskLog("log", "verifyFacePhoto started", { timeoutMs, apiBase: API_BASE });
   const token = await getLifetimeToken();
   if (!token) {
-    mobileLog("warn", "verifyFacePhoto aborted: no lifetime token");
+    kioskLog("warn", "verifyFacePhoto aborted: no lifetime token");
     throw new Error(
       "Appareil non provisionné. Configurez l'app au premier lancement.",
     );
   }
   const photoPart = buildPhotoUploadPart(photoUri);
-  mobileLog("log", "verifyFacePhoto payload", {
+  kioskLog("log", "verifyFacePhoto payload", {
     uri: photoPart.uri,
     multipartName: photoPart.name,
     mime: photoPart.type,
@@ -618,14 +618,14 @@ export async function verifyFacePhoto(
     });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") {
-      mobileLog("error", "verifyFacePhoto timeout", {
+      kioskLog("error", "verifyFacePhoto timeout", {
         elapsedMs: Date.now() - startedAt,
       });
       throw new Error(
         "Vérification trop longue (délai dépassé). Vérifiez la connexion réseau et l'API.",
       );
     }
-    mobileLog("error", "verifyFacePhoto fetch failed", {
+    kioskLog("error", "verifyFacePhoto fetch failed", {
       elapsedMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : String(error),
     });
@@ -638,13 +638,13 @@ export async function verifyFacePhoto(
 
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    mobileLog("warn", "verifyFacePhoto API error", {
+    kioskLog("warn", "verifyFacePhoto API error", {
       status: res.status,
       elapsedMs: Date.now() - startedAt,
       message,
     });
     // Keep the raw API message so callers can detect face-engine failures.
-    throw new MobileApiError(message, res.status);
+    throw new KioskApiError(message, res.status);
   }
 
   const json = (await res.json()) as {
@@ -675,7 +675,7 @@ export async function verifyFacePhoto(
         : "Visage non reconnu. Merci de réessayer."),
   };
 
-  mobileLog("log", "verifyFacePhoto completed", {
+  kioskLog("log", "verifyFacePhoto completed", {
     success: result.success,
     confidence: result.confidence,
     requestId: res.headers.get("x-request-id"),
@@ -684,7 +684,7 @@ export async function verifyFacePhoto(
   return result;
 }
 
-export async function verifyMobilePin(
+export async function verifyKioskPin(
   employeeId: string,
   pin: string,
   options?: { idempotencyKey?: string },
@@ -709,8 +709,8 @@ export async function verifyMobilePin(
   if (res.status === 401) await clearProvisioning();
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(
-      getVerificationUserMessage(new MobileApiError(message, res.status)),
+    throw new KioskApiError(
+      getVerificationUserMessage(new KioskApiError(message, res.status)),
       res.status,
     );
   }
@@ -784,8 +784,8 @@ export async function verifyNfcBadge(
   if (res.status === 401) await clearProvisioning();
   if (!res.ok) {
     const message = await parseErrorBody(res);
-    throw new MobileApiError(
-      getVerificationUserMessage(new MobileApiError(message, res.status)),
+    throw new KioskApiError(
+      getVerificationUserMessage(new KioskApiError(message, res.status)),
       res.status,
     );
   }
@@ -814,26 +814,26 @@ export async function verifyNfcBadge(
 /**
  * Reads a single NFC badge UID via the device NFC radio.
  *
- * Resolves with the badge UID (hex string). Rejects with MobileApiError:
+ * Resolves with the badge UID (hex string). Rejects with KioskApiError:
  *   - "NFC_TIMEOUT"    (no badge presented within timeoutMs)
  *   - "NFC_CANCELLED"  (user cancelled)
  *   - "NFC_DISABLED"   (NFC radio off)
  *   - "NFC_UNSUPPORTED" (no NFC hardware)
  */
 export async function readNfcBadge(timeoutMs = 10_000): Promise<string> {
-  mobileLog("log", "readNfcBadge started", { timeoutMs });
+  kioskLog("log", "readNfcBadge started", { timeoutMs });
   try {
     const { readNfcBadgeUid } = await import("./nfc-reader");
     const uid = await readNfcBadgeUid(timeoutMs);
-    mobileLog("log", "readNfcBadge read", { uid });
+    kioskLog("log", "readNfcBadge read", { uid });
     return uid;
   } catch (error) {
     const { NfcReaderError } = await import("./nfc-reader");
     if (error instanceof NfcReaderError) {
-      mobileLog("warn", "readNfcBadge failed", { code: error.code, message: error.message });
-      throw new MobileApiError(error.code, 0);
+      kioskLog("warn", "readNfcBadge failed", { code: error.code, message: error.message });
+      throw new KioskApiError(error.code, 0);
     }
-    mobileLog("warn", "readNfcBadge failed", {
+    kioskLog("warn", "readNfcBadge failed", {
       message: error instanceof Error ? error.message : String(error),
     });
     throw error;

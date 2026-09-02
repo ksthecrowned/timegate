@@ -198,7 +198,7 @@ Toutes les applications clientes communiquent avec l'API via **HTTPS** et le pr�
 | Dashboard RH / Console SaaS | JWT Bearer (session NextAuth → access token API) | REST JSON |
 | App Employé | JWT Bearer (SecureStore) + identifiant appareil | REST JSON |
 | App Kiosk | JWT longue durée (type mobile_device) | REST JSON + multipart (photos) |
-| Kiosk temps réel | SSE `GET /auth/mobile/events` | Server-Sent Events |
+| Kiosk temps réel | SSE `GET /auth/kiosk/events` | Server-Sent Events |
 
 L'API expose une documentation **Swagger/OpenAPI** à `/api/v1/docs`.
 
@@ -310,8 +310,8 @@ TimeGate gère **plusieurs profils d'authentification** distincts :
 
 #### Kiosks (App Kiosk)
 
-1. **Bootstrap :** `POST /auth/mobile/bootstrap` — admin/manager s'authentifie sur l'appareil.
-2. **Provisionnement :** `POST /auth/mobile/provision` — sélection branche, émission d'un **JWT longue durée**.
+1. **Bootstrap :** `POST /auth/kiosk/bootstrap` — admin/manager s'authentifie sur l'appareil.
+2. **Provisionnement :** `POST /auth/kiosk/provision` — sélection branche, émission d'un **JWT longue durée**.
 3. Seul le **hash SHA-256** du token est stocké en base.
 4. Chaque requête kiosk porte le Bearer token ; le serveur recompte le hash et vérifie l'état actif.
 
@@ -348,7 +348,7 @@ TimeGate distingue **trois types d'appareils** :
 | Création | Admin crée un kiosk lié à une branche (1 kiosk / branche) |
 | Provisionnement | JWT lifetime → hash SHA-256 en base |
 | Identification | Bearer token sur chaque appel mobile |
-| Heartbeat | `POST /auth/mobile/heartbeat` → dernière activité, statut ONLINE |
+| Heartbeat | `POST /auth/kiosk/heartbeat` → dernière activité, statut ONLINE |
 | Révocation | Réinitialisation accès ; notification SSE au kiosk |
 | Réactivation | Re-provisionnement admin requis |
 
@@ -382,7 +382,7 @@ sequenceDiagram
     E->>K: Se présente devant caméra
     K->>K: Détection locale (caméra)
     K->>K: Capture photo JPEG
-    K->>API: POST /auth/mobile/verify (multipart photo)
+    K->>API: POST /auth/kiosk/verify (multipart photo)
     API->>API: Vérifier token kiosk
     API->>PY: Extraire embedding
     PY-->>API: Vecteur 128D
@@ -411,8 +411,8 @@ Après identification :
 
 | Mode | Endpoint | Particularités |
 |------|----------|----------------|
-| PIN | `POST /auth/mobile/verify-pin` | Hash bcrypt ; nécessite connexion en direct |
-| NFC | `POST /auth/mobile/verify-nfc` | Lookup badge UID ; synchronisable offline |
+| PIN | `POST /auth/kiosk/verify-pin` | Hash bcrypt ; nécessite connexion en direct |
+| NFC | `POST /auth/kiosk/verify-nfc` | Lookup badge UID ; synchronisable offline |
 | QR | Challenge kiosk → scan employé | Challenge + scan sur appareil de confiance |
 | App Employé | `POST /employee/break-resume` | Pointage mobile, appareil de confiance requis |
 
@@ -482,7 +482,7 @@ Le pointage PIN requiert une connexion en direct au serveur pour la vérificatio
 #### PIN
 
 - **Configuration :** attribution PIN par employé — hash bcrypt, minimum 4 caractères.
-- **Vérification :** `POST /auth/mobile/verify-pin` — comparaison bcrypt, employé scopé à l'organisation du kiosk.
+- **Vérification :** `POST /auth/kiosk/verify-pin` — comparaison bcrypt, employé scopé à l'organisation du kiosk.
 - **Connexion :** vérification en temps réel (connexion serveur requise).
 - **Seuils d'échec :** nombre maximal de tentatives et délai de cooldown paramétrables par organisation.
 
@@ -491,7 +491,7 @@ Le pointage PIN requiert une connexion en direct au serveur pour la vérificatio
 - **Statut pilote :** implémenté dans l'App Kiosk, **non déployé** chez le client SSII (NFC absent ou peu fiable sur plusieurs terminaux Android locaux).
 - **Configuration :** attribution UID badge par employé, unique par organisation.
 - **Lecture :** module NFC natif sur App Kiosk.
-- **Vérification :** `POST /auth/mobile/verify-nfc` — lookup badge ; synchronisable via file offline.
+- **Vérification :** `POST /auth/kiosk/verify-nfc` — lookup badge ; synchronisable via file offline.
 - **Sécurité :** UID transmis sur HTTPS ; unicité organisation + possession physique du badge.
 
 #### QR — workflow
@@ -502,7 +502,7 @@ sequenceDiagram
     participant API as API
     participant E as App Employé
 
-    K->>API: POST /auth/mobile/qr-challenge
+    K->>API: POST /auth/kiosk/qr-challenge
     API-->>K: challengeId + payload signé (HMAC)
     K->>K: Affiche QR
     E->>E: Scan QR (caméra)
@@ -565,7 +565,7 @@ sequenceDiagram
 
 - **REST JSON** sous `/api/v1`
 - **OpenAPI/Swagger** : `/api/v1/docs`
-- **SSE** : événements kiosk (`/auth/mobile/events`)
+- **SSE** : événements kiosk (`/auth/kiosk/events`)
 - **Multipart** : upload photos pointage/enrollment
 
 ### 4.5 Infrastructure

@@ -33,7 +33,7 @@ TimeGate/
   dashboard/     -> Next.js (backoffice admin, port 3000)
   console/       -> Next.js (Console Plateforme SaaS, port 3002)
   employee-web/  -> Next.js (espace employé mobile-first, port 3001)
-  mobile-app/    -> Expo / React Native (kiosk facial)
+  kiosk-app/     -> Expo / React Native (kiosk facial)
 ```
 
 ### `api`
@@ -73,7 +73,7 @@ Application web **mobile-first** pour les employes (separee du dashboard admin) 
 
 URL locale : `http://localhost:3001`
 
-### `mobile-app`
+### `kiosk-app`
 
 Application kiosk (tablet/telephone):
 
@@ -163,15 +163,15 @@ Copier `employee-web/.env.example` vers `employee-web/.env` :
 
 Compte seed employe : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!`
 
-## 5) Mobile App
+## 5) Kiosk App
 
 ```bash
-cd mobile-app
+cd kiosk-app
 bun install
 bun run android
 ```
 
-Copier `mobile-app/.env.example` vers `mobile-app/.env` :
+Copier `kiosk-app/.env.example` vers `kiosk-app/.env` :
 
 - `EXPO_PUBLIC_TIMEGATE_API_URL` (ex: `http://<IP-LAN>:4001/api/v1` sur appareil physique)
 

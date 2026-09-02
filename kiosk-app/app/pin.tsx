@@ -16,9 +16,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
-  createMobileIdempotencyKey,
+  createKioskIdempotencyKey,
   getProvisionState,
-  verifyMobilePin,
+  verifyKioskPin,
   classifyError,
   type ErrorCategory,
 } from "../lib/timegate";
@@ -51,8 +51,8 @@ export default function PinScreen() {
         setLoading(false);
         return;
       }
-      const result = await verifyMobilePin(employeeId, pin, {
-        idempotencyKey: createMobileIdempotencyKey("verify-pin"),
+      const result = await verifyKioskPin(employeeId, pin, {
+        idempotencyKey: createKioskIdempotencyKey("verify-pin"),
       });
       setFeedback({
         kind: result.success ? "success" : "error",

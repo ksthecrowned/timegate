@@ -13,7 +13,7 @@
 
 1. Admin active un secret QR **par employé** (`Employee.qrPunchSecret`).
 2. L’**employee-app** affiche un QR personnel rotatif (`GET /employee/qr-punch/current`).
-3. Le **kiosk** ouvre la caméra et scanne ce QR (`POST /auth/mobile/verify-qr`).
+3. Le **kiosk** ouvre la caméra et scanne ce QR (`POST /auth/kiosk/verify-qr`).
 
 Inconvénients : UX (présenter l’écran au kiosk), secret affiché sur le téléphone, faible lien avec l’appareil de confiance, offline QR kiosk impossible (codes employés rotatifs).
 
@@ -80,7 +80,7 @@ TGQR:v3:{kioskId}:{slot}:{nonce}:{mac}
 
 Génération :
 
-- **Online** : optionnel `POST /auth/mobile/qr-challenge` (auth kiosk) pour enregistrer le nonce serveur + retourner payload (facilite le poll résultat).
+- **Online** : optionnel `POST /auth/kiosk/qr-challenge` (auth kiosk) pour enregistrer le nonce serveur + retourner payload (facilite le poll résultat).
 - **Offline** : le kiosk génère localement avec le secret stocké en secure store (reçu au provision). Le nonce offline sera accepté au sync si MAC valide + slot dans la fenêtre / âge max.
 
 ### Anti-rejeu
@@ -114,15 +114,15 @@ Génération :
 
 | Méthode | Route | Auth | Rôle |
 |---------|-------|------|------|
-| `POST` | `/auth/mobile/qr-challenge` | Kiosk token | Créer challenge + payload (online) |
-| `GET` | `/auth/mobile/qr-challenge/:id/result` ou `?nonce=` | Kiosk token | Poll résultat |
+| `POST` | `/auth/kiosk/qr-challenge` | Kiosk token | Créer challenge + payload (online) |
+| `GET` | `/auth/kiosk/qr-challenge/:id/result` ou `?nonce=` | Kiosk token | Poll résultat |
 | `POST` | `/employee/qr-punch/scan` | Employé + TRUSTED | Redeem online |
 | `POST` | `/employee/qr-punch/sync` | Employé + TRUSTED | Redeem file offline |
 
 Retirer :
 
 - `GET /employee/qr-punch/current`
-- `POST /auth/mobile/verify-qr` (payload employé)
+- `POST /auth/kiosk/verify-qr` (payload employé)
 - UI dashboard « activer QR employé » / carte secret employé (remplacée par secret kiosk si besoin d’ops)
 - Écran employee-app `/qr-punch` (affichage) → remplacé par **scanner**
 

@@ -116,13 +116,6 @@ export class AuthController {
     return this.auth.mobileBootstrap(dto);
   }
 
-  /** @deprecated Use POST /auth/kiosk/bootstrap */
-  @Public()
-  @Post('mobile/bootstrap')
-  mobileBootstrap(@Body() dto: LoginDto) {
-    return this.kioskBootstrap(dto);
-  }
-
   @Roles(TimeGateUserRole.ADMIN)
   @Post('users')
   createUser(@CurrentUser() user: JwtUser, @Body() dto: CreateUserDto) {
@@ -215,24 +208,10 @@ export class AuthController {
     return this.auth.getMobileConfig(token);
   }
 
-  /** @deprecated Use GET /auth/kiosk/config */
-  @Public()
-  @Get('mobile/config')
-  mobileConfig(@Headers('authorization') authorization: string | undefined) {
-    return this.kioskConfig(authorization);
-  }
-
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post('kiosk/provision')
   provisionKiosk(@Body() dto: MobileProvisionDto) {
     return this.auth.provisionMobile(dto);
-  }
-
-  /** @deprecated Use POST /auth/kiosk/provision */
-  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
-  @Post('mobile/provision')
-  provisionMobile(@Body() dto: MobileProvisionDto) {
-    return this.provisionKiosk(dto);
   }
 
   @Public()
@@ -240,13 +219,6 @@ export class AuthController {
   kioskHeartbeat(@Headers('authorization') authorization: string | undefined) {
     const token = this.extractBearerToken(authorization);
     return this.auth.heartbeatMobile(token);
-  }
-
-  /** @deprecated Use POST /auth/kiosk/heartbeat */
-  @Public()
-  @Post('mobile/heartbeat')
-  mobileHeartbeat(@Headers('authorization') authorization: string | undefined) {
-    return this.kioskHeartbeat(authorization);
   }
 
   /**
@@ -264,17 +236,6 @@ export class AuthController {
     return from(this.auth.resolveMobileDevice(token)).pipe(
       switchMap(({ kioskId }) => this.kioskRealtime.stream(kioskId)),
     );
-  }
-
-  /** @deprecated Use GET /auth/kiosk/events */
-  @Public()
-  @Sse('mobile/events')
-  @Header('Cache-Control', 'no-cache, no-transform')
-  @Header('X-Accel-Buffering', 'no')
-  mobileEvents(
-    @Headers('authorization') authorization: string | undefined,
-  ): Observable<MessageEvent> {
-    return this.kioskEvents(authorization);
   }
 
   @Public()
@@ -310,37 +271,6 @@ export class AuthController {
     });
   }
 
-  /** @deprecated Use POST /auth/kiosk/verify */
-  @Public()
-  @Post('mobile/verify')
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
-  verifyMobile(
-    @Headers('authorization') authorization: string | undefined,
-    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
-    @Headers('x-request-id') requestId: string | undefined,
-    @Body('offlineSync') offlineSyncRaw: string | undefined,
-    @Body('capturedAt') capturedAtRaw: string | undefined,
-    @Body('latitude') latitudeRaw: string | undefined,
-    @Body('longitude') longitudeRaw: string | undefined,
-    @UploadedFile(
-      new ParseFilePipeBuilder()
-        .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
-        .build({ fileIsRequired: true }),
-    )
-    file: Express.Multer.File,
-  ) {
-    return this.verifyKiosk(
-      authorization,
-      idempotencyKey,
-      requestId,
-      offlineSyncRaw,
-      capturedAtRaw,
-      latitudeRaw,
-      longitudeRaw,
-      file,
-    );
-  }
-
   @Public()
   @Post('kiosk/verify-pin')
   verifyKioskPin(
@@ -360,27 +290,6 @@ export class AuthController {
       offlineSync,
       capturedAt: capturedAt && !Number.isNaN(capturedAt.getTime()) ? capturedAt : undefined,
     });
-  }
-
-  /** @deprecated Use POST /auth/kiosk/verify-pin */
-  @Public()
-  @Post('mobile/verify-pin')
-  verifyMobilePin(
-    @Headers('authorization') authorization: string | undefined,
-    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
-    @Headers('x-request-id') requestId: string | undefined,
-    @Body() dto: MobileVerifyPinDto,
-    @Body('offlineSync') offlineSyncRaw?: string,
-    @Body('capturedAt') capturedAtRaw?: string,
-  ) {
-    return this.verifyKioskPin(
-      authorization,
-      idempotencyKey,
-      requestId,
-      dto,
-      offlineSyncRaw,
-      capturedAtRaw,
-    );
   }
 
   @Public()
@@ -404,39 +313,11 @@ export class AuthController {
     });
   }
 
-  /** @deprecated Use POST /auth/kiosk/verify-nfc */
-  @Public()
-  @Post('mobile/verify-nfc')
-  verifyMobileNfc(
-    @Headers('authorization') authorization: string | undefined,
-    @Headers('x-idempotency-key') idempotencyKey: string | undefined,
-    @Headers('x-request-id') requestId: string | undefined,
-    @Body() dto: MobileVerifyNfcDto,
-    @Body('offlineSync') offlineSyncRaw?: string,
-    @Body('capturedAt') capturedAtRaw?: string,
-  ) {
-    return this.verifyKioskNfc(
-      authorization,
-      idempotencyKey,
-      requestId,
-      dto,
-      offlineSyncRaw,
-      capturedAtRaw,
-    );
-  }
-
   @Public()
   @Post('kiosk/qr-challenge')
   createKioskQrChallenge(@Headers('authorization') authorization: string | undefined) {
     const token = this.extractBearerToken(authorization);
     return this.auth.createQrChallenge(token);
-  }
-
-  /** @deprecated Use POST /auth/kiosk/qr-challenge */
-  @Public()
-  @Post('mobile/qr-challenge')
-  createQrChallenge(@Headers('authorization') authorization: string | undefined) {
-    return this.createKioskQrChallenge(authorization);
   }
 
   @Public()
@@ -447,16 +328,6 @@ export class AuthController {
   ) {
     const token = this.extractBearerToken(authorization);
     return this.auth.getQrChallengeResult(token, challengeId);
-  }
-
-  /** @deprecated Use GET /auth/kiosk/qr-challenge/:challengeId/result */
-  @Public()
-  @Get('mobile/qr-challenge/:challengeId/result')
-  getQrChallengeResult(
-    @Param('challengeId', DocIdPipe) challengeId: string,
-    @Headers('authorization') authorization: string | undefined,
-  ) {
-    return this.getKioskQrChallengeResult(challengeId, authorization);
   }
 
   private extractBearerToken(authorization: string | undefined): string {

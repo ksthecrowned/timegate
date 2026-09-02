@@ -715,7 +715,7 @@
               </tr>
               <tr>
                 <td>Kiosk temps réel</td>
-                <td>SSE <code>GET /auth/mobile/events</code></td>
+                <td>SSE <code>GET /auth/kiosk/events</code></td>
                 <td>Server-Sent Events</td>
               </tr>
             </tbody>
@@ -904,11 +904,11 @@
           <h3 class="dat-h3">Kiosks (App Kiosk)</h3>
           <ol class="bullets bullets--numbered">
             <li>
-              <code>POST /auth/mobile/bootstrap</code> — auth admin sur
+              <code>POST /auth/kiosk/bootstrap</code> — auth admin sur
               appareil.
             </li>
             <li>
-              <code>POST /auth/mobile/provision</code> — JWT longue durée pour
+              <code>POST /auth/kiosk/provision</code> — JWT longue durée pour
               la branche.
             </li>
             <li>Hash SHA-256 du token en base ; Bearer sur chaque requête.</li>
@@ -996,7 +996,7 @@
               </tr>
               <tr>
                 <td>Heartbeat</td>
-                <td><code>POST /auth/mobile/heartbeat</code></td>
+                <td><code>POST /auth/kiosk/heartbeat</code></td>
               </tr>
               <tr>
                 <td>Révocation</td>
@@ -1052,7 +1052,7 @@
             <div class="dat-flow__step">
               <span class="dat-flow__actor">Kiosk → API</span>
               <span class="dat-flow__action"
-                ><code>POST /auth/mobile/verify</code> · photo multipart · token
+                ><code>POST /auth/kiosk/verify</code> · photo multipart · token
                 kiosk vérifié</span
               >
             </div>
@@ -1108,12 +1108,12 @@
             <tbody>
               <tr>
                 <td>PIN</td>
-                <td><code>POST /auth/mobile/verify-pin</code></td>
+                <td><code>POST /auth/kiosk/verify-pin</code></td>
                 <td>Hash bcrypt ; connexion en direct requise</td>
               </tr>
               <tr>
                 <td>NFC</td>
-                <td><code>POST /auth/mobile/verify-nfc</code></td>
+                <td><code>POST /auth/kiosk/verify-nfc</code></td>
                 <td>Badge UID ; synchronisable offline</td>
               </tr>
               <tr>

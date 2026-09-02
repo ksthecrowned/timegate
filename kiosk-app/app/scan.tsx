@@ -44,7 +44,7 @@ import {
     type ScanCoachSignal,
 } from "../lib/scan-ui-state";
 import {
-    createMobileIdempotencyKey,
+    createKioskIdempotencyKey,
     getKioskFeatures,
     getProvisionState,
     getVerificationUserMessage,
@@ -177,7 +177,7 @@ export default function ScanScreen() {
       setCapturedPhotoUri(photo.uri);
 
       const result = await verifyFacePhoto(photo.uri, VERIFY_TIMEOUT_SECONDS * 1000, {
-        idempotencyKey: createMobileIdempotencyKey("verify-online"),
+        idempotencyKey: createKioskIdempotencyKey("verify-online"),
       });
       setEmployeeName(result.employeeName);
       const resultMessage = result.message?.trim()

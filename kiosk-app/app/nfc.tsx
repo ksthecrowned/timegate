@@ -6,7 +6,7 @@ import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View 
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
   classifyError,
-  createMobileIdempotencyKey,
+  createKioskIdempotencyKey,
   getCooldownState,
   getProvisionState,
   getVerificationUserMessage,
@@ -168,7 +168,7 @@ export default function NfcScreen() {
       setStatusMessage("Vérification du badge...");
       try {
         const result = await verifyNfcBadge(uid, {
-          idempotencyKey: createMobileIdempotencyKey("verify-nfc"),
+          idempotencyKey: createKioskIdempotencyKey("verify-nfc"),
         });
         if (result.success) {
           recordSuccess();

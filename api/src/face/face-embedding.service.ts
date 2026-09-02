@@ -423,6 +423,7 @@ export class FaceEmbeddingService implements OnModuleInit, OnModuleDestroy {
     if (!this.worker?.stdin) {
       throw new Error('Face engine worker not running');
     }
+    const stdin = this.worker.stdin;
     if (this.workerResponseWaiter) {
       throw new Error('Face engine worker busy');
     }
@@ -449,8 +450,8 @@ export class FaceEmbeddingService implements OnModuleInit, OnModuleDestroy {
       const header = Buffer.alloc(4);
       header.writeUInt32BE(buffer.length, 0);
       try {
-        this.worker.stdin.write(header);
-        this.worker.stdin.write(buffer);
+        stdin.write(header);
+        stdin.write(buffer);
       } catch (err) {
         clearTimeout(timer);
         this.workerResponseWaiter = null;
