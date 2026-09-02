@@ -1,0 +1,2665 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TimeGate — Dossier d'Architecture Technique · AfriTech 2026</title>
+    <link rel="stylesheet" href="dat-afritech-2026.css" />
+  </head>
+  <body>
+    <!-- PAGE 1 — COUVERTURE -->
+    <section class="page page--cover">
+      <div class="page__inner">
+        <img
+          class="cover__logo"
+          src="../../dashboard/public/images/logos/timegate-logo-full-white.png"
+          alt="TimeGate"
+        />
+        <div class="cover__doc">
+          <div class="cover__doc-line">
+            Dossier d'Architecture Technique · AfriTech Challenge 2026
+          </div>
+          <div class="cover__doc-contents">
+            Architecture · Pointage · Sécurité · Infrastructure · Données
+          </div>
+        </div>
+        <h1 class="cover__title">TimeGate</h1>
+        <p class="cover__tagline">
+          Plateforme SaaS de pointage intelligent et de gestion RH —
+          reconnaissance faciale, PIN et QR, pensée pour le terrain africain.
+        </p>
+        <div class="cover__pilot">
+          <strong>Pilote rémunéré</strong> — pack PRO à
+          <strong>25&nbsp;000 FCFA/mois</strong>
+          (réduction exceptionnelle premier pilote ; tarif catalogue 50&nbsp;000
+          FCFA/mois · matériel non fourni) — SSII, Brazzaville, ~10 personnes —
+          pointage, congés et dashboard RH déployés. Indicateurs quantitatifs
+          non publiés dans ce document — accord du client pilote en cours au 30
+          août 2026.
+          <br /><br />
+          <strong>Équipe :</strong> 2 développeurs expérimentés · 1 designer
+          UI/UX · 1 commercial terrain
+        </div>
+        <div class="cover__event">
+          <div class="cover__event-title">AfriTech Challenge 2026</div>
+          <div class="cover__event-sub">Innovation numérique · Afrique</div>
+          <div class="cover__contact">
+            <strong>Styve Maba</strong> — porteur du projet<br />
+            kaiserstyve2@gmail.com · +242 06 515 23 74<br />
+            <em>Mazala Firm</em> — RCCM CG-BZV-01-2021-A10-01865<br />
+            <em>Site : timegate-one.vercel.app</em><br />
+            <!-- <em>Version 2.7 · 30 août 2026</em> -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PAGE 2 — SYNTHÈSE -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · Synthèse</span>
+        </header>
+        <div class="page-main">
+          <p class="lead">
+            TimeGate est une plateforme SaaS de
+            <strong>pointage intelligent</strong> et de
+            <strong>gestion RH opérationnelle</strong>. Elle remplace registres
+            papier et badges partagés par un flux numérique : tablette en mode
+            kiosk, identification en quelques secondes, présences consultables
+            en temps réel.
+          </p>
+          <p>
+            <strong>Pilote rémunéré</strong> (PRO à
+            <strong>25&nbsp;000 FCFA/mois</strong>, premier client sans matériel
+            fourni ; tarif catalogue 50&nbsp;000 FCFA/mois) — SSII, Brazzaville,
+            ~10 personnes : pointage, congés et dashboard en usage · fiche §1.6
+            (sans métriques publiées à ce stade).
+          </p>
+          <p>
+            <strong>Équipe :</strong> 2 développeurs expérimentés (dont le
+            porteur), 1 designer UI/UX, 1 commercial terrain · support admin
+            Mazala Firm.
+          </p>
+          <p class="section-label">Produit livré au pilote</p>
+          <ul class="bullets">
+            <li>
+              <strong>Pointage</strong> — visage (principal), PIN, QR · resync
+              offline 12 h
+            </li>
+            <li>
+              <strong>RH opérationnel</strong> — présences, équipe du jour,
+              congés, app employé
+            </li>
+            <li>
+              <strong>Plateforme SaaS</strong> — multi-tenant, abonnements,
+              console admin
+            </li>
+          </ul>
+          <p class="section-label">Composants techniques</p>
+          <ul class="bullets">
+            <li>
+              <strong>API TimeGate</strong> — logique métier, auth, pointage,
+              RH, SaaS (NestJS, PostgreSQL)
+            </li>
+            <li>
+              <strong>Dashboard RH</strong> — backoffice admin/manager tenant
+              (Next.js 15)
+            </li>
+            <li>
+              <strong>Console SaaS</strong> — administration plateforme
+              multi-tenant (Next.js 15)
+            </li>
+            <li>
+              <strong>App Kiosk</strong> — terminal pointage visage/PIN/NFC/QR
+              (Expo React Native)
+            </li>
+            <li>
+              <strong>App Employé</strong> — self-service congés, pointages, QR
+              punch (Expo React Native)
+            </li>
+          </ul>
+          <p class="section-label section-label--tech">Modes de pointage</p>
+          <ul class="bullets">
+            <li>
+              <strong>Visage</strong> — principal au pilote ; détection locale,
+              vérification serveur
+            </li>
+            <li>
+              <strong>PIN</strong> — secours ; connexion online obligatoire
+            </li>
+            <li>
+              <strong>QR</strong> — challenge kiosk ↔ scan employé (appareil de
+              confiance)
+            </li>
+            <li>
+              <strong>Resync offline</strong> — buffer visage (kiosk) et QR
+              (employé), fenêtre 12 h ; <em>pas offline-first</em>
+            </li>
+            <li>
+              <strong>NFC</strong> — implémenté, non déployé au pilote (matériel
+              variable)
+            </li>
+          </ul>
+          <p class="section-label">Sommaire</p>
+          <ul class="dat-toc">
+            <li>
+              <span class="dat-toc__num">1</span> Présentation de la solution
+            </li>
+            <li><span class="dat-toc__num">2</span> Architecture globale</li>
+            <li>
+              <span class="dat-toc__num">3</span> Fonctionnement technique
+            </li>
+            <li><span class="dat-toc__num">4</span> Choix technologiques</li>
+            <li>
+              <span class="dat-toc__num">5</span> Données et architecture de
+              stockage
+            </li>
+            <li>
+              <span class="dat-toc__num">6</span> Scalabilité et performance
+            </li>
+            <li><span class="dat-toc__num">7</span> Interopérabilité</li>
+            <li><span class="dat-toc__num">8</span> Sécurité et conformité</li>
+            <li>
+              <span class="dat-toc__num">9–12</span> Méthodologie · Maintenance
+              · Perspectives · Annexes
+            </li>
+          </ul>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">1</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 3 — §1 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §1 Présentation</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          1. Présentation de la solution
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">1.1 Contexte</h2>
+          <p>
+            TimeGate est une plateforme SaaS de
+            <strong>pointage intelligent</strong> et de
+            <strong>gestion RH</strong> destinée aux PME, industries et
+            organisations multi-sites en Afrique centrale et au-delà. Le projet
+            répond à un constat terrain récurrent : la gestion de présence
+            repose encore largement sur des registres papier, des badges
+            partagés ou des systèmes importés coûteux et peu adaptés au contexte
+            local.
+          </p>
+          <p>
+            TimeGate remplace ces approches par un flux numérique simple : un
+            smartphone ou une tablette en mode kiosk permet à l'employé de
+            s'identifier en quelques secondes ; les événements de présence sont
+            enregistrés côté serveur et consultables en temps réel par les
+            équipes RH via un tableau de bord web.
+          </p>
+          <p>
+            <strong>État du projet :</strong> cinq applications clientes et une
+            API Swagger <strong>déployées en production pilote</strong> — SSII
+            ~10 collaborateurs, Brazzaville, pilote rémunéré (§1.6). Indicateurs
+            quantitatifs et témoignages client non publiés — accord en cours.
+          </p>
+          <h2 class="dat-h2">1.2 Objectifs</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Objectif</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Fiabiliser le pointage</td>
+                <td>
+                  Réduire la fraude via identification biométrique ou
+                  alternatives traçables
+                </td>
+              </tr>
+              <tr>
+                <td>Automatiser la RH</td>
+                <td>
+                  Présences, retards, absences, congés ; planning et paie en
+                  extension
+                </td>
+              </tr>
+              <tr>
+                <td>Déployer sans matériel lourd</td>
+                <td>
+                  Utiliser téléphone/tablette plutôt que TPE dédiés coûteux
+                </td>
+              </tr>
+              <tr>
+                <td>Multi-sites</td>
+                <td>Gérer plusieurs branches sous une même organisation</td>
+              </tr>
+              <tr>
+                <td>Industrialiser en SaaS</td>
+                <td>
+                  Modèle multi-tenant avec abonnements, quotas et console
+                  plateforme
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">1.3 Usages</h2>
+          <ol class="bullets bullets--numbered">
+            <li>
+              <strong>Pointage quotidien</strong> — entrée, sortie, pause via
+              kiosk (visage, PIN, NFC ou QR).
+            </li>
+            <li>
+              <strong>Suivi RH</strong> — présences, retards, absences, feuilles
+              de temps.
+            </li>
+            <li>
+              <strong>Gestion des congés</strong> — demandes et validations
+              depuis Dashboard RH ou App Employé.
+            </li>
+            <li>
+              <strong>Planning et horaires</strong> — shifts, affectations,
+              géo-clôture optionnelle.
+            </li>
+            <li>
+              <strong>Planning et paie</strong> — modules avancés ; paie
+              <strong>non activée</strong> au pilote.
+            </li>
+            <li>
+              <strong>Administration SaaS</strong> — organisations, plans, clés
+              d'activation via Console SaaS.
+            </li>
+          </ol>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">2</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 3 — §1.4–1.5 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §1 Présentation</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          1. Présentation (suite) · Publics et périmètre
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">1.4 Publics cibles</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Public</th>
+                <th>Application</th>
+                <th>Rôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Administrateur RH</td>
+                <td>Dashboard RH</td>
+                <td>Employés, kiosks, présences, congés</td>
+              </tr>
+              <tr>
+                <td>Manager</td>
+                <td>Dashboard RH</td>
+                <td>Équipe du jour, validations congés</td>
+              </tr>
+              <tr>
+                <td>Employé</td>
+                <td>App Employé</td>
+                <td>Pointages, congés, QR punch</td>
+              </tr>
+              <tr>
+                <td>Opérateur kiosk</td>
+                <td>App Kiosk</td>
+                <td>Terminal de pointage</td>
+              </tr>
+              <tr>
+                <td>Super-admin plateforme</td>
+                <td>Console SaaS</td>
+                <td>Multi-tenant, plans</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">1.5 En production vs roadmap</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>En production (pilote)</th>
+                <th>Roadmap / non activé</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Pointage visage, PIN, QR</td>
+                <td>NFC (matériel variable)</td>
+              </tr>
+              <tr>
+                <td>Dashboard présences, congés</td>
+                <td>Paie / runs de paie</td>
+              </tr>
+              <tr>
+                <td>App employé, resync offline</td>
+                <td>Copilote IA manager</td>
+              </tr>
+              <tr>
+                <td>Notifications push</td>
+                <td>Webhooks client connectés</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">3</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 4 — §1.6 Fiche pilote -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §1 Présentation</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          1.6 Fiche pilote — août 2026
+        </h1>
+        <div class="page-main">
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Indicateur</th>
+                <th>Valeur</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Client</td>
+                <td>SSII (anonymisable), Brazzaville</td>
+              </tr>
+              <tr>
+                <td>Effectif / site</td>
+                <td>~10 collaborateurs, 1 kiosk tablette</td>
+              </tr>
+              <tr>
+                <td>Statut commercial</td>
+                <td>
+                  <strong>Pilote rémunéré</strong> — pack PRO à
+                  <strong>25&nbsp;000 FCFA/mois</strong> (réduction
+                  exceptionnelle premier pilote ; tarif catalogue
+                  <strong>50&nbsp;000 FCFA/mois</strong>)
+                </td>
+              </tr>
+              <tr>
+                <td>Matériel</td>
+                <td>
+                  Tablette kiosk <strong>non fournie</strong> — appareil du
+                  client
+                </td>
+              </tr>
+              <tr>
+                <td>Modules déployés</td>
+                <td>
+                  Pointage visage, PIN, QR · dashboard présences · congés · app
+                  employé
+                </td>
+              </tr>
+              <tr>
+                <td>Paie / NFC</td>
+                <td>Non activés au pilote</td>
+              </tr>
+              <tr>
+                <td>Métriques &amp; témoignages</td>
+                <td>
+                  <strong>Non publiés</strong> dans ce DAT — consolidation et
+                  <strong>accord écrit du client</strong> en cours au 30/08/2026
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dat-callout">
+            Indicateurs <strong>prévus</strong> après accord client : taux
+            succès visage, délai kiosk, volume pointages/jour, satisfaction
+            admin. Les chiffres et retours qualitatifs seront intégrés dans une
+            prochaine version du dossier.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">4</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 5 — §1.7–1.8 Marché et données -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §1 Marché</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          1.7–1.8 Marché et souveraineté des données
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">1.7 Positionnement marché</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Alternative</th>
+                <th>Limite terrain</th>
+                <th>Apport TimeGate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Registre papier</td>
+                <td>Fraude, pas de traçabilité</td>
+                <td>Pointage horodaté, vue manager temps réel</td>
+              </tr>
+              <tr>
+                <td>TPE ZKTeco / bornes</td>
+                <td>Coût matériel, SAV limité</td>
+                <td>Kiosk sur tablette existante</td>
+              </tr>
+              <tr>
+                <td>SaaS RH importés</td>
+                <td>Prix EUR/USD, offline faible</td>
+                <td>FCFA, resync offline visage/QR</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            La preuve terrain porte sur le <strong>pointage fiable</strong> et
+            le <strong>suivi RH opérationnel</strong> — pas sur un ERP complet
+            au stade pilote.
+          </p>
+          <h2 class="dat-h2">1.8 Localisation des données (transparence)</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Localisation pilote</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>PostgreSQL (embeddings, présences)</td>
+                <td>AlwaysData — UE</td>
+              </tr>
+              <tr>
+                <td>API + moteur facial</td>
+                <td>Render — US/UE</td>
+              </tr>
+              <tr>
+                <td>Photos</td>
+                <td>Cloudflare R2</td>
+              </tr>
+              <tr>
+                <td>Frontends</td>
+                <td>Vercel (edge CDN)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Latence depuis Brazzaville : <strong>quelques secondes</strong> en
+            4G normale ; cold start Render possible. Compensation : resync
+            offline, PIN secours, cible GCP §2.5.
+          </p>
+          <p>
+            Cloud <strong>non africain</strong> volontaire (qualité/prix,
+            maîtrise GCP). Réévaluation régionale quand le volume clients le
+            justifiera.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">5</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 5 — §2.1–2.2 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §2 Architecture</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          2.1–2.2 Architecture globale
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">2.1 Vue d'ensemble</h2>
+          <p>
+            TimeGate est organisé en <strong>monorepo</strong> : cinq
+            applications clientes et une API centrale, chacune déployée
+            indépendamment.
+          </p>
+          <div class="dat-arch">
+            <div class="dat-arch__layer">
+              <div class="dat-arch__label">Clients</div>
+              <div class="dat-arch__grid dat-arch__grid--4">
+                <div class="dat-arch__node">
+                  <strong>Dashboard RH</strong><span>Next.js</span>
+                </div>
+                <div class="dat-arch__node">
+                  <strong>Console SaaS</strong><span>Next.js</span>
+                </div>
+                <div class="dat-arch__node">
+                  <strong>App Employé</strong><span>Expo RN</span>
+                </div>
+                <div class="dat-arch__node">
+                  <strong>App Kiosk</strong><span>Expo RN</span>
+                </div>
+              </div>
+            </div>
+            <div class="dat-arch__connector">
+              HTTPS · JWT / token kiosk · <code>/api/v1</code>
+            </div>
+            <div class="dat-arch__node dat-arch__node--core">
+              <strong>API TimeGate</strong><span>NestJS</span>
+            </div>
+            <div class="dat-arch__grid dat-arch__grid--2">
+              <div class="dat-arch__node">
+                <strong>Moteur facial</strong
+                ><span>Python · face_recognition</span>
+              </div>
+              <div class="dat-arch__node">
+                <strong>Données</strong><span>PostgreSQL · Cloudflare R2</span>
+              </div>
+            </div>
+            <div class="dat-arch__connector">Services tiers</div>
+            <div class="dat-arch__node dat-arch__node--services">
+              Firebase FCM · SMTP
+            </div>
+          </div>
+          <h2 class="dat-h2">2.2 Composants</h2>
+          <table class="dat-table dat-table--compact">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Technologie</th>
+                <th>Responsabilité</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>API TimeGate</strong></td>
+                <td>NestJS 10, Bun, Prisma 7</td>
+                <td>Logique métier, auth, pointage, RH, SaaS</td>
+              </tr>
+              <tr>
+                <td><strong>Dashboard RH</strong></td>
+                <td>Next.js 15, NextAuth v5</td>
+                <td>Backoffice admin/manager tenant</td>
+              </tr>
+              <tr>
+                <td><strong>Console SaaS</strong></td>
+                <td>Next.js 15, NextAuth v5</td>
+                <td>Administration plateforme</td>
+              </tr>
+              <tr>
+                <td><strong>App Kiosk</strong></td>
+                <td>Expo ~55, React Native</td>
+                <td>Terminal pointage (visage/PIN/NFC/QR)</td>
+              </tr>
+              <tr>
+                <td><strong>App Employé</strong></td>
+                <td>Expo ~57, React Native</td>
+                <td>Portail self-service employé</td>
+              </tr>
+              <tr>
+                <td><strong>Moteur facial</strong></td>
+                <td>Python, face_recognition</td>
+                <td>Extraction embeddings 128D</td>
+              </tr>
+              <tr>
+                <td><strong>Base de données</strong></td>
+                <td>PostgreSQL 16</td>
+                <td>Persistance multi-tenant</td>
+              </tr>
+              <tr>
+                <td><strong>Object storage</strong></td>
+                <td>Cloudflare R2</td>
+                <td>Photos enrollment + logs</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">6</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 6 — §2.3–2.4 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §2 Architecture</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          2.3–2.4 Flux et architecture applicative
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">2.3 Flux de communication</h2>
+          <p>
+            Toutes les applications communiquent via <strong>HTTPS</strong> et
+            le préfixe <strong><code>/api/v1</code></strong
+            >.
+          </p>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Client</th>
+                <th>Authentification</th>
+                <th>Protocole</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard RH / Console SaaS</td>
+                <td>JWT Bearer (session NextAuth)</td>
+                <td>REST JSON</td>
+              </tr>
+              <tr>
+                <td>App Employé</td>
+                <td>JWT Bearer + identifiant appareil</td>
+                <td>REST JSON</td>
+              </tr>
+              <tr>
+                <td>App Kiosk</td>
+                <td>JWT longue durée (mobile_device)</td>
+                <td>REST JSON + multipart</td>
+              </tr>
+              <tr>
+                <td>Kiosk temps réel</td>
+                <td>SSE <code>GET /auth/mobile/events</code></td>
+                <td>Server-Sent Events</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Documentation <strong>Swagger/OpenAPI</strong> à
+            <code>/api/v1/docs</code>.
+          </p>
+          <h2 class="dat-h2">2.4 Architecture applicative</h2>
+          <p>L'API NestJS couvre les domaines métier suivants :</p>
+          <ul class="bullets">
+            <li>
+              <strong>Cœur identité :</strong> authentification, utilisateurs,
+              employés
+            </li>
+            <li>
+              <strong>Pointage :</strong> présences, feuilles de temps,
+              reconnaissance faciale, kiosks
+            </li>
+            <li>
+              <strong>RH :</strong> congés, absences, retards, départements,
+              fonctions
+            </li>
+            <li>
+              <strong>Planning :</strong> horaires, shifts, planning, jours
+              ouvrés
+            </li>
+            <li>
+              <strong>Paie :</strong> runs, groupes, grilles, compensation
+              employé
+            </li>
+            <li>
+              <strong>SaaS :</strong> abonnements, plans, organisations, audit
+            </li>
+            <li>
+              <strong>Support :</strong> notifications, appareils, messages,
+              webhooks (copilote IA : prototype)
+            </li>
+          </ul>
+          <p>
+            <strong>Guards globaux :</strong> validation JWT, contrôle des
+            rôles, vérification abonnement. Guards complémentaires : accès
+            opérationnel tenant, portail employé, appareil de confiance.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">7</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 7 — §2.5 Déploiement -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §2 Déploiement</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          2.5 Architecture de déploiement
+        </h1>
+        <div class="page-main">
+          <p>
+            L'hébergement <strong>actuellement en service</strong> (pilote) est
+            <strong>provisoire</strong> : stack légère à coût maîtrisé. La
+            <strong>cible production</strong> est
+            <strong>Google Cloud</strong> (détail §4.5).
+          </p>
+          <h2 class="dat-h2">Phase pilote (actuelle)</h2>
+          <div class="dat-diagram">
+            ┌──────────── Pilote (provisoire) ────────────┐ │ Vercel Render
+            AlwaysData │ │ Dashboard+ API NestJS PostgreSQL │ │ Console │
+            └────────┬─────────────┬─────────────────┬───────┘
+            └────────────►│◄────────────────┘ │ Cloudflare R2 · Firebase FCM ·
+            Apps mobiles (EAS) ▲ Kiosk / App Employé
+          </div>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Hébergement</th>
+                <th>Rôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard RH</td>
+                <td>Vercel</td>
+                <td>Frontend pilote</td>
+              </tr>
+              <tr>
+                <td>Console SaaS</td>
+                <td>Vercel</td>
+                <td>Administration plateforme</td>
+              </tr>
+              <tr>
+                <td>API TimeGate</td>
+                <td>Render</td>
+                <td>API + moteur facial</td>
+              </tr>
+              <tr>
+                <td>PostgreSQL</td>
+                <td>AlwaysData</td>
+                <td>Base pilote</td>
+              </tr>
+              <tr>
+                <td>Photos</td>
+                <td>Cloudflare R2</td>
+                <td>Stockage objets</td>
+              </tr>
+              <tr>
+                <td>Apps mobiles</td>
+                <td>EAS Build</td>
+                <td>Distribution iOS/Android</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Suffisant pour le
+            <strong>pilote SSII (~10 collaborateurs)</strong> et les premiers
+            clients à faible volume.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">8</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 8 — §3.1 Auth -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §3 Fonctionnement</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          3. Fonctionnement technique
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">3.1 Authentification</h2>
+          <h3 class="dat-h3">
+            Administrateurs et managers (Dashboard RH / Console SaaS)
+          </h3>
+          <ol class="bullets bullets--numbered">
+            <li>Saisie email/mot de passe + SKU organisation.</li>
+            <li>
+              <code>POST /auth/login</code> — JWT access token + refresh token
+              opaque (48 octets).
+            </li>
+            <li>Hash SHA-256 du refresh token persisté en base.</li>
+            <li>NextAuth stocke l'access token en session cookie.</li>
+            <li>
+              Requêtes API : <code>Authorization: Bearer &lt;jwt&gt;</code>.
+            </li>
+            <li>Rotation via <code>POST /auth/refresh</code>.</li>
+            <li>
+              Durées : <code>JWT_EXPIRES_IN</code> (défaut 8 h),
+              <code>JWT_REFRESH_EXPIRES_IN</code> (défaut 30 j).
+            </li>
+          </ol>
+          <p>
+            Le serveur recharge l'utilisateur depuis PostgreSQL ; le
+            <code>companyId</code> provient de la base.
+          </p>
+          <h3 class="dat-h3">Employés (App Employé)</h3>
+          <ol class="bullets bullets--numbered">
+            <li>
+              <code>POST /auth/employee/identify</code> — découverte par email.
+            </li>
+            <li>
+              <code>POST /auth/employee/login</code> — mot de passe +
+              identifiant appareil.
+            </li>
+            <li>Appareil de confiance (PENDING ou TRUSTED).</li>
+            <li>QR punch bloqué tant que l'appareil n'est pas TRUSTED.</li>
+          </ol>
+          <h3 class="dat-h3">Kiosks (App Kiosk)</h3>
+          <ol class="bullets bullets--numbered">
+            <li>
+              <code>POST /auth/mobile/bootstrap</code> — auth admin sur
+              appareil.
+            </li>
+            <li>
+              <code>POST /auth/mobile/provision</code> — JWT longue durée pour
+              la branche.
+            </li>
+            <li>Hash SHA-256 du token en base ; Bearer sur chaque requête.</li>
+          </ol>
+          <h3 class="dat-h3">Super-administrateur plateforme</h3>
+          <p>
+            Compte plateforme distinct ; accès Console SaaS (rôle
+            PLATFORM_ADMIN).
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">9</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 9 — §3.2-3.3 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §3 Utilisateurs &amp; appareils</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          3.2–3.3 Utilisateurs et appareils
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">3.2 Gestion des utilisateurs</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Entité</th>
+                <th>Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Utilisateur tenant</td>
+                <td>Login Dashboard RH, rôles ADMIN / MANAGER / EMPLOYEE</td>
+              </tr>
+              <tr>
+                <td>Employé RH</td>
+                <td>Fiche métier, embeddings faciaux, PIN, badge NFC</td>
+              </tr>
+              <tr>
+                <td>Opérateur plateforme</td>
+                <td>Console SaaS</td>
+              </tr>
+              <tr>
+                <td>Lien employé ↔ login</td>
+                <td>Portail employé</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            <strong>Multi-tenant :</strong> chaque entité porte un identifiant
+            organisation. Scoping explicite par service.
+          </p>
+          <p>
+            <strong>Rôles :</strong> ADMIN (accès complet), MANAGER
+            (opérationnel, branches assignées), EMPLOYEE (portail uniquement).
+          </p>
+          <h2 class="dat-h2">3.3 Gestion des appareils</h2>
+          <h3 class="dat-h3">Kiosks</h3>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Étape</th>
+                <th>Mécanisme</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Création</td>
+                <td>1 kiosk par branche</td>
+              </tr>
+              <tr>
+                <td>Provisionnement</td>
+                <td>JWT → hash SHA-256 en base</td>
+              </tr>
+              <tr>
+                <td>Heartbeat</td>
+                <td><code>POST /auth/mobile/heartbeat</code></td>
+              </tr>
+              <tr>
+                <td>Révocation</td>
+                <td>Reset accès + notification SSE</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 class="dat-h3">Appareils de confiance employé</h3>
+          <p>
+            Enregistrement local → approbation admin → états PENDING / TRUSTED /
+            REVOKED. Requis pour QR punch.
+          </p>
+          <h3 class="dat-h3">Appareils push</h3>
+          <p>
+            Token FCM via <code>POST /devices/register</code> — Dashboard RH et
+            App Employé.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">10</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 10 — §3.4 Pointage -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §3 Pointage</span>
+        </header>
+        <h1 class="page-title page-title--accent">3.4 Processus de pointage</h1>
+        <div class="page-main">
+          <h2 class="dat-h2">Flux — pointage facial (kiosk)</h2>
+          <div class="dat-flow">
+            <div class="dat-flow__step">
+              <span class="dat-flow__actor">Employé</span>
+              <span class="dat-flow__action"
+                >Se présente devant la caméra du kiosk</span
+              >
+            </div>
+            <div class="dat-flow__step">
+              <span class="dat-flow__actor">Kiosk</span>
+              <span class="dat-flow__action"
+                >Détection locale du visage · capture photo JPEG<br /><em
+                  >Si aucun visage → blocage avant envoi</em
+                ></span
+              >
+            </div>
+            <div class="dat-flow__step">
+              <span class="dat-flow__actor">Kiosk → API</span>
+              <span class="dat-flow__action"
+                ><code>POST /auth/mobile/verify</code> · photo multipart · token
+                kiosk vérifié</span
+              >
+            </div>
+            <div class="dat-flow__step">
+              <span class="dat-flow__actor">API → Python</span>
+              <span class="dat-flow__action"
+                >Extraction embedding
+                <strong>128D</strong> (face_recognition)</span
+              >
+            </div>
+            <div class="dat-flow__step">
+              <span class="dat-flow__actor">API → DB</span>
+              <span class="dat-flow__action"
+                >Similarité cosinus vs embeddings des employés actifs de
+                l'organisation</span
+              >
+            </div>
+            <div class="dat-flow__branch">
+              <div class="dat-flow__outcome dat-flow__outcome--ok">
+                <strong>Match ≥ seuil</strong>
+                <span
+                  >Photo log → R2 · log reconnaissance · événement de présence ·
+                  confirmation kiosk (nom + type punch)</span
+                >
+              </div>
+              <div class="dat-flow__outcome dat-flow__outcome--ko">
+                <strong>Échec ou timeout</strong>
+                <span
+                  >Log échec en base · message kiosk · PIN en secours si réseau
+                  OK</span
+                >
+              </div>
+            </div>
+          </div>
+          <h3 class="dat-h3">Résolution du type de punch</h3>
+          <ol class="bullets bullets--numbered">
+            <li>Géo-clôture si coordonnées fournies.</li>
+            <li>Fenêtres horaires (shift/planning).</li>
+            <li>
+              Type : CHECK_IN, CHECK_OUT, BREAK_START, BREAK_END ou REJECTED.
+            </li>
+            <li>Persistance événement de présence.</li>
+          </ol>
+          <h3 class="dat-h3">Autres modes</h3>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Mode</th>
+                <th>Endpoint</th>
+                <th>Particularités</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>PIN</td>
+                <td><code>POST /auth/mobile/verify-pin</code></td>
+                <td>Hash bcrypt ; connexion en direct requise</td>
+              </tr>
+              <tr>
+                <td>NFC</td>
+                <td><code>POST /auth/mobile/verify-nfc</code></td>
+                <td>Badge UID ; synchronisable offline</td>
+              </tr>
+              <tr>
+                <td>QR</td>
+                <td>Challenge + scan employé</td>
+                <td>Appareil TRUSTED requis</td>
+              </tr>
+              <tr>
+                <td>App Employé</td>
+                <td><code>POST /employee/break-resume</code></td>
+                <td>Pointage mobile</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">11</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 11 — §3.4 Offline -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §3 Offline</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          3.4 Synchronisation offline
+        </h1>
+        <div class="page-main">
+          <p>
+            TimeGate <strong>ne prétend pas être offline-first</strong> :
+            enrollment, admin et PIN requièrent le réseau. En revanche, le
+            <strong>pointage peut être bufferisé</strong> puis rejoué à la
+            reconnexion.
+          </p>
+          <h2 class="dat-h2">App Kiosk — file visage / NFC</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Aspect</th>
+                <th>Comportement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Modes concernés</td>
+                <td>Reconnaissance faciale et badge NFC</td>
+              </tr>
+              <tr>
+                <td>Stockage local</td>
+                <td>Photos JPEG et UID badge en file locale</td>
+              </tr>
+              <tr>
+                <td>Synchronisation</td>
+                <td>
+                  Rejeu automatique à la reconnexion · horodatage · clé
+                  d'idempotence
+                </td>
+              </tr>
+              <tr>
+                <td>Politique serveur</td>
+                <td>
+                  Paramétrable par organisation · fenêtre de validité défaut
+                  <strong>12 h</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>Anti-doublon</td>
+                <td>
+                  <code>X-Idempotency-Key</code> + contrainte unique en base
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">App Employé — file QR</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Aspect</th>
+                <th>Comportement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Mode concerné</td>
+                <td>Scan QR du challenge kiosk</td>
+              </tr>
+              <tr>
+                <td>Stockage local</td>
+                <td>Payload scanné en stockage sécurisé</td>
+              </tr>
+              <tr>
+                <td>Synchronisation</td>
+                <td>
+                  <code>POST /employee/qr-punch/sync</code> à la reconnexion
+                </td>
+              </tr>
+              <tr>
+                <td>Prérequis</td>
+                <td>JWT employé + appareil <strong>TRUSTED</strong></td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dat-callout">
+            Le pointage <strong>PIN</strong> requiert une connexion en direct au
+            serveur pour la vérification du code.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">12</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 12 — §3.4 Offline suite -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §3 Offline</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          3.4 Synchronisation offline (suite)
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">Scénarios d'erreur principaux</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Scénario</th>
+                <th>Comportement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Token kiosk révoqué</td>
+                <td>401 · notification SSE au kiosk</td>
+              </tr>
+              <tr>
+                <td>Aucun visage détecté (local)</td>
+                <td>Blocage avant envoi à l'API</td>
+              </tr>
+              <tr>
+                <td>Aucun match facial</td>
+                <td>Log échec en base · message explicite sur le kiosk</td>
+              </tr>
+              <tr>
+                <td>Hors fenêtre horaire</td>
+                <td>Événement REJECTED ou REVIEW_REQUIRED</td>
+              </tr>
+              <tr>
+                <td>Hors géo-clôture</td>
+                <td>Rejet avec raison affichée</td>
+              </tr>
+              <tr>
+                <td>Abonnement suspendu</td>
+                <td>Blocage des écritures côté API</td>
+              </tr>
+              <tr>
+                <td>Timeout moteur facial</td>
+                <td>
+                  Erreur serveur · délai configurable · PIN secours si réseau OK
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            En cas de coupure prolongée, les files kiosk (visage) et employé
+            (QR) conservent les pointages dans la fenêtre configurée ; au-delà,
+            l'administrateur est alerté via les logs et le support pilote.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">13</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 13 — §3.5-3.6 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §3 Biométrie</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          3.5–3.6 Reconnaissance faciale · PIN / NFC / QR
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">3.5 Reconnaissance faciale</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Aspect</th>
+                <th>Détail</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Reconnaissance</td>
+                <td>Serveur API (comparaison côté serveur)</td>
+              </tr>
+              <tr>
+                <td>Détection locale</td>
+                <td>Caméra kiosk — présence et qualité du visage</td>
+              </tr>
+              <tr>
+                <td>Bibliothèque</td>
+                <td>Python face_recognition (dlib)</td>
+              </tr>
+              <tr>
+                <td>Embedding</td>
+                <td>Vecteur 128D, JSON en base</td>
+              </tr>
+              <tr>
+                <td>Seuil</td>
+                <td>
+                  Cosinus ≥ <code>FACE_VERIFY_THRESHOLD</code> (défaut 0,82)
+                </td>
+              </tr>
+              <tr>
+                <td>Enrollment</td>
+                <td><code>POST /face/enroll</code> (ADMIN) → R2 + base</td>
+              </tr>
+              <tr>
+                <td>Purge photos logs</td>
+                <td>Cron quotidien, défaut 30 jours</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Embeddings non exposés au kiosk ; routes enrollment réservées ADMIN.
+          </p>
+          <h2 class="dat-h2">3.6 PIN / NFC / QR</h2>
+          <p>
+            <strong>PIN :</strong> hash bcrypt, min 4 caractères, vérification
+            en temps réel, seuils d'échec paramétrables.
+          </p>
+          <p>
+            <strong>NFC :</strong> UID unique par organisation, lecture native,
+            synchronisable offline.
+          </p>
+          <div class="dat-diagram">
+            QR : Kiosk crée challenge (HMAC) → affiche QR Employé scanne → POST
+            /employee/qr-punch/scan (ou sync offline) API vérifie HMAC +
+            appareil TRUSTED → événement présence Kiosk reçoit résultat par
+            polling
+          </div>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">14</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 13 — §3.7 + §4 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §3–4</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          3.7 Gestion des données · 4. Choix technologiques
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">3.7 Gestion des données</h2>
+          <ul class="bullets">
+            <li>
+              <strong>Validation :</strong> pipe global NestJS (whitelist).
+            </li>
+            <li>
+              <strong>Idempotence :</strong> header
+              <code>X-Idempotency-Key</code>.
+            </li>
+            <li>
+              <strong>Correlation :</strong> middleware
+              <code>X-Request-Id</code>.
+            </li>
+            <li><strong>Upload :</strong> limite 12 Mo (photos faciales).</li>
+          </ul>
+          <h2 class="dat-h2">4.1 Frontend</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Technologie</th>
+                <th>Usage</th>
+                <th>Justification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Next.js 15</td>
+                <td>Dashboard RH, Console SaaS</td>
+                <td>SSR/RSC, déploiement Vercel</td>
+              </tr>
+              <tr>
+                <td>React 18 + TypeScript</td>
+                <td>Frontends web</td>
+                <td>Typage fort</td>
+              </tr>
+              <tr>
+                <td>Tailwind CSS 4</td>
+                <td>Dashboard RH, Console SaaS</td>
+                <td>Cohérence visuelle</td>
+              </tr>
+              <tr>
+                <td>NextAuth v5</td>
+                <td>Auth session web</td>
+                <td>Credentials → JWT API</td>
+              </tr>
+              <tr>
+                <td>Expo / React Native</td>
+                <td>App Kiosk, App Employé</td>
+                <td>iOS/Android, caméra/NFC</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">4.2 Backend</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Technologie</th>
+                <th>Usage</th>
+                <th>Justification</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>NestJS 10</td>
+                <td>API principale</td>
+                <td>Modularité, guards, Swagger</td>
+              </tr>
+              <tr>
+                <td>Bun 1.3</td>
+                <td>Runtime API</td>
+                <td>Performance</td>
+              </tr>
+              <tr>
+                <td>Prisma 7</td>
+                <td>ORM PostgreSQL</td>
+                <td>Migrations typées</td>
+              </tr>
+              <tr>
+                <td>Passport JWT</td>
+                <td>Authentification</td>
+                <td>Standard industrie</td>
+              </tr>
+              <tr>
+                <td>bcrypt</td>
+                <td>Mots de passe, PIN</td>
+                <td>Hashage adaptatif</td>
+              </tr>
+              <tr>
+                <td>Python face_recognition</td>
+                <td>Biométrie</td>
+                <td>dlib, subprocess isolé</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">15</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 15 — §4.3–4.5 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §4 Infrastructure</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          4.3–4.5 Base de données et infrastructure
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">4.3–4.4 Base de données et APIs</h2>
+          <ul class="bullets">
+            <li>
+              <strong>PostgreSQL 16</strong> — persistance relationnelle, JSON
+              pour embeddings
+            </li>
+            <li>
+              <strong>Prisma migrations</strong> — évolution du schéma tracée en
+              CI
+            </li>
+            <li>
+              <strong>REST JSON</strong> sous <code>/api/v1</code> ·
+              documentation Swagger <code>/api/v1/docs</code>
+            </li>
+            <li>
+              <strong>SSE</strong> pour événements kiosk ·
+              <strong>Multipart</strong> pour photos de pointage
+            </li>
+          </ul>
+          <h2 class="dat-h2">4.5 Infrastructure — phase pilote (provisoire)</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Service</th>
+                <th>Rôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard RH / Console</td>
+                <td>Vercel</td>
+                <td>Frontends web</td>
+              </tr>
+              <tr>
+                <td>API TimeGate</td>
+                <td>Render</td>
+                <td>API NestJS + moteur facial Python</td>
+              </tr>
+              <tr>
+                <td>PostgreSQL</td>
+                <td>AlwaysData</td>
+                <td>Base pilote (UE)</td>
+              </tr>
+              <tr>
+                <td>Photos</td>
+                <td>Cloudflare R2</td>
+                <td>Stockage objets (enrollment, logs)</td>
+              </tr>
+              <tr>
+                <td>Push</td>
+                <td>Firebase FCM</td>
+                <td>Notifications web et mobile</td>
+              </tr>
+              <tr>
+                <td>Apps mobiles</td>
+                <td>EAS Build</td>
+                <td>Distribution iOS / Android</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dat-callout">
+            Stack suffisante pour le
+            <strong>pilote SSII (~10 collaborateurs)</strong> et les premiers
+            clients à faible volume. La <strong>cible production</strong> est
+            Google Cloud (page suivante).
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">16</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 16 — §4.5–4.6 suite -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §4 Infrastructure</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          4.5–4.6 Infrastructure GCP et DevOps
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">
+            4.5 Infrastructure — cible production (Google Cloud)
+          </h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Service GCP</th>
+                <th>Rôle</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>API TimeGate</td>
+                <td>Cloud Run</td>
+                <td>Scaling automatique, instances warm</td>
+              </tr>
+              <tr>
+                <td>Moteur facial</td>
+                <td>Cloud Run dédié</td>
+                <td>Charge isolée, montée en charge indépendante</td>
+              </tr>
+              <tr>
+                <td>PostgreSQL</td>
+                <td>Cloud SQL</td>
+                <td>Base managée, sauvegardes automatisées</td>
+              </tr>
+              <tr>
+                <td>Photos</td>
+                <td>Cloud Storage</td>
+                <td>Enrollment et logs de reconnaissance</td>
+              </tr>
+              <tr>
+                <td>Secrets</td>
+                <td>Secret Manager</td>
+                <td>Credentials centralisés</td>
+              </tr>
+              <tr>
+                <td>CI/CD</td>
+                <td>Cloud Build</td>
+                <td>Pipeline production</td>
+              </tr>
+              <tr>
+                <td>Monitoring</td>
+                <td>Cloud Logging / Monitoring</td>
+                <td>Observabilité et alertes</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            <strong>Choix d'hébergement :</strong> le produit vise le terrain
+            africain, mais l'infrastructure cloud n'est pas locale en Afrique à
+            ce stade — choix volontaire pour le
+            <strong>rapport qualité/prix</strong> et la
+            <strong>maîtrise opérationnelle</strong> (expérience confirmée
+            Google Cloud). Latence compensée par le resync offline, l'edge
+            frontend et le choix de région GCP. Migration après validation
+            commerciale du pilote.
+          </p>
+          <h2 class="dat-h2">4.6 DevOps</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Outil</th>
+                <th>Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>GitHub Actions</td>
+                <td>CI sur branche main — tests API, typecheck web</td>
+              </tr>
+              <tr>
+                <td>Bun</td>
+                <td>Install, build, tests API</td>
+              </tr>
+              <tr>
+                <td>EAS</td>
+                <td>Build et distribution apps mobiles (hors CI)</td>
+              </tr>
+              <tr>
+                <td>Prisma migrate deploy</td>
+                <td>Migrations en CI et au déploiement</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">17</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 17 — §5 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §5 Données</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          5. Données et architecture de stockage
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">5.1 Modèle de données</h2>
+          <div class="dat-diagram">
+            Organisation ──< Branche ──o| Kiosk (1:1) Organisation ──< Employé
+            ──o| Utilisateur (portail) Employé ──< Événements présence Employé
+            ──< Logs reconnaissance faciale Kiosk ──< Événements présence
+            Utilisateur ──< Appareils de confiance Organisation ──< Abonnement
+          </div>
+          <h2 class="dat-h2">5.2 Données utilisateurs</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Donnée</th>
+                <th>Protection</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Identité (nom, email)</td>
+                <td>Scoping organisation</td>
+              </tr>
+              <tr>
+                <td>Mot de passe</td>
+                <td>Hash bcrypt</td>
+              </tr>
+              <tr>
+                <td>PIN kiosk</td>
+                <td>Hash bcrypt</td>
+              </tr>
+              <tr>
+                <td>Rôle</td>
+                <td>Guards + rechargement base</td>
+              </tr>
+              <tr>
+                <td>Appareil confiance</td>
+                <td>Statut + approbation admin</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">5.3 Données de présence</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Entité</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Événement de présence</td>
+                <td>Modèle principal — type, statut, méthode auth</td>
+              </tr>
+              <tr>
+                <td>Check-in employé</td>
+                <td>Enregistrement journalier</td>
+              </tr>
+              <tr>
+                <td>Feuille de temps</td>
+                <td>Calcul journalier</td>
+              </tr>
+              <tr>
+                <td>Log reconnaissance</td>
+                <td>Trace vérification faciale</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">18</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 18 — §5.4–5.6 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §5 Données</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          5.4–5.6 Appareils, biométrie et conservation
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">5.4–5.5 Appareils et biométrie</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Donnée</th>
+                <th>Format / emplacement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Kiosk</td>
+                <td>Token hashé, statut, heartbeat, flags visage / NFC / QR</td>
+              </tr>
+              <tr>
+                <td>Appareil de confiance</td>
+                <td>
+                  Identifiant UUID, plateforme, statut PENDING / TRUSTED /
+                  REVOKED
+                </td>
+              </tr>
+              <tr>
+                <td>Embedding facial</td>
+                <td>JSON — vecteur 128 floats en PostgreSQL</td>
+              </tr>
+              <tr>
+                <td>Photo enrollment</td>
+                <td>URL Cloudflare R2, liée à la fiche employé</td>
+              </tr>
+              <tr>
+                <td>Photos vérification</td>
+                <td>URL R2 — purge configurable (défaut 30 jours)</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Les embeddings ne sont <strong>jamais</strong> renvoyés au kiosk.
+            L'enrollment facial est réservé aux administrateurs authentifiés.
+          </p>
+          <h2 class="dat-h2">5.6 Conservation et protection</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Donnée</th>
+                <th>Mécanisme</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Photos logs reconnaissance</td>
+                <td>
+                  Cron quotidien — suppression R2 après durée configurable
+                  (défaut 30 j)
+                </td>
+              </tr>
+              <tr>
+                <td>Embeddings faciaux</td>
+                <td>
+                  Conservés tant que l'employé est actif · supprimés à la
+                  suppression de la fiche
+                </td>
+              </tr>
+              <tr>
+                <td>Événements de pointage</td>
+                <td>Historique complet en PostgreSQL</td>
+              </tr>
+              <tr>
+                <td>Isolation tenant</td>
+                <td>Scoping systématique par organisation</td>
+              </tr>
+              <tr>
+                <td>Chiffrement transit</td>
+                <td>HTTPS via hébergeurs (Vercel, Render, AlwaysData)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">19</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 19 — §6 Scalabilité -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §6 Scalabilité</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          6. Scalabilité et performance
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">6.1 Limites actuelles (infra pilote)</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Limite identifiée</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>API NestJS</td>
+                <td>Stateless (JWT) — cold start Render en infra pilote</td>
+              </tr>
+              <tr>
+                <td>Moteur facial</td>
+                <td>
+                  Subprocess Python sur la <strong>même instance</strong> que
+                  l'API — concurrence limitée
+                </td>
+              </tr>
+              <tr>
+                <td>Comparaison faciale</td>
+                <td>
+                  O(n) linéaire sur employés actifs — OK ~10–50 ;
+                  <strong>200+ nécessite refonte</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>PostgreSQL</td>
+                <td>AlwaysData pilote — pas de réplica lecture</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">6.2 Optimisations existantes</h2>
+          <ul class="bullets">
+            <li>Index composés sur événements, check-ins et appareils</li>
+            <li>Idempotence pointage — anti-doublons (cache 10 min)</li>
+            <li>
+              Détection locale kiosk — pas d'appel API si aucun visage détecté
+            </li>
+            <li>Pagination sur les endpoints de listing</li>
+          </ul>
+          <h2 class="dat-h2">6.3 Trajectoire de montée en charge</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Phase</th>
+                <th>Effectif cible</th>
+                <th>Infrastructure</th>
+                <th>Moteur facial</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Pilote (actuel)</strong></td>
+                <td>~10</td>
+                <td>Render + AlwaysData</td>
+                <td>Subprocess linéaire — suffisant</td>
+              </tr>
+              <tr>
+                <td>PME</td>
+                <td>50–100</td>
+                <td>GCP Cloud Run + Cloud SQL</td>
+                <td>Service dédié, index vectoriel (pgvector)</td>
+              </tr>
+              <tr>
+                <td>Multi-sites</td>
+                <td>100–500</td>
+                <td>GCP multi-instance, monitoring</td>
+                <td>ANN / filtrage par branche</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dat-callout">
+            L'objectif 50–500 collaborateurs (§11) <strong>suppose</strong> la
+            migration GCP et l'optimisation du moteur facial — ce n'est
+            <strong>pas garanti</strong> avec l'infrastructure pilote actuelle.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">20</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 20 — §7 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §7 Interopérabilité</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">7. Interopérabilité</h1>
+        <div class="page-main">
+          <h2 class="dat-h2">7.1 API</h2>
+          <ul class="bullets">
+            <li>
+              <strong>Base :</strong>
+              <code>https://timegate.onrender.com/api/v1</code>
+            </li>
+            <li>
+              <strong>Documentation :</strong> Swagger UI
+              <code>/api/v1/docs</code>
+            </li>
+            <li><strong>Auth :</strong> Bearer JWT · JSON ISO-8601 UTC</li>
+            <li><strong>Correlation :</strong> <code>X-Request-Id</code></li>
+          </ul>
+          <p>
+            Domaines : auth, employees, attendance/events, timesheets, leaves,
+            payroll-runs, kiosks, face, notifications, system-config.
+          </p>
+          <h2 class="dat-h2">7.2 Services externes</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Service</th>
+                <th>Intégration</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Cloudflare R2</td>
+                <td>SDK S3</td>
+              </tr>
+              <tr>
+                <td>Firebase FCM</td>
+                <td>firebase-admin + SDK clients</td>
+              </tr>
+              <tr>
+                <td>Cloudflare AI</td>
+                <td>Copilote (prototype, non pilote)</td>
+              </tr>
+              <tr>
+                <td>SMTP (Nodemailer)</td>
+                <td>Emails transactionnels</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">7.3 Intégrations</h2>
+          <p>
+            API REST documentée (Swagger). Webhooks HMAC configurables —
+            <strong>aucun client pilote connecté</strong>. Connecteurs ERP/paie
+            : roadmap §11.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">21</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 18 — §8 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §8 Sécurité</span>
+        </header>
+        <h1 class="page-title page-title--accent">8. Sécurité et conformité</h1>
+        <div class="page-main">
+          <h2 class="dat-h2">8.1 Mesures de sécurité</h2>
+          <h3 class="dat-h3">Authentification</h3>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Mécanisme</th>
+                <th>Implémentation</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>JWT access token</td>
+                <td>Durée configurable (défaut 8 h)</td>
+              </tr>
+              <tr>
+                <td>Refresh token</td>
+                <td>48 bytes aléatoires ; hash SHA-256 ; rotation</td>
+              </tr>
+              <tr>
+                <td>Kiosk token</td>
+                <td>JWT longue durée ; hash SHA-256 en base</td>
+              </tr>
+              <tr>
+                <td>Mots de passe / PIN</td>
+                <td>bcrypt cost 10</td>
+              </tr>
+              <tr>
+                <td>Validation JWT</td>
+                <td>Rechargement utilisateur ; companyId depuis base</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 class="dat-h3">Autorisation</h3>
+          <ul class="bullets">
+            <li>Guards globaux : JWT, rôles, état abonnement</li>
+            <li>Accès opérationnel tenant isolé des comptes plateforme</li>
+            <li>Appareil de confiance requis pour QR punch</li>
+            <li>Super-admin via modèle distinct</li>
+          </ul>
+          <h3 class="dat-h3">Protection des données</h3>
+          <ul class="bullets">
+            <li>CORS liste blanche (<code>CORS_ORIGIN</code>)</li>
+            <li>Validation whitelist · secrets en variables d'environnement</li>
+            <li>Scoping tenant · upload limité 12 Mo</li>
+            <li>Révocation kiosk · heartbeat · SSE · idempotence</li>
+          </ul>
+          <h3 class="dat-h3">Données biométriques</h3>
+          <ul class="bullets">
+            <li>Comparaison serveur ; embeddings non renvoyés au kiosk</li>
+            <li>Purge automatique photos de logs (durée configurable)</li>
+            <li>Enrollment réservé ADMIN · journaux d'audit</li>
+          </ul>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">22</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 22 — §8.2 -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §8 Données</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          8.2 Données personnelles et biométrie
+        </h1>
+        <div class="page-main">
+          <p>
+            TimeGate applique le principe de <strong>minimisation</strong> :
+            seules les données nécessaires au pointage et à la gestion RH sont
+            collectées.
+          </p>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Sujet</th>
+                <th>Pratique TimeGate</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Finalité</td>
+                <td>
+                  Pointage et contrôle horaire — pas de surveillance continue
+                </td>
+              </tr>
+              <tr>
+                <td>Base légale (cadre travail)</td>
+                <td>
+                  Exécution du contrat / intérêt légitime employeur — notice
+                  employés à formaliser par client
+                </td>
+              </tr>
+              <tr>
+                <td>Alternative</td>
+                <td>PIN ou QR disponibles — pointage facial non obligatoire</td>
+              </tr>
+              <tr>
+                <td>Consentement</td>
+                <td>
+                  Information préalable des employés · responsabilité partagée
+                  client + TimeGate
+                </td>
+              </tr>
+              <tr>
+                <td>Accès aux données</td>
+                <td>ADMIN organisation · embeddings jamais exposés au kiosk</td>
+              </tr>
+              <tr>
+                <td>Embeddings faciaux</td>
+                <td>
+                  Conservés tant que l'employé est actif · supprimés à la
+                  suppression de la fiche
+                </td>
+              </tr>
+              <tr>
+                <td>Photos logs</td>
+                <td>
+                  Purge automatique après 30 j (configurable) · cron quotidien
+                </td>
+              </tr>
+              <tr>
+                <td>Localisation</td>
+                <td>
+                  UE / US au stade pilote — voir §1.8 · cible GCP documentée
+                </td>
+              </tr>
+              <tr>
+                <td>Isolation multi-tenant</td>
+                <td>Chaque organisation n'accède qu'à ses propres données</td>
+              </tr>
+            </tbody>
+          </table>
+          <p class="dat-callout">
+            <strong>Infrastructure :</strong> pilote HTTPS (Vercel, Render,
+            AlwaysData). <strong>Roadmap conformité :</strong> registre de
+            traitement type, notice biométrique client, audit externe avant
+            déploiements &gt;100 employés.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">23</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 24 — §9.1 Équipe -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §9 Méthodologie</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          9.1 Équipe et gestion du code
+        </h1>
+        <div class="page-main">
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Rôle</th>
+                <th>Composition</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Porteur du projet</td>
+                <td>
+                  Styve Maba — coordination produit, architecture ;
+                  <strong>développeur (1/2)</strong>
+                </td>
+              </tr>
+              <tr>
+                <td>Développement</td>
+                <td>
+                  <strong>2 développeurs expérimentés</strong> (dont le porteur)
+                  — API, apps Expo, dashboards Next.js
+                </td>
+              </tr>
+              <tr>
+                <td>Design</td>
+                <td><strong>1 designer UI/UX</strong> — web et mobile</td>
+              </tr>
+              <tr>
+                <td>Commercial terrain</td>
+                <td>
+                  <strong>1 commercial</strong> — prospection PME, déploiement
+                  pilote, relation client
+                </td>
+              </tr>
+              <tr>
+                <td>Support admin</td>
+                <td>Mazala Firm</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Développement, design et
+            <strong>go-to-market terrain</strong> couverts — delivery concentré
+            sur pointage + RH opérationnel.
+          </p>
+          <ul class="bullets">
+            <li>Git monorepo versionné · CI sur branche main</li>
+            <li>Kit pilote client (scénarios UAT, feuille de retour)</li>
+          </ul>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">24</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 25 — §9.2–9.3 Environnements et tests -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §9 Méthodologie</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          9.2–9.3 Environnements et tests
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">9.2 Environnements</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Environnement</th>
+                <th>Usage</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Local</td>
+                <td>API, Dashboard RH, Console SaaS en développement</td>
+              </tr>
+              <tr>
+                <td>CI</td>
+                <td>PostgreSQL 16 éphémère (GitHub Actions)</td>
+              </tr>
+              <tr>
+                <td>Pilote</td>
+                <td>AlwaysData, Render, Vercel</td>
+              </tr>
+              <tr>
+                <td>Production (cible)</td>
+                <td>Google Cloud</td>
+              </tr>
+              <tr>
+                <td>Tests E2E</td>
+                <td>Base isolée, distincte de la production</td>
+              </tr>
+            </tbody>
+          </table>
+          <h2 class="dat-h2">9.3 Tests</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Scope</th>
+                <th>Couverture</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>API use-cases</td>
+                <td>
+                  Auth, employees, attendance, face, NFC/QR/offline, payroll,
+                  SaaS
+                </td>
+              </tr>
+              <tr>
+                <td>API E2E</td>
+                <td>Scénarios complets sur base isolée</td>
+              </tr>
+              <tr>
+                <td>Dashboard RH</td>
+                <td>Modules tour / onboarding</td>
+              </tr>
+              <tr>
+                <td>App Kiosk</td>
+                <td>États UI de scan</td>
+              </tr>
+              <tr>
+                <td>Apps mobiles (build)</td>
+                <td><strong>Hors CI</strong> — builds EAS manuels</td>
+              </tr>
+              <tr>
+                <td>Frontend typecheck</td>
+                <td>Dashboard RH + Console SaaS en CI</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">25</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 26 — §9.4–9.5 CI/CD et déploiement -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §9 Méthodologie</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          9.4–9.5 CI/CD et déploiement
+        </h1>
+        <div class="page-main">
+          <h2 class="dat-h2">9.4 CI/CD</h2>
+          <ol class="bullets bullets--numbered">
+            <li>
+              <strong>Job API :</strong> install → migrations → build → tests
+              use-cases
+            </li>
+            <li>
+              <strong>Job frontend :</strong> typecheck Dashboard RH et Console
+              SaaS
+            </li>
+          </ol>
+          <h2 class="dat-h2">9.5 Déploiement</h2>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Composant</th>
+                <th>Méthode</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Dashboard RH / Console SaaS</td>
+                <td>Vercel (pilote)</td>
+              </tr>
+              <tr>
+                <td>API TimeGate</td>
+                <td>Render (pilote) → Cloud Run (production)</td>
+              </tr>
+              <tr>
+                <td>Base de données</td>
+                <td>AlwaysData (pilote) → Cloud SQL (production)</td>
+              </tr>
+              <tr>
+                <td>Apps mobiles</td>
+                <td>EAS Build</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">26</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 27 — §10 Maintenance -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §10 Maintenance</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">
+          10. Maintenance et évolutivité
+        </h1>
+        <div class="page-main">
+          <h3 class="dat-h3">10.1 Maintenance</h3>
+          <ul class="bullets">
+            <li>Migrations Prisma versionnées</li>
+            <li>Seed reproductible pour tests</li>
+            <li>Documentation client pilote</li>
+            <li>Module notifications (20+ types d'événements)</li>
+          </ul>
+          <h3 class="dat-h3">10.2 Gestion des versions</h3>
+          <p>
+            API <code>/api/v1</code> · schema base versionné · apps mobiles via
+            EAS.
+          </p>
+          <h3 class="dat-h3">10.3 Évolutions fonctionnelles supportées</h3>
+          <table class="dat-table">
+            <thead>
+              <tr>
+                <th>Évolution</th>
+                <th>Faisabilité</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Nouveau mode pointage</td>
+                <td>Enum + endpoint + UI kiosk</td>
+              </tr>
+              <tr>
+                <td>Nouvelle organisation</td>
+                <td>Multi-tenant natif</td>
+              </tr>
+              <tr>
+                <td>Nouveau site/branche</td>
+                <td>Branche + kiosk associé</td>
+              </tr>
+              <tr>
+                <td>Intégration paie tierce</td>
+                <td>API payroll + connecteur</td>
+              </tr>
+            </tbody>
+          </table>
+          <h3 class="dat-h3">10.4 Évolutivité technique</h3>
+          <p>
+            Architecture modulaire NestJS : nouveaux modules métier sans impact
+            clients existants. Multi-tenant : ajout d'organisations sans
+            reconfiguration infrastructure.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">27</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 28 — §11 Perspectives -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event"
+            >AfriTech 2026 · §11 Perspectives</span
+          >
+        </header>
+        <h1 class="page-title page-title--accent">11. Perspectives</h1>
+        <div class="page-main">
+          <p>
+            TimeGate vise une croissance progressive ancrée dans des
+            déploiements terrain réussis :
+          </p>
+          <ul class="bullets">
+            <li>
+              <strong>Consolidation pilote</strong> — publication des métriques
+              terrain (après accord client) et prospection 2ᵉ client PME.
+            </li>
+            <li>
+              <strong>Montée en charge</strong> — 50–100 collaborateurs : GCP,
+              service facial dédié, index vectoriel.
+            </li>
+            <li>
+              <strong>Infrastructure production</strong> — Cloud Run, Cloud SQL,
+              Cloud Storage.
+            </li>
+            <li>
+              <strong>Connecteurs paie</strong> — Sage, Odoo (après validation
+              module pointage).
+            </li>
+            <li>
+              <strong>Conformité</strong> — registre de traitement, notice
+              biométrique, audit externe avant grands comptes.
+            </li>
+          </ul>
+          <p class="lead">
+            Le pilote rémunéré SSII valide le déploiement opérationnel à ~10
+            personnes. AfriTech 2026 permet de structurer la consolidation des
+            métriques terrain et la montée en charge commerciale.
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">28</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 22 — §12 Annexes A-B -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §12 Annexes</span>
+        </header>
+        <h1 class="page-title page-title--accent">12. Annexes</h1>
+        <div class="page-main">
+          <h2 class="dat-h2">Annexe A — Schémas de déploiement</h2>
+          <h3 class="dat-h3">Phase pilote (actuelle)</h3>
+          <div class="dat-diagram">
+            Admin RH ──► Vercel (Dashboard + Console) ──► Render (API)
+            Employé/Kiosk ──────────────────────────────► Render (API) Render
+            ──► AlwaysData (PostgreSQL) · Cloudflare R2 · Firebase FCM
+          </div>
+          <h3 class="dat-h3">Cible production (Google Cloud)</h3>
+          <div class="dat-diagram">
+            Clients ──► Cloud Run (API NestJS) Cloud Run ──► Cloud Run (moteur
+            facial) Cloud Run ──► Cloud SQL · Cloud Storage · Secret Manager ·
+            Firebase FCM
+          </div>
+          <h2 class="dat-h2">Annexe B — Documentation API</h2>
+          <p>
+            Documentation interactive Swagger à <code>/api/v1/docs</code> sur
+            l'API pilote (<code>timegate.onrender.com</code>).
+          </p>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <span class="page-footer__num">29</span>
+        </footer>
+      </div>
+    </section>
+
+    <!-- PAGE 27 — §12 Annexe C Captures -->
+    <section class="page">
+      <div class="page__inner">
+        <header class="page-header">
+          <div class="page-header__brand">
+            <span class="page-header__name">TimeGate</span>
+          </div>
+          <span class="page-header__event">AfriTech 2026 · §12 Annexes</span>
+        </header>
+        <h1 class="page-title page-title--accent">
+          Annexe C — Captures produit
+        </h1>
+        <div class="page-main">
+          <p class="lead">
+            Captures août 2026 —
+            <strong>dashboard : données de démonstration</strong> ; kiosk et app
+            employé : environnement pilote SSII (Brazzaville, ~10
+            collaborateurs).
+          </p>
+          <article class="dat-showcase__item dat-showcase__item--web">
+            <div class="dat-showcase__head">
+              <span class="dat-showcase__badge">Web</span>
+              <div>
+                <h2 class="dat-showcase__title">Dashboard RH</h2>
+                <p class="dat-showcase__desc">
+                  Présences, exports CSV/PDF, suivi par employé —
+                  <em>capture avec jeux de données de démonstration</em>.
+                </p>
+              </div>
+            </div>
+            <img src="assets/screenshot-dashboard.png" alt="" />
+          </article>
+          <div class="dat-showcase__mobiles">
+            <article class="dat-showcase__item dat-showcase__item--mobile">
+              <div class="dat-showcase__head">
+                <span class="dat-showcase__badge">Mobile</span>
+                <div>
+                  <h2 class="dat-showcase__title">App Kiosk</h2>
+                  <p class="dat-showcase__desc">
+                    Pointage facial — mode principal au pilote ·
+                    <em>capture terrain</em>.
+                  </p>
+                </div>
+              </div>
+              <img src="assets/screenshot-kiosk.png" alt="" />
+            </article>
+            <article class="dat-showcase__item dat-showcase__item--mobile">
+              <div class="dat-showcase__head">
+                <span class="dat-showcase__badge">Mobile</span>
+                <div>
+                  <h2 class="dat-showcase__title">App Employé</h2>
+                  <p class="dat-showcase__desc">
+                    Historique pointages, demandes de congés —
+                    <em>capture environnement pilote</em>.
+                  </p>
+                </div>
+              </div>
+              <img src="assets/screenshot-employee-app.png" alt="" />
+            </article>
+          </div>
+        </div>
+        <footer class="page-footer">
+          <span>TimeGate — DAT AfriTech 2026</span>
+          <!-- · v2.7 · 30 août 2026 -->
+          <span class="page-footer__num">30</span>
+        </footer>
+      </div>
+    </section>
+  </body>
+</html>

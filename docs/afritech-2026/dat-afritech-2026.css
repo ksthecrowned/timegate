@@ -1,0 +1,476 @@
+/* TimeGate — AfriTech 2026 · DAT technique
+ * Reprend la lisibilité du dossier JIBC (10.5pt) — pas de réduction sur pages techniques.
+ */
+
+@import url("../jibc-2026/dossier-jibc-2026.css");
+
+.dat-diagram {
+  background: var(--tg-surface-teal);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  padding: 4mm;
+  margin: 3mm 0;
+  font-family: ui-monospace, "Cascadia Code", monospace;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre;
+  overflow-x: hidden;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Diagrammes empilés — ASCII legacy (autres sections) */
+.dat-diagram--stack {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 52mm;
+}
+
+/* Schéma architecture §2.1 — HTML, lisible en PDF */
+.dat-arch {
+  background: var(--tg-surface-teal);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  padding: 3mm 4mm;
+  margin: 2mm 0 3mm;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2mm;
+}
+
+.dat-arch__layer {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5mm;
+}
+
+.dat-arch__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--tg-primary);
+  text-align: center;
+}
+
+.dat-arch__grid {
+  display: grid;
+  gap: 2mm;
+}
+
+.dat-arch__grid--4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.dat-arch__grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.dat-arch__node {
+  background: #fff;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  padding: 2mm 2.5mm;
+  text-align: center;
+  font-size: 0.82rem;
+  line-height: 1.3;
+}
+
+.dat-arch__node strong {
+  display: block;
+  font-weight: 700;
+  color: var(--tg-ink);
+}
+
+.dat-arch__node span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--tg-ink-muted);
+  margin-top: 0.5mm;
+}
+
+.dat-arch__node--core {
+  background: var(--tg-primary);
+  border-color: var(--tg-primary);
+  color: #fff;
+  align-self: center;
+  min-width: 45%;
+}
+
+.dat-arch__node--core strong,
+.dat-arch__node--core span {
+  color: #fff;
+}
+
+.dat-arch__node--services {
+  align-self: center;
+  min-width: 55%;
+  background: var(--tg-surface);
+}
+
+.dat-arch__connector {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--tg-ink-muted);
+  line-height: 1.2;
+  padding: 0.5mm 0;
+}
+
+.dat-arch__connector::before {
+  content: "↓ ";
+  color: var(--tg-primary);
+  font-weight: 700;
+}
+
+.dat-table--compact th,
+.dat-table--compact td {
+  padding: 1.8mm 2.5mm;
+}
+
+/* Flux séquentiel §3.4 — pointage facial */
+.dat-flow {
+  background: var(--tg-surface-teal);
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  padding: 3mm 4mm;
+  margin: 2mm 0 3mm;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.dat-flow__step {
+  display: grid;
+  grid-template-columns: 22mm 1fr;
+  gap: 3mm;
+  align-items: start;
+  padding: 1.5mm 0;
+  position: relative;
+}
+
+.dat-flow__step + .dat-flow__step::before {
+  content: "↓";
+  position: absolute;
+  left: 9mm;
+  top: -2.5mm;
+  font-size: 0.7rem;
+  color: var(--tg-primary);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dat-flow__actor {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--tg-primary);
+  text-align: right;
+  line-height: 1.3;
+  padding-top: 0.5mm;
+}
+
+.dat-flow__action {
+  font-size: 0.84rem;
+  line-height: 1.35;
+  color: var(--tg-ink);
+  background: #fff;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  padding: 2mm 2.5mm;
+}
+
+.dat-flow__action em {
+  font-size: 0.78rem;
+  color: var(--tg-ink-muted);
+}
+
+.dat-flow__branch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3mm;
+  margin-top: 3mm;
+  padding-top: 2mm;
+  border-top: 1px dashed var(--tg-border);
+}
+
+.dat-flow__outcome {
+  border-radius: var(--radius);
+  padding: 2.5mm 3mm;
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.dat-flow__outcome strong {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 1mm;
+}
+
+.dat-flow__outcome span {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--tg-ink-muted);
+}
+
+.dat-flow__outcome--ok {
+  background: #ecfdf5;
+  border: 1px solid #6ee7b7;
+}
+
+.dat-flow__outcome--ok strong {
+  color: #065f46;
+}
+
+.dat-flow__outcome--ko {
+  background: #fff7ed;
+  border: 1px solid #fdba74;
+}
+
+.dat-flow__outcome--ko strong {
+  color: #9a3412;
+}
+
+.dat-callout {
+  margin: 3mm 0 0;
+  padding: 2.5mm 3mm;
+  background: var(--tg-surface);
+  border-left: 3px solid var(--tg-primary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+@media print {
+  .dat-diagram {
+    overflow: visible;
+    break-inside: avoid;
+  }
+
+  .dat-arch {
+    break-inside: avoid;
+  }
+
+  .dat-flow {
+    break-inside: avoid;
+  }
+
+  .dat-diagram--stack {
+    font-size: 6.5pt;
+    max-width: 100%;
+  }
+}
+
+.dat-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: inherit;
+  margin: 2mm 0;
+}
+
+.dat-table th,
+.dat-table td {
+  border: 1px solid var(--tg-border);
+  padding: 2.5mm 3mm;
+  text-align: left;
+  vertical-align: top;
+}
+
+.dat-table th {
+  background: var(--tg-surface-teal);
+  color: var(--tg-primary-text);
+  font-weight: 700;
+}
+
+.dat-table tr:nth-child(even) td {
+  background: var(--tg-surface);
+}
+
+.dat-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.dat-toc {
+  list-style: none;
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.dat-toc li {
+  padding-left: 0;
+  border-bottom: 1px dotted var(--tg-border);
+}
+
+.dat-toc__num {
+  display: inline-block;
+  width: 2rem;
+  color: var(--tg-primary);
+  font-weight: 700;
+}
+
+.section-label--tech {
+  color: var(--tg-accent);
+}
+
+/* Listes numérotées — alignées avec ul.bullets */
+ol.bullets.bullets--numbered {
+  list-style: decimal;
+  list-style-position: outside;
+  padding-left: 1.35rem;
+  margin: 0 0 2.5mm 0;
+  font-size: 0.92rem;
+  color: var(--tg-ink-body);
+  line-height: 1.55;
+}
+
+ol.bullets.bullets--numbered li {
+  padding-left: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+
+ol.bullets.bullets--numbered li::before {
+  content: none;
+}
+
+h2.dat-h2 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--tg-primary-text);
+  margin: 4mm 0 2mm;
+  padding-bottom: 1mm;
+  border-bottom: 2px solid var(--tg-surface-2);
+}
+
+h3.dat-h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tg-ink);
+  margin: 3mm 0 1.5mm;
+}
+
+.cover__pilot {
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.9rem;
+  max-width: 520px;
+  line-height: 1.5;
+}
+
+.page--cover .cover__tagline {
+  max-width: 480px;
+}
+
+.dat-screenshots {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+  margin: 4mm 0;
+}
+
+.dat-screenshot {
+  margin: 0;
+}
+
+.dat-screenshot img {
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  display: block;
+}
+
+.dat-screenshot--wide {
+  grid-column: 1 / -1;
+  max-width: 70%;
+  margin: 0 auto;
+}
+
+.dat-screenshot figcaption {
+  font-size: 0.85rem;
+  margin-top: 1.5mm;
+  text-align: center;
+  color: var(--tg-muted);
+}
+
+/* Annexe C — vitrine captures produit */
+.dat-showcase__item {
+  border: 1px solid var(--tg-border);
+  border-radius: var(--radius);
+  background: #fff;
+  overflow: hidden;
+  margin-bottom: 3mm;
+}
+
+.dat-showcase__item--web img {
+  width: 100%;
+  display: block;
+  border-top: 1px solid var(--tg-border);
+}
+
+.dat-showcase__mobiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4mm;
+}
+
+.dat-showcase__item--mobile img {
+  width: auto;
+  max-width: 100%;
+  max-height: 95mm;
+  display: block;
+  margin: 0 auto;
+  padding: 2mm;
+}
+
+.dat-showcase__head {
+  display: flex;
+  gap: 3mm;
+  align-items: flex-start;
+  padding: 3mm 4mm;
+  background: var(--tg-surface-teal);
+}
+
+.dat-showcase__badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 1mm 2mm;
+  border-radius: 4px;
+  background: var(--tg-primary);
+  color: #fff;
+}
+
+.dat-showcase__title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--tg-ink);
+  margin: 0 0 1mm;
+}
+
+.dat-showcase__desc {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--tg-ink-muted);
+  margin: 0;
+}
+
+@media print {
+  .dat-showcase__item,
+  .dat-showcase__mobiles {
+    break-inside: avoid;
+  }
+}
