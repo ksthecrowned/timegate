@@ -418,7 +418,7 @@ Parcours complet (~30 min), rôle ADMIN :
 |-------|---------|
 | `POST /face/enroll` sans fichier | 400 |
 | `POST /face/enroll` + faux JPEG | 400 ou soft-skip 500 moteur |
-| Provision kiosk + `POST /auth/mobile/verify` faux JPEG | 400 / soft-skip / no-match |
+| Provision kiosk + `POST /auth/kiosk/verify` faux JPEG | 400 / soft-skip / no-match |
 
 ---
 
@@ -430,7 +430,7 @@ Parcours complet (~30 min), rôle ADMIN :
 |-------|---------|
 | Enable `nfcEnabled` + `qrEnabled` sur kiosk | 200 |
 | `PATCH /employees/:id/nfc-badge` | badge lié |
-| `POST /auth/mobile/verify-nfc` online | success |
+| `POST /auth/kiosk/verify-nfc` online | success |
 | NFC `offlineSync=1` + `capturedAt` récent | success |
 | PIN `offlineSync=1` | **400** (interdit) |
 | NFC offline sans / trop vieux `capturedAt` | 400 |

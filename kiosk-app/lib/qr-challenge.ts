@@ -98,7 +98,7 @@ export async function createQrChallenge(): Promise<QrChallenge> {
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/auth/mobile/qr-challenge`, {
+    res = await fetch(`${API_BASE}/auth/kiosk/qr-challenge`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -145,7 +145,7 @@ export async function pollQrChallengeResult(
   if (!token) {
     return { status: 'PENDING', result: null };
   }
-  const res = await fetch(`${API_BASE}/auth/mobile/qr-challenge/${challengeId}/result`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/qr-challenge/${challengeId}/result`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) {

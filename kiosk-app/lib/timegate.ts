@@ -20,7 +20,7 @@ const KIOSK_FEATURES_KEY = "timegate_mobile_kiosk_features";
 // Feature flags
 // Simple key-value store in SecureStore for experimental features.
 // In production, this should come from the backend (e.g., /kiosks/:id/features).
-// TODO backend: Replace this with actual feature flags from POST /auth/mobile/provision
+// TODO backend: Replace this with actual feature flags from POST /auth/kiosk/provision
 // or a dedicated endpoint like GET /kiosks/:id/features.
 const DEFAULT_FEATURES: KioskFeatures = {
   faceEnabled: true,
@@ -62,7 +62,7 @@ export function setKioskFeatures(features: KioskFeatures): Promise<void> {
 export async function fetchMobileConfig(): Promise<KioskFeatures | null> {
   const token = await getLifetimeToken();
   if (!token) return null;
-  const res = await fetch(`${API_BASE}/auth/mobile/config`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/config`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (res.status === 401) {
@@ -234,7 +234,7 @@ export async function bootstrapOperator(
   operatorToken: string;
   branches: TimeGateBranch[];
 }> {
-  const res = await fetch(`${API_BASE}/auth/mobile/bootstrap`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/bootstrap`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -253,7 +253,7 @@ export async function bootstrapOperator(
   };
   if (!json.operator_token) {
     throw new Error(
-      "Token opérateur manquant dans la réponse /auth/mobile/bootstrap.",
+      "Token opérateur manquant dans la réponse /auth/kiosk/bootstrap.",
     );
   }
   const branches = Array.isArray(json.branches) ? json.branches : [];
@@ -308,7 +308,7 @@ export async function getProvisionState(): Promise<ProvisionState> {
 export async function provisionKiosk(
   input: ProvisionInput,
 ): Promise<ProvisionState> {
-  const res = await fetch(`${API_BASE}/auth/mobile/provision`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/provision`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.operatorToken}`,
@@ -357,7 +357,7 @@ export async function provisionKiosk(
 export async function sendKioskHeartbeat(): Promise<void> {
   const token = await getLifetimeToken();
   if (!token) return;
-  const res = await fetch(`${API_BASE}/auth/mobile/heartbeat`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/heartbeat`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -605,7 +605,7 @@ export async function verifyFacePhoto(
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/auth/mobile/verify`, {
+    res = await fetch(`${API_BASE}/auth/kiosk/verify`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,
@@ -695,7 +695,7 @@ export async function verifyMobilePin(
       "Appareil non provisionné. Configurez l'app au premier lancement.",
     );
   }
-  const res = await fetch(`${API_BASE}/auth/mobile/verify-pin`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/verify-pin`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -766,7 +766,7 @@ export async function verifyNfcBadge(
       "Appareil non provisionné. Configurez l'app au premier lancement.",
     );
   }
-  const res = await fetch(`${API_BASE}/auth/mobile/verify-nfc`, {
+  const res = await fetch(`${API_BASE}/auth/kiosk/verify-nfc`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,

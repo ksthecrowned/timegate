@@ -48,7 +48,7 @@ export async function runUc17(ctx) {
   const kioskAuth = authHeader(kioskToken)
   const d = uniqueWeekdayParts(ctx, 0)
 
-  const tooEarly = await request('/auth/mobile/verify-pin', {
+  const tooEarly = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -66,7 +66,7 @@ export async function runUc17(ctx) {
     fail(ctx, 'UC-17 Trop tôt', detail(tooEarly.json))
   }
 
-  const checkIn = await request('/auth/mobile/verify-pin', {
+  const checkIn = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -84,7 +84,7 @@ export async function runUc17(ctx) {
     fail(ctx, 'UC-17 Check-in fenêtre', detail(checkIn.json))
   }
 
-  const alreadyIn = await request('/auth/mobile/verify-pin', {
+  const alreadyIn = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -102,7 +102,7 @@ export async function runUc17(ctx) {
     fail(ctx, 'UC-17 Double arrivée', detail(alreadyIn.json))
   }
 
-  const earlyOut = await request('/auth/mobile/verify-pin', {
+  const earlyOut = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -122,7 +122,7 @@ export async function runUc17(ctx) {
     fail(ctx, 'UC-17 Départ anticipé', detail(earlyOut.json))
   }
 
-  const checkOut = await request('/auth/mobile/verify-pin', {
+  const checkOut = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -140,7 +140,7 @@ export async function runUc17(ctx) {
     fail(ctx, 'UC-17 Check-out', detail(checkOut.json))
   }
 
-  const wrongPin = await request('/auth/mobile/verify-pin', {
+  const wrongPin = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: kioskAuth,
     body: JSON.stringify({

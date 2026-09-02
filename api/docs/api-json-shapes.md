@@ -21,8 +21,10 @@ Payload signé à la connexion (`POST /auth/login`) :
 }
 ```
 
-Token mobile opérateur (`POST /auth/mobile/bootstrap`) : même shape (`companyId`).  
-Token lifetime kiosk (`POST /auth/mobile/provision`) : JWT kiosk (verify / heartbeat).
+Token opérateur kiosk (`POST /auth/kiosk/bootstrap`) : même shape (`companyId`).
+Token lifetime kiosk (`POST /auth/kiosk/provision`) : JWT kiosk (verify / heartbeat).
+
+Les routes `/auth/mobile/*` restent disponibles comme alias deprecated.
 
 Super-admin : URLs `/super-admin/organizations/:organizationId/…` — le paramètre de route vaut un `companyId`.
 
@@ -194,9 +196,11 @@ Filtres liste : `branchId`, `kioskId`, `employeeId`, `from`, `to`, `status`.
 
 ---
 
-## Mobile kiosk
+## Kiosk (app borne)
 
-### `POST /auth/mobile/bootstrap`
+Routes principales sous `/auth/kiosk/*`. Alias deprecated : `/auth/mobile/*`.
+
+### `POST /auth/kiosk/bootstrap`
 
 ```json
 {
@@ -207,7 +211,7 @@ Filtres liste : `branchId`, `kioskId`, `employeeId`, `from`, `to`, `status`.
 }
 ```
 
-### `POST /auth/mobile/provision`
+### `POST /auth/kiosk/provision`
 
 Corps :
 

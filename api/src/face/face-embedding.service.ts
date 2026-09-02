@@ -1,14 +1,33 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { spawn } from 'child_process';
+import { ChildProcess, spawn } from 'child_process';
 import { resolve } from 'path';
 
+type EngineJson = { embedding?: number[]; error?: string; ready?: boolean };
+
 @Injectable()
-export class FaceEmbeddingService implements OnModuleInit {
+export class FaceEmbeddingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(FaceEmbeddingService.name);
-  /** One Python face_engine process at a time (parallel spawns cause timeouts). */
+  /** One face embed at a time (parallel requests overload memory on small instances). */
   private embedChain: Promise<void> = Promise.resolve();
   private resolvedPythonBin: string | null = null;
+
+  private worker: ChildProcess | null = null;
+  private workerReady = false;
+  private workerBootPromise: Promise<void> | null = null;
+  private workerLineBuffer = '';
+  private workerResponseWaiter: {
+    resolve: (parsed: EngineJson) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  } | null = null;
 
   constructor(private readonly config: ConfigService) { }
 
@@ -26,8 +45,13 @@ export class FaceEmbeddingService implements OnModuleInit {
     })();
     this.logger.log(
       `[face-embed] cwd=${process.cwd()} venvPython=${venvPy} exists=${venvExists} ` +
-        `FACE_ENGINE_PYTHON_BIN=${this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? '(unset)'}`,
+        `FACE_ENGINE_PYTHON_BIN=${this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? '(unset)'} ` +
+        `persistent=${this.usePersistentWorker()}`,
     );
+  }
+
+  onModuleDestroy(): void {
+    this.killWorker();
   }
 
   private defaultVenvPython(): string {
@@ -46,6 +70,20 @@ export class FaceEmbeddingService implements OnModuleInit {
   private isBuiltVenvPython(bin: string): boolean {
     const normalized = bin.replace(/\\/g, '/').toLowerCase();
     return normalized.includes('/.venv/') || normalized.includes('/venv/');
+  }
+
+  private usePersistentWorker(): boolean {
+    const flag = this.config.get<string>('FACE_ENGINE_PERSISTENT');
+    if (flag === '0' || flag === 'false') return false;
+    return true;
+  }
+
+  private scriptPath(): string {
+    return this.config.get<string>('FACE_ENGINE_SCRIPT_PATH') ?? resolve(process.cwd(), 'python', 'face_engine.py');
+  }
+
+  private configuredPythonBin(): string {
+    return this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? this.defaultVenvPython();
   }
 
   /**
@@ -113,15 +151,25 @@ export class FaceEmbeddingService implements OnModuleInit {
     return run;
   }
 
-  /**
-   * Resolve a Python interpreter that has `face_recognition` importable.
-   *
-   * Strategy:
-   *  1. Try the configured bin (FACE_ENGINE_PYTHON_BIN) if it exists and is
-   *     valid for this OS (ignore Windows `.venv/Scripts/python.exe` on Linux).
-   *  2. Probe common venv locations for this platform.
-   *  3. Fall back to `python3` / `python` on PATH.
-   */
+  private killWorker(): void {
+    if (this.workerResponseWaiter) {
+      clearTimeout(this.workerResponseWaiter.timer);
+      this.workerResponseWaiter.reject(new Error('Face engine worker stopped'));
+      this.workerResponseWaiter = null;
+    }
+    if (this.worker) {
+      try {
+        this.worker.kill('SIGKILL');
+      } catch {
+        /* already exited */
+      }
+    }
+    this.worker = null;
+    this.workerReady = false;
+    this.workerBootPromise = null;
+    this.workerLineBuffer = '';
+  }
+
   private async resolvePythonBin(configured: string): Promise<string> {
     if (this.resolvedPythonBin) {
       return this.resolvedPythonBin;
@@ -217,7 +265,6 @@ export class FaceEmbeddingService implements OnModuleInit {
         candidate.endsWith('.exe');
       if (needsDisk && !pathExists(candidate)) continue;
 
-      // Build-time venv on Render: first import loads ~100MB models and exceeds 5s probes.
       if (this.isBuiltVenvPython(candidate)) {
         this.logger.log(`[face-embed] Using venv Python at ${candidate} (skipping slow import probe)`);
         this.resolvedPythonBin = candidate;
@@ -242,13 +289,193 @@ export class FaceEmbeddingService implements OnModuleInit {
     return fallback;
   }
 
+  private parseEmbedding(parsed: EngineJson): number[] {
+    if (parsed.error) {
+      throw new Error(parsed.error);
+    }
+    if (!Array.isArray(parsed.embedding) || !parsed.embedding.length) {
+      throw new Error('No embedding returned by face engine');
+    }
+    const embedding = parsed.embedding.filter((value): value is number => typeof value === 'number');
+    if (!embedding.length) {
+      throw new Error('Invalid embedding format');
+    }
+    return embedding;
+  }
+
+  private drainWorkerStdout(chunk: Buffer): void {
+    this.workerLineBuffer += chunk.toString('utf8');
+    const lines = this.workerLineBuffer.split('\n');
+    this.workerLineBuffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (!this.workerResponseWaiter) {
+        this.logger.warn(`[face-embed] worker stdout without waiter: ${trimmed.slice(0, 120)}`);
+        continue;
+      }
+      const waiter = this.workerResponseWaiter;
+      this.workerResponseWaiter = null;
+      clearTimeout(waiter.timer);
+      try {
+        const parsed = JSON.parse(trimmed) as EngineJson;
+        waiter.resolve(parsed);
+      } catch (err) {
+        waiter.reject(
+          err instanceof Error ? err : new Error(`Invalid face engine output: ${trimmed.slice(0, 120)}`),
+        );
+      }
+    }
+  }
+
+  private async ensureWorkerReady(): Promise<void> {
+    if (this.workerReady && this.worker) return;
+    if (this.workerBootPromise) {
+      await this.workerBootPromise;
+      return;
+    }
+
+    const pythonBin = await this.resolvePythonBin(this.configuredPythonBin());
+    const scriptPath = this.scriptPath();
+    const bootTimeoutMs = Number(this.config.get<string>('FACE_ENGINE_BOOT_TIMEOUT_MS') ?? 90000);
+
+    this.workerBootPromise = new Promise<void>((resolveBoot, rejectBoot) => {
+      const child = spawn(pythonBin, [scriptPath, '--server'], {
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+      this.worker = child;
+      this.workerReady = false;
+      this.workerLineBuffer = '';
+      this.logger.log(`[face-embed] starting persistent worker (bin=${pythonBin})`);
+
+      let bootBuffer = '';
+      const bootTimer = setTimeout(() => {
+        this.killWorker();
+        rejectBoot(new Error(`Face engine worker boot timeout after ${bootTimeoutMs}ms`));
+      }, bootTimeoutMs);
+
+      const onBootData = (chunk: Buffer) => {
+        bootBuffer += chunk.toString('utf8');
+        const lines = bootBuffer.split('\n');
+        bootBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) continue;
+          try {
+            const msg = JSON.parse(trimmed) as EngineJson;
+            if (msg.ready) {
+              clearTimeout(bootTimer);
+              child.stdout.off('data', onBootData);
+              child.stdout.on('data', (c) => this.drainWorkerStdout(c));
+              this.workerReady = true;
+              this.logger.log('[face-embed] persistent worker ready');
+              resolveBoot();
+              return;
+            }
+            if (msg.error) {
+              clearTimeout(bootTimer);
+              this.killWorker();
+              rejectBoot(new Error(msg.error));
+            }
+          } catch {
+            /* wait for complete JSON line */
+          }
+        }
+      };
+
+      child.stdout.on('data', onBootData);
+      child.stderr.on('data', (c: Buffer) => {
+        const text = c.toString('utf8').trim();
+        if (text) this.logger.warn(`[face-embed] worker stderr: ${text}`);
+      });
+      child.on('error', (err) => {
+        clearTimeout(bootTimer);
+        this.killWorker();
+        rejectBoot(err);
+      });
+      child.on('close', (code) => {
+        if (!this.workerReady) {
+          clearTimeout(bootTimer);
+          rejectBoot(new Error(`Face engine worker exited during boot (code=${code ?? 'unknown'})`));
+        }
+        this.logger.warn(`[face-embed] worker exited (code=${code ?? 'unknown'})`);
+        this.worker = null;
+        this.workerReady = false;
+        this.workerBootPromise = null;
+        if (this.workerResponseWaiter) {
+          clearTimeout(this.workerResponseWaiter.timer);
+          this.workerResponseWaiter.reject(new Error('Face engine worker exited'));
+          this.workerResponseWaiter = null;
+        }
+      });
+    });
+
+    try {
+      await this.workerBootPromise;
+    } catch (err) {
+      this.workerBootPromise = null;
+      throw err;
+    }
+  }
+
+  private async embedWithPersistentWorker(buffer: Buffer, timeoutMs: number): Promise<number[]> {
+    await this.ensureWorkerReady();
+    if (!this.worker?.stdin) {
+      throw new Error('Face engine worker not running');
+    }
+    if (this.workerResponseWaiter) {
+      throw new Error('Face engine worker busy');
+    }
+
+    return new Promise<number[]>((resolveEmbedding, rejectEmbedding) => {
+      const timer = setTimeout(() => {
+        this.workerResponseWaiter = null;
+        this.killWorker();
+        rejectEmbedding(new Error(`Face engine timeout after ${timeoutMs}ms`));
+      }, timeoutMs);
+
+      this.workerResponseWaiter = {
+        resolve: (parsed) => {
+          try {
+            resolveEmbedding(this.parseEmbedding(parsed));
+          } catch (err) {
+            rejectEmbedding(err instanceof Error ? err : new Error(String(err)));
+          }
+        },
+        reject: rejectEmbedding,
+        timer,
+      };
+
+      const header = Buffer.alloc(4);
+      header.writeUInt32BE(buffer.length, 0);
+      try {
+        this.worker.stdin.write(header);
+        this.worker.stdin.write(buffer);
+      } catch (err) {
+        clearTimeout(timer);
+        this.workerResponseWaiter = null;
+        this.killWorker();
+        rejectEmbedding(err instanceof Error ? err : new Error(String(err)));
+      }
+    });
+  }
+
   private async embedWithPython(buffer: Buffer): Promise<number[]> {
-    const configured =
-      this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? this.defaultVenvPython();
-    const pythonBin = await this.resolvePythonBin(configured);
-    const scriptPath =
-      this.config.get<string>('FACE_ENGINE_SCRIPT_PATH') ?? resolve(process.cwd(), 'python', 'face_engine.py');
     const timeoutMs = Number(this.config.get<string>('FACE_ENGINE_TIMEOUT_MS') ?? 30000);
+
+    if (this.usePersistentWorker()) {
+      try {
+        return await this.embedWithPersistentWorker(buffer, timeoutMs);
+      } catch (err) {
+        this.logger.warn(
+          `[face-embed] persistent worker failed, falling back to one-shot: ${err instanceof Error ? err.message : String(err)}`,
+        );
+        this.killWorker();
+      }
+    }
+
+    const pythonBin = await this.resolvePythonBin(this.configuredPythonBin());
+    const scriptPath = this.scriptPath();
 
     const summarizeEngineText = (stdout: string, stderr: string) => {
       const out = stdout.trim();
@@ -267,7 +494,7 @@ export class FaceEmbeddingService implements OnModuleInit {
         );
       }
       try {
-        return JSON.parse(raw) as { embedding?: number[]; error?: string };
+        return JSON.parse(raw) as EngineJson;
       } catch {
         const snippet = raw.length > 240 ? `${raw.slice(0, 240)}…` : raw;
         throw new Error(
@@ -303,8 +530,7 @@ export class FaceEmbeddingService implements OnModuleInit {
         if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
           rejectEmbedding(
             new Error(
-              `Python introuvable (${pythonBin}). Sur Render/Linux, définissez FACE_ENGINE_PYTHON_BIN=python3 ` +
-                `(pas .venv/Scripts/python.exe) et installez face_recognition dans cet interpréteur.`,
+              `Python introuvable (${pythonBin}). Définissez FACE_ENGINE_PYTHON_BIN=.venv/bin/python sur Render/Linux.`,
             ),
           );
           return;
@@ -331,20 +557,7 @@ export class FaceEmbeddingService implements OnModuleInit {
             );
             return;
           }
-          if (!Array.isArray(parsed.embedding) || !parsed.embedding.length) {
-            rejectEmbedding(
-              new Error(
-                `No embedding returned by face engine. Output: ${summarizeEngineText(stdout, stderr)}`,
-              ),
-            );
-            return;
-          }
-          const embedding = parsed.embedding.filter((value): value is number => typeof value === 'number');
-          if (!embedding.length) {
-            rejectEmbedding(new Error('Invalid embedding format'));
-            return;
-          }
-          resolveEmbedding(embedding);
+          resolveEmbedding(this.parseEmbedding(parsed));
         } catch (err) {
           if (code !== 0) {
             rejectEmbedding(

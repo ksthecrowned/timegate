@@ -79,7 +79,7 @@ export async function runUc14(ctx) {
     return
   }
 
-  const verify = await requestMultipart('/auth/mobile/verify', {
+  const verify = await requestMultipart('/auth/kiosk/verify', {
     headers: authHeader(ctx.tokens.kiosk),
     fields: {},
     file: {

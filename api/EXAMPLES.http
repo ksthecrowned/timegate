@@ -147,8 +147,8 @@ Authorization: Bearer {{token}}
 ### Face enroll (ADMIN) — multipart photo
 # curl -H "Authorization: Bearer TOKEN" -F "employeeId=<EMP_ID>" -F "photo=@./face.jpg" {{baseUrl}}/face/enroll
 
-### Mobile provisioning (ADMIN + MANAGER) => returns lifetime_token for kiosk app
-POST {{baseUrl}}/auth/mobile/provision
+### Kiosk provisioning (ADMIN + MANAGER) => returns lifetime_token for kiosk app
+POST {{baseUrl}}/auth/kiosk/provision
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
@@ -213,8 +213,8 @@ Content-Type: application/json
 DELETE {{baseUrl}}/employees/<employee_id>/contracts/<contract_id>
 Authorization: Bearer {{token}}
 
-### Mobile verify (public endpoint, uses lifetime_token from provisioning)
-POST {{baseUrl}}/auth/mobile/verify
+### Kiosk verify (public endpoint, uses lifetime_token from provisioning)
+POST {{baseUrl}}/auth/kiosk/verify
 Authorization: Bearer <lifetime_token>
 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary
 

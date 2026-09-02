@@ -107,7 +107,7 @@ export async function requestMultipart(path, { method = 'POST', headers = {}, fi
 
 /** Provisionne une borne et retourne le lifetime_token kiosk. */
 export async function provisionKiosk(adminToken, kioskId) {
-  const result = await request('/auth/mobile/provision', {
+  const result = await request('/auth/kiosk/provision', {
     method: 'POST',
     headers: authHeader(adminToken),
     body: JSON.stringify({ kioskId }),

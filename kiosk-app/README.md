@@ -36,12 +36,12 @@ Android autorise le HTTP en dev via `usesCleartextTraffic` dans `app.json`. En p
 
 ## Parcours kiosk
 
-1. **Bootstrap** — `POST /auth/mobile/bootstrap` (email, mot de passe, SKU) → token opérateur + liste des branches
-2. **Provision** — choix branche + appareil → `POST /auth/mobile/provision` → token lifetime stocké localement
-3. **Scan** — `POST /auth/mobile/verify` (photo multipart) ; pointage + log si match
-4. **NFC** — `POST /auth/mobile/verify-nfc` (badge UID) — pas de fallback PIN
+1. **Bootstrap** — `POST /auth/kiosk/bootstrap` (email, mot de passe, SKU) → token opérateur + liste des branches
+2. **Provision** — choix branche + appareil → `POST /auth/kiosk/provision` → token lifetime stocké localement
+3. **Scan** — `POST /auth/kiosk/verify` (photo multipart) ; pointage + log si match
+4. **NFC** — `POST /auth/kiosk/verify-nfc` (badge UID) — pas de fallback PIN
 5. **Hors ligne** — en cas d'erreur réseau, la capture est mise en file ; sync auto avec `offlineSync=1` et `capturedAt`
-6. **Heartbeat** — `POST /auth/mobile/heartbeat` toutes les ~90 s tant que l'app est ouverte (statut kiosk ONLINE)
+6. **Heartbeat** — `POST /auth/kiosk/heartbeat` toutes les ~90 s tant que l'app est ouverte (statut kiosk ONLINE)
 
 ## Comptes seed (démo)
 

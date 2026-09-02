@@ -1,39 +1,86 @@
 #!/usr/bin/env python3
 import io
 import json
+import struct
 import sys
 
+MAX_IMAGE_BYTES = 3_000_000
+MAX_IMAGE_DIM = 1280
 
-def main() -> int:
+
+def load_face_recognition():
     try:
         import face_recognition  # type: ignore
+        return face_recognition, None
     except Exception as exc:
-        sys.stdout.write(json.dumps({"error": f"face_recognition import failed: {exc}"}))
-        sys.stdout.flush()
-        return 1
+        return None, f"face_recognition import failed: {exc}"
 
-    data = sys.stdin.buffer.read()
+
+def load_rgb_image(data: bytes):
+    import numpy as np
+    from PIL import Image
+
+    pil = Image.open(io.BytesIO(data))
+    pil = pil.convert("RGB")
+    if max(pil.size) > MAX_IMAGE_DIM:
+        pil.thumbnail((MAX_IMAGE_DIM, MAX_IMAGE_DIM))
+    return np.array(pil)
+
+
+def embed_image(face_recognition, data: bytes) -> dict:
     if not data:
-        sys.stdout.write(json.dumps({"error": "empty image bytes"}))
-        sys.stdout.flush()
-        return 1
-
+        return {"error": "empty image bytes"}
+    if len(data) > MAX_IMAGE_BYTES:
+        return {"error": "image too large"}
     try:
-        image = face_recognition.load_image_file(io.BytesIO(data))
+        image = load_rgb_image(data)
         encodings = face_recognition.face_encodings(image)
         if not encodings:
-            sys.stdout.write(json.dumps({"error": "no face detected"}))
-            sys.stdout.flush()
-            return 1
-        embedding = encodings[0].tolist()
-        sys.stdout.write(json.dumps({"embedding": embedding}))
-        sys.stdout.flush()
-        return 0
+            return {"error": "no face detected"}
+        return {"embedding": encodings[0].tolist()}
     except Exception as exc:
-        sys.stdout.write(json.dumps({"error": f"embedding extraction failed: {exc}"}))
-        sys.stdout.flush()
+        return {"error": f"embedding extraction failed: {exc}"}
+
+
+def write_response(obj: dict) -> None:
+    sys.stdout.write(json.dumps(obj) + "\n")
+    sys.stdout.flush()
+
+
+def run_once() -> int:
+    face_recognition, err = load_face_recognition()
+    if err:
+        write_response({"error": err})
         return 1
+    data = sys.stdin.buffer.read()
+    result = embed_image(face_recognition, data)
+    write_response(result)
+    return 0 if "embedding" in result else 1
+
+
+def run_server() -> int:
+    face_recognition, err = load_face_recognition()
+    if err:
+        write_response({"error": err})
+        return 1
+    write_response({"ready": True})
+    while True:
+        header = sys.stdin.buffer.read(4)
+        if not header or len(header) < 4:
+            break
+        length = struct.unpack(">I", header)[0]
+        if length == 0 or length > MAX_IMAGE_BYTES:
+            write_response({"error": "invalid image length"})
+            continue
+        data = sys.stdin.buffer.read(length)
+        if len(data) < length:
+            write_response({"error": "truncated image bytes"})
+            break
+        write_response(embed_image(face_recognition, data))
+    return 0
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    if len(sys.argv) > 1 and sys.argv[1] == "--server":
+        raise SystemExit(run_server())
+    raise SystemExit(run_once())

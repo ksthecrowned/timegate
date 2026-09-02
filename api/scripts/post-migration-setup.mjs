@@ -41,7 +41,7 @@ async function adminToken() {
 }
 
 async function operatorToken() {
-  const data = await request('/auth/mobile/bootstrap', {
+  const data = await request('/auth/kiosk/bootstrap', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(LOGIN),
@@ -50,7 +50,7 @@ async function operatorToken() {
 }
 
 async function provision(operatorToken, kioskId, branchId, label) {
-  const data = await request('/auth/mobile/provision', {
+  const data = await request('/auth/kiosk/provision', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -58,7 +58,7 @@ async function provision(operatorToken, kioskId, branchId, label) {
     },
     body: JSON.stringify({ kioskId, branchId }),
   });
-  const config = await request('/auth/mobile/config', {
+  const config = await request('/auth/kiosk/config', {
     headers: { Authorization: `Bearer ${data.lifetime_token}` },
   });
   console.log(`✓ Re-provisionné ${label}: deviceToken actif, features=${JSON.stringify(config.features)}`);

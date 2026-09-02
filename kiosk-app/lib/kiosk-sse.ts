@@ -89,7 +89,7 @@ export function startKioskEventStream(handlers: SseHandlers): () => void {
 
     const request = new XMLHttpRequest();
     xhr = request;
-    request.open("GET", `${API_BASE}/auth/mobile/events`);
+    request.open("GET", `${API_BASE}/auth/kiosk/events`);
     request.setRequestHeader("Authorization", `Bearer ${token}`);
     request.setRequestHeader("Accept", "text/event-stream");
     request.setRequestHeader("Cache-Control", "no-cache");

@@ -65,7 +65,7 @@ export async function runUc15(ctx) {
 
   const kioskAuth = authHeader(kioskToken)
 
-  const nfcOnline = await request('/auth/mobile/verify-nfc', {
+  const nfcOnline = await request('/auth/kiosk/verify-nfc', {
     method: 'POST',
     headers: kioskAuth,
     body: JSON.stringify({ badgeUid }),
@@ -77,7 +77,7 @@ export async function runUc15(ctx) {
   }
 
   const capturedAt = new Date(Date.now() - 5 * 60_000).toISOString()
-  const nfcOffline = await request('/auth/mobile/verify-nfc', {
+  const nfcOffline = await request('/auth/kiosk/verify-nfc', {
     method: 'POST',
     headers: {
       ...kioskAuth,
@@ -99,7 +99,7 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 NFC offline', detail(nfcOffline.json))
   }
 
-  const pinOffline = await request('/auth/mobile/verify-pin', {
+  const pinOffline = await request('/auth/kiosk/verify-pin', {
     method: 'POST',
     headers: kioskAuth,
     body: JSON.stringify({
@@ -118,7 +118,7 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 PIN offline', detail(pinOffline.json))
   }
 
-  const nfcNoCapturedAt = await request('/auth/mobile/verify-nfc', {
+  const nfcNoCapturedAt = await request('/auth/kiosk/verify-nfc', {
     method: 'POST',
     headers: kioskAuth,
     body: JSON.stringify({ badgeUid, offlineSync: '1' }),
@@ -133,7 +133,7 @@ export async function runUc15(ctx) {
   }
 
   const staleAt = new Date(Date.now() - 30 * 24 * 60 * 60_000).toISOString()
-  const nfcStale = await request('/auth/mobile/verify-nfc', {
+  const nfcStale = await request('/auth/kiosk/verify-nfc', {
     method: 'POST',
     headers: kioskAuth,
     body: JSON.stringify({ badgeUid, offlineSync: '1', capturedAt: staleAt }),
@@ -147,7 +147,7 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 NFC offline trop ancien', detail(nfcStale.json))
   }
 
-  const challenge = await request('/auth/mobile/qr-challenge', {
+  const challenge = await request('/auth/kiosk/qr-challenge', {
     method: 'POST',
     headers: kioskAuth,
   })
@@ -161,7 +161,7 @@ export async function runUc15(ctx) {
   }
 
   if (challenge.json?.id) {
-    const pending = await request(`/auth/mobile/qr-challenge/${challenge.json.id}/result`, {
+    const pending = await request(`/auth/kiosk/qr-challenge/${challenge.json.id}/result`, {
       headers: kioskAuth,
     })
     if (pending.json?.status === 'PENDING') pass(ctx, 'UC-15 QR challenge PENDING')
@@ -193,7 +193,7 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 QR scan', detail(scan.json))
   }
 
-  const challenge2 = await request('/auth/mobile/qr-challenge', {
+  const challenge2 = await request('/auth/kiosk/qr-challenge', {
     method: 'POST',
     headers: kioskAuth,
   })
