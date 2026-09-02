@@ -672,7 +672,7 @@ export async function verifyFacePhoto(
         ? employeeName
           ? `Bienvenue ${employeeName}`
           : "Bienvenue"
-        : "Visage non reconnu. Merci de réessayer."),
+        : "Identité non reconnue. Merci de réessayer."),
   };
 
   kioskLog("log", "verifyFacePhoto completed", {

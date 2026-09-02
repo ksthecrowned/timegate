@@ -65,6 +65,6 @@ Portail employé (web) : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!` → `emp
 ## Dépannage
 
 - **Connexion impossible** : vérifiez l’URL API dans `.env` et que le téléphone est sur le même réseau que le PC.
-- **Visage non reconnu** : enrôlement facial requis dans le dashboard (fiche employé).
+- **Identité non reconnue** : enrôlement facial requis dans le dashboard (fiche employé).
 - **Timeout verify** : augmenter `FACE_ENGINE_TIMEOUT_MS` dans `api/.env`.
 - **Vérifications en attente** : compteur affiché sur l’écran d’accueil kiosk ; sync automatique au retour réseau sur `/scan`.

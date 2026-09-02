@@ -46,8 +46,31 @@ export class FaceEmbeddingService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `[face-embed] cwd=${process.cwd()} venvPython=${venvPy} exists=${venvExists} ` +
         `FACE_ENGINE_PYTHON_BIN=${this.config.get<string>('FACE_ENGINE_PYTHON_BIN') ?? '(unset)'} ` +
-        `persistent=${this.usePersistentWorker()}`,
+        `persistent=${this.usePersistentWorker()} warmup=${this.shouldWarmupWorker(venvExists)}`,
     );
+    if (this.shouldWarmupWorker(venvExists)) {
+      void this.warmupWorker();
+    }
+  }
+
+  private shouldWarmupWorker(venvExists: boolean): boolean {
+    const flag = this.config.get<string>('FACE_ENGINE_WARMUP');
+    if (flag === '0' || flag === 'false') return false;
+    if (!this.usePersistentWorker() || !venvExists) return false;
+    return true;
+  }
+
+  private async warmupWorker(): Promise<void> {
+    const startedAt = Date.now();
+    this.logger.log('[face-embed] warming up persistent worker at startup');
+    try {
+      await this.ensureWorkerReady();
+      this.logger.log(`[face-embed] warmup complete (${Date.now() - startedAt}ms)`);
+    } catch (err) {
+      this.logger.warn(
+        `[face-embed] warmup failed (${Date.now() - startedAt}ms): ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
   }
 
   onModuleDestroy(): void {

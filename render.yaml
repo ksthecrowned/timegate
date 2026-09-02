@@ -21,6 +21,8 @@ services:
         value: .venv/bin/python
       - key: FACE_ENGINE_PERSISTENT
         value: "true"
+      - key: FACE_ENGINE_WARMUP
+        value: "true"
       - key: FACE_ENGINE_TIMEOUT_MS
         value: "60000"
       - key: FACE_ENGINE_BOOT_TIMEOUT_MS

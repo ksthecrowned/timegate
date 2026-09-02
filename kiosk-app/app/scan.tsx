@@ -55,6 +55,8 @@ import { colors, Radius, Spacing } from "../theme/colors";
 
 type VerifyState = "idle" | "verifying" | "success" | "error";
 const VERIFY_TIMEOUT_SECONDS = 60;
+/** Lower JPEG quality keeps uploads small; server resizes to 800px max anyway. */
+const VERIFY_PHOTO_QUALITY = 0.62;
 const AUTO_RESET_SECONDS = 10;
 const SUCCESS_REDIRECT_SECONDS = 2;
 const LOCAL_DETECTION_COOLDOWN_MS = 10000;
@@ -168,7 +170,7 @@ export default function ScanScreen() {
       setStatusMessage("Visage détecté en direct. Capture et envoi au serveur...");
       const photo = await cameraRef.current.takePictureAsync({
         skipProcessing: false,
-        quality: 0.88,
+        quality: VERIFY_PHOTO_QUALITY,
       });
       if (!photo?.uri) {
         throw new Error("Capture photo indisponible.");

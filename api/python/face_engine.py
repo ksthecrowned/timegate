@@ -5,7 +5,8 @@ import struct
 import sys
 
 MAX_IMAGE_BYTES = 3_000_000
-MAX_IMAGE_DIM = 1280
+# 800px is enough for kiosk face verify; smaller images decode and encode faster on CPU.
+MAX_IMAGE_DIM = 800
 
 
 def load_face_recognition():
@@ -34,7 +35,14 @@ def embed_image(face_recognition, data: bytes) -> dict:
         return {"error": "image too large"}
     try:
         image = load_rgb_image(data)
-        encodings = face_recognition.face_encodings(image)
+        locations = face_recognition.face_locations(image, model="hog")
+        if not locations:
+            return {"error": "no face detected"}
+        encodings = face_recognition.face_encodings(
+            image,
+            known_face_locations=locations,
+            num_jitters=0,
+        )
         if not encodings:
             return {"error": "no face detected"}
         return {"embedding": encodings[0].tolist()}

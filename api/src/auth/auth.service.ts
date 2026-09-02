@@ -1849,7 +1849,7 @@ export class AuthService {
 
       const welcomeMessage = success
         ? `Bienvenue ${matched!.firstName} ${matched!.lastName}`
-        : 'Visage non reconnu';
+        : 'Identité non reconnue';
       const message = [welcomeMessage, attendanceMessage, birthdayMessage].filter(Boolean).join(' | ');
 
       const response: VerifyMobileResult = {
