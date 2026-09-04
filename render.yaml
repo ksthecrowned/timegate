@@ -16,6 +16,7 @@ services:
     # face_recognition: venv créé pendant bun run build (scripts/setup-face-venv-linux.sh)
     buildCommand: bun run build
     startCommand: bun run start:prod
+    healthCheckPath: /health
     envVars:
       - key: FACE_ENGINE_PYTHON_BIN
         value: .venv/bin/python

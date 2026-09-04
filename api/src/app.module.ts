@@ -47,12 +47,14 @@ import { CompensationGridModule } from './compensation-grid/compensation-grid.mo
 import { EmployeeCompensationModule } from './employee-compensation/employee-compensation.module';
 import { PayrollVariableItemsModule } from './payroll-variable-items/payroll-variable-items.module';
 import { PayGroupsModule } from './pay-groups/pay-groups.module';
+import { HealthModule } from './health/health.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    HealthModule,
     AuthModule,
     BranchesModule,
     KiosksModule,

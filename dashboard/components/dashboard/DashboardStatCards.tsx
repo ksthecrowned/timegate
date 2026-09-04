@@ -31,9 +31,9 @@ export function DashboardStatCard({
           <i className={`${icon} ${accent ?? 'text-primary'}`} />
         </div>
         <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">
-          {value.toLocaleString('fr-FR')}
+          {value.toLocaleString('fr-FR')} {''}
+          {hint ? <span className="ml-1 text-xs text-slate-500 dark:text-slate-400">{hint}</span> : null}
         </h3>
-        {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
       </div>
       {sparkline && sparkline.length > 0 ? (
         <div className="mt-auto pb-1">
