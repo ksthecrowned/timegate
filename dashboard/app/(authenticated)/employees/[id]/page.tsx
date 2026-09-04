@@ -1,31 +1,31 @@
 'use client'
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import PageHeader from '@/components/ui/PageHeader'
-import { SkeletonDetailCard } from '@/components/ui/Skeleton'
-import ActionButtons from '@/components/ui/ActionButtons'
-import FormTabs, { type FormTabItem } from '@/components/ui/FormTabs'
-import EmployeeIdentityHub from '@/components/timegate/EmployeeIdentityHub'
-import EmployeeTrustedDevicesCard from '@/components/timegate/EmployeeTrustedDevicesCard'
-import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccessCard'
-import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
 import EmployeeCompensationItemsCard from '@/components/timegate/EmployeeCompensationItemsCard'
 import EmployeeCompensationSummaryCard from '@/components/timegate/EmployeeCompensationSummaryCard'
-import EmployeeSalaryAdvancesCard from '@/components/timegate/EmployeeSalaryAdvancesCard'
+import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
+import EmployeeIdentityHub from '@/components/timegate/EmployeeIdentityHub'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
+import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccessCard'
+import EmployeeSalaryAdvancesCard from '@/components/timegate/EmployeeSalaryAdvancesCard'
+import EmployeeTrustedDevicesCard from '@/components/timegate/EmployeeTrustedDevicesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
 import ResourceProfileHeader from '@/components/timegate/ResourceProfileHeader'
 import WriteLink from '@/components/timegate/WriteLink'
 import { ApiErrorBanner, primaryBtnClass } from '@/components/timegate/ui'
-import { deleteEmployee, getEmployee } from '@/lib/timegate/employees'
+import ActionButtons from '@/components/ui/ActionButtons'
+import FormTabs, { type FormTabItem } from '@/components/ui/FormTabs'
+import PageHeader from '@/components/ui/PageHeader'
+import { SkeletonDetailCard } from '@/components/ui/Skeleton'
+import { formatApiDate } from '@/lib/date-utils'
+import { HttpError } from '@/lib/http'
 import {
   employeeGenderLabel,
   employeeMaritalLabel,
 } from '@/lib/timegate/employee-labels'
+import { deleteEmployee, getEmployee } from '@/lib/timegate/employees'
 import type { Employee } from '@/lib/timegate/types'
-import { formatApiDate } from '@/lib/date-utils'
-import { HttpError } from '@/lib/http'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 type DetailTab = 'profile' | 'punch' | 'access' | 'contracts' | 'pay'
 
@@ -166,19 +166,20 @@ export default function EmployeeDetailPage() {
         label: 'Rémunération',
         content: (
           <div className="space-y-4">
-            <div className="grid gap-4 lg:grid-cols-2">
-              <EmployeeCompensationSummaryCard
-                bare
-                employeeId={employee.id}
-                refreshKey={compRefreshKey}
-              />
-              <EmployeeCompensationItemsCard
-                bare
-                employeeId={employee.id}
-                onChanged={() => setCompRefreshKey((k) => k + 1)}
-              />
-            </div>
-            <EmployeeSalaryAdvancesCard bare employeeId={employee.id} />
+            <EmployeeCompensationSummaryCard
+              bare
+              employeeId={employee.id}
+              refreshKey={compRefreshKey}
+            />
+            <EmployeeCompensationItemsCard
+              bare
+              employeeId={employee.id}
+              onChanged={() => setCompRefreshKey((k) => k + 1)}
+            />
+            <EmployeeSalaryAdvancesCard
+              bare
+              employeeId={employee.id}
+            />
           </div>
         ),
       },
