@@ -13,7 +13,12 @@ import {
   fetchDashboardHome,
   type DashboardHome,
 } from '@/lib/timegate/dashboard-home'
-import { loadDashboardData, type DashboardChartData } from '@/lib/timegate/dashboard-stats'
+import {
+  DASH_SPARK_COLORS,
+  flatSparkline,
+  loadDashboardData,
+  type DashboardChartData,
+} from '@/lib/timegate/dashboard-stats'
 import { formatMoney, MONTH_LABELS } from '@/lib/timegate/payroll-runs'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
@@ -183,18 +188,24 @@ export default function DashboardPage() {
                   value={home.kpis.employees}
                   href="/employees"
                   icon="fa-solid fa-users"
+                  sparkline={flatSparkline(home.kpis.employees)}
+                  sparklineColor={DASH_SPARK_COLORS.primary}
                 />
                 <DashboardStatCard
                   label="Branches"
                   value={home.kpis.branches}
                   href="/branches"
                   icon="fa-solid fa-building"
+                  sparkline={flatSparkline(home.kpis.branches)}
+                  sparklineColor={DASH_SPARK_COLORS.slate}
                 />
                 <DashboardStatCard
                   label="Kiosques"
                   value={home.kpis.kiosks}
                   href="/kiosks"
                   icon="fa-solid fa-tablet-screen-button"
+                  sparkline={flatSparkline(home.kpis.kiosks)}
+                  sparklineColor={DASH_SPARK_COLORS.primary}
                 />
                 <DashboardStatCard
                   label="Couverture (30 j)"
@@ -206,6 +217,11 @@ export default function DashboardPage() {
                       ? 'Pas de planning'
                       : `${Math.round(home.kpis.workedMinutes / 60)} h / ${Math.round(home.kpis.plannedMinutes / 60)} h`
                   }
+                  sparkline={
+                    chartData?.kpiSparklines.coverage ??
+                    flatSparkline(home.kpis.coveragePercent ?? 0)
+                  }
+                  sparklineColor={DASH_SPARK_COLORS.primary}
                 />
               </>
             ) : null}
@@ -215,6 +231,10 @@ export default function DashboardPage() {
               href="/absences"
               icon="fa-solid fa-user-xmark"
               accent="text-red-500"
+              sparkline={
+                chartData?.kpiSparklines.absences ?? flatSparkline(home.kpis.absences30)
+              }
+              sparklineColor={DASH_SPARK_COLORS.red}
             />
             <DashboardStatCard
               label="Retards à justifier (30 j)"
@@ -222,6 +242,8 @@ export default function DashboardPage() {
               href="/late-records"
               icon="fa-solid fa-clock"
               accent="text-amber-500"
+              sparkline={chartData?.kpiSparklines.late ?? flatSparkline(home.kpis.late30)}
+              sparklineColor={DASH_SPARK_COLORS.amber}
             />
             <DashboardStatCard
               label="Congés en attente"
@@ -229,6 +251,8 @@ export default function DashboardPage() {
               href={isAdmin ? '/leaves' : '/manager/inbox'}
               icon="fa-solid fa-plane-departure"
               accent="text-sky-500"
+              sparkline={flatSparkline(home.kpis.pendingLeaves)}
+              sparklineColor={DASH_SPARK_COLORS.sky}
             />
             <DashboardStatCard
               label="Temps travaillé (30 j)"
@@ -236,6 +260,10 @@ export default function DashboardPage() {
               href="/timesheets"
               icon="fa-solid fa-file-lines"
               accent="text-teal-500"
+              sparkline={
+                chartData?.kpiSparklines.timesheets ?? flatSparkline(home.kpis.timesheets30)
+              }
+              sparklineColor={DASH_SPARK_COLORS.teal}
             />
           </div>
 

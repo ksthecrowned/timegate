@@ -37,6 +37,42 @@ export type DashboardChartData = {
     late: number[]
     absent: number[]
   }
+  /** 7 derniers jours — tendances mini pour les cartes KPI. */
+  kpiSparklines: {
+    absences: number[]
+    late: number[]
+    timesheets: number[]
+    coverage: number[]
+  }
+}
+
+export const DASH_SPARK_COLORS = {
+  primary: '#0d9488',
+  red: '#ef4444',
+  amber: '#f59e0b',
+  sky: '#0ea5e9',
+  teal: '#14b8a6',
+  slate: '#64748b',
+} as const
+
+/** Série plate (stocks / compteurs sans historique journalier). */
+export function flatSparkline(value: number, points = 7): number[] {
+  return Array.from({ length: points }, () => value)
+}
+
+export function buildDailySparkline(
+  valueOf: (isoDay: string) => number,
+  days = 7,
+  now = new Date(),
+): number[] {
+  const out: number[] = []
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(now)
+    d.setHours(12, 0, 0, 0)
+    d.setDate(d.getDate() - i)
+    out.push(valueOf(d.toISOString().slice(0, 10)))
+  }
+  return out
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -163,6 +199,36 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
     planningVsActual = null
   }
 
+  const absenceByDay = new Map<string, number>()
+  for (const row of absences) {
+    const key = normalizeApiDate(row.date)
+    if (!key) continue
+    absenceByDay.set(key, (absenceByDay.get(key) ?? 0) + 1)
+  }
+
+  const lateByDay = new Map<string, number>()
+  for (const row of lateRecords) {
+    const key = normalizeApiDate(row.date)
+    if (!key) continue
+    lateByDay.set(key, (lateByDay.get(key) ?? 0) + 1)
+  }
+
+  const timesheetByDay = new Map<string, number>()
+  for (const row of timesheets) {
+    const key = normalizeApiDate(row.date)
+    if (!key) continue
+    timesheetByDay.set(key, (timesheetByDay.get(key) ?? 0) + 1)
+  }
+
+  const coverageSpark =
+    planningVsActual?.byWeek?.length
+      ? planningVsActual.byWeek.map((week) =>
+          week.plannedMinutes > 0
+            ? Math.round((week.workedMinutes / week.plannedMinutes) * 100)
+            : 0,
+        )
+      : flatSparkline(planningVsActual?.coveragePercent ?? 0)
+
   return {
     stats: {
       employees: 0,
@@ -195,6 +261,12 @@ export async function loadDashboardData(): Promise<DashboardChartData> {
       categories: weekCategories,
       late: weekCategories.map((k) => weeklyLateMap.get(k) ?? 0),
       absent: weekCategories.map((k) => weeklyAbsentMap.get(k) ?? 0),
+    },
+    kpiSparklines: {
+      absences: buildDailySparkline((day) => absenceByDay.get(day) ?? 0),
+      late: buildDailySparkline((day) => lateByDay.get(day) ?? 0),
+      timesheets: buildDailySparkline((day) => timesheetByDay.get(day) ?? 0),
+      coverage: coverageSpark,
     },
   }
 }

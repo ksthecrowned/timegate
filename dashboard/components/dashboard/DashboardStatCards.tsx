@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { DashboardStatCardSparkline } from '@/components/dashboard/DashboardStatCardSparkline'
 
 export function DashboardStatCard({
   label,
@@ -7,6 +8,8 @@ export function DashboardStatCard({
   icon,
   accent,
   hint,
+  sparkline,
+  sparklineColor,
 }: {
   label: string
   value: number
@@ -14,11 +17,13 @@ export function DashboardStatCard({
   icon: string
   accent?: string
   hint?: string
+  sparkline?: number[]
+  sparklineColor?: string
 }) {
   return (
     <Link
       href={href}
-      className="flex flex-col tg-card shadow-2xs transition-colors hover:border-primary/40"
+      className="flex h-full flex-col overflow-hidden tg-card shadow-2xs transition-colors hover:border-primary/40"
     >
       <div className="p-4 md:px-5 md:py-5">
         <div className="flex items-center justify-between gap-2">
@@ -30,6 +35,13 @@ export function DashboardStatCard({
         </h3>
         {hint ? <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{hint}</p> : null}
       </div>
+      {sparkline && sparkline.length > 0 ? (
+        <div className="mt-auto pb-1">
+          <DashboardStatCardSparkline data={sparkline} color={sparklineColor} />
+        </div>
+      ) : (
+        <div className="h-14" aria-hidden />
+      )}
     </Link>
   )
 }
