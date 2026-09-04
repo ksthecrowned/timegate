@@ -10,6 +10,7 @@ import { EmployeeBreakPunchService } from './employee-break-punch.service';
 import { KioskQrPunchService } from './kiosk-qr-punch.service';
 import { PunchAttemptLogService } from './punch-attempt-log.service';
 import { PunchCronService } from './punch-cron.service';
+import { DemoAttendanceSeedCronService } from './demo-attendance-seed-cron.service';
 import { PunchWindowService } from './punch-window.service';
 
 @Module({
@@ -25,6 +26,7 @@ import { PunchWindowService } from './punch-window.service';
     KioskQrPunchService,
     PunchWindowService,
     PunchCronService,
+    DemoAttendanceSeedCronService,
   ],
   exports: [
     AttendanceService,
@@ -35,6 +37,7 @@ import { PunchWindowService } from './punch-window.service';
     EmployeeBreakPunchService,
     KioskQrPunchService,
     PunchWindowService,
+    DemoAttendanceSeedCronService,
   ],
 })
 export class AttendanceModule {}

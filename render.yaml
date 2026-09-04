@@ -30,3 +30,6 @@ services:
         value: "90000"
       - key: NODE_ENV
         value: production
+      # Désactivé en prod réelle — passer à "1" seulement sur un service démo
+      - key: DEMO_AUTO_ATTENDANCE_SEED
+        value: "0"

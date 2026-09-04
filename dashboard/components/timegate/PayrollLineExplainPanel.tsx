@@ -12,6 +12,9 @@ type ExplainItem = {
 
 type ExplainJson = {
   ruleVersion?: string
+  contractualBase?: number
+  paidWorkDays?: number
+  prorataRatio?: number
   lateMinutes?: number
   overtimeMinutes?: number
   unjustifiedAbsences?: number
@@ -21,6 +24,7 @@ type ExplainJson = {
   hourlyRate?: number
   lateMinutesPenalty?: number
   absenceAmount?: number
+  absenceAmountFoldedIntoProrata?: boolean
   overtimeAmount?: number
   fixedAllowancesTotal?: number
   variableAllowancesTotal?: number
@@ -103,13 +107,23 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
   const workDaysDivisor = Number(explain.workDaysDivisor ?? 0)
   const dailyRate = Number(explain.dailyRate ?? 0)
   const hourlyRate = Number(explain.hourlyRate ?? 0)
+  const contractualBase = Number(explain.contractualBase ?? 0)
+  const paidWorkDays = Number(explain.paidWorkDays ?? NaN)
+  const prorataRatio = Number(explain.prorataRatio ?? NaN)
+  const hasProrata = Number.isFinite(paidWorkDays) && Number.isFinite(prorataRatio)
 
   return (
-    <div className="space-y-3" data-tour="payroll-line-explain">
+    <div className="space-y-3" data-testid="payroll-line-explain">
       <p className="text-sm font-semibold text-slate-900 dark:text-white">Détail du calcul</p>
 
       <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Metric label="Salaire de base" value={formatMoney(line.baseSalary)} />
+        {contractualBase > 0 ? (
+          <Metric label="Base contractuelle" value={formatMoney(contractualBase)} />
+        ) : null}
+        <Metric
+          label={hasProrata ? 'Base acquise (prorata)' : 'Salaire de base'}
+          value={formatMoney(line.baseSalary)}
+        />
         <Metric label="Brut" value={formatMoney(line.gross ?? 0)} />
         <Metric label="Net" value={formatMoney(line.netSalary)} />
         <Metric
@@ -123,6 +137,21 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
       </dl>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {hasProrata ? (
+          <Metric
+            label="Prorata réel"
+            value={`${paidWorkDays} j payés / ${workDaysDivisor || '—'} j prévus (${Math.round(prorataRatio * 1000) / 10} %)`}
+          />
+        ) : (
+          <Metric
+            label="Jours ouvrés (diviseur)"
+            value={
+              workDaysDivisor
+                ? `${workDaysDivisor}${dailyRate ? ` · ${formatMoney(dailyRate)}/j` : ''}`
+                : '—'
+            }
+          />
+        )}
         <Metric
           label="Heures supp."
           value={
@@ -142,17 +171,13 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
         <Metric
           label="Absences"
           value={
-            unjustifiedAbsences || line.absenceAmount
-              ? `${unjustifiedAbsences ? `${unjustifiedAbsences} j · ` : ''}−${formatMoney(line.absenceAmount)}`
-              : '—'
-          }
-        />
-        <Metric
-          label="Jours ouvrés (diviseur)"
-          value={
-            workDaysDivisor
-              ? `${workDaysDivisor}${dailyRate ? ` · ${formatMoney(dailyRate)}/j` : ''}`
-              : '—'
+            explain.absenceAmountFoldedIntoProrata
+              ? unjustifiedAbsences
+                ? `${unjustifiedAbsences} j (inclus dans le prorata)`
+                : 'Incluses dans le prorata'
+              : unjustifiedAbsences || line.absenceAmount
+                ? `${unjustifiedAbsences ? `${unjustifiedAbsences} j · ` : ''}−${formatMoney(line.absenceAmount)}`
+                : '—'
           }
         />
       </div>
@@ -165,7 +190,9 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
       )}
 
       <p className="text-xs text-slate-500 dark:text-slate-400">
-        Brut = base + indemnités + HS · Net = brut − pénalités − retenues
+        {hasProrata
+          ? 'Base acquise = base contractuelle × (jours payés / jours prévus) · Brut = base + indemnités + HS · Net = brut − retards − retenues'
+          : 'Brut = base + indemnités + HS · Net = brut − pénalités − retenues'}
       </p>
     </div>
   )

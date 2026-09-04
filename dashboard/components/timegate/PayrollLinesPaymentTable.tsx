@@ -157,8 +157,8 @@ export default function PayrollLinesPaymentTable({
     }
   }
 
-  // Employé + calc (7) + Brut/Net + échéance/statut/payée + détail (+ checkbox/payer)
-  const columnCount = (canMarkPaid ? 2 : 0) + 12
+  // Employé + Base + Maj. fixes + Brut/Net + échéance/paiement + détail (+ checkbox/payer)
+  const columnCount = (canMarkPaid ? 2 : 0) + 8
 
   function isOverdue(line: PayrollLine): boolean {
     if (line.paymentStatus === 'PAID' || !line.dueDate) return false
@@ -301,10 +301,6 @@ export default function PayrollLinesPaymentTable({
               <th className="py-2 pr-3 font-semibold">Employé</th>
               <th className="py-2 pr-3 font-semibold">Base</th>
               <th className="py-2 pr-3 font-semibold">Maj. fixes</th>
-              <th className="py-2 pr-3 font-semibold">Variables</th>
-              <th className="py-2 pr-3 font-semibold">Retards</th>
-              <th className="py-2 pr-3 font-semibold">Absences</th>
-              <th className="py-2 pr-3 font-semibold">HS</th>
               <th className="py-2 pr-3 font-semibold">Brut</th>
               <th className="py-2 pr-3 font-semibold">Net</th>
               <th className="py-2 pr-3 font-semibold">Échéance</th>
@@ -333,8 +329,6 @@ export default function PayrollLinesPaymentTable({
                 const isExpanded = expandedId === line.id
                 const fixedNet =
                   (line.fixedAllowancesTotal ?? 0) - (line.fixedDeductionsTotal ?? 0)
-                const variableNet =
-                  (line.variableAllowancesTotal ?? 0) - (line.variableDeductionsTotal ?? 0)
                 return (
                   <Fragment key={line.id}>
                     <tr
@@ -360,20 +354,6 @@ export default function PayrollLinesPaymentTable({
                       <td className="py-2 pr-3 tabular-nums">{formatMoney(line.baseSalary)}</td>
                       <td className={`py-2 pr-3 tabular-nums ${signedClass(fixedNet)}`}>
                         {formatSigned(fixedNet)}
-                      </td>
-                      <td className={`py-2 pr-3 tabular-nums ${signedClass(variableNet)}`}>
-                        {formatSigned(variableNet)}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums text-red-600 dark:text-red-400">
-                        {line.lateMinutesPenalty
-                          ? `-${formatMoney(line.lateMinutesPenalty)}`
-                          : '—'}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums text-red-600 dark:text-red-400">
-                        {line.absenceAmount ? `-${formatMoney(line.absenceAmount)}` : '—'}
-                      </td>
-                      <td className="py-2 pr-3 tabular-nums text-emerald-600 dark:text-emerald-400">
-                        {line.overtimeAmount ? `+${formatMoney(line.overtimeAmount)}` : '—'}
                       </td>
                       <td className="py-2 pr-3 tabular-nums">{formatMoney(line.gross)}</td>
                       <td className="py-2 pr-3 font-semibold tabular-nums">

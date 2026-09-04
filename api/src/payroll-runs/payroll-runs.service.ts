@@ -8,6 +8,7 @@ import {
 import {
   EmployeeStatus,
   LeaveApplicationStatus,
+  AttendanceStatus,
   PayrollLinePaymentStatus,
   Prisma,
   TimeGatePayrollRunStatus,
@@ -26,13 +27,12 @@ import { FindPayrollLinesQueryDto } from './dto/find-payroll-lines-query.dto';
 import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
 import { MarkLinesPaidDto } from './dto/mark-lines-paid.dto';
 import { resolveEmployeePayDay, resolvePayDueDate } from './payroll-due-date.util';
+import { computeProrataPay, sumPaidWorkDays } from './payroll-prorata.util';
 import { PayrollRunTotals, sumPayrollLineTotals } from './payroll-run-totals.util';
 import { PunchWindowService } from '../attendance/punch-window.service';
 
-const RULE_VERSION = 'v2';
+const RULE_VERSION = 'v3';
 const MONTHLY_HOURS = 173.33;
-/** Fallback only when the employee has no scheduled work days in the period. */
-const WORKING_DAYS_PER_MONTH_FALLBACK = 22;
 
 type PayrollLineRow = Prisma.TimeGatePayrollLineGetPayload<{
   include: {
@@ -460,7 +460,8 @@ export class PayrollRunsService {
 
     const employeeIds = employees.map((e) => e.id);
 
-    const [timesheets, absences, approvedLeaves, variableItems] = await Promise.all([
+    const [timesheets, absences, approvedLeaves, variableItems, attendances] =
+      await Promise.all([
       tx.timeGateTimesheetDay.findMany({
         where: {
           companyId,
@@ -495,6 +496,18 @@ export class PayrollRunsService {
       tx.payrollVariableItem.findMany({
         where: { payrollRunId, companyId },
       }),
+      tx.attendance.findMany({
+        where: {
+          companyId,
+          employeeId: { in: employeeIds },
+          attendanceDate: { gte: from, lte: to },
+        },
+        select: {
+          employeeId: true,
+          attendanceDate: true,
+          status: true,
+        },
+      }),
     ]);
 
     const leaveCoversDay = (employeeId: string, day: Date) =>
@@ -506,6 +519,36 @@ export class PayrollRunsService {
           l.fromDate <= day &&
           l.toDate >= day,
       );
+
+    const dateKey = (d: Date) => d.toISOString().slice(0, 10);
+
+    const attendanceByEmployee = new Map<string, Map<string, AttendanceStatus>>();
+    for (const row of attendances) {
+      const byDate =
+        attendanceByEmployee.get(row.employeeId) ?? new Map<string, AttendanceStatus>();
+      byDate.set(dateKey(row.attendanceDate), row.status);
+      attendanceByEmployee.set(row.employeeId, byDate);
+    }
+
+    const leaveDaysByEmployee = new Map<string, Set<string>>();
+    for (const leave of approvedLeaves) {
+      if (!leave.fromDate || !leave.toDate) continue;
+      const start = leave.fromDate < from ? from : leave.fromDate;
+      const end = leave.toDate > to ? to : leave.toDate;
+      const set = leaveDaysByEmployee.get(leave.employeeId) ?? new Set<string>();
+      for (
+        let cursor = new Date(
+          Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate()),
+        );
+        cursor.getTime() <= end.getTime();
+        cursor = new Date(
+          Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth(), cursor.getUTCDate() + 1),
+        )
+      ) {
+        set.add(dateKey(cursor));
+      }
+      leaveDaysByEmployee.set(leave.employeeId, set);
+    }
 
     const timesheetByEmployee = new Map<
       string,
@@ -544,8 +587,8 @@ export class PayrollRunsService {
 
     const lineData = await Promise.all(
       employees.map(async (employee) => {
-        // 1. Base salary from compensation grid (fallback: ctc/12, then 0)
-        let baseSalary = 0;
+        // 1. Contractual base from compensation grid (fallback: ctc/12, then 0)
+        let contractualBase = 0;
         let gridFound = false;
         if (employee.designationId && employee.employmentTypeId) {
           const grid = await this.compensationGrid.findEffective(
@@ -555,31 +598,31 @@ export class PayrollRunsService {
             to,
           );
           if (grid) {
-            baseSalary = fromDecimal(grid.baseSalary);
+            contractualBase = fromDecimal(grid.baseSalary);
             gridFound = true;
           }
         }
         if (!gridFound && employee.ctc) {
-          baseSalary = roundMoney(Number(employee.ctc) / 12);
+          contractualBase = roundMoney(Number(employee.ctc) / 12);
         }
 
-        // 2. Fixed employee allowances/deductions
+        // 2. Fixed employee allowances/deductions (full month amounts before prorata)
         const fixedItems = await this.employeeCompensation.findActiveForEmployee(
           companyId,
           employee.id,
           to,
         );
-        let fixedAllowancesTotal = 0;
-        let fixedDeductionsTotal = 0;
+        let contractualFixedAllowances = 0;
+        let contractualFixedDeductions = 0;
         for (const item of fixedItems) {
           const amt = fromDecimal(item.amount);
-          if (item.kind === 'ALLOWANCE') fixedAllowancesTotal += amt;
-          else fixedDeductionsTotal += amt;
+          if (item.kind === 'ALLOWANCE') contractualFixedAllowances += amt;
+          else contractualFixedDeductions += amt;
         }
-        fixedAllowancesTotal = roundMoney(fixedAllowancesTotal);
-        fixedDeductionsTotal = roundMoney(fixedDeductionsTotal);
+        contractualFixedAllowances = roundMoney(contractualFixedAllowances);
+        contractualFixedDeductions = roundMoney(contractualFixedDeductions);
 
-        // 3. Variable items for this run
+        // 3. Variable items for this run (not prorated — already period-specific)
         const vars = variableByEmployee.get(employee.id) ?? [];
         let variableAllowancesTotal = 0;
         let variableDeductionsTotal = 0;
@@ -591,26 +634,55 @@ export class PayrollRunsService {
         variableAllowancesTotal = roundMoney(variableAllowancesTotal);
         variableDeductionsTotal = roundMoney(variableDeductionsTotal);
 
-        // 4. Penalties (late + absences)
+        // 4. Timesheet penalties / OT (hourly rate from contractual base)
         const ts = timesheetByEmployee.get(employee.id);
         const lateMinutes = ts?.lateMinutes ?? 0;
         const overtimeMinutes = ts?.overtimeMinutes ?? 0;
         const unjustifiedAbsences = absenceCountByEmployee.get(employee.id) ?? 0;
 
-        const scheduledWorkDays = await this.punchWindows.countScheduledWorkDays(
+        const scheduledKeys = await this.punchWindows.listScheduledWorkDateKeys(
           employee.id,
           from,
           to,
         );
-        const workDaysDivisor =
-          scheduledWorkDays > 0 ? scheduledWorkDays : WORKING_DAYS_PER_MONTH_FALLBACK;
-        const dailyRate = baseSalary > 0 ? baseSalary / workDaysDivisor : 0;
+        const scheduledSet = new Set(scheduledKeys);
+        const scheduledWorkDays = scheduledKeys.length;
 
-        const rate = hourlyRate(baseSalary);
+        const rawAttendance = attendanceByEmployee.get(employee.id) ?? new Map();
+        const attendanceByDate = new Map<string, AttendanceStatus>();
+        for (const [key, status] of rawAttendance) {
+          if (scheduledSet.has(key)) attendanceByDate.set(key, status);
+        }
+
+        const leaveCoveredDateKeys = new Set<string>();
+        for (const key of leaveDaysByEmployee.get(employee.id) ?? []) {
+          if (scheduledSet.has(key)) leaveCoveredDateKeys.add(key);
+        }
+
+        const paidWorkDays = sumPaidWorkDays({
+          attendanceByDate,
+          leaveCoveredDateKeys,
+        });
+
+        const prorata = computeProrataPay({
+          contractualBase,
+          fixedAllowances: contractualFixedAllowances,
+          fixedDeductions: contractualFixedDeductions,
+          scheduledWorkDays,
+          paidWorkDays,
+        });
+
+        const baseSalary = prorata.baseSalary;
+        const fixedAllowancesTotal = prorata.fixedAllowancesTotal;
+        const fixedDeductionsTotal = prorata.fixedDeductionsTotal;
+        const { workDaysDivisor, dailyRate, prorataRatio } = prorata;
+
+        const rate = hourlyRate(contractualBase);
         const overtimeAmount = roundMoney((overtimeMinutes / 60) * rate);
         const lateMinutesPenalty = roundMoney((lateMinutes / 60) * rate);
-        const absenceAmount = roundMoney(unjustifiedAbsences * dailyRate);
-        const penaltyAmount = roundMoney(lateMinutesPenalty + absenceAmount);
+        // Absences are already reflected in paidWorkDays (prorata réel) — no second deduction.
+        const absenceAmount = 0;
+        const penaltyAmount = lateMinutesPenalty;
 
         // 5. Totals
         const bonusAmount = roundMoney(fixedAllowancesTotal + variableAllowancesTotal);
@@ -648,6 +720,9 @@ export class PayrollRunsService {
           periodEnd: to,
           explainJson: {
             ruleVersion: RULE_VERSION,
+            contractualBase,
+            paidWorkDays,
+            prorataRatio,
             lateMinutes,
             overtimeMinutes,
             unjustifiedAbsences,
@@ -655,6 +730,7 @@ export class PayrollRunsService {
             workDaysDivisor,
             dailyRate: roundMoney(dailyRate),
             hourlyRate: roundMoney(rate),
+            absenceAmountFoldedIntoProrata: true,
             fixedItems: fixedItems.map((i) => ({
               label: i.label,
               kind: i.kind,

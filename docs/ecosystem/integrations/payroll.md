@@ -15,6 +15,14 @@
 - **dashboard** : UI paie / compensation (ADMIN/MANAGER selon permissions)
 - Pas d’accès console plateforme aux runs company (sauf ops SaaS globales)
 
+## Règles de calcul (MVP)
+
+- **Prorata réel (v3)** : base + majorations fixes = contractuel × (`jours payés` / `jours prévus du mois`).
+  - Jours payés : `PRESENT` / `WORK_FROM_HOME` / `ON_LEAVE` / `ON_HOLIDAY` = 1, `HALF_DAY` = 0.5, `ABSENT` = 0 (congé approuvé peut rattraper un ABSENT).
+  - Les absences ne sont **pas** re-déduites en plus (déjà dans le ratio).
+  - Retards et HS restent au taux horaire contractuel.
+- Variables du run : montants saisis tels quels.
+
 ## Specs produit
 
 - `../superpowers/specs/2026-07-29-compensation-and-payroll-refactor-design.md`

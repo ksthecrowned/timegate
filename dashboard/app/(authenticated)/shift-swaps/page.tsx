@@ -7,13 +7,13 @@ import DataTable, { type Column } from '@/components/ui/DataTable'
 import PageHeader from '@/components/ui/PageHeader'
 import StatusBadge from '@/components/ui/StatusBadge'
 import { REVIEW_STATUS } from '@/constants'
-import { HttpError } from '@/lib/http'
 import { formatApiDate } from '@/lib/date-utils'
+import { HttpError } from '@/lib/http'
 import { employeeDisplayName } from '@/lib/timegate/employee-display'
 import {
-  listShiftSwaps,
-  reviewShiftSwap,
-  type ShiftSwapRequest,
+    listShiftSwaps,
+    reviewShiftSwap,
+    type ShiftSwapRequest,
 } from '@/lib/timegate/shift-swaps'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
@@ -161,7 +161,7 @@ export default function ShiftSwapsPage() {
                 role="tab"
                 aria-selected={active}
                 onClick={() => setStatusFilter(f.key)}
-                className={`relative inline-flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`relative inline-flex items-center gap-2 border-b-2 px-4 py-3 pt-0 text-sm font-medium transition-colors ${
                   active
                     ? 'border-primary text-primary'
                     : 'border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/5 dark:hover:text-slate-100'

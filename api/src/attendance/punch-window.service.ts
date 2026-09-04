@@ -207,24 +207,23 @@ export class PunchWindowService {
   }
 
   /**
-   * Number of days in [from, to] where the employee has a planned work shift
-   * (assignment + week days / day exceptions). Used for absence daily rate.
+   * Date keys (YYYY-MM-DD UTC) in [from, to] where the employee has a planned work shift.
    */
-  async countScheduledWorkDays(
+  async listScheduledWorkDateKeys(
     employeeId: string,
     from: Date,
     to: Date,
-  ): Promise<number> {
+  ): Promise<string[]> {
     const start = toUtcDay(from);
     const end = toUtcDay(to);
-    if (start > end) return 0;
+    if (start > end) return [];
 
     const assignments = await this.prisma.shiftAssignment.findMany({
       where: { employeeId },
       include: { shiftType: { include: { weekDays: true } } },
       orderBy: { startDate: 'desc' },
     });
-    if (assignments.length === 0) return 0;
+    if (assignments.length === 0) return [];
 
     const shiftTypeIds = [
       ...new Set(assignments.map((a) => a.shiftTypeId).filter(Boolean)),
@@ -239,7 +238,7 @@ export class PunchWindowService {
       exceptions.map((e) => [`${e.shiftTypeId}|${e.workDate.toISOString().slice(0, 10)}`, e]),
     );
 
-    let count = 0;
+    const keys: string[] = [];
     for (
       let cursor = new Date(start);
       cursor.getTime() <= end.getTime();
@@ -266,7 +265,7 @@ export class PunchWindowService {
       if (exception && !exception.isOff) {
         const startMin = timeDateToMinutes(exception.startTime);
         const endMin = timeDateToMinutes(exception.endTime);
-        if (startMin != null && endMin != null) count += 1;
+        if (startMin != null && endMin != null) keys.push(dayKey);
         continue;
       }
 
@@ -277,10 +276,22 @@ export class PunchWindowService {
         assignment.endDate,
         cursor,
       );
-      if (weekDayRow || isSingle) count += 1;
+      if (weekDayRow || isSingle) keys.push(dayKey);
     }
 
-    return count;
+    return keys;
+  }
+
+  /**
+   * Number of days in [from, to] where the employee has a planned work shift
+   * (assignment + week days / day exceptions). Used for payroll prorata divisor.
+   */
+  async countScheduledWorkDays(
+    employeeId: string,
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    return (await this.listScheduledWorkDateKeys(employeeId, from, to)).length;
   }
 
   /**
