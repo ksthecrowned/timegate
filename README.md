@@ -182,7 +182,7 @@ Copier `kiosk-app/.env.example` vers `kiosk-app/.env` :
 - ne pas versionner les fichiers `.env` locaux
 - pour Android + API en `http://`, verifier que le trafic cleartext est autorise en dev
 - si la verification faciale timeout, augmenter `FACE_ENGINE_TIMEOUT_MS` (ex: 45000 ou 60000)
-- **démo uniquement** : `DEMO_AUTO_ATTENDANCE_SEED=1` sur l’API active une cron (10h fuseau org) qui, si **aucun** pointage n’existe le jour local, injecte des CHECK_IN/CHECK_OUT cohérents ; dès qu’un vrai pointage existe, elle ne touche à rien (les non-pointés restent absents). Ne pas activer en production réelle.
+- **démo uniquement** : `DEMO_AUTO_ATTENDANCE_SEED=1` **et** une allowlist (`DEMO_AUTO_ATTENDANCE_SEED_SKUS` et/ou `DEMO_AUTO_ATTENDANCE_SEED_COMPANY_IDS`, séparés par des virgules). Sans allowlist, aucune org n’est touchée. À 10h fuseau org, si **aucun** pointage n’existe le jour local pour une org listée, injection de CHECK_IN/CHECK_OUT cohérents ; dès qu’un pointage existe, no-op. Ne pas activer sur des orgs clients réelles.
 
 ## Statut
 

@@ -32,6 +32,18 @@ function envEnabled(name: string): boolean {
   return v === '1' || v === 'true' || v === 'yes' || v === 'on';
 }
 
+/** Comma/space-separated allowlist from env. Empty → no orgs. */
+function parseAllowlist(name: string): Set<string> {
+  const raw = (process.env[name] ?? '').trim();
+  if (!raw) return new Set();
+  return new Set(
+    raw
+      .split(/[,;\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean),
+  );
+}
+
 function hashSeed(...parts: string[]): number {
   let h = 2166136261;
   const s = parts.join('|');
@@ -56,7 +68,10 @@ function dateAtLocalMinutes(
  * local calendar day, insert coherent random CHECK_IN/CHECK_OUT (+ timesheets).
  * If any real (or prior seeded) punch exists, do nothing — other employees stay absent.
  *
- * Gated by `DEMO_AUTO_ATTENDANCE_SEED=1`. Never enable in production with real users.
+ * Requires BOTH:
+ * - `DEMO_AUTO_ATTENDANCE_SEED=1`
+ * - `DEMO_AUTO_ATTENDANCE_SEED_SKUS` and/or `DEMO_AUTO_ATTENDANCE_SEED_COMPANY_IDS`
+ *   (comma-separated allowlist). Without an allowlist, nothing is seeded.
  */
 @Injectable()
 export class DemoAttendanceSeedCronService {
@@ -72,10 +87,32 @@ export class DemoAttendanceSeedCronService {
   async seedEmptyDayIfNeeded() {
     if (!envEnabled('DEMO_AUTO_ATTENDANCE_SEED')) return;
 
+    const allowedSkus = parseAllowlist('DEMO_AUTO_ATTENDANCE_SEED_SKUS');
+    const allowedIds = parseAllowlist('DEMO_AUTO_ATTENDANCE_SEED_COMPANY_IDS');
+    if (allowedSkus.size === 0 && allowedIds.size === 0) {
+      this.logger.warn(
+        'DEMO_AUTO_ATTENDANCE_SEED enabled but no DEMO_AUTO_ATTENDANCE_SEED_SKUS / _COMPANY_IDS allowlist — skipping all orgs',
+      );
+      return;
+    }
+
     const now = new Date();
     const companies = await this.prisma.company.findMany({
-      select: { id: true, timeZone: true, name: true },
+      where: {
+        OR: [
+          ...(allowedIds.size > 0 ? [{ id: { in: [...allowedIds] } }] : []),
+          ...(allowedSkus.size > 0 ? [{ sku: { in: [...allowedSkus] } }] : []),
+        ],
+      },
+      select: { id: true, timeZone: true, name: true, sku: true },
     });
+
+    if (companies.length === 0) {
+      this.logger.warn(
+        'Demo attendance seed allowlist set but no matching companies found',
+      );
+      return;
+    }
 
     for (const company of companies) {
       const timeZone = resolveOrgTimeZone(company.timeZone);
@@ -86,11 +123,11 @@ export class DemoAttendanceSeedCronService {
         const result = await this.seedCompanyDay(company.id, timeZone, now);
         if (result.skipped) {
           this.logger.debug(
-            `Demo seed skip ${company.name ?? company.id}: ${result.reason}`,
+            `Demo seed skip ${company.name ?? company.sku ?? company.id}: ${result.reason}`,
           );
         } else {
           this.logger.log(
-            `Demo seed ${company.name ?? company.id} ${result.dateKey}: ` +
+            `Demo seed ${company.name ?? company.sku ?? company.id} ${result.dateKey}: ` +
               `${result.present} présents, ${result.absentLeft} absents laissés`,
           );
         }
