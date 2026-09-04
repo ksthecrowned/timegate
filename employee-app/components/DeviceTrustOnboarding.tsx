@@ -18,12 +18,12 @@ import {
 
 const STEPS = [
   {
-    icon: 'phone-portrait-outline' as const,
+    icon: 'people-outline' as const,
     title: STRINGS.auth.deviceOnboardingStep1Title,
     body: STRINGS.auth.deviceOnboardingStep1Body,
   },
   {
-    icon: 'shield-checkmark-outline' as const,
+    icon: 'eye-outline' as const,
     title: STRINGS.auth.deviceOnboardingStep2Title,
     body: STRINGS.auth.deviceOnboardingStep2Body,
   },
@@ -73,7 +73,7 @@ export function DeviceTrustOnboarding() {
           <View
             style={[styles.heroIcon, { backgroundColor: theme.warningSoft }]}
           >
-            <Ionicons name="phone-portrait-outline" size={28} color={theme.warning} />
+            <Ionicons name="shield-outline" size={28} color={theme.warning} />
           </View>
           <Text style={[styles.title, { color: theme.text }]}>
             {STRINGS.auth.deviceOnboardingTitle}

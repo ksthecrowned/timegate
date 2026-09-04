@@ -2,9 +2,9 @@
 
 ## Ecosystem
 
-- **Index :** `../ecosystem-docs/INDEX.md`
-- **Fiche :** `../ecosystem-docs/projects/employee-app.md`
-- Auth : `../ecosystem-docs/integrations/auth-and-sessions.md`
+- **Index :** `../docs/ecosystem/INDEX.md`
+- **Fiche :** `../docs/ecosystem/projects/employee-app.md`
+- Auth : `../docs/ecosystem/integrations/auth-and-sessions.md`
 
 ## Expo
 

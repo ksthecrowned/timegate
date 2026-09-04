@@ -26,6 +26,11 @@ import { ApiError, employeeApi } from '@/lib/api';
 import { trackEvent } from '@/lib/analytics';
 import { isKioskQrPayload } from '@/lib/qrPunch';
 import {
+  computeCheckInPunctuality,
+  computeCheckOutPunctuality,
+  type PunctualityResult,
+} from '@/lib/punctuality';
+import {
   enqueueQrOfflineScan,
   getQrOfflineQueueCount,
   isNetworkishError,
@@ -42,6 +47,7 @@ type SuccessDetails = {
   occurredAt?: string;
   kioskName?: string;
   branchName?: string | null;
+  punctuality?: PunctualityResult | null;
 };
 
 function eventTypeLabel(type: string): string {
@@ -64,6 +70,42 @@ function formatPunchTime(iso?: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function punctualityLabel(
+  eventType: string,
+  p: PunctualityResult | null | undefined,
+): string | null {
+  if (!p) return null;
+  if (eventType === 'CHECK_IN') {
+    if (p.kind === 'early') return STRINGS.qrPunch.punctualityEarly(p.minutes);
+    if (p.kind === 'late') return STRINGS.qrPunch.punctualityLate(p.minutes);
+    return STRINGS.qrPunch.punctualityOnTime;
+  }
+  if (eventType === 'CHECK_OUT') {
+    if (p.kind === 'early') return STRINGS.qrPunch.punctualityEarlyOut(p.minutes);
+    if (p.kind === 'late') return STRINGS.qrPunch.punctualityLateOut(p.minutes);
+    return STRINGS.qrPunch.punctualityOnTimeOut;
+  }
+  return null;
+}
+
+async function resolvePunctuality(
+  eventType: string,
+  occurredAt?: string,
+): Promise<PunctualityResult | null> {
+  if (eventType !== 'CHECK_IN' && eventType !== 'CHECK_OUT') return null;
+  if (!occurredAt) return null;
+  try {
+    const schedule = await employeeApi.getTodaySchedule();
+    if (!schedule.isWorkDay || !schedule.shift) return null;
+    if (eventType === 'CHECK_IN') {
+      return computeCheckInPunctuality(occurredAt, schedule.shift.startTime);
+    }
+    return computeCheckOutPunctuality(occurredAt, schedule.shift.endTime);
+  } catch {
+    return null;
+  }
 }
 
 export default function QrPunchScreen() {
@@ -158,6 +200,7 @@ export default function QrPunchScreen() {
           occurredAt: res.occurredAt,
           kioskName: res.kiosk?.name,
           branchName: res.kiosk?.branchName,
+          punctuality: await resolvePunctuality(res.eventType, res.occurredAt),
         };
         setSuccess(details);
         setPhase('success');
@@ -259,7 +302,14 @@ export default function QrPunchScreen() {
               ]}
               accessibilityRole="summary"
               accessibilityLiveRegion="polite"
-              accessibilityLabel={`${STRINGS.qrPunch.successTitle}. ${eventTypeLabel(success.eventType)}. ${formatPunchTime(success.occurredAt)}`}
+              accessibilityLabel={[
+                STRINGS.qrPunch.successTitle,
+                eventTypeLabel(success.eventType),
+                formatPunchTime(success.occurredAt),
+                punctualityLabel(success.eventType, success.punctuality),
+              ]
+                .filter(Boolean)
+                .join('. ')}
             >
               <Ionicons name="checkmark-circle" size={40} color={theme.success} />
               <Text style={[styles.successTitle, { color: theme.text }]}>
@@ -273,6 +323,25 @@ export default function QrPunchScreen() {
               <Text style={[styles.successTime, { color: theme.text }]}>
                 {formatPunchTime(success.occurredAt)}
               </Text>
+              {(() => {
+                const label = punctualityLabel(
+                  success.eventType,
+                  success.punctuality,
+                );
+                if (!label) return null;
+                const tone =
+                  success.punctuality?.kind === 'late'
+                    ? theme.warning
+                    : theme.success;
+                return (
+                  <Text
+                    style={[styles.punctuality, { color: tone }]}
+                    accessibilityRole="text"
+                  >
+                    {label}
+                  </Text>
+                );
+              })()}
               {success.kioskName ? (
                 <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
                   {STRINGS.qrPunch.atKiosk(success.kioskName)}
@@ -442,6 +511,13 @@ const styles = StyleSheet.create({
   successTitle: { fontSize: 20, fontWeight: '700', marginTop: Spacing[1] },
   successType: { fontSize: 15, fontWeight: '700' },
   successTime: { fontSize: 28, fontWeight: '700', letterSpacing: 0.5 },
+  punctuality: {
+    fontSize: 15,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginTop: Spacing[1],
+  },
   cameraWrap: {
     height: 320,
     borderRadius: Radius.lg,

@@ -14,7 +14,7 @@ audience: agents
 | HTTP / SaaS API | `http-saas.md` |
 | Cross-package | `ecosystem-pointer.md` |
 
-Hub SaaS : `ecosystem-docs/integrations/saas-console.md`.
+Hub SaaS : `docs/ecosystem/integrations/saas-console.md`.
 
 ---
 

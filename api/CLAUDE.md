@@ -6,8 +6,8 @@
 
 Avant exploration large :
 
-1. Lire `../ecosystem-docs/INDEX.md`
-2. Lire `../ecosystem-docs/projects/api.md`
+1. Lire `../docs/ecosystem/INDEX.md`
+2. Lire `../docs/ecosystem/projects/api.md`
 3. Lire **2–4** `.skills/` selon la table ci-dessous
 
 ## .skills par type de tâche

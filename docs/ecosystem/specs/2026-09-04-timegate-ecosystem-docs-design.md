@@ -11,7 +11,7 @@ Même niveau de contexte agent que Ride (`ride-platform-docs` + `AGENTS.md` + `.
 
 | Sujet | Choix |
 |-------|-------|
-| Hub | `ecosystem-docs/` à la racine du monorepo |
+| Hub | `docs/ecosystem/` (sous `docs/` du monorepo) |
 | Auto-chargé | `INDEX.md` ≤50 lignes via `.cursor/rules/ecosystem.mdc` |
 | Skill | `.cursor/skills/timegate-ecosystem/` (versionné dans le repo) |
 | Par package | `AGENTS.md` + `.skills/` (api d’abord, fronts ensuite) |
@@ -29,7 +29,7 @@ Même niveau de contexte agent que Ride (`ride-platform-docs` + `AGENTS.md` + `.
 ## Architecture
 
 ```
-ecosystem-docs/
+docs/ecosystem/
 ├── INDEX.md
 ├── glossary.md
 ├── integrations/

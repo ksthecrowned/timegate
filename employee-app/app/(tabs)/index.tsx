@@ -195,6 +195,25 @@ export default function HomeScreen() {
   }, [breakEligible, dayEvents, todaySchedule]);
 
   const primaryAction: PrimaryAction = useMemo(() => {
+    // PENDING device: never surface punch/break as primary — point to read-only value.
+    if (devicePending) {
+      if (
+        dayStatus === 'leave' ||
+        dayStatus === 'holiday' ||
+        dayStatus === 'off'
+      ) {
+        return {
+          label: STRINGS.home.primaryPlanning,
+          href: '/planning',
+          icon: 'calendar-number-outline',
+        };
+      }
+      return {
+        label: STRINGS.home.primaryAttendance,
+        href: '/attendance',
+        icon: 'time-outline',
+      };
+    }
     if (breakEligible) {
       return {
         label: STRINGS.home.primaryBreak,
@@ -231,7 +250,7 @@ export default function HomeScreen() {
       href: '/attendance',
       icon: 'time-outline',
     };
-  }, [breakEligible, dayStatus]);
+  }, [breakEligible, dayStatus, devicePending]);
 
   const handleNavigate = (href: string, sensitive?: boolean) => {
     if (devicePending && sensitive) {

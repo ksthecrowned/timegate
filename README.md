@@ -11,7 +11,7 @@ Le projet est organise en monorepo.
 
 ## Contexte agents
 
-Avant d’explorer le codebase : **[`ecosystem-docs/INDEX.md`](./ecosystem-docs/INDEX.md)**  
+Avant d’explorer le codebase : **[`docs/ecosystem/INDEX.md`](./docs/ecosystem/INDEX.md)**  
 (`AGENTS.md` racine + skill `.cursor/skills/timegate-ecosystem/`).
 
 ## Vision du projet
@@ -39,7 +39,7 @@ TimeGate/
   console/       -> Next.js (Console Plateforme SaaS, port 3002)
   employee-app/  -> Expo (espace employé)
   kiosk-app/     -> Expo / React Native (kiosk facial)
-  ecosystem-docs/ -> hub contexte agents (INDEX, integrations, projects)
+  docs/ecosystem/ -> hub contexte agents (INDEX, integrations, projects)
 ```
 
 ### `api`
@@ -77,7 +77,7 @@ Application **Expo** pour les employes (separee du dashboard admin) :
 - consultation des pointages et soldes de conges
 - demandes de conge, QR punch (trusted device)
 
-Env : `EXPO_PUBLIC_API_URL` (voir `ecosystem-docs/projects/employee-app.md`).
+Env : `EXPO_PUBLIC_API_URL` (voir `docs/ecosystem/projects/employee-app.md`).
 
 ### `kiosk-app`
 

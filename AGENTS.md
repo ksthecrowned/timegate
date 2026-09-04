@@ -2,7 +2,7 @@
 
 ## Ecosystem
 
-- **Index :** [`ecosystem-docs/INDEX.md`](./ecosystem-docs/INDEX.md)
+- **Index :** [`docs/ecosystem/INDEX.md`](./docs/ecosystem/INDEX.md)
 - **Skill Cursor :** [`.cursor/skills/timegate-ecosystem/`](./.cursor/skills/timegate-ecosystem/)
 - **Rule :** [`.cursor/rules/ecosystem.mdc`](./.cursor/rules/ecosystem.mdc)
 
@@ -18,7 +18,7 @@
 
 ## Démarrage de session
 
-1. Lire `ecosystem-docs/INDEX.md`
+1. Lire `docs/ecosystem/INDEX.md`
 2. Charger 1–2 fichiers hub selon la tâche
 3. Ouvrir `AGENTS.md` du package concerné
 4. Ne pas explorer large `node_modules` / `docs/jibc-*` / PDF marketing
@@ -32,7 +32,7 @@
 
 ## Fin de tâche
 
-Flux cross-package (auth, face, envelope, env) modifié → proposer MAJ `ecosystem-docs/`.
+Flux cross-package (auth, face, envelope, env) modifié → proposer MAJ `docs/ecosystem/`.
 
 ## Docs hors hub
 

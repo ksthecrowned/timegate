@@ -17,7 +17,7 @@
 
 ## Specs produit
 
-- `../../docs/superpowers/specs/2026-07-29-compensation-and-payroll-refactor-design.md`
-- `../../docs/superpowers/specs/2026-07-30-payroll-mass-and-deferred-payments-design.md`
+- `../superpowers/specs/2026-07-29-compensation-and-payroll-refactor-design.md`
+- `../superpowers/specs/2026-07-30-payroll-mass-and-deferred-payments-design.md`
 
 En cas de changement de contrat API paie → MAJ ce fichier + shapes dans `api/docs/`.

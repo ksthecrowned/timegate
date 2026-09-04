@@ -1,4 +1,4 @@
-# ecosystem-docs
+# docs/ecosystem
 
 Source de vérité **cross-package** pour le monorepo TimeGate (contexte agents + onboarding).
 
@@ -23,14 +23,14 @@ specs/                      # Designs validés (ce système docs)
 
 | Package | Path |
 |---------|------|
-| api | `../api` |
-| dashboard | `../dashboard` |
-| console | `../console` |
-| employee-app | `../employee-app` |
-| kiosk-app | `../kiosk-app` |
+| api | `../../api` |
+| dashboard | `../../dashboard` |
+| console | `../../console` |
+| employee-app | `../../employee-app` |
+| kiosk-app | `../../kiosk-app` |
 
 ## Maintenance
 
 Mettre à jour ce hub quand un flux cross-package change (auth, face/kiosk, envelope, env).  
 Les conventions locales restent dans chaque package (`.skills/`, docs techniques).  
-Specs produit / pilote restent dans `../docs/`.
+Specs produit / pilote restent dans `../superpowers/`, `../pilot/`, `../metier/`, etc.

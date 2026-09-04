@@ -37,7 +37,7 @@ audience: agents
 
 ## Liens
 
-- Hub : `ecosystem-docs/integrations/face-and-kiosk.md`
+- Hub : `docs/ecosystem/integrations/face-and-kiosk.md`
 - Voir aussi : `storage-r2.md`
 
 ---

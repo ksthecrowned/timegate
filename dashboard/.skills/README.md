@@ -8,7 +8,7 @@ audience: agents
 
 # `.skills/` dashboard
 
-Lire 2–4 fichiers max. Hub : `../../ecosystem-docs/INDEX.md`.
+Lire 2–4 fichiers max. Hub : `../../docs/ecosystem/INDEX.md`.
 
 | Tâche | Skills |
 |-------|--------|

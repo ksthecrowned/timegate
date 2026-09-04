@@ -2,9 +2,9 @@
 
 ## Ecosystem
 
-- **Index :** `../ecosystem-docs/INDEX.md`
-- **Fiche :** `../ecosystem-docs/projects/console.md`
-- SaaS : `../ecosystem-docs/integrations/saas-console.md`
+- **Index :** `../docs/ecosystem/INDEX.md`
+- **Fiche :** `../docs/ecosystem/projects/console.md`
+- SaaS : `../docs/ecosystem/integrations/saas-console.md`
 
 ## Stack
 

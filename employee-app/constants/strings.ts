@@ -58,21 +58,31 @@ export const STRINGS = {
     enterPasswordHint: 'Saisissez votre mot de passe pour continuer.',
     changeEmail: 'Changer d’e-mail',
     activateAccount: 'Activer mon compte',
-    devicePendingTitle: 'Appareil en attente',
+    devicePendingTitle: 'Appareil à vérifier',
     devicePendingBody:
-      'Votre appareil doit être approuvé par un administrateur avant le pointage (QR, reprise pause).',
-    deviceOnboardingTitle: 'Sécurisez votre appareil',
+      'Ce téléphone n’est pas encore un appareil de confiance pour votre compte. Demandez à votre RH de l’approuver pour pointer.',
+    devicePendingSharedHint:
+      'Si un collègue s’est déjà connecté ici, le 1er compte reste de confiance — le vôtre reste en lecture seule jusqu’à validation.',
+    devicePendingAllowedTitle: 'Disponible maintenant',
+    devicePendingAllowedBody:
+      'Planning, congés, messages et profil restent consultables.',
+    devicePendingBlockedTitle: 'En attente de validation',
+    devicePendingBlockedBody:
+      'Pointage QR, reprise de pause et réclamations de pointage.',
+    devicePendingAskAdmin:
+      'Demandez à votre administrateur RH d’approuver cet appareil dans TimeGate.',
+    deviceOnboardingTitle: 'Vérifiez cet appareil',
     deviceOnboardingSubtitle:
-      'Pour éviter les usurpations, TimeGate n’autorise le pointage que sur un téléphone validé.',
-    deviceOnboardingStep1Title: 'Cet appareil est enregistré',
+      'Le premier employé sur un téléphone devient appareil de confiance. Un second compte sur le même appareil reste en lecture seule jusqu’à validation RH.',
+    deviceOnboardingStep1Title: 'Appareil enregistré',
     deviceOnboardingStep1Body:
-      'Il est en attente d’approbation par votre administrateur RH.',
-    deviceOnboardingStep2Title: 'Vous pouvez déjà consulter',
+      'Cet install est lié à votre compte, en attente d’approbation (nouvel appareil ou téléphone déjà utilisé par un collègue).',
+    deviceOnboardingStep2Title: 'Lecture seule active',
     deviceOnboardingStep2Body:
-      'Planning, congés et profil restent disponibles pendant l’attente.',
+      'Vous pouvez déjà consulter planning, congés, messages et profil.',
     deviceOnboardingStep3Title: 'Pointage après validation',
     deviceOnboardingStep3Body:
-      'QR et reprise de pause se débloquent dès que l’appareil est approuvé.',
+      'QR, reprise de pause et réclamations se débloquent dès que RH approuve cet appareil pour vous.',
     deviceOnboardingCta: 'J’ai compris',
     welcomeBack: 'Bon retour',
     welcomeMessage: 'Connectez-vous à votre espace TimeGate',
@@ -191,6 +201,24 @@ export const STRINGS = {
     eventBreakEnd: 'Reprise de pause',
     atKiosk: (name: string) => `Borne ${name}`,
     atBranch: (name: string) => `Site ${name}`,
+    punctualityEarly: (mins: number) =>
+      mins === 1
+        ? 'Vous êtes arrivé·e 1 minute en avance.'
+        : `Vous êtes arrivé·e ${mins} minutes en avance.`,
+    punctualityOnTime: 'À l’heure — bien joué !',
+    punctualityLate: (mins: number) =>
+      mins === 1
+        ? 'Vous êtes arrivé·e 1 minute en retard.'
+        : `Vous êtes arrivé·e ${mins} minutes en retard.`,
+    punctualityEarlyOut: (mins: number) =>
+      mins === 1
+        ? 'Départ 1 minute avant la fin du shift.'
+        : `Départ ${mins} minutes avant la fin du shift.`,
+    punctualityOnTimeOut: 'Départ à l’heure.',
+    punctualityLateOut: (mins: number) =>
+      mins === 1
+        ? 'Vous êtes parti·e 1 minute après la fin du shift.'
+        : `Vous êtes parti·e ${mins} minutes après la fin du shift.`,
     queuedOffline:
       'Hors ligne — pointage enregistré localement. Il sera synchronisé dès que la connexion revient.',
     scanError: 'Impossible de valider ce QR. Réessayez.',

@@ -2,8 +2,8 @@
 
 ## Ecosystem
 
-- **Index :** `../ecosystem-docs/INDEX.md`
-- **Fiche :** `../ecosystem-docs/projects/api.md`
+- **Index :** `../docs/ecosystem/INDEX.md`
+- **Fiche :** `../docs/ecosystem/projects/api.md`
 - **Routage skills :** [CLAUDE.md](./CLAUDE.md)
 
 ## Stack
@@ -45,7 +45,7 @@ docs/          # api-json-shapes, public-api, use-cases
 ## Do not
 
 - Committer secrets / service accounts Firebase
-- Dupliquer le hub — MAJ `ecosystem-docs/` si flux cross-package change
+- Dupliquer le hub — MAJ `docs/ecosystem/` si flux cross-package change
 
 ## Skills
 

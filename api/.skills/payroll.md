@@ -17,7 +17,7 @@ audience: agents
 - Toujours scoper company + `assertCompanyAccess`
 - Controllers ops + `OperationalAccessGuard`
 - Specs produit : `docs/superpowers/specs/*payroll*` / `*compensation*`
-- Hub : `ecosystem-docs/integrations/payroll.md`
+- Hub : `docs/ecosystem/integrations/payroll.md`
 
 ## Anti-patterns
 

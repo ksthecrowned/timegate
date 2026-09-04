@@ -47,7 +47,7 @@ create(@Body() dto: CreateXDto, @CurrentUser() user: JwtUser) { … }
 
 ## Liens
 
-- Hub : `ecosystem-docs/integrations/auth-and-sessions.md`
+- Hub : `docs/ecosystem/integrations/auth-and-sessions.md`
 - Voir aussi : `multi-tenant.md`
 
 ---

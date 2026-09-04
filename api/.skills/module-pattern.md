@@ -38,7 +38,7 @@ src/<domain>/
 
 ## Liens
 
-- Carte : `ecosystem-docs/reference/api-module-map.md`
+- Carte : `docs/ecosystem/reference/api-module-map.md`
 - Voir aussi : `controllers.md`, `dtos-validation.md`, `services-pattern.md`
 
 ---

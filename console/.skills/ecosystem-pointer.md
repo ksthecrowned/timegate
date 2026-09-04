@@ -8,7 +8,7 @@ audience: agents
 
 # ecosystem-pointer
 
-`ecosystem-docs/INDEX.md` → `projects/console.md` → `integrations/saas-console.md` → `AGENTS.md` + skills.
+`docs/ecosystem/INDEX.md` → `projects/console.md` → `integrations/saas-console.md` → `AGENTS.md` + skills.
 
 ---
 

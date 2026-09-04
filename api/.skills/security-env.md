@@ -13,7 +13,7 @@ audience: agents
 `JWT_SECRET`, `DATABASE_URL`, `R2_*`, `FIREBASE_SERVICE_ACCOUNT_JSON`, `MAIL_PASS`, webhook secrets.
 
 - Templates : `.env.example` — **jamais** committer `.env` ni JSON service account
-- Hub env : `ecosystem-docs/reference/env-vars.md`
+- Hub env : `docs/ecosystem/reference/env-vars.md`
 
 ## Authz
 

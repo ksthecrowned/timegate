@@ -8,7 +8,7 @@ audience: agents
 
 # ecosystem-pointer
 
-`ecosystem-docs/INDEX.md` → `projects/kiosk-app.md` → `integrations/face-and-kiosk.md` → skills.
+`docs/ecosystem/INDEX.md` → `projects/kiosk-app.md` → `integrations/face-and-kiosk.md` → skills.
 
 ---
 

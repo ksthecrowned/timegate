@@ -32,5 +32,5 @@ Carte complète : `../reference/api-module-map.md`.
 
 ## Doc liée
 
-- Métier planning : `../../docs/metier/planning-et-horaires.md`
-- Specs QR / trusted device : `../../docs/superpowers/specs/`
+- Métier planning : `../metier/planning-et-horaires.md`
+- Specs QR / trusted device : `../superpowers/specs/`

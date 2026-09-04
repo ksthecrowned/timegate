@@ -8,8 +8,8 @@ audience: agents
 
 # ecosystem-pointer
 
-1. `ecosystem-docs/INDEX.md`
-2. `ecosystem-docs/projects/dashboard.md`
+1. `docs/ecosystem/INDEX.md`
+2. `docs/ecosystem/projects/dashboard.md`
 3. Intégration pertinente (souvent `auth-and-sessions.md`)
 4. Ce package `AGENTS.md` + 2–4 `.skills/`
 

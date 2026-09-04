@@ -2,9 +2,9 @@
 
 ## Ecosystem
 
-- **Index :** `../ecosystem-docs/INDEX.md`
-- **Fiche :** `../ecosystem-docs/projects/kiosk-app.md`
-- Face : `../ecosystem-docs/integrations/face-and-kiosk.md`
+- **Index :** `../docs/ecosystem/INDEX.md`
+- **Fiche :** `../docs/ecosystem/projects/kiosk-app.md`
+- Face : `../docs/ecosystem/integrations/face-and-kiosk.md`
 
 ## Stack
 

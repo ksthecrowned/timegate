@@ -1,8 +1,8 @@
 # TimeGate — Ecosystem Index
 
-> Hub : `ecosystem-docs/` (racine monorepo) · Skill : `.cursor/skills/timegate-ecosystem/`  
+> Hub : `docs/ecosystem/` · Skill : `.cursor/skills/timegate-ecosystem/`  
 > Détails locaux : `AGENTS.md` + `.skills/` dans chaque package.  
-> Docs métier / pilote / specs features : `docs/` (ne pas dupliquer ici).
+> Autres docs sous `docs/` (métier, pilote, specs features) — ne pas dupliquer ici.
 
 ## Packages
 

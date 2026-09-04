@@ -8,7 +8,7 @@ audience: agents
 
 # ecosystem-pointer
 
-`ecosystem-docs/INDEX.md` → `projects/employee-app.md` → auth / face hubs → skills.
+`docs/ecosystem/INDEX.md` → `projects/employee-app.md` → auth / face hubs → skills.
 
 Package name : **employee-app** (pas `employee-web`).
 

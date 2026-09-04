@@ -33,7 +33,7 @@ bun run start
 ## Doc locale
 
 - `AGENTS.md` / `CLAUDE.md` : pointer Expo versionnée + hub TimeGate
-- Spec migration : `../../docs/superpowers/specs/2026-06-22-employee-app-migration-design.md`
+- Spec migration : `../superpowers/specs/2026-06-22-employee-app-migration-design.md`
 
 ## Hub
 

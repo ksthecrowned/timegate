@@ -14,7 +14,7 @@ audience: agents
 
 API : `POST /employee/qr-punch/scan` (challenge kiosk).
 
-Hub : `ecosystem-docs/integrations/face-and-kiosk.md`.
+Hub : `docs/ecosystem/integrations/face-and-kiosk.md`.
 
 ## Anti-patterns
 

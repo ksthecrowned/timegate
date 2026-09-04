@@ -10,11 +10,11 @@ audience: agents
 
 Toujours commencer par le hub monorepo :
 
-1. `ecosystem-docs/INDEX.md`
+1. `docs/ecosystem/INDEX.md`
 2. Intégration pertinente
-3. `ecosystem-docs/projects/api.md` + ce package `AGENTS.md`
+3. `docs/ecosystem/projects/api.md` + ce package `AGENTS.md`
 
-Ne pas dupliquer le hub dans ce dossier. Si un flux cross-package change → proposer MAJ `ecosystem-docs/`.
+Ne pas dupliquer le hub dans ce dossier. Si un flux cross-package change → proposer MAJ `docs/ecosystem/`.
 
 ---
 
