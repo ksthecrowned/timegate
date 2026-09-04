@@ -235,9 +235,8 @@ export class ManagerService {
         status = 'REVIEW_REQUIRED';
       } else if (isOnBreak(employeeEvents)) {
         status = 'ON_BREAK';
-      } else if ((timesheet?.lateMinutes ?? 0) > 0) {
-        status = 'LATE';
       } else if (hasCheckIn(employeeEvents)) {
+        // Arrival lateness stays on lateMinutes chip — do not sticky-badge LATE all day.
         status = 'PRESENT';
       } else if (isFuture) {
         // Future workday: not yet worked — never mark as absent

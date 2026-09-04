@@ -96,7 +96,7 @@ export function bulkReviewAttendanceEvents(body: {
 export const TEAM_STATUS_LABELS: Record<TeamMemberStatus, string> = {
   PRESENT: 'Présent',
   ABSENT: 'Absent',
-  LATE: 'Retard',
+  LATE: 'Non arrivé',
   ON_BREAK: 'En pause',
   ON_LEAVE: 'Congé',
   REVIEW_REQUIRED: 'À valider',

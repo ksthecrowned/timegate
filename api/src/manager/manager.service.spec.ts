@@ -4,7 +4,7 @@ import { dateToMinutesInTimeZone } from '../common/utils/punch-time.util';
 import { ManagerService } from './manager.service';
 import { ManagerTeamTodayQueryDto } from './dto/manager-query.dto';
 
-function buildService(shiftStartMin: number) {
+function buildService(shiftStartMin: number, shiftEndMin?: number) {
   const employee = {
     id: 'EMP-1',
     firstName: 'Patrick',
@@ -34,7 +34,7 @@ function buildService(shiftStartMin: number) {
   const punchWindows = {
     resolveForEmployee: mock(async () => ({
       shiftStartMin,
-      shiftEndMin: (shiftStartMin + 8 * 60) % (24 * 60),
+      shiftEndMin: shiftEndMin ?? (shiftStartMin + 8 * 60) % (24 * 60),
     })),
   } as any;
 
@@ -65,9 +65,80 @@ describe('ManagerService teamToday status boundaries', () => {
 
   test('returns ABSENT after shift end when no check-in exists', async () => {
     const now = currentMinutes();
-    const service = buildService(Math.max(0, now - 9 * 60));
+    // Fixed early-morning window; expected status depends on wall clock.
+    const start = 60; // 01:00
+    const end = 120; // 02:00
+    const service = buildService(start, end);
     const result = await service.teamToday(new ManagerTeamTodayQueryDto(), MANAGER_USER);
-    expect(result.members[0]?.status).toBe('ABSENT');
+    const expected =
+      now < start ? 'EXPECTED' : now < end ? 'LATE' : 'ABSENT';
+    expect(result.members[0]?.status).toBe(expected);
+  });
+
+  test('returns PRESENT when checked in even if timesheet has lateMinutes', async () => {
+    const employee = {
+      id: 'EMP-1',
+      firstName: 'Katherine',
+      lastName: 'Johnson',
+      employeeName: null,
+      branchId: 'BR-1',
+      holidayListId: null,
+      branch: { id: 'BR-1', branchName: 'Pointe-Noire' },
+      department: { id: 'DEP-1', departmentName: 'Finance' },
+      status: EmployeeStatus.ACTIVE,
+    };
+    const now = new Date();
+    const prisma = {
+      company: { findUnique: mock(async () => ({ timeZone: 'Africa/Brazzaville' })) },
+      employee: { findMany: mock(async () => [employee]) },
+      leaveApplication: { findMany: mock(async () => []) },
+      timeGateAttendanceEvent: {
+        findMany: mock(async () => [
+          {
+            employeeId: 'EMP-1',
+            type: 'CHECK_IN',
+            status: 'ACCEPTED',
+            occurredAt: new Date(now.getTime() - 8 * 60 * 60 * 1000),
+          },
+          {
+            employeeId: 'EMP-1',
+            type: 'CHECK_OUT',
+            status: 'ACCEPTED',
+            occurredAt: now,
+          },
+        ]),
+      },
+      timeGateTimesheetDay: {
+        findMany: mock(async () => [
+          {
+            employeeId: 'EMP-1',
+            status: 'OPEN',
+            lateMinutes: 20,
+            workedMinutes: 460,
+            workDate: new Date(),
+            updatedAt: now,
+            anomalyFlags: null,
+          },
+        ]),
+      },
+    } as any;
+
+    const service = new ManagerService(
+      prisma,
+      { buildIndexForEmployees: mock(async () => new Map()) } as any,
+      {} as any,
+      {
+        resolveForEmployee: mock(async () => ({
+          shiftStartMin: 9 * 60,
+          shiftEndMin: 17 * 60,
+        })),
+      } as any,
+    );
+
+    const result = await service.teamToday(new ManagerTeamTodayQueryDto(), MANAGER_USER);
+    expect(result.members[0]?.status).toBe('PRESENT');
+    expect(result.members[0]?.lateMinutes).toBe(20);
+    expect(result.members[0]?.workedMinutes).toBe(460);
   });
 });
 

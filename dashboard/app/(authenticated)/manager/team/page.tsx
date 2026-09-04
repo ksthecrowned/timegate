@@ -68,6 +68,23 @@ function formatLastEvent(iso: string | null): string | null {
   return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
+const LAST_EVENT_LABELS: Record<string, string> = {
+  CHECK_IN: 'arrivée',
+  CHECK_OUT: 'départ',
+  BREAK_START: 'début pause',
+  BREAK_END: 'reprise',
+}
+
+function formatLastEventLine(
+  at: string | null,
+  type: string | null,
+): string | null {
+  const time = formatLastEvent(at)
+  if (!time) return null
+  const kind = type ? LAST_EVENT_LABELS[type] : null
+  return kind ? `${kind} ${time}` : `dernier pointage ${time}`
+}
+
 type SummaryCardDef = {
   key: TeamMemberStatus | 'ALL'
   label: string
@@ -215,7 +232,7 @@ function ManagerTeamView() {
     cards.push(
       {
         key: 'LATE',
-        label: 'Retards',
+        label: 'Non arrivés',
         value: summary?.late ?? 0,
         icon: 'fa-clock',
         accent: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
@@ -405,7 +422,18 @@ function ManagerTeamView() {
             <ul className="divide-y divide-slate-100 dark:divide-border-dark">
               {filtered.map((member) => {
                 const style = TEAM_STATUS_STYLES[member.status]
-                const lastAt = formatLastEvent(member.lastEventAt)
+                const lastLine = formatLastEventLine(
+                  member.lastEventAt,
+                  member.lastEventType,
+                )
+                const metaParts = [
+                  member.branch?.name,
+                  member.department,
+                  lastLine,
+                  member.workedMinutes > 0
+                    ? `${formatMinutes(member.workedMinutes)} travaillées`
+                    : null,
+                ].filter(Boolean)
                 return (
                   <li
                     key={member.employeeId}
@@ -426,19 +454,17 @@ function ManagerTeamView() {
                         {member.employeeName}
                       </p>
                       <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                        {[member.branch?.name, member.department].filter(Boolean).join(' · ') ||
-                          '—'}
-                        {lastAt ? ` · dernier pointage ${lastAt}` : ''}
-                        {member.workedMinutes > 0
-                          ? ` · ${formatMinutes(member.workedMinutes)}`
-                          : ''}
+                        {metaParts.join(' · ') || '—'}
                       </p>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       {member.lateMinutes > 0 ? (
-                        <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                          +{member.lateMinutes} min
+                        <span
+                          className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-200"
+                          title="Retard à l’arrivée par rapport au début de shift"
+                        >
+                          Arrivée +{member.lateMinutes} min
                         </span>
                       ) : null}
                       {member.pendingReviewEvents > 0 ? (
