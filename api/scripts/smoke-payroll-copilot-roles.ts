@@ -19,8 +19,8 @@ const PAYROLL_TOOLS = [
 ];
 
 async function main() {
-  const adminToken = await login('admin@monorganisation.com', { sku: 'SOTR' });
-  const managerToken = await login('manager@monorganisation.com', { sku: 'SOTR' });
+  const adminToken = await login('admin@sotrafer.cg', { sku: 'SOTR' });
+  const managerToken = await login('manager@sotrafer.cg', { sku: 'SOTR' });
   if (!adminToken) throw new Error('admin login failed');
   if (!managerToken) throw new Error('manager login failed');
 

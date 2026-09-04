@@ -5,7 +5,7 @@
  */
 const BASE = process.env.TIMEGATE_API_URL ?? 'http://localhost:4001/api/v1';
 const LOGIN = {
-  email: 'admin@monorganisation.com',
+  email: 'admin@sotrafer.cg',
   password: 'ChangeMe123!',
   sku: 'SOTR',
 };

@@ -3,7 +3,7 @@
  * Usage: bun run scripts/regenerate-draft-payroll-runs.mjs
  */
 const BASE = process.env.TIMEGATE_API_URL ?? 'http://127.0.0.1:4001/api/v1'
-const EMAIL = process.env.TIMEGATE_ADMIN_EMAIL ?? 'admin@monorganisation.com'
+const EMAIL = process.env.TIMEGATE_ADMIN_EMAIL ?? 'admin@sotrafer.cg'
 const PASS = process.env.TIMEGATE_TEST_PASSWORD ?? 'ChangeMe123!'
 const SKU = process.env.TIMEGATE_ORG_SKU ?? 'SOTR'
 

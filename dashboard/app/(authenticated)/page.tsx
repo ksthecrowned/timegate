@@ -239,77 +239,6 @@ export default function DashboardPage() {
             />
           </div>
 
-          {isAdmin && home.payrollMassSeries ? (
-            <section className={`tg-card p-4 md:p-5 ${loading ? 'opacity-60' : ''}`}>
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                    Masse salariale
-                  </h2>
-                  {home.payrollMass ? (
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      {MONTH_LABELS[home.payrollMass.month - 1]} {home.payrollMass.year} ·{' '}
-                      {home.payrollMass.status}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                      Aucun cycle de paie verrouillé ou payé
-                    </p>
-                  )}
-                </div>
-                <Link
-                  href={home.payrollMass ? `/payroll-runs/${home.payrollMass.runId}` : '/payroll-runs'}
-                  className="text-xs font-medium text-primary hover:underline dark:text-accent"
-                >
-                  Voir les cycles
-                </Link>
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Brut</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
-                    {formatMoney(home.payrollMass?.totalGross)}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Net</p>
-                  <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
-                    {formatMoney(home.payrollMass?.totalNet)}
-                  </p>
-                </div>
-              </div>
-
-              <div
-                className="mt-4 flex h-20 items-end gap-2 border-b border-slate-200 dark:border-border-dark"
-                aria-label="Évolution de la masse salariale sur six mois"
-              >
-                {home.payrollMassSeries.map((point) => {
-                  const height = payrollMassMax > 0 ? (point.totalGross / payrollMassMax) * 100 : 0
-                  return (
-                    <div
-                      key={`${point.year}-${point.month}`}
-                      className="flex h-full flex-1 flex-col justify-end"
-                      title={`${MONTH_LABELS[point.month - 1]} ${point.year} : ${formatMoney(point.totalGross)}`}
-                    >
-                      <div
-                        className="min-h-px rounded-t bg-primary/80 dark:bg-accent/80"
-                        style={{ height: `${height}%` }}
-                      />
-                    </div>
-                  )
-                })}
-              </div>
-              <div className="mt-1 flex gap-2 text-[10px] text-slate-500 dark:text-slate-400">
-                {home.payrollMassSeries.map((point) => (
-                  <span key={`${point.year}-${point.month}`} className="flex-1 text-center">
-                    {MONTH_LABELS[point.month - 1]?.slice(0, 3)}
-                  </span>
-                ))}
-              </div>
-            </section>
-          ) : null}
-
           {loading && chartData ? (
             <div data-tour="home-analytics" className="grid gap-4 sm:gap-6 lg:grid-cols-2">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -322,6 +251,77 @@ export default function DashboardPage() {
             </div>
           ) : null}
         </>
+      ) : null}
+
+      {isAdmin && home?.payrollMassSeries ? (
+        <section className={`tg-card p-4 md:p-5 ${loading ? 'opacity-60' : ''}`}>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                Masse salariale
+              </h2>
+              {home.payrollMass ? (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {MONTH_LABELS[home.payrollMass.month - 1]} {home.payrollMass.year} ·{' '}
+                  {home.payrollMass.status}
+                </p>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  Aucun cycle de paie verrouillé ou payé
+                </p>
+              )}
+            </div>
+            <Link
+              href={home.payrollMass ? `/payroll-runs/${home.payrollMass.runId}` : '/payroll-runs'}
+              className="text-xs font-medium text-primary hover:underline dark:text-accent"
+            >
+              Voir les cycles
+            </Link>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Brut</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
+                {formatMoney(home.payrollMass?.totalGross)}
+              </p>
+            </div>
+            <div className="rounded-lg bg-slate-50 p-3 dark:bg-slate-800/50">
+              <p className="text-xs text-slate-500 dark:text-slate-400">Net</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-white">
+                {formatMoney(home.payrollMass?.totalNet)}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="mt-4 flex h-20 items-end gap-2 border-b border-slate-200 dark:border-border-dark"
+            aria-label="Évolution de la masse salariale sur six mois"
+          >
+            {home.payrollMassSeries.map((point) => {
+              const height = payrollMassMax > 0 ? (point.totalGross / payrollMassMax) * 100 : 0
+              return (
+                <div
+                  key={`${point.year}-${point.month}`}
+                  className="flex h-full flex-1 flex-col justify-end"
+                  title={`${MONTH_LABELS[point.month - 1]} ${point.year} : ${formatMoney(point.totalGross)}`}
+                >
+                  <div
+                    className="min-h-px rounded-t bg-primary/80 dark:bg-accent/80"
+                    style={{ height: `${height}%` }}
+                  />
+                </div>
+              )
+            })}
+          </div>
+          <div className="mt-1 flex gap-2 text-[10px] text-slate-500 dark:text-slate-400">
+            {home.payrollMassSeries.map((point) => (
+              <span key={`${point.year}-${point.month}`} className="flex-1 text-center">
+                {MONTH_LABELS[point.month - 1]?.slice(0, 3)}
+              </span>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <div data-tour="home-quick" className="tg-card p-5 shadow-2xs">

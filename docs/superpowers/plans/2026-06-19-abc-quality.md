@@ -204,7 +204,7 @@ if (ctx.tokens.admin) {
   if (change.res.status === 200 && change.json?.ok) pass(ctx, 'UC-01 Change password admin')
   else fail(ctx, 'UC-01 Change password admin', detail(change.json))
 
-  const relogin = await login('admin@monorganisation.com', { sku: 'SOTR', password: NEW_ADMIN_PASS })
+  const relogin = await login('admin@sotrafer.cg', { sku: 'SOTR', password: NEW_ADMIN_PASS })
   if (relogin) {
     pass(ctx, 'UC-01 Re-login admin nouveau MDP')
     ctx.tokens.admin = relogin
@@ -998,7 +998,7 @@ export async function loginAdmin() {
   const res = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@monorganisation.com', password: PASS, sku: 'SOTR' }),
+    body: JSON.stringify({ email: 'admin@sotrafer.cg', password: PASS, sku: 'SOTR' }),
   })
   const json = await res.json()
   return json.access_token as string
@@ -1012,7 +1012,7 @@ import { test, expect } from '@playwright/test'
 
 test('admin can change password from profile', async ({ page }) => {
   await page.goto('/login')
-  await page.fill('input[type="email"]', 'admin@monorganisation.com')
+  await page.fill('input[type="email"]', 'admin@sotrafer.cg')
   await page.fill('input[type="password"]', 'ChangeMe123!')
   await page.fill('input[name="sku"], input[placeholder*="SKU"]', 'SOTR').catch(() => {})
   // Adapter sélecteurs au formulaire login réel

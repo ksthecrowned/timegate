@@ -28,7 +28,7 @@ export function OperatorLoginFields({
       <Text style={styles.label}>Email</Text>
       <TextInput
         style={styles.input}
-        placeholder="admin@monorganisation.com"
+        placeholder="admin@sotrafer.cg"
         placeholderTextColor="#94a3b8"
         autoCapitalize="none"
         autoCorrect={false}

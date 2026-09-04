@@ -47,8 +47,8 @@ Android autorise le HTTP en dev via `usesCleartextTraffic` dans `app.json`. En p
 
 | Usage | Email | Mot de passe | SKU |
 |-------|-------|--------------|-----|
-| Provision kiosk | `admin@monorganisation.com` | `ChangeMe123!` | `SOTR` |
-| Manager kiosk | `manager@monorganisation.com` | `ChangeMe123!` | `SOTR` |
+| Provision kiosk | `admin@sotrafer.cg` | `ChangeMe123!` | `SOTR` |
+| Manager kiosk | `manager@sotrafer.cg` | `ChangeMe123!` | `SOTR` |
 
 Portail employé (web) : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!` → `employee-web` sur http://localhost:3001
 

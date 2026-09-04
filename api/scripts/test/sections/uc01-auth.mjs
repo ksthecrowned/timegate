@@ -1,22 +1,22 @@
 import { authHeader, detail, fail, login, pass, request, PASS as DEFAULT_PASSWORD } from '../helpers.mjs'
 
 export async function runUc01(ctx) {
-  ctx.tokens.admin = await login('admin@monorganisation.com', { sku: 'SOTR' })
+  ctx.tokens.admin = await login('admin@sotrafer.cg', { sku: 'SOTR' })
   if (ctx.tokens.admin) pass(ctx, 'UC-01 Admin login')
   else fail(ctx, 'UC-01 Admin login')
 
-  ctx.tokens.manager = await login('manager@monorganisation.com', { sku: 'SOTR' })
+  ctx.tokens.manager = await login('manager@sotrafer.cg', { sku: 'SOTR' })
   if (ctx.tokens.manager) pass(ctx, 'UC-01 Manager login')
   else fail(ctx, 'UC-01 Manager login')
 
-  ctx.tokens.superAdmin = await login('superadmin@monorganisation.com')
+  ctx.tokens.superAdmin = await login('superadmin@timegate.com')
   if (ctx.tokens.superAdmin) pass(ctx, 'UC-01 Super admin login')
   else fail(ctx, 'UC-01 Super admin login')
 
   const badLogin = await request('/auth/login', {
     method: 'POST',
     body: JSON.stringify({
-      email: 'admin@monorganisation.com',
+      email: 'admin@sotrafer.cg',
       password: 'wrong',
       sku: 'SOTR',
     }),
@@ -127,7 +127,7 @@ export async function runUc01(ctx) {
     if (change.res.status === 200 && change.json?.ok) pass(ctx, 'UC-01 Change password admin')
     else fail(ctx, 'UC-01 Change password admin', detail(change.json))
 
-    const relogin = await login('admin@monorganisation.com', { sku: 'SOTR', password: NEW_ADMIN_PASS })
+    const relogin = await login('admin@sotrafer.cg', { sku: 'SOTR', password: NEW_ADMIN_PASS })
     if (relogin) {
       pass(ctx, 'UC-01 Re-login admin nouveau MDP')
       ctx.tokens.admin = relogin

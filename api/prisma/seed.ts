@@ -32,6 +32,17 @@ const prisma = new PrismaClient({ adapter: createPrismaPg(pool) });
 const ORG_SKU = 'SOTR';
 const ORG_NAME = 'SOTRAFER Congo';
 const ORG_LOGO_URL = '/images/orgs/sotrafer-logo.svg';
+const ORG_EMAIL_DOMAIN = 'sotrafer.cg';
+/** Domaine plateforme TimeGate (console SaaS) — pas le tenant seed. */
+const PLATFORM_EMAIL_DOMAIN = 'timegate.com';
+const SEED_ADMIN_EMAIL = `admin@${ORG_EMAIL_DOMAIN}`;
+const SEED_MANAGER_EMAIL = `manager@${ORG_EMAIL_DOMAIN}`;
+const SEED_PLATFORM_ADMIN_EMAIL = `superadmin@${PLATFORM_EMAIL_DOMAIN}`;
+/** Anciens emails PLATFORM_ADMIN à purger au re-seed. */
+const LEGACY_PLATFORM_ADMIN_EMAILS = [
+  'superadmin@monorganisation.com',
+  'superadmin@sotrafer.cg',
+];
 const ACTIVATION_KEY_PLAIN = 'SOTR-DEMO-2026';
 const DEMO_KIOSK_PIN = '1234';
 
@@ -607,12 +618,16 @@ async function purgeCompany(company: { id: string }) {
 }
 
 async function resetPlatformAdmin() {
+  const platformEmails = [
+    SEED_PLATFORM_ADMIN_EMAIL,
+    ...LEGACY_PLATFORM_ADMIN_EMAILS,
+  ];
   await prisma.admin.deleteMany({
-    where: { email: 'superadmin@monorganisation.com' },
+    where: { email: { in: platformEmails } },
   });
   // Legacy: platform operators used to live on tabUser as SUPER_ADMIN.
   await prisma.user.deleteMany({
-    where: { email: 'superadmin@monorganisation.com', companyId: null },
+    where: { email: { in: platformEmails }, companyId: null },
   });
 }
 
@@ -737,7 +752,7 @@ async function main() {
   await prisma.user.create({
     data: {
       id: generateDocId('USR'),
-      email: 'admin@monorganisation.com',
+      email: SEED_ADMIN_EMAIL,
       passwordHash,
       timeGateRole: TimeGateUserRole.ADMIN,
       companyId: company.id,
@@ -747,7 +762,7 @@ async function main() {
   await prisma.user.create({
     data: {
       id: generateDocId('USR'),
-      email: 'manager@monorganisation.com',
+      email: SEED_MANAGER_EMAIL,
       passwordHash,
       timeGateRole: TimeGateUserRole.MANAGER,
       companyId: company.id,
@@ -755,11 +770,11 @@ async function main() {
   });
 
   await prisma.admin.upsert({
-    where: { email: 'superadmin@monorganisation.com' },
+    where: { email: SEED_PLATFORM_ADMIN_EMAIL },
     update: { passwordHash, enabled: true },
     create: {
       id: generateDocId('ADM'),
-      email: 'superadmin@monorganisation.com',
+      email: SEED_PLATFORM_ADMIN_EMAIL,
       passwordHash,
       enabled: true,
     },
@@ -1774,6 +1789,9 @@ async function main() {
     payrollAccount: payrollPayableAccount.id,
     salaryStructure: monthlyStructure.id,
     password: 'ChangeMe123!',
+    adminLogin: SEED_ADMIN_EMAIL,
+    managerLogin: SEED_MANAGER_EMAIL,
+    platformAdminLogin: SEED_PLATFORM_ADMIN_EMAIL,
     employeeLogin: 'patrick.mukendi@sotrafer.cg',
     kioskPinDemo: { employee: 'Patrick Mukendi', pin: DEMO_KIOSK_PIN },
     activationKey: ACTIVATION_KEY_PLAIN,

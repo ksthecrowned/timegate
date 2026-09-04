@@ -31,8 +31,8 @@ Valeur seed par défaut côté démo : `ChangeMe123!` — **à changer** si l’
 
 | Rôle | Email | Organisation (SKU) | Où |
 |------|-------|--------------------|-----|
-| Administrateur | `admin@monorganisation.com` | `SOTR` | Dashboard |
-| Manager | `manager@monorganisation.com` | `SOTR` | Dashboard |
+| Administrateur | `admin@sotrafer.cg` | `SOTR` | Dashboard |
+| Manager | `manager@sotrafer.cg` | `SOTR` | Dashboard |
 | Employé | `patrick.mukendi@sotrafer.cg` | — | App employé |
 
 ### Repères démo

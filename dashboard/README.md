@@ -27,8 +27,8 @@ bun run dev
 
 | Rôle | Email | Mot de passe | SKU |
 |------|-------|--------------|-----|
-| ADMIN | `admin@monorganisation.com` | `ChangeMe123!` | `SOTR` |
-| MANAGER | `manager@monorganisation.com` | `ChangeMe123!` | `SOTR` |
+| ADMIN | `admin@sotrafer.cg` | `ChangeMe123!` | `SOTR` |
+| MANAGER | `manager@sotrafer.cg` | `ChangeMe123!` | `SOTR` |
 
 ## Scripts
 

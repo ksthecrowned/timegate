@@ -60,9 +60,9 @@ Requêtes HTTP d’exemple : [`../EXAMPLES.http`](../EXAMPLES.http).
 
 | Rôle        | Email                           | SKU org. |
 |-------------|----------------------------------|----------|
-| ADMIN       | `admin@monorganisation.com`      | `SOTR`   |
-| MANAGER     | `manager@monorganisation.com`    | `SOTR`   |
-| PLATFORM_ADMIN | `superadmin@monorganisation.com` (entité `Admin`) | *(aucun)* |
+| ADMIN       | `admin@sotrafer.cg`      | `SOTR`   |
+| MANAGER     | `manager@sotrafer.cg`    | `SOTR`   |
+| PLATFORM_ADMIN | `superadmin@timegate.com` (entité `Admin`) | *(aucun)* |
 | Employé     | `patrick.mukendi@sotrafer.cg` | *(app `employee-app`)* |
 
 **Organisation :** SOTRAFER Congo (`SOTR`) — entreprise logistique, République du Congo (seed)
@@ -109,7 +109,7 @@ Après `prisma:seed`, les identifiants créés sont affichés dans la console (`
 
 ```http
 POST /auth/login
-{ "email": "admin@monorganisation.com", "password": "ChangeMe123!", "sku": "SOTR" }
+{ "email": "admin@sotrafer.cg", "password": "ChangeMe123!", "sku": "SOTR" }
 ```
 
 ---
@@ -327,7 +327,7 @@ GET   /audit-logs
 
 **Automatisé CI :** oui (organisations, stats plateforme) — écrans dashboard : manuel
 
-**Compte :** `superadmin@monorganisation.com`
+**Compte :** `superadmin@timegate.com`
 
 | # | Parcours | Attendu |
 |---|----------|---------|

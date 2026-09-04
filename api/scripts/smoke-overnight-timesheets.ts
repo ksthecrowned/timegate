@@ -68,7 +68,7 @@ async function main() {
       break;
     }
 
-    const admin = await login('admin@monorganisation.com', { sku: 'SOTR' });
+    const admin = await login('admin@sotrafer.cg', { sku: 'SOTR' });
     if (!admin) throw new Error('admin login failed');
     const auth = authHeader(admin);
 
