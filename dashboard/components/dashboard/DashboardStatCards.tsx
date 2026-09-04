@@ -25,7 +25,7 @@ export function DashboardStatCard({
       href={href}
       className="flex h-full flex-col overflow-hidden tg-card shadow-2xs transition-colors hover:border-primary/40"
     >
-      <div className="p-4 md:px-5 md:py-5">
+      <div className="p-4 md:px-5 md:py-5 pb-2.5">
         <div className="flex items-center justify-between gap-2">
           <p className="text-xs uppercase tracking-wide text-slate-500">{label}</p>
           <i className={`${icon} ${accent ?? 'text-primary'}`} />
