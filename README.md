@@ -5,9 +5,14 @@ TimeGate est une solution de **pointage intelligent par reconnaissance faciale**
 - une app mobile kiosk pour la capture/verification en temps reel
 - une API metier (auth, RH, planning, logs, contrats, salaires, absences)
 - un dashboard admin pour piloter les operations
-- une webapp employé mobile-first pour consulter pointages et congés
+- une app employé Expo pour consulter pointages et congés
 
 Le projet est organise en monorepo.
+
+## Contexte agents
+
+Avant d’explorer le codebase : **[`ecosystem-docs/INDEX.md`](./ecosystem-docs/INDEX.md)**  
+(`AGENTS.md` racine + skill `.cursor/skills/timegate-ecosystem/`).
 
 ## Vision du projet
 
@@ -32,8 +37,9 @@ TimeGate/
   api/           -> NestJS + Prisma + PostgreSQL + moteur facial Python
   dashboard/     -> Next.js (backoffice admin, port 3000)
   console/       -> Next.js (Console Plateforme SaaS, port 3002)
-  employee-web/  -> Next.js (espace employé mobile-first, port 3001)
+  employee-app/  -> Expo (espace employé)
   kiosk-app/     -> Expo / React Native (kiosk facial)
+  ecosystem-docs/ -> hub contexte agents (INDEX, integrations, projects)
 ```
 
 ### `api`
@@ -63,15 +69,15 @@ Backoffice web pour les equipes admin/RH:
 - suivi des logs de verification faciale
 - administration globale (selon role)
 
-### `employee-web`
+### `employee-app`
 
-Application web **mobile-first** pour les employes (separee du dashboard admin) :
+Application **Expo** pour les employes (separee du dashboard admin) :
 
-- connexion via `POST /auth/employee/login`
+- connexion via `POST /auth/employee/identify` puis `POST /auth/employee/login`
 - consultation des pointages et soldes de conges
-- demandes de conge
+- demandes de conge, QR punch (trusted device)
 
-URL locale : `http://localhost:3001`
+Env : `EXPO_PUBLIC_API_URL` (voir `ecosystem-docs/projects/employee-app.md`).
 
 ### `kiosk-app`
 
@@ -108,7 +114,7 @@ Copier `api/.env.example` vers `api/.env`.
 Variables importantes dans `api/.env` :
 
 - `PORT` (defaut `4001`)
-- `CORS_ORIGIN` (ex: `http://localhost:3000,http://localhost:3001,http://localhost:3002` pour dashboard + employé + console plateforme)
+- `CORS_ORIGIN` (ex: `http://localhost:3000,http://localhost:3002` pour dashboard + console ; ajouter origins Expo/LAN si besoin)
 - `DATABASE_URL`
 - `JWT_SECRET`
 - `FACE_ENGINE_PYTHON_BIN`
@@ -147,19 +153,15 @@ Copier `console/.env.example` vers `console/.env.local` :
 
 Connexion reservee aux comptes **SUPER_ADMIN** (sans SKU).
 
-## 4) Espace employé (web)
+## 4) Espace employé (Expo)
 
 ```bash
-cd employee-web
+cd employee-app
 bun install
-bun run dev
+bun run start
 ```
 
-URL par defaut: `http://localhost:3001`
-
-Copier `employee-web/.env.example` vers `employee-web/.env` :
-
-- `NEXT_PUBLIC_TIMEGATE_API_URL=http://localhost:4001/api/v1`
+Copier / definir `EXPO_PUBLIC_API_URL` (ex. `http://<IP-LAN>:4001/api/v1`).
 
 Compte seed employe : `patrick.mukendi@sotrafer.cg` / `ChangeMe123!`
 
