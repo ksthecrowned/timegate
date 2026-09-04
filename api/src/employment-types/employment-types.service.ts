@@ -4,7 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
-import { Prisma, TimeGateUserRole } from '@prisma/client'
+import { EmploymentPayMode, Prisma, TimeGateUserRole } from '@prisma/client'
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin'
 import { PrismaService } from '../prisma/prisma.service'
 import { generateDocId } from '../common/utils/doc-id.util'
@@ -31,6 +31,9 @@ export class EmploymentTypesService {
         id: generateDocId('EMPT'),
         employeeTypeName: name,
         companyId,
+        includeInPayroll: dto.includeInPayroll ?? true,
+        accruesLeave: dto.accruesLeave ?? true,
+        payMode: dto.payMode ?? EmploymentPayMode.MONTHLY,
       },
     })
     return this.toApiShape(created)
@@ -84,6 +87,11 @@ export class EmploymentTypesService {
       where: { id },
       data: {
         ...(dto.name !== undefined ? { employeeTypeName: dto.name.trim() } : {}),
+        ...(dto.includeInPayroll !== undefined
+          ? { includeInPayroll: dto.includeInPayroll }
+          : {}),
+        ...(dto.accruesLeave !== undefined ? { accruesLeave: dto.accruesLeave } : {}),
+        ...(dto.payMode !== undefined ? { payMode: dto.payMode } : {}),
       },
     })
     return this.toApiShape(updated)
@@ -106,6 +114,9 @@ export class EmploymentTypesService {
     id: string
     employeeTypeName: string
     companyId: string
+    includeInPayroll: boolean
+    accruesLeave: boolean
+    payMode: EmploymentPayMode
     createdAt: Date
     updatedAt: Date
   }) {
@@ -113,6 +124,9 @@ export class EmploymentTypesService {
       id: row.id,
       name: row.employeeTypeName,
       companyId: row.companyId,
+      includeInPayroll: row.includeInPayroll,
+      accruesLeave: row.accruesLeave,
+      payMode: row.payMode,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     }

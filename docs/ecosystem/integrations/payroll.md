@@ -23,6 +23,15 @@
   - Retards et HS restent au taux horaire contractuel.
 - Variables du run : montants saisis tels quels.
 
+## Types d’emploi (politique)
+
+Sur `EmploymentType` :
+- `includeInPayroll` — exclus du `generateLines` si `false`
+- `accruesLeave` — allocation congés à 0 si `false`
+- `payMode` — `MONTHLY` (prorata) | `FLAT` (indemnité forfaitaire, sans prorata ni retenues retard)
+
+Seed : type **Stage** = paie forfaitaire, pas de congés ; 2 stagiaires démo en plus de l’effectif existant.
+
 ## Specs produit
 
 - `../superpowers/specs/2026-07-29-compensation-and-payroll-refactor-design.md`

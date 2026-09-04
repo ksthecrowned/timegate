@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 import PageHeader from '@/components/ui/PageHeader'
-import NamedEntityForm from '@/components/timegate/NamedEntityForm'
+import EmploymentTypeForm from '@/components/timegate/EmploymentTypeForm'
 import { createEmploymentType } from '@/lib/timegate/employment-types'
 
 export default function NewEmploymentTypePage() {
@@ -15,7 +15,7 @@ export default function NewEmploymentTypePage() {
           { label: 'Ajouter' },
         ]}
       />
-      <NamedEntityForm
+      <EmploymentTypeForm
         title="Type de contrat"
         submitLabel="Créer"
         onCancel={() => router.push('/employment-types')}

@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
-import NamedEntityForm from '@/components/timegate/NamedEntityForm'
+import EmploymentTypeForm from '@/components/timegate/EmploymentTypeForm'
 import { ApiErrorBanner } from '@/components/timegate/ui'
 import { getEmploymentType, updateEmploymentType } from '@/lib/timegate/employment-types'
 import type { EmploymentType } from '@/lib/timegate/types'
@@ -38,10 +38,10 @@ export default function EditEmploymentTypePage() {
       {loading ? (
         <SkeletonDetailCard />
       ) : row ? (
-        <NamedEntityForm
+        <EmploymentTypeForm
           title="Type de contrat"
           submitLabel="Enregistrer"
-          initial={{ name: row.name }}
+          initial={row}
           onCancel={() => router.push(`/employment-types/${id}`)}
           onSubmit={async (values) => {
             await updateEmploymentType(id, values)

@@ -1,8 +1,13 @@
 import { http } from '@/lib/http'
 import type { PaginatedResponse } from '@/lib/http/types'
-import type { EmploymentType } from '@/lib/timegate/types'
+import type { EmploymentPayMode, EmploymentType } from '@/lib/timegate/types'
 
-export type NamedEntityPayload = { name: string }
+export type EmploymentTypePayload = {
+  name: string
+  includeInPayroll?: boolean
+  accruesLeave?: boolean
+  payMode?: EmploymentPayMode
+}
 
 export function listEmploymentTypes(params?: { page?: number; limit?: number }) {
   return http.get<PaginatedResponse<EmploymentType>>('/employment-types', { params })
@@ -12,11 +17,11 @@ export function getEmploymentType(id: string) {
   return http.get<EmploymentType>(`/employment-types/${id}`)
 }
 
-export function createEmploymentType(body: NamedEntityPayload) {
+export function createEmploymentType(body: EmploymentTypePayload) {
   return http.post<EmploymentType>('/employment-types', body)
 }
 
-export function updateEmploymentType(id: string, body: Partial<NamedEntityPayload>) {
+export function updateEmploymentType(id: string, body: Partial<EmploymentTypePayload>) {
   return http.patch<EmploymentType>(`/employment-types/${id}`, body)
 }
 

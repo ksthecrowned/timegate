@@ -13,6 +13,21 @@ import { formatApiDate } from '@/lib/date-utils'
 const columns: Column<EmploymentType>[] = [
   { key: 'name', label: 'Nom', sortable: true },
   {
+    key: 'payMode',
+    label: 'Paie',
+    render: (v) => (v === 'FLAT' ? 'Forfait' : 'Mensuel'),
+  },
+  {
+    key: 'includeInPayroll',
+    label: 'Cycles',
+    render: (v) => (v ? 'Oui' : 'Non'),
+  },
+  {
+    key: 'accruesLeave',
+    label: 'Congés',
+    render: (v) => (v ? 'Oui' : 'Non'),
+  },
+  {
     key: 'createdAt',
     label: 'Créé le',
     render: (v) => formatApiDate(v == null ? null : String(v)),

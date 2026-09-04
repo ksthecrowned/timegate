@@ -73,7 +73,15 @@ export class LeaveBalancesService {
     const leaveType = await this.prisma.leaveType.findUnique({ where: { id: leaveTypeId } });
     if (!leaveType) throw new NotFoundException('Leave type not found');
 
-    const allocatedDays = leaveType.maxDaysPerYear ?? 0;
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        employmentType: { select: { accruesLeave: true } },
+      },
+    });
+    const accruesLeave = employee?.employmentType?.accruesLeave ?? true;
+
+    const allocatedDays = accruesLeave ? (leaveType.maxDaysPerYear ?? 0) : 0;
     return this.prisma.leaveAllocation.create({
       data: {
         id: generateDocId('LALLOC'),

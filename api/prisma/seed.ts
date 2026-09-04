@@ -917,6 +917,9 @@ async function main() {
       id: generateDocId('EMPT'),
       employeeTypeName: 'CDI',
       companyId: company.id,
+      includeInPayroll: true,
+      accruesLeave: true,
+      payMode: 'MONTHLY',
     },
   });
   const cddType = await prisma.employmentType.create({
@@ -924,13 +927,19 @@ async function main() {
       id: generateDocId('EMPT'),
       employeeTypeName: 'CDD',
       companyId: company.id,
+      includeInPayroll: true,
+      accruesLeave: true,
+      payMode: 'MONTHLY',
     },
   });
-  await prisma.employmentType.create({
+  const stageType = await prisma.employmentType.create({
     data: {
       id: generateDocId('EMPT'),
       employeeTypeName: 'Stage',
       companyId: company.id,
+      includeInPayroll: true,
+      accruesLeave: false,
+      payMode: 'FLAT',
     },
   });
 
@@ -1400,6 +1409,67 @@ async function main() {
         ctc: 405_000,
       },
     },
+    {
+      firstName: 'Amina',
+      lastName: 'Nzassi',
+      email: 'amina.nzassi@sotrafer.cg',
+      branchId: hq.id,
+      departmentId: engineeringDept.id,
+      designationId: developerDesignation.id,
+      defaultShiftId: hqSchedule.id,
+      faceSeed: 9,
+      profile: {
+        gender: 'Female',
+        maritalStatus: 'Single',
+        dateOfBirth: utcYmd(2002, 4, 12),
+        dateOfJoining: monthsFromNow(-2),
+        cellNumber: '+242061112233',
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-BZV-2026-80077',
+        passportNumber: 'CGP800077',
+        addressLine1: 'Rue de l’Université',
+        province: 'Brazzaville',
+        postalCode: 'BP 880',
+        cityId: cityBrazzaville.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Fatou Nzassi',
+        emergencyContactPhone: '+242061112234',
+        employmentTypeId: stageType.id,
+        holidayListId: holidayList.id,
+        ctc: 100_000,
+      },
+    },
+    {
+      firstName: 'Kevin',
+      lastName: 'Mabiala',
+      email: 'kevin.mabiala@sotrafer.cg',
+      branchId: west.id,
+      departmentId: opsDept.id,
+      designationId: opsDesignation.id,
+      defaultShiftId: westSchedule.id,
+      faceSeed: 10,
+      profile: {
+        gender: 'Male',
+        maritalStatus: 'Single',
+        dateOfBirth: utcYmd(2003, 8, 3),
+        dateOfJoining: monthsFromNow(-1),
+        cellNumber: '+242055998877',
+        nationality: 'Congolaise',
+        nationalIdNumber: 'CG-PNR-2026-90088',
+        passportNumber: 'CGP900088',
+        addressLine1: 'Avenue de la Liberté',
+        province: 'Pointe-Noire',
+        postalCode: 'BP 220',
+        cityId: cityPointeNoire.id,
+        countryId: countryCg.id,
+        emergencyContactName: 'Jean Mabiala',
+        emergencyContactPhone: '+242055998878',
+        employmentTypeId: stageType.id,
+        holidayListId: holidayList.id,
+        ctc: 100_000,
+        nfcBadgeUid: 'F6A7B8C9',
+      },
+    },
   ];
 
   const extraEmployees: DemoEmployee[] = [];
@@ -1516,29 +1586,40 @@ async function main() {
 
   // Contrats : historique + courant pour chaque employé (variés pour démo RH).
   for (const [idx, emp] of demoEmployees.entries()) {
-    const isCdd = idx === 4 || idx === 5; // Katherine, Nikola
-    const hireYears = 1 + (idx % 5);
+    const employeeRow = await prisma.employee.findUnique({
+      where: { id: emp.id },
+      select: { employmentTypeId: true },
+    });
+    const isStage = employeeRow?.employmentTypeId === stageType.id;
+    const isCdd = !isStage && (idx === 4 || idx === 5); // Katherine, Nikola
+    const hireYears = isStage ? 0 : 1 + (idx % 5);
     const previousSigned = yearsAgo(hireYears + 1, idx % 6, 1 + idx);
     const previousExpires = yearsAgo(hireYears, (idx + 2) % 12, 15);
-    const currentSigned = yearsAgo(hireYears, (idx + 1) % 12, 1);
-    const currentExpires = isCdd
-      ? monthsFromNow(3 + (idx % 4))
-      : idx % 3 === 0
-        ? monthsFromNow(2) // expire bientôt (alertes)
-        : monthsFromNow(14 + idx);
+    const currentSigned = isStage
+      ? monthsFromNow(-(idx % 2 === 0 ? 2 : 1))
+      : yearsAgo(hireYears, (idx + 1) % 12, 1);
+    const currentExpires = isStage
+      ? monthsFromNow(4 + (idx % 2))
+      : isCdd
+        ? monthsFromNow(3 + (idx % 4))
+        : idx % 3 === 0
+          ? monthsFromNow(2) // expire bientôt (alertes)
+          : monthsFromNow(14 + idx);
 
-    await prisma.timeGateEmployeeContract.create({
-      data: {
-        id: generateDocId('CTR'),
-        companyId: company.id,
-        employeeId: emp.id,
-        signedAt: previousSigned,
-        expiresAt: previousExpires,
-        renewalsCount: 0,
-        notes: `Ancien contrat ${isCdd ? 'CDD' : 'CDI'} — remplacé`,
-        isCurrent: false,
-      },
-    });
+    if (!isStage) {
+      await prisma.timeGateEmployeeContract.create({
+        data: {
+          id: generateDocId('CTR'),
+          companyId: company.id,
+          employeeId: emp.id,
+          signedAt: previousSigned,
+          expiresAt: previousExpires,
+          renewalsCount: 0,
+          notes: `Ancien contrat ${isCdd ? 'CDD' : 'CDI'} — remplacé`,
+          isCurrent: false,
+        },
+      });
+    }
 
     await prisma.timeGateEmployeeContract.create({
       data: {
@@ -1547,12 +1628,14 @@ async function main() {
         employeeId: emp.id,
         signedAt: currentSigned,
         expiresAt: currentExpires,
-        renewalsCount: idx % 4,
-        notes: isCdd
-          ? 'Contrat CDD en cours — renouvellement à anticiper'
-          : idx % 3 === 0
-            ? 'Contrat CDI courant — échéance proche (démo alertes RH)'
-            : 'Contrat CDI courant',
+        renewalsCount: isStage ? 0 : idx % 4,
+        notes: isStage
+          ? 'Convention de stage — indemnité forfaitaire'
+          : isCdd
+            ? 'Contrat CDD en cours — renouvellement à anticiper'
+            : idx % 3 === 0
+              ? 'Contrat CDI courant — échéance proche (démo alertes RH)'
+              : 'Contrat CDI courant',
         isCurrent: true,
       },
     });
@@ -1563,7 +1646,7 @@ async function main() {
         employeeId: emp.id,
         leaveTypeId: leaveType.id,
         year,
-        allocatedDays: 22,
+        allocatedDays: isStage ? 0 : 22,
       },
     });
 
@@ -1742,6 +1825,22 @@ async function main() {
         designationId: opsDesignation.id,
         employmentTypeId: cdiType.id,
         baseSalary: 450_000,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+      {
+        id: generateDocId('CGRID'),
+        companyId: company.id,
+        designationId: developerDesignation.id,
+        employmentTypeId: stageType.id,
+        baseSalary: 100_000,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+      {
+        id: generateDocId('CGRID'),
+        companyId: company.id,
+        designationId: opsDesignation.id,
+        employmentTypeId: stageType.id,
+        baseSalary: 100_000,
         effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
       },
     ],

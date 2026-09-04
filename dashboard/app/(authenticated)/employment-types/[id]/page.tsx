@@ -64,6 +64,15 @@ export default function EmploymentTypeDetailPage() {
       ) : row ? (
         <DetailCard title={row.name}>
           <DetailRow label="Nom" value={row.name} />
+          <DetailRow
+            label="Mode de paie"
+            value={row.payMode === 'FLAT' ? 'Forfait (indemnité fixe)' : 'Mensuel (prorata)'}
+          />
+          <DetailRow
+            label="Dans les cycles de paie"
+            value={row.includeInPayroll ? 'Oui' : 'Non'}
+          />
+          <DetailRow label="Congés payés" value={row.accruesLeave ? 'Oui' : 'Non'} />
           <DetailRow label="Créé le" value={formatApiDateTime(row.createdAt)} />
         </DetailCard>
       ) : null}

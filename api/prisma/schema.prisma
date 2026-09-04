@@ -25,6 +25,13 @@ enum EmployeeStatus {
   LEFT
 }
 
+enum EmploymentPayMode {
+  /** Salaire mensuel avec prorata réel (jours payés / jours prévus). */
+  MONTHLY
+  /** Indemnité forfaitaire du mois (pas de prorata jours). */
+  FLAT
+}
+
 enum CheckinLogType {
   IN
   OUT
@@ -416,9 +423,12 @@ model EmploymentType {
   updatedAt DateTime  @updatedAt @map("modified")
   docStatus DocStatus @default(DRAFT) @map("docstatus")
 
-  employeeTypeName String  @map("employee_type_name") @db.VarChar(140)
-  companyId        String  @map("company") @db.VarChar(140)
-  company          Company @relation(fields: [companyId], references: [id])
+  employeeTypeName String            @map("employee_type_name") @db.VarChar(140)
+  companyId        String            @map("company") @db.VarChar(140)
+  company          Company           @relation(fields: [companyId], references: [id])
+  includeInPayroll Boolean           @default(true) @map("include_in_payroll")
+  accruesLeave     Boolean           @default(true) @map("accrues_leave")
+  payMode          EmploymentPayMode @default(MONTHLY) @map("pay_mode")
 
   employees Employee[]
 

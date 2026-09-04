@@ -9,6 +9,7 @@ import {
   EmployeeStatus,
   LeaveApplicationStatus,
   AttendanceStatus,
+  EmploymentPayMode,
   PayrollLinePaymentStatus,
   Prisma,
   TimeGatePayrollRunStatus,
@@ -27,7 +28,7 @@ import { FindPayrollLinesQueryDto } from './dto/find-payroll-lines-query.dto';
 import { FindPayrollRunsQueryDto } from './dto/find-payroll-runs-query.dto';
 import { MarkLinesPaidDto } from './dto/mark-lines-paid.dto';
 import { resolveEmployeePayDay, resolvePayDueDate } from './payroll-due-date.util';
-import { computeProrataPay, sumPaidWorkDays } from './payroll-prorata.util';
+import { computeProrataPay, sumPaidWorkDays, WORKING_DAYS_PER_MONTH_FALLBACK } from './payroll-prorata.util';
 import { PayrollRunTotals, sumPayrollLineTotals } from './payroll-run-totals.util';
 import { PunchWindowService } from '../attendance/punch-window.service';
 
@@ -442,7 +443,14 @@ export class PayrollRunsService {
     const { from, to } = this.monthBounds(year, month);
 
     const employees = await tx.employee.findMany({
-      where: { companyId, status: EmployeeStatus.ACTIVE },
+      where: {
+        companyId,
+        status: EmployeeStatus.ACTIVE,
+        OR: [
+          { employmentTypeId: null },
+          { employmentType: { includeInPayroll: true } },
+        ],
+      },
       select: {
         id: true,
         ctc: true,
@@ -450,6 +458,12 @@ export class PayrollRunsService {
         employmentTypeId: true,
         payDueDayOverride: true,
         payGroup: { select: { payDayOfMonth: true } },
+        employmentType: {
+          select: {
+            includeInPayroll: true,
+            payMode: true,
+          },
+        },
       },
     });
 
@@ -664,13 +678,34 @@ export class PayrollRunsService {
           leaveCoveredDateKeys,
         });
 
-        const prorata = computeProrataPay({
-          contractualBase,
-          fixedAllowances: contractualFixedAllowances,
-          fixedDeductions: contractualFixedDeductions,
-          scheduledWorkDays,
-          paidWorkDays,
-        });
+        const payMode = employee.employmentType?.payMode ?? EmploymentPayMode.MONTHLY;
+        const useFlatPay = payMode === EmploymentPayMode.FLAT;
+
+        const prorata = useFlatPay
+          ? {
+              workDaysDivisor:
+                scheduledWorkDays > 0 ? scheduledWorkDays : WORKING_DAYS_PER_MONTH_FALLBACK,
+              dailyRate:
+                contractualBase > 0
+                  ? roundMoney(
+                      contractualBase /
+                        (scheduledWorkDays > 0
+                          ? scheduledWorkDays
+                          : WORKING_DAYS_PER_MONTH_FALLBACK),
+                    )
+                  : 0,
+              prorataRatio: 1,
+              baseSalary: contractualBase,
+              fixedAllowancesTotal: contractualFixedAllowances,
+              fixedDeductionsTotal: contractualFixedDeductions,
+            }
+          : computeProrataPay({
+              contractualBase,
+              fixedAllowances: contractualFixedAllowances,
+              fixedDeductions: contractualFixedDeductions,
+              scheduledWorkDays,
+              paidWorkDays,
+            });
 
         const baseSalary = prorata.baseSalary;
         const fixedAllowancesTotal = prorata.fixedAllowancesTotal;
@@ -679,8 +714,11 @@ export class PayrollRunsService {
 
         const rate = hourlyRate(contractualBase);
         const overtimeAmount = roundMoney((overtimeMinutes / 60) * rate);
-        const lateMinutesPenalty = roundMoney((lateMinutes / 60) * rate);
+        const lateMinutesPenalty = useFlatPay
+          ? 0
+          : roundMoney((lateMinutes / 60) * rate);
         // Absences are already reflected in paidWorkDays (prorata réel) — no second deduction.
+        // FLAT (indemnité stage) : pas de retenue retard / absence.
         const absenceAmount = 0;
         const penaltyAmount = lateMinutesPenalty;
 
@@ -721,16 +759,18 @@ export class PayrollRunsService {
           explainJson: {
             ruleVersion: RULE_VERSION,
             contractualBase,
-            paidWorkDays,
-            prorataRatio,
-            lateMinutes,
+            payMode,
+            paidWorkDays: useFlatPay ? null : paidWorkDays,
+            prorataRatio: useFlatPay ? 1 : prorataRatio,
+            lateMinutes: useFlatPay ? 0 : lateMinutes,
             overtimeMinutes,
             unjustifiedAbsences,
             scheduledWorkDays,
             workDaysDivisor,
             dailyRate: roundMoney(dailyRate),
             hourlyRate: roundMoney(rate),
-            absenceAmountFoldedIntoProrata: true,
+            absenceAmountFoldedIntoProrata: !useFlatPay,
+            flatStipend: useFlatPay,
             fixedItems: fixedItems.map((i) => ({
               label: i.label,
               kind: i.kind,

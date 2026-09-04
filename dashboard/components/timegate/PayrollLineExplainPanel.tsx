@@ -13,6 +13,7 @@ type ExplainItem = {
 type ExplainJson = {
   ruleVersion?: string
   contractualBase?: number
+  payMode?: string
   paidWorkDays?: number
   prorataRatio?: number
   lateMinutes?: number
@@ -25,6 +26,7 @@ type ExplainJson = {
   lateMinutesPenalty?: number
   absenceAmount?: number
   absenceAmountFoldedIntoProrata?: boolean
+  flatStipend?: boolean
   overtimeAmount?: number
   fixedAllowancesTotal?: number
   variableAllowancesTotal?: number
@@ -110,7 +112,10 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
   const contractualBase = Number(explain.contractualBase ?? 0)
   const paidWorkDays = Number(explain.paidWorkDays ?? NaN)
   const prorataRatio = Number(explain.prorataRatio ?? NaN)
-  const hasProrata = Number.isFinite(paidWorkDays) && Number.isFinite(prorataRatio)
+  const hasProrata =
+    !explain.flatStipend &&
+    Number.isFinite(paidWorkDays) &&
+    Number.isFinite(prorataRatio)
 
   return (
     <div className="space-y-3" data-testid="payroll-line-explain">
@@ -121,7 +126,13 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
           <Metric label="Base contractuelle" value={formatMoney(contractualBase)} />
         ) : null}
         <Metric
-          label={hasProrata ? 'Base acquise (prorata)' : 'Salaire de base'}
+          label={
+            explain.flatStipend
+              ? 'Indemnité forfaitaire'
+              : hasProrata
+                ? 'Base acquise (prorata)'
+                : 'Salaire de base'
+          }
           value={formatMoney(line.baseSalary)}
         />
         <Metric label="Brut" value={formatMoney(line.gross ?? 0)} />
@@ -137,7 +148,9 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
       </dl>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {hasProrata ? (
+        {explain.flatStipend ? (
+          <Metric label="Mode de paie" value="Forfait (pas de prorata jours)" />
+        ) : hasProrata ? (
           <Metric
             label="Prorata réel"
             value={`${paidWorkDays} j payés / ${workDaysDivisor || '—'} j prévus (${Math.round(prorataRatio * 1000) / 10} %)`}
@@ -163,21 +176,25 @@ export default function PayrollLineExplainPanel({ line }: { line: PayrollLine })
         <Metric
           label="Retards"
           value={
-            lateMinutes || line.lateMinutesPenalty
-              ? `${lateMinutes ? `${lateMinutes} min · ` : ''}−${formatMoney(line.lateMinutesPenalty)}`
-              : '—'
+            explain.flatStipend
+              ? 'Non appliqués (forfait)'
+              : lateMinutes || line.lateMinutesPenalty
+                ? `${lateMinutes ? `${lateMinutes} min · ` : ''}−${formatMoney(line.lateMinutesPenalty)}`
+                : '—'
           }
         />
         <Metric
           label="Absences"
           value={
-            explain.absenceAmountFoldedIntoProrata
-              ? unjustifiedAbsences
-                ? `${unjustifiedAbsences} j (inclus dans le prorata)`
-                : 'Incluses dans le prorata'
-              : unjustifiedAbsences || line.absenceAmount
-                ? `${unjustifiedAbsences ? `${unjustifiedAbsences} j · ` : ''}−${formatMoney(line.absenceAmount)}`
-                : '—'
+            explain.flatStipend
+              ? 'Non appliquées (forfait)'
+              : explain.absenceAmountFoldedIntoProrata
+                ? unjustifiedAbsences
+                  ? `${unjustifiedAbsences} j (inclus dans le prorata)`
+                  : 'Incluses dans le prorata'
+                : unjustifiedAbsences || line.absenceAmount
+                  ? `${unjustifiedAbsences ? `${unjustifiedAbsences} j · ` : ''}−${formatMoney(line.absenceAmount)}`
+                  : '—'
           }
         />
       </div>

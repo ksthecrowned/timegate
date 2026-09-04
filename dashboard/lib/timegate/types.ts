@@ -252,10 +252,15 @@ export type Department = NamedEntity & {
   updatedAt: string
 }
 export type Designation = Department
+export type EmploymentPayMode = 'MONTHLY' | 'FLAT'
+
 export type EmploymentType = {
   id: string
   name: string
   companyId: string
+  includeInPayroll: boolean
+  accruesLeave: boolean
+  payMode: EmploymentPayMode
   createdAt: string
   updatedAt: string
 }
