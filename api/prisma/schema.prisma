@@ -233,6 +233,14 @@ enum CompensationItemKind {
 enum PayrollVariableSource {
   MANUAL
   AUTO_RULE
+  SALARY_ADVANCE
+}
+
+enum SalaryAdvanceStatus {
+  PENDING
+  DISBURSED
+  DEDUCTED
+  CANCELLED
 }
 
 // ---------------------------------------------------------------------------
@@ -301,6 +309,7 @@ model Company {
   employeeCompensationItems  EmployeeCompensationItem[]
   payrollVariableItems       PayrollVariableItem[]
   payGroups                  PayGroup[]
+  salaryAdvances             SalaryAdvance[]
 
   @@map("tabCompany")
 }
@@ -493,7 +502,6 @@ model Employee {
   cellNumber     String? @map("cell_number") @db.VarChar(140)
   personalEmail  String? @map("personal_email") @db.VarChar(140)
   salaryCurrency String? @map("salary_currency") @db.VarChar(140)
-  ctc            Decimal? @db.Decimal(21, 9)
 
   faceEnrollmentPhoto String?   @map("face_enrollment_photo") @db.Text
   faceEnrolledAt      DateTime? @map("face_enrolled_at")
@@ -524,6 +532,7 @@ model Employee {
   conversations              TimeGateConversation[]
   compensationItems          EmployeeCompensationItem[]
   payrollVariableItems       PayrollVariableItem[]
+  salaryAdvances             SalaryAdvance[]
 
   @@unique([companyId, nfcBadgeUid])
   @@index([payGroupId])
@@ -1560,6 +1569,7 @@ model TimeGatePayrollRun {
 
   lines         TimeGatePayrollLine[]
   variableItems PayrollVariableItem[]
+  salaryAdvances SalaryAdvance[]
 
   @@unique([companyId, year, month])
   @@map("timegate_payroll_run")
@@ -1675,10 +1685,38 @@ model PayrollVariableItem {
   source       PayrollVariableSource @default(MANUAL)
   notes        String?               @db.VarChar(500)
 
+  salaryAdvance SalaryAdvance?
+
   @@index([payrollRunId])
   @@index([employeeId])
   @@index([companyId])
   @@map("timegate_payroll_variable_item")
+}
+
+model SalaryAdvance {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("creation")
+  updatedAt DateTime @updatedAt @map("modified")
+
+  companyId  String              @map("company") @db.VarChar(140)
+  company    Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  employeeId String              @map("employee") @db.VarChar(140)
+  employee   Employee            @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  amount     Decimal             @db.Decimal(21, 9)
+  status     SalaryAdvanceStatus @default(PENDING)
+  notes      String?             @db.VarChar(500)
+  paidAt     DateTime?           @map("paid_at")
+  deductedAt DateTime?           @map("deducted_at")
+
+  payrollRunId String?             @map("payroll_run") @db.VarChar(140)
+  payrollRun   TimeGatePayrollRun? @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+
+  payrollVariableItemId String?              @unique @map("payroll_variable_item") @db.VarChar(140)
+  payrollVariableItem   PayrollVariableItem? @relation(fields: [payrollVariableItemId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, employeeId, status])
+  @@index([payrollRunId])
+  @@map("timegate_salary_advance")
 }
 
 model TimeGateEmployeeContract {

@@ -521,10 +521,27 @@ export type PayGroup = {
   updatedAt: string
 }
 
+export type SalaryAdvanceStatus = 'PENDING' | 'DISBURSED' | 'DEDUCTED' | 'CANCELLED'
+
+export type SalaryAdvance = {
+  id: string
+  companyId: string
+  employeeId: string
+  amount: number
+  status: SalaryAdvanceStatus
+  notes?: string | null
+  paidAt?: string | null
+  deductedAt?: string | null
+  payrollRunId?: string | null
+  payrollVariableItemId?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
 export type EmployeeCompensationSummary = {
   currency: string
   baseSalary: number
-  baseSource: 'GRID' | 'CTC' | 'NONE'
+  baseSource: 'GRID' | 'NONE'
   fixedAllowances: number
   fixedDeductions: number
   /** Base + indemnités fixes (avant retenues). */

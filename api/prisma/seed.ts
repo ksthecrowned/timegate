@@ -280,7 +280,6 @@ type SeedEmployeeProfile = {
   emergencyContactPhone: string;
   employmentTypeId: string;
   holidayListId: string;
-  ctc: number;
   nfcBadgeUid?: string;
 };
 
@@ -1021,7 +1020,6 @@ async function main() {
       userId: employeeUser.id,
       status: EmployeeStatus.ACTIVE,
       salaryCurrency: 'XAF',
-      ctc: 420_000,
       payGroupId: defaultPayGroup.id,
       faceEmbedding: [0.01, 0.02, 0.03],
       faceEnrolledAt: new Date(),
@@ -1203,7 +1201,6 @@ async function main() {
       holidayListId: holidayList.id,
       status: EmployeeStatus.ACTIVE,
       salaryCurrency: 'XAF',
-      ctc: 400_000,
       payGroupId: midMonthPayGroup.id,
       faceEmbedding: [0.1, 0.2, 0.3],
       faceEnrolledAt: new Date(),
@@ -1252,7 +1249,6 @@ async function main() {
         emergencyContactPhone: "+242062001002",
         employmentTypeId: cdiType.id,
         holidayListId: holidayList.id,
-        ctc: 410_000,
         nfcBadgeUid: 'C3D4E5F6',
       },
     },
@@ -1284,7 +1280,6 @@ async function main() {
         emergencyContactPhone: "+242062002003",
         employmentTypeId: cdiType.id,
         holidayListId: holidayList.id,
-        ctc: 430_000,
       },
     },
     {
@@ -1314,7 +1309,6 @@ async function main() {
         emergencyContactPhone: "+242063004005",
         employmentTypeId: cdiType.id,
         holidayListId: holidayList.id,
-        ctc: 520_000,
         nfcBadgeUid: 'D4E5F6A7',
       },
     },
@@ -1345,7 +1339,6 @@ async function main() {
         emergencyContactPhone: "+242055006007",
         employmentTypeId: cddType.id,
         holidayListId: holidayList.id,
-        ctc: 380_000,
       },
     },
     {
@@ -1375,7 +1368,6 @@ async function main() {
         emergencyContactPhone: "+242057008009",
         employmentTypeId: cddType.id,
         holidayListId: holidayList.id,
-        ctc: 390_000,
         nfcBadgeUid: 'E5F6A7B8',
       },
     },
@@ -1406,7 +1398,6 @@ async function main() {
         emergencyContactPhone: "+242069001011",
         employmentTypeId: cdiType.id,
         holidayListId: holidayList.id,
-        ctc: 405_000,
       },
     },
     {
@@ -1436,7 +1427,6 @@ async function main() {
         emergencyContactPhone: '+242061112234',
         employmentTypeId: stageType.id,
         holidayListId: holidayList.id,
-        ctc: 100_000,
       },
     },
     {
@@ -1466,7 +1456,6 @@ async function main() {
         emergencyContactPhone: '+242055998878',
         employmentTypeId: stageType.id,
         holidayListId: holidayList.id,
-        ctc: 100_000,
         nfcBadgeUid: 'F6A7B8C9',
       },
     },
@@ -1528,7 +1517,6 @@ async function main() {
         holidayListId: p.holidayListId,
         status: EmployeeStatus.ACTIVE,
         salaryCurrency: 'XAF',
-        ctc: p.ctc,
         payGroupId: emp.faceSeed % 3 === 0 ? midMonthPayGroup.id : defaultPayGroup.id,
         faceEmbedding: [emp.faceSeed / 10, 0.2, 0.3],
         faceEnrolledAt: new Date(),
@@ -1830,6 +1818,14 @@ async function main() {
       {
         id: generateDocId('CGRID'),
         companyId: company.id,
+        designationId: opsDesignation.id,
+        employmentTypeId: cddType.id,
+        baseSalary: 390_000,
+        effectiveFrom: new Date(Date.UTC(payrollYear - 1, 0, 1)),
+      },
+      {
+        id: generateDocId('CGRID'),
+        companyId: company.id,
         designationId: developerDesignation.id,
         employmentTypeId: stageType.id,
         baseSalary: 100_000,
@@ -1872,6 +1868,28 @@ async function main() {
       [hq.id]: kioskHq.id,
       [west.id]: kioskWest.id,
     },
+  });
+
+  await prisma.salaryAdvance.createMany({
+    data: [
+      {
+        id: generateDocId('SADV'),
+        companyId: company.id,
+        employeeId: adaEmployee.id,
+        amount: 50_000,
+        status: 'DISBURSED',
+        paidAt: addDays(todayUtc(), -4),
+        notes: 'Avance urgente — sera retenue au prochain recalcul',
+      },
+      {
+        id: generateDocId('SADV'),
+        companyId: company.id,
+        employeeId: alanEmployee.id,
+        amount: 25_000,
+        status: 'PENDING',
+        notes: 'Demande en attente de versement',
+      },
+    ],
   });
 
   console.log('Seed complete (schema 1.2.0).', {

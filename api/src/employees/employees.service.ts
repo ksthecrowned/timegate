@@ -262,7 +262,6 @@ export class EmployeesService {
         companyId: true,
         designationId: true,
         employmentTypeId: true,
-        ctc: true,
         salaryCurrency: true,
       },
     });
@@ -271,7 +270,7 @@ export class EmployeesService {
 
     const asOf = new Date();
     let baseSalary = 0;
-    let baseSource: 'GRID' | 'CTC' | 'NONE' = 'NONE';
+    let baseSource: 'GRID' | 'NONE' = 'NONE';
 
     if (employee.designationId && employee.employmentTypeId) {
       const grid = await this.compensationGrid.findEffective(
@@ -284,10 +283,6 @@ export class EmployeesService {
         baseSalary = fromDecimal(grid.baseSalary);
         baseSource = 'GRID';
       }
-    }
-    if (baseSource === 'NONE' && employee.ctc != null) {
-      baseSalary = roundMoney(fromDecimal(employee.ctc) / 12);
-      baseSource = 'CTC';
     }
 
     const fixedItems = await this.employeeCompensation.findActiveForEmployee(

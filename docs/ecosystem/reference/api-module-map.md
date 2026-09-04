@@ -12,7 +12,7 @@ Groupement pour navigation rapide. Détail dans le code / Swagger.
 | Planning | `work-schedules/`, `work-days/`, `shift-locations/`, `shift-assignments/`, `schedule-day-exceptions/`, `planning/`, `shift-swaps/`, `holidays/` |
 | Leaves | `leaves/`, `leave-types/` |
 | Timesheets | `timesheets/` |
-| Payroll | `payroll-runs/`, `payroll-variable-items/`, `pay-groups/`, `compensation-grid/`, `employee-compensation/` |
+| Payroll | `payroll-runs/`, `payroll-variable-items/`, `pay-groups/`, `compensation-grid/`, `employee-compensation/`, `salary-advances/` |
 | SaaS / platform | `saas/`, `admin-saas/` |
 | Employee portal | `employee-portal/`, `messaging/` |
 | Manager / UX API | `manager/`, `dashboard/`, `search/`, `notifications/`, `analytics/`, `ai/` |

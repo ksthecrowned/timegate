@@ -467,30 +467,6 @@ export default function EmployeeForm({
         </div>
       ),
     },
-    {
-      id: 'face',
-      label: 'Reconnaissance faciale',
-      content: () =>
-        employeeId ? (
-          <FaceEnrollContent
-            employeeId={employeeId}
-            hasFaceEmbedding={hasFaceEmbedding}
-            faceEnrolledAt={faceEnrolledAt}
-          />
-        ) : (
-          <EmployeeFormPlaceholder message="Enregistrez l’employé pour configurer la reconnaissance faciale." />
-        ),
-    },
-    {
-      id: 'contracts',
-      label: 'Contrats',
-      content: () =>
-        employeeId ? (
-          <EmployeeContractsCard employeeId={employeeId} embedded />
-        ) : (
-          <EmployeeFormPlaceholder message="Enregistrez l’employé pour gérer les contrats." />
-        ),
-    },
   ]
 
   function handleFormKeyDown(e: React.KeyboardEvent) {

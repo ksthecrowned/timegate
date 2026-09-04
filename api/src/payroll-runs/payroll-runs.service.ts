@@ -10,8 +10,11 @@ import {
   LeaveApplicationStatus,
   AttendanceStatus,
   EmploymentPayMode,
+  CompensationItemKind,
+  PayrollVariableSource,
   PayrollLinePaymentStatus,
   Prisma,
+  SalaryAdvanceStatus,
   TimeGatePayrollRunStatus,
   TimeGateUserRole,
 } from '@prisma/client';
@@ -453,7 +456,6 @@ export class PayrollRunsService {
       },
       select: {
         id: true,
-        ctc: true,
         designationId: true,
         employmentTypeId: true,
         payDueDayOverride: true,
@@ -473,6 +475,77 @@ export class PayrollRunsService {
     }
 
     const employeeIds = employees.map((e) => e.id);
+
+    // Reversible advance deductions for this DRAFT/regenerate cycle.
+    const previouslyDeducted = await tx.salaryAdvance.findMany({
+      where: {
+        companyId,
+        payrollRunId,
+        status: SalaryAdvanceStatus.DEDUCTED,
+      },
+      select: { id: true, payrollVariableItemId: true },
+    });
+    if (previouslyDeducted.length) {
+      const variableIds = previouslyDeducted
+        .map((a) => a.payrollVariableItemId)
+        .filter((id): id is string => Boolean(id));
+      await tx.salaryAdvance.updateMany({
+        where: { id: { in: previouslyDeducted.map((a) => a.id) } },
+        data: {
+          status: SalaryAdvanceStatus.DISBURSED,
+          deductedAt: null,
+          payrollRunId: null,
+          payrollVariableItemId: null,
+        },
+      });
+      if (variableIds.length) {
+        await tx.payrollVariableItem.deleteMany({
+          where: { id: { in: variableIds } },
+        });
+      }
+    }
+    await tx.payrollVariableItem.deleteMany({
+      where: {
+        payrollRunId,
+        companyId,
+        source: PayrollVariableSource.SALARY_ADVANCE,
+      },
+    });
+
+    const disbursedAdvances = await tx.salaryAdvance.findMany({
+      where: {
+        companyId,
+        employeeId: { in: employeeIds },
+        status: SalaryAdvanceStatus.DISBURSED,
+      },
+      orderBy: { paidAt: 'asc' },
+    });
+    const now = new Date();
+    for (const advance of disbursedAdvances) {
+      const variableId = generateDocId('PVITEM');
+      await tx.payrollVariableItem.create({
+        data: {
+          id: variableId,
+          companyId,
+          employeeId: advance.employeeId,
+          payrollRunId,
+          label: 'Avance sur salaire',
+          kind: CompensationItemKind.DEDUCTION,
+          amount: advance.amount,
+          source: PayrollVariableSource.SALARY_ADVANCE,
+          notes: advance.notes,
+        },
+      });
+      await tx.salaryAdvance.update({
+        where: { id: advance.id },
+        data: {
+          status: SalaryAdvanceStatus.DEDUCTED,
+          deductedAt: now,
+          payrollRunId,
+          payrollVariableItemId: variableId,
+        },
+      });
+    }
 
     const [timesheets, absences, approvedLeaves, variableItems, attendances] =
       await Promise.all([
@@ -601,9 +674,8 @@ export class PayrollRunsService {
 
     const lineData = await Promise.all(
       employees.map(async (employee) => {
-        // 1. Contractual base from compensation grid (fallback: ctc/12, then 0)
+        // 1. Contractual base from compensation grid only
         let contractualBase = 0;
-        let gridFound = false;
         if (employee.designationId && employee.employmentTypeId) {
           const grid = await this.compensationGrid.findEffective(
             companyId,
@@ -613,11 +685,7 @@ export class PayrollRunsService {
           );
           if (grid) {
             contractualBase = fromDecimal(grid.baseSalary);
-            gridFound = true;
           }
-        }
-        if (!gridFound && employee.ctc) {
-          contractualBase = roundMoney(Number(employee.ctc) / 12);
         }
 
         // 2. Fixed employee allowances/deductions (full month amounts before prorata)

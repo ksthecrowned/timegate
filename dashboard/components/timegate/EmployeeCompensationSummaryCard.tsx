@@ -12,7 +12,6 @@ import StatusBadge from '@/components/ui/StatusBadge'
 
 function baseSourceLabel(source: EmployeeCompensationSummary['baseSource']) {
   if (source === 'GRID') return 'Grille de compensation'
-  if (source === 'CTC') return 'CTC / 12'
   return 'Non défini'
 }
 

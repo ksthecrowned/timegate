@@ -12,6 +12,7 @@ import EmployeePortalAccessCard from '@/components/timegate/EmployeePortalAccess
 import EmployeeContractsCard from '@/components/timegate/EmployeeContractsCard'
 import EmployeeCompensationItemsCard from '@/components/timegate/EmployeeCompensationItemsCard'
 import EmployeeCompensationSummaryCard from '@/components/timegate/EmployeeCompensationSummaryCard'
+import EmployeeSalaryAdvancesCard from '@/components/timegate/EmployeeSalaryAdvancesCard'
 import EmployeeLeaveBalancesCard from '@/components/timegate/EmployeeLeaveBalancesCard'
 import ResourceDetailSection from '@/components/timegate/ResourceDetailSection'
 import ResourceProfileHeader from '@/components/timegate/ResourceProfileHeader'
@@ -164,17 +165,20 @@ export default function EmployeeDetailPage() {
         id: 'pay',
         label: 'Rémunération',
         content: (
-          <div className="grid gap-4 lg:grid-cols-2">
-            <EmployeeCompensationSummaryCard
-              bare
-              employeeId={employee.id}
-              refreshKey={compRefreshKey}
-            />
-            <EmployeeCompensationItemsCard
-              bare
-              employeeId={employee.id}
-              onChanged={() => setCompRefreshKey((k) => k + 1)}
-            />
+          <div className="space-y-4">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <EmployeeCompensationSummaryCard
+                bare
+                employeeId={employee.id}
+                refreshKey={compRefreshKey}
+              />
+              <EmployeeCompensationItemsCard
+                bare
+                employeeId={employee.id}
+                onChanged={() => setCompRefreshKey((k) => k + 1)}
+              />
+            </div>
+            <EmployeeSalaryAdvancesCard bare employeeId={employee.id} />
           </div>
         ),
       },

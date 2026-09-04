@@ -46,6 +46,7 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { CompensationGridModule } from './compensation-grid/compensation-grid.module';
 import { EmployeeCompensationModule } from './employee-compensation/employee-compensation.module';
 import { PayrollVariableItemsModule } from './payroll-variable-items/payroll-variable-items.module';
+import { SalaryAdvancesModule } from './salary-advances/salary-advances.module';
 import { PayGroupsModule } from './pay-groups/pay-groups.module';
 import { HealthModule } from './health/health.module';
 
@@ -99,6 +100,7 @@ import { HealthModule } from './health/health.module';
     CompensationGridModule,
     EmployeeCompensationModule,
     PayrollVariableItemsModule,
+    SalaryAdvancesModule,
     PayGroupsModule,
   ],
 })

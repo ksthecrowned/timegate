@@ -73,6 +73,12 @@ export class PayrollVariableItemsService {
       }
     }
 
+    if (item.source === 'SALARY_ADVANCE') {
+      throw new BadRequestException(
+        'Cannot remove salary-advance deductions here; cancel the advance or regenerate the run',
+      );
+    }
+
     await this.prisma.payrollVariableItem.delete({ where: { id } });
     return { deleted: true };
   }

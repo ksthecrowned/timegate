@@ -22,6 +22,7 @@
   - Les absences ne sont **pas** re-déduites en plus (déjà dans le ratio).
   - Retards et HS restent au taux horaire contractuel.
 - Variables du run : montants saisis tels quels.
+- **Base** : uniquement via la grille de compensation (`poste × type de contrat`). Pas de CTC.
 
 ## Types d’emploi (politique)
 
@@ -30,7 +31,12 @@ Sur `EmploymentType` :
 - `accruesLeave` — allocation congés à 0 si `false`
 - `payMode` — `MONTHLY` (prorata) | `FLAT` (indemnité forfaitaire, sans prorata ni retenues retard)
 
-Seed : type **Stage** = paie forfaitaire, pas de congés ; 2 stagiaires démo en plus de l’effectif existant.
+## Avances sur salaire
+
+- Module `salary-advances/` sous `employees/:id/salary-advances`
+- Statuts : `PENDING` → `DISBURSED` → `DEDUCTED` (ou `CANCELLED`)
+- Au `generateLines` / recalcul DRAFT : avances `DISBURSED` → variable `DEDUCTION` source `SALARY_ADVANCE`, puis statut `DEDUCTED`
+- Recalcul du même run : reset réversible des avances liées au run puis ré-application
 
 ## Specs produit
 

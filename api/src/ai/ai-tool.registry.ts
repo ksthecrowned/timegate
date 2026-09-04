@@ -951,7 +951,6 @@ export class AiToolRegistry {
         firstName: true,
         lastName: true,
         employeeName: true,
-        ctc: true,
         designationId: true,
         employmentTypeId: true,
         payDueDayOverride: true,
@@ -964,7 +963,7 @@ export class AiToolRegistry {
 
     const now = new Date();
     let baseSalary = 0;
-    let baseSalarySource: 'grid' | 'ctc' | 'none' = 'none';
+    let baseSalarySource: 'grid' | 'none' = 'none';
     if (employee.designationId && employee.employmentTypeId) {
       const grid = await this.compensationGrid.findEffective(
         companyId,
@@ -976,10 +975,6 @@ export class AiToolRegistry {
         baseSalary = fromDecimal(grid.baseSalary);
         baseSalarySource = 'grid';
       }
-    }
-    if (baseSalarySource === 'none' && employee.ctc) {
-      baseSalary = roundMoney(Number(employee.ctc) / 12);
-      baseSalarySource = 'ctc';
     }
 
     const items = await this.employeeCompensation.findActiveForEmployee(companyId, employee.id, now);
