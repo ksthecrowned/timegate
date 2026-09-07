@@ -54,7 +54,7 @@ export const STRINGS = {
     signIn: 'Se connecter',
     continue: 'Continuer',
     checkEmailHint:
-      'Aucun compte employé actif trouvé pour cet e-mail, ou le compte n’est pas encore activé. Vérifiez l’adresse, ou utilisez « Mot de passe oublié » / demandez l’activation à votre administrateur.',
+      'Aucun compte portail employé pour cet e-mail. Vérifiez l’adresse affichée (autofill / biométrie), utilisez l’e-mail personnel lié dans le dashboard, ou demandez à RH de « Vérifier / lier le compte ».',
     enterPasswordHint: 'Saisissez votre mot de passe pour continuer.',
     changeEmail: 'Changer d’e-mail',
     activateAccount: 'Activer mon compte',

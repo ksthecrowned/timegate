@@ -219,14 +219,11 @@ export class TrustedDevicesService {
     });
     if (!employee) throw new NotFoundException('Employé introuvable');
     if (employee.userId) {
-      const user = await this.prisma.user.findUnique({
-        where: { id: employee.userId },
-        select: { id: true, email: true, passwordHash: true },
-      });
+      const user = await this.ensureEmployeePortalRole(employee.userId);
       return {
-        userId: user!.id,
-        email: user!.email,
-        hasPassword: user!.passwordHash != null,
+        userId: user.id,
+        email: user.email,
+        hasPassword: user.passwordHash != null,
         created: false,
       };
     }
@@ -240,14 +237,15 @@ export class TrustedDevicesService {
       where: { email, companyId },
     });
     if (existing) {
+      const user = await this.ensureEmployeePortalRole(existing.id);
       await this.prisma.employee.update({
         where: { id: employee.id },
-        data: { userId: existing.id },
+        data: { userId: user.id },
       });
       return {
-        userId: existing.id,
-        email: existing.email,
-        hasPassword: existing.passwordHash != null,
+        userId: user.id,
+        email: user.email,
+        hasPassword: user.passwordHash != null,
         created: false,
       };
     }
@@ -274,6 +272,46 @@ export class TrustedDevicesService {
       email: user.email,
       hasPassword: false,
       created: true,
+    };
+  }
+
+  /**
+   * Portal login (`/auth/employee/*`) only accepts `timeGateRole=EMPLOYEE`.
+   * Linking an ADMIN/MANAGER email without flipping the role yields CHECK_EMAIL
+   * in the mobile app while the dashboard still shows « Compte lié ».
+   */
+  private async ensureEmployeePortalRole(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        timeGateRole: true,
+      },
+    });
+    if (!user) {
+      throw new NotFoundException('Compte utilisateur introuvable');
+    }
+    if (
+      user.timeGateRole === TimeGateUserRole.ADMIN ||
+      user.timeGateRole === TimeGateUserRole.MANAGER
+    ) {
+      throw new ForbiddenException(
+        `L’e-mail ${user.email} est déjà un compte ${user.timeGateRole}. Utilisez un e-mail personnel distinct pour l’app employé.`,
+      );
+    }
+    if (user.timeGateRole !== TimeGateUserRole.EMPLOYEE) {
+      return this.prisma.user.update({
+        where: { id: user.id },
+        data: { timeGateRole: TimeGateUserRole.EMPLOYEE },
+        select: { id: true, email: true, passwordHash: true },
+      });
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      passwordHash: user.passwordHash,
     };
   }
 

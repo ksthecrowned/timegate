@@ -70,9 +70,17 @@ export default function LoginScreen() {
     }
     setLoading(true);
     try {
+      if (__DEV__) {
+        console.log("[identify] email=", JSON.stringify(normalizedEmail));
+      }
       const { nextStep } = await employeeApi.identify(normalizedEmail);
+      if (__DEV__) {
+        console.log("[identify] nextStep=", nextStep);
+      }
       if (nextStep === "CHECK_EMAIL") {
-        setInfo(STRINGS.auth.checkEmailHint);
+        setInfo(
+          `${STRINGS.auth.checkEmailHint} (${normalizedEmail})`,
+        );
         return;
       }
       if (nextStep === "OTP_SETUP") {

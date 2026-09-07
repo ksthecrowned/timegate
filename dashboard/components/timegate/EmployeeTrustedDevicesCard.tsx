@@ -82,8 +82,9 @@ export default function EmployeeTrustedDevicesCard({
     <FormCard title="Appareils de confiance" bare={bare}>
       <div className="space-y-4">
         <p className="text-sm text-gray-600 dark:text-neutral-400">
-          Téléphones autorisés pour le pointage mobile (QR, reprise pause). L’employé enregistre un
-          appareil depuis le portail ; vous validez ensuite la demande ici.
+          Téléphones autorisés pour le pointage mobile (QR, reprise pause). Ordre : l’employé se
+          connecte d’abord à l’app → l’appareil apparaît ici (souvent déjà approuvé s’il est le
+          premier) → sinon vous validez la demande PENDING.
         </p>
 
         <ApiErrorBanner message={error} />
@@ -105,8 +106,9 @@ export default function EmployeeTrustedDevicesCard({
 
         {!loading && devices.length === 0 ? (
           <p className="py-4 text-center text-sm text-gray-500 dark:text-neutral-400">
-            Aucun appareil enregistré. Demandez à l’employé de se connecter au portail mobile pour
-            enregistrer son téléphone.
+            Aucun appareil sur cette API. Ce n’est pas un blocage de connexion : l’employé doit
+            d’abord se connecter à l’app (même backend que ce dashboard). Ensuite le téléphone
+            apparaîtra ici.
           </p>
         ) : null}
 

@@ -72,10 +72,17 @@ export default function EmployeePortalAccessCard({
       </div>
 
       {employee.linkedUser ? (
-        <p className="text-sm text-gray-700 dark:text-neutral-300">
-          Compte lié :{' '}
-          <span className="font-medium">{employee.linkedUser.email}</span>
-        </p>
+        <div className="space-y-1 text-sm text-gray-700 dark:text-neutral-300">
+          <p>
+            Compte lié :{' '}
+            <span className="font-medium">{employee.linkedUser.email}</span>
+          </p>
+          <p className="text-xs text-gray-500 dark:text-neutral-400">
+            L’employé se connecte dans l’app avec cet e-mail. Si le compte a été
+            créé sans mot de passe, la première connexion passe par OTP (e-mail).
+            Cliquez « Vérifier / lier » pour confirmer l’état du compte.
+          </p>
+        </div>
       ) : hasPortalUser ? (
         <p className="text-sm text-gray-700 dark:text-neutral-300">
           Compte utilisateur lié (rechargez si l’e-mail n’apparaît pas).

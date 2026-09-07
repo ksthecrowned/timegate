@@ -342,10 +342,43 @@ export class AuthService {
   /** Step 0: branch login flow for employee app (email only). */
   async employeeIdentify(dto: EmployeeIdentifyDto) {
     const email = dto.email.trim().toLowerCase();
-    const user = await this.prisma.user.findFirst({
+    let user = await this.prisma.user.findFirst({
       where: { email, timeGateRole: TimeGateUserRole.EMPLOYEE },
-      select: { passwordHash: true },
+      select: { id: true, passwordHash: true },
     });
+
+    // Fallback: RH may show personalEmail as « compte lié » while User.email
+    // differs, or the linked User lost EMPLOYEE role — resolve via fiche employé.
+    if (!user) {
+      const employee = await this.prisma.employee.findFirst({
+        where: {
+          personalEmail: email,
+          status: EmployeeStatus.ACTIVE,
+          userId: { not: null },
+        },
+        select: {
+          user: {
+            select: { id: true, passwordHash: true, timeGateRole: true },
+          },
+        },
+      });
+      const linked = employee?.user;
+      if (linked?.timeGateRole === TimeGateUserRole.EMPLOYEE) {
+        user = { id: linked.id, passwordHash: linked.passwordHash };
+      } else if (
+        linked &&
+        linked.timeGateRole !== TimeGateUserRole.ADMIN &&
+        linked.timeGateRole !== TimeGateUserRole.MANAGER
+      ) {
+        const repaired = await this.prisma.user.update({
+          where: { id: linked.id },
+          data: { timeGateRole: TimeGateUserRole.EMPLOYEE },
+          select: { id: true, passwordHash: true },
+        });
+        user = repaired;
+      }
+    }
+
     if (!user) {
       return { nextStep: 'CHECK_EMAIL' as const };
     }
