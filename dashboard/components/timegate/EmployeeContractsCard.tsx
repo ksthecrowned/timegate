@@ -56,7 +56,12 @@ function expiryHint(expiresAt?: string | null): string | null {
 }
 
 function isLikelyPdf(url: string): boolean {
-  return /\.pdf($|\?)/i.test(url) || url.toLowerCase().includes('application/pdf')
+  // Legacy uploads used `.bin` for PDFs before content-type → extension mapping.
+  return (
+    /\.pdf($|\?)/i.test(url) ||
+    (/\/employee-contracts\//i.test(url) && /\.bin($|\?)/i.test(url)) ||
+    url.toLowerCase().includes('application/pdf')
+  )
 }
 
 function isLikelyImage(url: string): boolean {

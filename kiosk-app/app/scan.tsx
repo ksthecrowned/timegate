@@ -616,7 +616,7 @@ export default function ScanScreen() {
       >
         <PunchModeHeader
           transparent
-          title="Pointage visage"
+          title="Reconnaissance faciale"
           bannerMessage={statusMessage}
           bannerVariant={resolveBannerVariant(verifyState)}
           onBack={() => router.back()}

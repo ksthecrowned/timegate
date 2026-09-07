@@ -629,13 +629,19 @@ export class EmployeesService {
     }
 
     let contractFileUrl: string | null = null;
-    if (file?.buffer?.length) {
+    if (file) {
+      if (!file.buffer?.length) {
+        throw new BadRequestException('Fichier de contrat invalide ou vide');
+      }
       contractFileUrl = await this.storage.uploadEmployeeContract({
         organizationId: employee.companyId,
         employeeId: employee.id,
         contentType: file.mimetype,
         buffer: file.buffer,
       });
+      if (!contractFileUrl) {
+        throw new BadRequestException('Stockage indisponible — réessayez plus tard');
+      }
     }
 
     const created = await this.prisma.$transaction(async (tx) => {
@@ -682,13 +688,20 @@ export class EmployeesService {
     this.assertCompanyAccess(user, contract.companyId);
 
     let contractFileUrl = contract.contractFileUrl;
-    if (file?.buffer?.length) {
-      contractFileUrl = await this.storage.uploadEmployeeContract({
+    if (file) {
+      if (!file.buffer?.length) {
+        throw new BadRequestException('Fichier de contrat invalide ou vide');
+      }
+      const uploaded = await this.storage.uploadEmployeeContract({
         organizationId: contract.companyId,
         employeeId: contract.employeeId,
         contentType: file.mimetype,
         buffer: file.buffer,
       });
+      if (!uploaded) {
+        throw new BadRequestException('Stockage indisponible — réessayez plus tard');
+      }
+      contractFileUrl = uploaded;
     }
 
     const signedAt = dto.signedAt ? new Date(dto.signedAt) : undefined;

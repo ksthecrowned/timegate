@@ -153,14 +153,14 @@ export default function FileUpload({
     [notifyParent, revokePreview],
   )
 
+  const atCapacity = items.length >= maxFiles
+
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (files) => void addFiles(files),
     accept,
     maxFiles,
-    disabled: disabled || (maxFiles > 1 && items.length >= maxFiles),
+    disabled: disabled || atCapacity,
   })
-
-  const atCapacity = maxFiles > 1 && items.length >= maxFiles
 
   return (
     <div className={`space-y-4 ${className}`}>

@@ -21,6 +21,8 @@ Si manquant → client `null`, upload retourne `null` (warn).
 
 `uploadEmployeePhoto`, `uploadRecognitionImage`, `uploadEmployeeContract`, `uploadCompanyLogo`, `uploadLeaveSupportDocument`, `uploadLateJustification`, `deleteByPublicUrl`
 
+Extensions via `resolveStorageExtension` (`application/pdf` → `.pdf`, images → `.jpg`/`.png`/…). Type inconnu → `.bin`.
+
 Souvent fourni dans le module feature (ex. EmployeesModule), pas un Nest module séparé obligatoire.
 
 ## Anti-patterns

@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { randomBytes } from 'crypto';
+import { resolveStorageExtension } from './resolve-storage-extension';
 
 @Injectable()
 export class CloudflareR2Service {
@@ -138,7 +139,7 @@ export class CloudflareR2Service {
     if (!this.client || !this.bucket || !this.publicBaseUrl) {
       return null;
     }
-    const ext = this.resolveExtension(params.contentType);
+    const ext = resolveStorageExtension(params.contentType);
     const key = `${params.folder}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`;
     await this.client.send(
       new PutObjectCommand({
@@ -149,19 +150,5 @@ export class CloudflareR2Service {
       }),
     );
     return `${this.publicBaseUrl}/${key}`;
-  }
-
-  private resolveExtension(contentType?: string): string {
-    switch ((contentType || '').toLowerCase()) {
-      case 'image/jpeg':
-      case 'image/jpg':
-        return 'jpg';
-      case 'image/png':
-        return 'png';
-      case 'image/webp':
-        return 'webp';
-      default:
-        return 'bin';
-    }
   }
 }
