@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
 import { useTheme } from "@/hooks/use-theme";
+import { PrimaryCtaButton } from "@/components/ui/PrimaryCtaButton";
 
 const R = { md: 10, xl: 16 } as const;
 
@@ -136,30 +136,15 @@ export function AuthPrimaryButton({
   disabled?: boolean;
   testID?: string;
 }) {
-  const theme = useTheme();
-  const inactive = Boolean(loading || disabled);
   return (
-    <Pressable
+    <PrimaryCtaButton
       testID={testID}
+      label={label}
       onPress={onPress}
-      disabled={inactive}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy: Boolean(loading) }}
-      style={({ pressed }) => [
-        styles.primaryBtn,
-        {
-          backgroundColor: theme.primary,
-          opacity: pressed || inactive ? 0.7 : 1,
-        },
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={styles.primaryBtnText}>{label}</Text>
-      )}
-    </Pressable>
+      loading={loading}
+      disabled={disabled}
+      style={styles.primaryBtn}
+    />
   );
 }
 
@@ -243,11 +228,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     marginTop: Spacing[2],
-    paddingVertical: Spacing[3] + 2,
-    borderRadius: R.md,
-    alignItems: "center",
   },
-  primaryBtnText: { color: "#fff", fontSize: 16, fontWeight: "700" },
   backBtn: {
     width: 40,
     height: 40,

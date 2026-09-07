@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -14,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { MinTouchTarget, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { PrimaryCtaButton } from '@/components/ui/PrimaryCtaButton';
 
 const S = Spacing;
 
@@ -213,29 +213,14 @@ export function FormPrimaryButton({
   loading,
   disabled,
 }: FormPrimaryButtonProps) {
-  const theme = useTheme();
-  const inactive = Boolean(loading || disabled);
   return (
-    <Pressable
+    <PrimaryCtaButton
+      label={label}
       onPress={onPress}
-      disabled={inactive}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: inactive, busy: Boolean(loading) }}
-      style={({ pressed }) => [
-        styles.primaryBtn,
-        {
-          backgroundColor: theme.primary,
-          opacity: pressed || inactive ? 0.7 : 1,
-        },
-      ]}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={styles.primaryBtnText}>{label}</Text>
-      )}
-    </Pressable>
+      loading={loading}
+      disabled={disabled}
+      style={styles.primaryBtn}
+    />
   );
 }
 
@@ -338,13 +323,7 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     marginTop: S[2],
-    minHeight: MinTouchTarget,
-    borderRadius: Radius.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: S[4],
   },
-  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   secondaryBtn: {
     marginTop: S[2],
     minHeight: MinTouchTarget,

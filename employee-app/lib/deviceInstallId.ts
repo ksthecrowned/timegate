@@ -4,12 +4,32 @@ const DEVICE_INSTALL_KEY = 'timegate_device_install_id';
 const DEVICE_TRUST_KEY = 'timegate_device_trust';
 const DEVICE_ONBOARDING_SEEN_KEY = 'timegate_device_onboarding_seen_v1';
 
+export type DeviceTrustValue = 'TRUSTED' | 'PENDING' | null;
+
+type DeviceTrustListener = (trust: DeviceTrustValue) => void;
+
+const trustListeners = new Set<DeviceTrustListener>();
+
 function createInstallId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
+}
+
+function notifyTrustListeners(trust: DeviceTrustValue): void {
+  for (const listener of trustListeners) {
+    listener(trust);
+  }
+}
+
+/** Subscribe to SecureStore trust updates (e.g. after /employee/me refresh). */
+export function onDeviceTrustChange(listener: DeviceTrustListener): () => void {
+  trustListeners.add(listener);
+  return () => {
+    trustListeners.delete(listener);
+  };
 }
 
 export async function getDeviceInstallId(): Promise<string> {
@@ -20,11 +40,10 @@ export async function getDeviceInstallId(): Promise<string> {
   return id;
 }
 
-export async function setDeviceTrust(
-  trust: 'TRUSTED' | 'PENDING' | null,
-): Promise<void> {
+export async function setDeviceTrust(trust: DeviceTrustValue): Promise<void> {
   if (!trust) {
     await SecureStore.deleteItemAsync(DEVICE_TRUST_KEY);
+    notifyTrustListeners(null);
     return;
   }
   await SecureStore.setItemAsync(DEVICE_TRUST_KEY, trust);
@@ -32,9 +51,10 @@ export async function setDeviceTrust(
   if (trust === 'TRUSTED') {
     await SecureStore.deleteItemAsync(DEVICE_ONBOARDING_SEEN_KEY);
   }
+  notifyTrustListeners(trust);
 }
 
-export async function getDeviceTrust(): Promise<'TRUSTED' | 'PENDING' | null> {
+export async function getDeviceTrust(): Promise<DeviceTrustValue> {
   const v = await SecureStore.getItemAsync(DEVICE_TRUST_KEY);
   if (v === 'TRUSTED' || v === 'PENDING') return v;
   return null;

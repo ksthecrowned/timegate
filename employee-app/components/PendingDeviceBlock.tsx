@@ -3,7 +3,11 @@ import { useEffect, useState } from 'react';
 import { AppState, View, StyleSheet } from 'react-native';
 
 import { Spacing } from '@/constants/theme';
-import { getDeviceTrust } from '@/lib/deviceInstallId';
+import {
+  getDeviceTrust,
+  onDeviceTrustChange,
+  type DeviceTrustValue,
+} from '@/lib/deviceInstallId';
 import { DevicePendingPanel } from '@/components/DevicePendingPanel';
 
 type Props = {
@@ -12,17 +16,21 @@ type Props = {
 
 /** Renders children only when the device is not PENDING; otherwise shows verify panel. */
 export function PendingDeviceBlock({ children }: Props) {
-  const [trust, setTrust] = useState<'TRUSTED' | 'PENDING' | null>(null);
+  const [trust, setTrust] = useState<DeviceTrustValue>(null);
 
   useEffect(() => {
     const refresh = () => {
       void getDeviceTrust().then(setTrust);
     };
     refresh();
+    const unsub = onDeviceTrustChange(setTrust);
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();
     });
-    return () => sub.remove();
+    return () => {
+      unsub();
+      sub.remove();
+    };
   }, []);
 
   if (trust === null) return null;
@@ -43,14 +51,21 @@ export function useDeviceTrustPending(): boolean | null {
   const [pending, setPending] = useState<boolean | null>(null);
 
   useEffect(() => {
+    const apply = (trust: DeviceTrustValue) => {
+      setPending(trust === 'PENDING');
+    };
     const refresh = () => {
-      void getDeviceTrust().then((trust) => setPending(trust === 'PENDING'));
+      void getDeviceTrust().then(apply);
     };
     refresh();
+    const unsub = onDeviceTrustChange(apply);
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'active') refresh();
     });
-    return () => sub.remove();
+    return () => {
+      unsub();
+      sub.remove();
+    };
   }, []);
 
   return pending;

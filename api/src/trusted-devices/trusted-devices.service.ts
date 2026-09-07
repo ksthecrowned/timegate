@@ -98,6 +98,25 @@ export class TrustedDevicesService {
     return { status, trust: this.toTrustLevel(status) };
   }
 
+  /**
+   * Live trust from DB (not JWT). Used by /employee/me so the app can drop the
+   * PENDING banner after RH approval without forcing a re-login.
+   */
+  async resolveTrustLevel(user: JwtUser): Promise<DeviceTrustLevel | null> {
+    if (!user.deviceInstallId) return user.deviceTrust ?? null;
+    const row = await this.prisma.timeGateTrustedDevice.findUnique({
+      where: {
+        userId_deviceInstallId: {
+          userId: user.sub,
+          deviceInstallId: user.deviceInstallId,
+        },
+      },
+      select: { status: true },
+    });
+    if (!row) return user.deviceTrust ?? null;
+    return this.toTrustLevel(row.status);
+  }
+
   async assertTrusted(user: JwtUser): Promise<void> {
     if (user.role !== TimeGateUserRole.EMPLOYEE) return;
     if (!user.deviceInstallId) {

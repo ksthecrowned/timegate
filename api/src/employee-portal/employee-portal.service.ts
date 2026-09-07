@@ -20,6 +20,7 @@ import { PunchClaimsService } from '../punch-claims/punch-claims.service';
 import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { holidayDateKey } from '../common/utils/holiday-calendar.util';
+import { TrustedDevicesService } from '../trusted-devices/trusted-devices.service';
 
 @Injectable()
 export class EmployeePortalService {
@@ -33,6 +34,7 @@ export class EmployeePortalService {
     private shiftSwaps: ShiftSwapsService,
     private punchClaims: PunchClaimsService,
     private storage: CloudflareR2Service,
+    private trustedDevices: TrustedDevicesService,
   ) {}
 
   async getProfile(user: JwtUser) {
@@ -61,6 +63,8 @@ export class EmployeePortalService {
     });
     if (!employee) throw new NotFoundException('Employee not found');
 
+    const deviceTrust = await this.trustedDevices.resolveTrustLevel(user);
+
     return {
       id: employee.id,
       firstName: employee.firstName ?? employee.employeeName,
@@ -80,7 +84,7 @@ export class EmployeePortalService {
       organizationName: employee.company?.name ?? null,
       organizationSku: employee.company?.sku ?? null,
       language: employee.user?.language ?? null,
-      deviceTrust: user.deviceTrust ?? null,
+      deviceTrust,
     };
   }
 

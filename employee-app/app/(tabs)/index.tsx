@@ -16,6 +16,7 @@ import { ScreenLayout } from '@/components/ScreenLayout';
 import { TrustedDeviceBanner } from '@/components/TrustedDeviceBanner';
 import { useDeviceTrustPending } from '@/components/PendingDeviceBlock';
 import { Card } from '@/components/ui/Card';
+import { PrimaryCtaButton } from '@/components/ui/PrimaryCtaButton';
 import { useTheme } from '@/hooks/use-theme';
 import { employeeApi } from '@/lib/api';
 import { getMeCached } from '@/lib/meCache';
@@ -407,7 +408,7 @@ export default function HomeScreen() {
             {loading ? '…' : shiftLine}
           </Text>
 
-          <Pressable
+          <PrimaryCtaButton
             testID={
               primaryAction.href === '/qr-punch'
                 ? 'home_qr_punch_cta'
@@ -415,27 +416,20 @@ export default function HomeScreen() {
                   ? 'home_break_resume_cta'
                   : 'home_primary_cta'
             }
+            label={primaryAction.label}
             onPress={() =>
               handleNavigate(primaryAction.href, primaryAction.sensitive)
             }
-            accessibilityRole="button"
-            accessibilityLabel={primaryAction.label}
+            disabled={primaryBlocked}
             accessibilityHint={
               primaryBlocked ? STRINGS.a11y.actionBlocked : undefined
             }
-            disabled={primaryBlocked}
-            style={({ pressed }) => [
-              styles.primaryCta,
-              {
-                backgroundColor: theme.primary,
-                opacity: pressed || primaryBlocked ? 0.7 : 1,
-              },
-            ]}
+            contentStyle={styles.primaryCta}
           >
             <Ionicons name={primaryAction.icon} size={22} color="#fff" />
             <Text style={styles.primaryCtaText}>{primaryAction.label}</Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
-          </Pressable>
+          </PrimaryCtaButton>
         </Card>
 
         {pendingLeaves > 0 ? (
@@ -580,8 +574,6 @@ const styles = StyleSheet.create({
   },
   primaryCta: {
     minHeight: MinTouchTarget + 8,
-    borderRadius: Radius.md,
-    paddingHorizontal: Spacing[4],
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing[3],

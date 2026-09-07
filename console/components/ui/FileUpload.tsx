@@ -235,7 +235,7 @@ function FilePreviewCard({
 
   return (
     <div className="relative group rounded-xl border border-gray-200 overflow-hidden bg-white dark:bg-neutral-800 dark:border-neutral-700">
-      <div className="relative aspect-[4/3] bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
+      <div className="relative aspect-4/3 bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
         {isImage && previewUrl ? (
           <img
             src={previewUrl}
@@ -281,7 +281,7 @@ function FilePreviewCard({
         )}
 
         {status === 'done' && (
-          <span className="absolute top-2 start-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/90 text-white">
+          <span className="absolute top-2 inset-s-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-teal-500/90 text-white">
             <svg className="size-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
             </svg>

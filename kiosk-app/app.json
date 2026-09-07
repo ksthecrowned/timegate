@@ -15,7 +15,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#FFD23F"
+        "backgroundColor": "#0d9488"
       },
       "package": "com.timegate.kiosk",
       "permissions": ["NFC", "android.permission.CAMERA"]

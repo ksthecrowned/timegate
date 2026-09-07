@@ -1,6 +1,7 @@
 /**
  * Palette alignée sur le dashboard et l'employee-app.
- * Teal `#0d9488` en primary, slate dark mode pour les fonds.
+ * Teal `#0d9488` en primary, secondary `#0284c7`.
+ * CTA : dégradé primary → secondary (même que login dashboard).
  * C'est la seule source de vérité pour les couleurs du kiosque.
  */
 
@@ -9,7 +10,7 @@ import { Platform } from "react-native";
 export type ColorScheme = "light" | "dark";
 
 export const palette = {
-  // Primary
+  // Primary — dashboard `@theme`
   teal: "#0d9488",
   tealDark: "#0f766e",
   tealLight: "#14b8a6",
@@ -61,8 +62,9 @@ export const colors = {
   bgBottom: palette.bg,
   accent: palette.teal,
   accentLight: palette.tealLight,
+  /** Dashboard login CTA: from-primary to-secondary */
   buttonStart: palette.teal,
-  buttonEnd: palette.tealDark,
+  buttonEnd: palette.blue,
   frame: "rgba(248, 250, 252, 0.85)",
   scrim: "rgba(2, 6, 23, 0.65)",
   scrimSoft: "rgba(2, 6, 23, 0.35)",
@@ -76,7 +78,10 @@ export const lightTheme = {
   textSecondary: "#475569",
   primary: palette.teal,
   primaryPressed: palette.tealDark,
-  accentLine: "#FF9F1C",
+  secondary: palette.blue,
+  buttonStart: palette.teal,
+  buttonEnd: palette.blue,
+  accentLine: palette.teal,
   success: palette.success,
   error: palette.error,
 };
@@ -94,7 +99,7 @@ export const darkTheme = {
   success: palette.success,
   error: palette.error,
   buttonStart: palette.teal,
-  buttonEnd: palette.tealDark,
+  buttonEnd: palette.blue,
   frame: colors.frame,
 };
 

@@ -1,14 +1,23 @@
 /**
  * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
  * Based on dashboard design system with teal primary color.
+ *
+ * Dashboard login CTA: linear-gradient left→right from primary → secondary.
  */
+
+/** Dashboard `@theme` tokens — keep in sync with `dashboard/app/globals.css`. */
+export const Brand = {
+  primary: '#0d9488',
+  secondary: '#0284c7',
+  accent: '#14b8a6',
+} as const;
 
 export const Colors = {
   light: {
     // Primary colors from dashboard
-    primary: '#0d9488', // teal
-    secondary: '#0284c7', // blue
-    accent: '#14b8a6', // teal lighter
+    primary: Brand.primary,
+    secondary: Brand.secondary,
+    accent: Brand.accent,
 
     // Surface colors
     background: '#f8fafc',
@@ -164,3 +173,11 @@ export const Radius = {
   xl: 20,
   full: 999,
 } as const;
+
+/** Same as dashboard login: `bg-linear-to-r from-primary to-secondary`. */
+export function primaryCtaGradient(
+  scheme: 'light' | 'dark' | 'unspecified' = 'light',
+): readonly [string, string] {
+  const key = scheme === 'dark' ? 'dark' : 'light';
+  return [Colors[key].primary, Colors[key].secondary] as const;
+}
