@@ -202,14 +202,14 @@ export default function InboxMessagesPanel() {
   const showThreadOnMobile = Boolean(selectedId)
 
   return (
-    <div className="flex min-h-[32rem] flex-col lg:flex-row lg:min-h-[36rem]">
+    <div className="flex min-h-128 flex-col lg:flex-row lg:min-h-144">
       {/* Liste */}
       <aside
-        className={`flex w-full flex-col border-slate-200/80 dark:border-border-dark lg:w-[22rem] lg:shrink-0 lg:border-e ${
+        className={`flex w-full flex-col border-slate-200/80 dark:border-border-dark lg:w-88 lg:shrink-0 lg:border-e ${
           showThreadOnMobile ? 'hidden lg:flex' : 'flex'
         }`}
       >
-        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-border-dark">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-border-dark mb-3">
           <p className="text-sm text-slate-500 dark:text-slate-400">
             {rows.length} conversation{rows.length === 1 ? '' : 's'}
             {unreadCount > 0 ? (
@@ -335,8 +335,8 @@ export default function InboxMessagesPanel() {
                         active
                           ? 'bg-primary/10'
                           : row.unread
-                            ? 'bg-primary/[0.04] hover:bg-primary/[0.07]'
-                            : 'hover:bg-slate-50 dark:hover:bg-white/[0.04]'
+                            ? 'bg-primary/4 hover:bg-primary/[0.07]'
+                            : 'hover:bg-slate-50 dark:hover:bg-white/4'
                       }`}
                     >
                       <div
@@ -481,7 +481,7 @@ export default function InboxMessagesPanel() {
                   rows={2}
                   maxLength={4000}
                   placeholder="Votre réponse…"
-                  className="min-h-[2.75rem] flex-1 resize-none"
+                  className="min-h-11 flex-1 resize-none"
                   required
                 />
                 <button
