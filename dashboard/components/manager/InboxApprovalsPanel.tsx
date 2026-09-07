@@ -182,7 +182,7 @@ export default function InboxApprovalsPanel() {
         </p>
       ) : null}
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-border-dark">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200/80 px-3 py-2 dark:border-border-dark mb-3">
         {showBulkBar ? (
           <>
             <label className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-slate-100 dark:hover:bg-white/5">
