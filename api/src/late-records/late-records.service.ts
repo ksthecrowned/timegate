@@ -17,6 +17,7 @@ import { CreateLateRecordDto } from './dto/create-late-record.dto';
 import { UpdateLateRecordDto } from './dto/update-late-record.dto';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 
+import type { UploadedFile } from '../common/upload/uploaded-file';
 type LateRow = Prisma.TimeGateLateRecordGetPayload<{
   include: {
     employee: { select: typeof employeeSummarySelect };
@@ -204,7 +205,7 @@ export class LateRecordsService {
   }
 
   async uploadJustification(
-    file: Express.Multer.File | undefined,
+    file: UploadedFile | undefined,
     user: JwtUser,
     employeeId: string,
   ) {

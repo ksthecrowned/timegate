@@ -1,6 +1,6 @@
 import { Controller, Get, HttpStatus, Res } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import type { Response } from 'express';
+import type { FastifyReply } from 'fastify';
 import { Public } from '../common/decorators/public.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -16,7 +16,7 @@ export class HealthController {
     description:
       'Répond 200 si le process et la base sont OK. 503 si la DB est injoignable.',
   })
-  async check(@Res({ passthrough: true }) res: Response) {
+  async check(@Res({ passthrough: true }) res: FastifyReply) {
     const started = process.uptime();
     let database: 'up' | 'down' = 'down';
 
@@ -28,7 +28,7 @@ export class HealthController {
     }
 
     const ok = database === 'up';
-    res.status(ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
+    void res.status(ok ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE);
 
     return {
       status: ok ? 'ok' : 'degraded',

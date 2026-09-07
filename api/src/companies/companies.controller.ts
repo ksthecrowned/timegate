@@ -5,11 +5,12 @@ import {
   Get,
   Patch,
   Post,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { TimeGateUserRole } from '@prisma/client';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -37,10 +38,10 @@ export class CompaniesController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post('me/logo')
-  @UseInterceptors(FileInterceptor('logo', { limits: { fileSize: 2 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('logo', { limits: { fileSize: 2 * 1024 * 1024 } }))
   uploadLogo(
     @CurrentUser() user: JwtUser,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedBinaryFile() file: UploadedBinary,
   ) {
     if (!file) {
       throw new BadRequestException('Logo file is required');

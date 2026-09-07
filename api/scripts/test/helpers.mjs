@@ -187,7 +187,9 @@ export function summarize(ctx) {
 }
 
 export function detail(json, max = 300) {
+  if (json == null) return String(json)
   const text = typeof json === 'string' ? json : JSON.stringify(json)
+  if (typeof text !== 'string') return String(json)
   return text.length > max ? `${text.slice(0, max)}…` : text
 }
 

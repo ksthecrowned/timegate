@@ -1,5 +1,7 @@
-import { Body, Controller, Get, Patch, Post, Query, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { Body, Controller, Get, Patch, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
@@ -68,11 +70,11 @@ export class EmployeePortalController {
   }
 
   @Post('leaves')
-  @UseInterceptors(FileInterceptor('supportDocument', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('supportDocument', { limits: { fileSize: 5 * 1024 * 1024 } }))
   requestLeave(
     @CurrentUser() user: JwtUser,
     @Body() dto: CreateSelfLeaveDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedBinaryFile() file?: UploadedBinary,
   ) {
     return this.portal.createLeaveRequest(user, dto, file);
   }

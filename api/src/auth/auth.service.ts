@@ -77,6 +77,7 @@ import {
   parseDurationToMs,
 } from './refresh-token.util';
 
+import type { UploadedFile } from '../common/upload/uploaded-file';
 type MobileTokenPayload = {
   typ: 'mobile_device';
   kioskId: string;
@@ -1718,7 +1719,7 @@ export class AuthService {
 
   async verifyMobilePhoto(
     token: string,
-    file: Express.Multer.File,
+    file: UploadedFile,
     options?: {
       offlineSync?: boolean;
       capturedAt?: Date;

@@ -1,6 +1,8 @@
 import {
+  approvePendingTrustedDevice,
   authHeader,
   detail,
+  employeeDeviceInstallId,
   employeeLogin,
   fail,
   pass,
@@ -173,6 +175,7 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 Login employé pour QR')
     return
   }
+  await approvePendingTrustedDevice(ctx.tokens.admin, employeeDeviceInstallId(PATRICK_EMAIL))
   const empAuth = authHeader(empToken)
 
   const scan = await request('/employee/qr-punch/scan', {

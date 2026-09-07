@@ -7,11 +7,12 @@ import {
   Patch,
   Post,
   Query,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { TimeGateUserRole } from '@prisma/client';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -67,25 +68,25 @@ export class EmployeesController {
 
   @Roles(TimeGateUserRole.ADMIN)
   @Post(':id/contracts')
-  @UseInterceptors(FileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
   createContract(
     @Param('id', DocIdPipe) id: string,
     @Body() dto: CreateEmployeeContractDto,
     @CurrentUser() user: JwtUser,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedBinaryFile() file?: UploadedBinary,
   ) {
     return this.employees.createContract(id, dto, user, file);
   }
 
   @Roles(TimeGateUserRole.ADMIN)
   @Patch(':id/contracts/:contractId')
-  @UseInterceptors(FileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('contractFile', { limits: { fileSize: 10 * 1024 * 1024 } }))
   updateContract(
     @Param('id', DocIdPipe) id: string,
     @Param('contractId', DocIdPipe) contractId: string,
     @Body() dto: UpdateEmployeeContractDto,
     @CurrentUser() user: JwtUser,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedBinaryFile() file?: UploadedBinary,
   ) {
     return this.employees.updateContract(id, contractId, dto, user, file);
   }

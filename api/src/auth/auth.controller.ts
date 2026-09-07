@@ -13,10 +13,11 @@ import {
   Patch,
   Post,
   Sse,
-  UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { TimeGateUserRole } from '@prisma/client';
 import { Observable, from, switchMap } from 'rxjs';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
@@ -240,7 +241,7 @@ export class AuthController {
 
   @Public()
   @Post('kiosk/verify')
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   verifyKiosk(
     @Headers('authorization') authorization: string | undefined,
     @Headers('x-idempotency-key') idempotencyKey: string | undefined,
@@ -249,12 +250,12 @@ export class AuthController {
     @Body('capturedAt') capturedAtRaw: string | undefined,
     @Body('latitude') latitudeRaw: string | undefined,
     @Body('longitude') longitudeRaw: string | undefined,
-    @UploadedFile(
+    @UploadedBinaryFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
         .build({ fileIsRequired: true }),
     )
-    file: Express.Multer.File,
+    file: UploadedBinary,
   ) {
     const token = this.extractBearerToken(authorization);
     const offlineSync = `${offlineSyncRaw ?? ''}`.trim().toLowerCase() === '1';

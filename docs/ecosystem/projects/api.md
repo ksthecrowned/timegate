@@ -6,7 +6,7 @@ Backend central TimeGate — NestJS, Prisma, PostgreSQL, moteur facial Python. P
 
 ## Stack
 
-- Bun, NestJS 10, Prisma 7, PostgreSQL
+- Bun, NestJS 10 (**Fastify**), Prisma 7, PostgreSQL
 - JWT (user company + PLATFORM_ADMIN + kiosk device)
 - Swagger : `http://localhost:4001/api/v1/docs`
 - Face engine : `python/face_engine.py`

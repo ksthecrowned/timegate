@@ -8,6 +8,7 @@ import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
+import type { UploadedFile } from '../common/upload/uploaded-file';
 
 @Injectable()
 export class CompaniesService {
@@ -39,7 +40,7 @@ export class CompaniesService {
     return this.toApiShape(updated);
   }
 
-  async uploadLogo(user: JwtUser, file: Express.Multer.File) {
+  async uploadLogo(user: JwtUser, file: UploadedFile) {
     const company = await this.requireCompany(user);
     if (!file?.buffer?.length) {
       throw new BadRequestException('Logo file is required');

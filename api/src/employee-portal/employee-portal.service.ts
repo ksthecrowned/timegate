@@ -22,6 +22,7 @@ import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { holidayDateKey } from '../common/utils/holiday-calendar.util';
 import { TrustedDevicesService } from '../trusted-devices/trusted-devices.service';
 
+import type { UploadedFile } from '../common/upload/uploaded-file';
 @Injectable()
 export class EmployeePortalService {
   constructor(
@@ -152,14 +153,14 @@ export class EmployeePortalService {
     return this.leaves.findAll(scoped, user.companyId ?? undefined);
   }
 
-  createLeaveRequest(user: JwtUser, dto: CreateSelfLeaveDto, file?: Express.Multer.File) {
+  createLeaveRequest(user: JwtUser, dto: CreateSelfLeaveDto, file?: UploadedFile) {
     return this.createLeaveRequestWithDocument(user, dto, file);
   }
 
   async createLeaveRequestWithDocument(
     user: JwtUser,
     dto: CreateSelfLeaveDto,
-    file?: Express.Multer.File,
+    file?: UploadedFile,
   ) {
     const employeeId = user.employeeId!;
     let supportDocumentUrl: string | undefined;

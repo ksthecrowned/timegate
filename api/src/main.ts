@@ -1,9 +1,13 @@
 import { RequestMethod, ValidationPipe } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from "@nestjs/platform-fastify";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
-import { AppModule } from "./app.module";
+import multipart from "@fastify/multipart";
 import { randomUUID } from "crypto";
-import type { Request, Response } from "express";
+import { AppModule } from "./app.module";
 
 function registerStdIoGuards() {
   const isIgnorableWriteError = (error: NodeJS.ErrnoException) =>
@@ -33,13 +37,33 @@ function registerStdIoGuards() {
 
 async function bootstrap() {
   registerStdIoGuards();
-  const app = await NestFactory.create(AppModule);
-  app.use((req: Request, res: Response, next: () => void) => {
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({
+      // Align with previous Express body defaults for large JSON payloads if needed.
+      bodyLimit: 12 * 1024 * 1024,
+    }),
+  );
+
+  // Nest bundles its own `fastify` copy; `@fastify/multipart` types against the
+  // root package — bridge via unknown (runtime plugins are compatible on v4).
+  await app.register(
+    multipart as unknown as Parameters<NestFastifyApplication["register"]>[0],
+    {
+      limits: {
+        // Global ceiling; per-route interceptors enforce tighter field limits.
+        fileSize: 12 * 1024 * 1024,
+      },
+    },
+  );
+
+  const fastify = app.getHttpAdapter().getInstance();
+  fastify.addHook("onRequest", async (req, reply) => {
     const requestId = `${req.headers["x-request-id"] ?? randomUUID()}`.trim();
     req.headers["x-request-id"] = requestId;
-    res.setHeader("X-Request-Id", requestId);
-    next();
+    void reply.header("X-Request-Id", requestId);
   });
+
   const corsOriginEnv = process.env.CORS_ORIGIN ?? "";
   const allowedOrigins = corsOriginEnv
     .split(",")

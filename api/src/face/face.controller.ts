@@ -5,11 +5,12 @@ import {
   NotFoundException,
   ParseFilePipeBuilder,
   Post,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { TimeGateUserRole } from '@prisma/client';
 import { Roles } from '../common/decorators/roles.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -31,15 +32,15 @@ export class FaceController {
 
   @Post('enroll')
   @Roles(TimeGateUserRole.ADMIN)
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   async enroll(
     @Body('employeeId', DocIdPipe) employeeId: string,
-    @UploadedFile(
+    @UploadedBinaryFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
         .build({ fileIsRequired: true }),
     )
-    file: Express.Multer.File,
+    file: UploadedBinary,
   ) {
     const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) throw new NotFoundException('Employee not found');
@@ -72,15 +73,15 @@ export class FaceController {
 
   @Post('add-face')
   @Roles(TimeGateUserRole.ADMIN)
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('photo', { limits: { fileSize: 12 * 1024 * 1024 } }))
   async addFace(
     @Body('employeeId', DocIdPipe) employeeId: string,
-    @UploadedFile(
+    @UploadedBinaryFile(
       new ParseFilePipeBuilder()
         .addMaxSizeValidator({ maxSize: 12 * 1024 * 1024 })
         .build({ fileIsRequired: true }),
     )
-    file: Express.Multer.File,
+    file: UploadedBinary,
   ) {
     const employee = await this.prisma.employee.findUnique({ where: { id: employeeId } });
     if (!employee) throw new NotFoundException('Employee not found');

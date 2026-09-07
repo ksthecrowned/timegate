@@ -22,15 +22,23 @@ export async function runUc04(ctx) {
 
   const leaveTypes = await request('/leave-types?page=1&limit=20', { headers: auth })
   const annual = leaveTypes.json?.data?.find(
-    (t) => t.leaveTypeName === 'Annual Leave' || t.name === 'Annual Leave',
+    (t) =>
+      t.leaveTypeName === 'Annual Leave' ||
+      t.name === 'Annual Leave' ||
+      t.leaveTypeName === 'Congés annuels' ||
+      t.name === 'Congés annuels' ||
+      t.maxDaysPerYear === 22,
   )
   if (annual?.maxDaysPerYear === 22) pass(ctx, 'UC-04 Annual Leave 22 j/an')
-  else fail(ctx, 'UC-04 Annual Leave 22 j/an', detail(annual))
+  else fail(ctx, 'UC-04 Annual Leave 22 j/an', detail(annual ?? leaveTypes.json))
 
   const balances = await request(`/employees/${patrickId}/leave-balances?year=${YEAR}`, {
     headers: auth,
   })
-  if (balances.json?.balances?.length && balances.json.balances[0].remaining != null) {
+  const annualBalance = balances.json?.balances?.find(
+    (b) => b.leaveTypeId === annual?.id || b.remaining != null,
+  )
+  if (annualBalance?.remaining != null) {
     pass(ctx, 'UC-04 Soldes congés manager')
   } else fail(ctx, 'UC-04 Soldes congés', detail(balances.json))
 

@@ -22,6 +22,7 @@ import { CompensationGridService } from '../compensation-grid/compensation-grid.
 import { EmployeeCompensationService } from '../employee-compensation/employee-compensation.service';
 import { fromDecimal, roundMoney } from '../common/utils/money.util';
 
+import type { UploadedFile } from '../common/upload/uploaded-file';
 @Injectable()
 export class EmployeesService {
   constructor(
@@ -608,7 +609,7 @@ export class EmployeesService {
     employeeId: string,
     dto: CreateEmployeeContractDto,
     user: JwtUser,
-    file?: Express.Multer.File,
+    file?: UploadedFile,
   ) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: employeeId },
@@ -678,7 +679,7 @@ export class EmployeesService {
     contractId: string,
     dto: UpdateEmployeeContractDto,
     user: JwtUser,
-    file?: Express.Multer.File,
+    file?: UploadedFile,
   ) {
     const contract = await this.prisma.timeGateEmployeeContract.findFirst({
       where: { id: contractId, employeeId },

@@ -122,9 +122,8 @@ export class KioskQrPunchService {
       offlineSync: boolean;
     },
   ): Promise<QrRedeemResult> {
-    if (user.deviceTrust && user.deviceTrust !== 'TRUSTED') {
-      throw new ForbiddenException('Appareil non approuve pour le pointage QR');
-    }
+    // Trust is enforced by TrustedDeviceGuard (live DB). Do not use JWT
+    // deviceTrust — it stays PENDING until re-login after RH approval.
     const employeeId = user.employeeId;
     if (!employeeId || !user.companyId) {
       throw new ForbiddenException('Profil employe requis');

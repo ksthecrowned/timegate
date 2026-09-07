@@ -7,11 +7,12 @@ import {
   Patch,
   Post,
   Query,
-  UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
+import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
+import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
 import { TimeGateUserRole } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -39,9 +40,9 @@ export class LateRecordsController {
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
   @Post('upload-justification')
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
+  @UseInterceptors(FastifyFileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }))
   uploadJustification(
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedBinaryFile() file: UploadedBinary | undefined,
     @Body('employeeId') employeeId: string,
     @CurrentUser() user: JwtUser,
   ) {
