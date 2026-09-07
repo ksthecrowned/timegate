@@ -235,7 +235,7 @@ function FilePreviewCard({
 
   return (
     <div className="relative group rounded-xl border border-slate-200/80 overflow-hidden bg-white dark:bg-surface-card-dark dark:border-border-dark">
-      <div className="relative aspect-[4/3] bg-slate-50 dark:bg-surface-elevated-dark flex items-center justify-center">
+      <div className="relative aspect-4/3 bg-slate-50 dark:bg-surface-elevated-dark flex items-center justify-center">
         {isImage && previewUrl ? (
           <img
             src={previewUrl}
