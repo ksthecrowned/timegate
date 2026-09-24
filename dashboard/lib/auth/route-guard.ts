@@ -22,7 +22,9 @@ export const protectedPathPrefixes = [
   '/manager',
   '/employees',
   '/branches',
+  '/locations',
   '/kiosks',
+  '/client-missions',
   '/departments',
   '/designations',
   '/employment-types',
@@ -36,6 +38,7 @@ export const protectedPathPrefixes = [
   '/absences',
   '/late-records',
   '/attendance',
+  '/anomalies',
   '/timesheets',
   '/face-recognition-logs',
   '/payroll-runs',
@@ -56,6 +59,7 @@ export const sessionCookieNames = sessionCookieNamesFor()
 
 export function isProtectedAppPath(pathname: string): boolean {
   if (publicPaths.has(pathname)) return false
+  if (pathname === '/c' || pathname.startsWith('/c/')) return false
   if (pathname === '/') return true
   return protectedPathPrefixes.some(
     (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),

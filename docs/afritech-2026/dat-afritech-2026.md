@@ -6,8 +6,8 @@
 
 ---
 
-> **Document :** DAT technique — version 2.7  
-> **Date :** 30 août 2026  
+> **Document :** DAT technique — version 2.8  
+> **Date :** 23 septembre 2026  
 > **Porteur :** Styve Maba  
 > **Contact :** kaiserstyve2@gmail.com · +242 06 515 23 74  
 > **Structure :** Mazala Firm (RCCM CG-BZV-01-2021-A10-01865)  
@@ -23,7 +23,7 @@ TimeGate est une plateforme SaaS de **pointage intelligent** et de **gestion RH*
 
 TimeGate remplace ces approches par un flux numérique simple : un smartphone ou une tablette en mode kiosk permet à l'employé de s'identifier en quelques secondes ; les événements de présence sont enregistrés côté serveur et consultables en temps réel par les équipes RH via un tableau de bord web.
 
-**État du projet :** TimeGate est **déployé et utilisé en production pilote** — cinq applications clientes et une API documentée (Swagger). Une PME de services numériques (SSII, ~10 collaborateurs, Brazzaville) l'utilise dans le cadre d'un **pilote rémunéré** : pointage, suivi RH et congés (détail §1.6). Les **indicateurs quantitatifs et témoignages client** ne sont pas publiés dans ce document — **accord du client pilote en cours** au 30 août 2026.
+**État du projet :** TimeGate est **prêt au déploiement** — cinq applications clientes et une API documentée (Swagger). Un premier pilote avec une PME de services numériques (SSII, ~10 collaborateurs, Brazzaville) **n'a pas abouti à un accord commercial**. TimeGate **recherche actuellement 2 organisations pilotes** sur 30 jours (pack PRO à **25 000 FCFA/mois** ; détail §1.6).
 
 ### 1.2 Objectifs
 
@@ -57,9 +57,9 @@ TimeGate remplace ces approches par un flux numérique simple : un smartphone ou
 
 ### 1.5 Fonctionnalités — périmètre pilote vs roadmap
 
-#### En production aujourd'hui (pilote SSII)
+#### En production produit (prêt pour pilotes)
 
-| Fonctionnalité | Détail | Usage pilote |
+| Fonctionnalité | Détail | Statut |
 |----------------|--------|--------------|
 | Reconnaissance faciale | Détection locale sur kiosk, vérification serveur | **Actif** — mode principal |
 | Pointage PIN | PIN hashé bcrypt, saisi sur kiosk | **Actif** — secours |
@@ -71,37 +71,37 @@ TimeGate remplace ces approches par un flux numérique simple : un smartphone ou
 | Notifications push | Firebase Cloud Messaging | Alertes congés / anomalies |
 | Stockage photos | Cloudflare R2 (enrollment + logs) | Enrollment + purge logs 30 j |
 
-#### Roadmap ou modules non activés au pilote
+#### Roadmap ou modules non activés en déploiement type
 
 | Fonctionnalité | Statut |
 |----------------|--------|
 | Pointage NFC | Implémenté ; **non déployé** (compatibilité NFC variable sur terminaux Android entrée de gamme) |
 | Paie / runs de paie | Code présent ; **hors périmètre pilote** (pas de remplacement paie officielle) |
 | Copilote IA manager | Prototype ; **non utilisé** en conditions réelles |
-| Webhooks sortants | Configurables par organisation ; **aucun connecteur client** branché au pilote |
+| Webhooks sortants | Configurables par organisation ; **aucun connecteur client** branché à ce jour |
 | Intégrations ERP / Sage / Odoo | Prévus §11 |
 
-### 1.6 Fiche pilote — août 2026
+### 1.6 Recherche de pilotes — septembre 2026
 
 | Indicateur | Valeur |
 |------------|--------|
-| **Client** | SSII services numériques (anonymisable), Brazzaville, Congo |
-| **Effectif** | ~10 collaborateurs, **1 site**, **1 kiosk** (tablette) |
-| **Statut commercial** | Pilote **rémunéré** — pack PRO à **25 000 FCFA/mois** (réduction exceptionnelle premier pilote ; tarif catalogue **50 000 FCFA/mois**) |
-| **Matériel** | Tablette kiosk **non fournie** — appareil du client |
-| **Modules déployés** | Pointage visage, PIN, QR · dashboard présences · congés · app employé |
+| **Objectif** | Signer **2 organisations pilotes** (PME / organisations à site physique) |
+| **Durée** | **30 jours** |
+| **Offre** | Pack PRO à **25 000 FCFA/mois** (réduction premiers pilotes ; tarif catalogue **50 000 FCFA/mois**) |
+| **Matériel** | Tablette / téléphone kiosk **fourni par le client** |
+| **Modules inclus** | Pointage visage, PIN, QR — dashboard présences — congés — app employé |
 | **Paie** | **Non activée** — hors scope pilote |
-| **NFC** | **Non déployé** sur le terrain pilote |
-| **Métriques & témoignages** | **Non publiés** dans ce DAT — consolidation et **accord écrit du client** en cours au 30/08/2026 |
+| **NFC** | Disponible produit ; déploiement selon terminal client |
+| **En échange** | Métriques anonymisées + 1 témoignage si succès |
+| **Historique** | Un premier contact SSII (~10 collab., Brazzaville) **n'a pas abouti** à un accord commercial |
 
-**Indicateurs prévus** (publication après accord client) :
+**Indicateurs de succès du pilote** (à publier avec accord écrit du client) :
 
 - Taux de succès identification visage  
-- Délai médian kiosk → confirmation  
+- Délai médian kiosk — confirmation  
 - Volume de pointages par jour ouvré  
 - Satisfaction admin / direction (questionnaire simple)
 
-Les chiffres et retours qualitatifs seront intégrés dans une prochaine version du dossier.
 
 ### 1.7 Positionnement marché (Afrique centrale)
 
@@ -255,7 +255,7 @@ flowchart LR
 | Push | Firebase FCM | Notifications |
 | Apps mobiles | EAS Build | Distribution iOS/Android |
 
-Cette configuration suffit au **pilote SSII (~10 collaborateurs)** et aux premiers déploiements à faible volume.
+Cette configuration suffit aux **premiers déploiements pilotes** (ordres de grandeur ~10–50 collaborateurs / org.).
 
 #### Cible production — Google Cloud
 
@@ -279,7 +279,7 @@ Le produit est **conçu pour le terrain africain** (offline partiel, modes de po
 - **Maîtrise opérationnelle** — l'équipe dispose d'une **expérience confirmée sur Google Cloud** ; la montée en charge production s'appuie sur un stack déjà connu plutôt que sur des plateformes où l'exploitation reste à consolider.
 - **Compensation latence** — files offline kiosk et employé, cache edge des frontends, et sélection ultérieure d'une **région GCP** (Europe ou multi-région) optimisée pour les clients Afrique centrale.
 
-La migration vers GCP interviendra **après validation commerciale du pilote**, lorsque le volume clients justifiera un investissement infrastructure durable.
+La migration vers GCP interviendra **après validation commerciale des premiers pilotes**, lorsque le volume clients justifiera un investissement infrastructure durable.
 
 ---
 
@@ -903,7 +903,7 @@ L'architecture modulaire NestJS permet d'ajouter de nouveaux modules métier san
 
 TimeGate vise une croissance progressive ancrée dans des déploiements terrain réussis :
 
-- **Consolidation pilote** — publication des métriques terrain (après accord client) et prospection 2ᵉ client PME.
+- **Recherche de 2 pilotes** — onboarding 30 jours, publication des métriques terrain **après accord écrit**, puis montée en charge PME.
 - **Montée en charge** — extension à 50–100 collaborateurs avec migration **Google Cloud**, service facial dédié et index vectoriel.
 - **Infrastructure production** — bascule Render/AlwaysData vers Cloud Run et Cloud SQL.
 - **Connecteurs paie** — intégrations Sage, Odoo et cabinets locaux (après validation module pointage).
@@ -916,7 +916,7 @@ TimeGate vise une croissance progressive ancrée dans des déploiements terrain 
 
 ### Annexe A — Schémas de déploiement
 
-**Phase pilote (actuelle)**
+**Phase actuelle (infra provisoire)**
 
 ```mermaid
 flowchart TB
@@ -970,13 +970,13 @@ La documentation interactive **Swagger** est disponible à `/api/v1/docs` sur l'
 
 ### Annexe C — Captures produit (pilote)
 
-Captures août 2026 — **dashboard : données de démonstration** ; kiosk et app employé : environnement pilote SSII (Brazzaville).
+Captures août 2026 — **dashboard : données de démonstration** ; kiosk et app employé : environnement de staging / démo.
 
 | Interface | Capture | Remarque |
 |-----------|---------|----------|
 | **Dashboard RH** | Équipe du jour, présences, gestion employés | Jeu de données de **démonstration** |
-| **App Kiosk** | Écran de pointage facial | Environnement **pilote terrain** |
-| **App Employé** | Historique pointages et congés | Environnement **pilote terrain** |
+| **App Kiosk** | Écran de pointage facial | Environnement **staging / démo** |
+| **App Employé** | Historique pointages et congés | Environnement **staging / démo** |
 
 *(Captures intégrées dans la version HTML/PDF du DAT — voir Annexe C visuelle.)*
 

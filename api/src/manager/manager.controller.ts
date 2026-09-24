@@ -25,6 +25,11 @@ export class ManagerController {
     return this.manager.inbox(query, user);
   }
 
+  @Get('control-center')
+  controlCenter(@CurrentUser() user: JwtUser) {
+    return this.manager.controlCenter(user);
+  }
+
   @Post('review-events/bulk')
   bulkReviewEvents(@CurrentUser() user: JwtUser, @Body() dto: BulkReviewEventsDto) {
     const { eventIds, ...review } = dto;

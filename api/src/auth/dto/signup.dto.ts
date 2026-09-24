@@ -15,6 +15,37 @@ export const SIGNUP_CONTACT_ROLES = [
 ] as const;
 export type SignupContactRole = (typeof SIGNUP_CONTACT_ROLES)[number];
 
+export const INDUSTRY_SECTORS = [
+  'OFFICE',
+  'TRAINING',
+  'INDUSTRY',
+  'SECURITY',
+  'CLEANING',
+  'STAFFING',
+  'CLINIC',
+  'HOTEL',
+  'OTHER',
+] as const;
+export type IndustrySector = (typeof INDUSTRY_SECTORS)[number];
+
+export const EXPECTED_SITE_COUNTS = ['1', '2-5', '6+'] as const;
+export type ExpectedSiteCount = (typeof EXPECTED_SITE_COUNTS)[number];
+
+export const WORKFORCE_MODELS = ['fixed_sites', 'client_sites', 'mixed'] as const;
+export type WorkforceModel = (typeof WORKFORCE_MODELS)[number];
+
+export const SCHEDULE_PATTERNS = ['fixed_day', 'multi_shift', 'includes_night'] as const;
+export type SchedulePattern = (typeof SCHEDULE_PATTERNS)[number];
+
+export const REFERRAL_SOURCES = [
+  'salon',
+  'word_of_mouth',
+  'partner',
+  'web',
+  'OTHER',
+] as const;
+export type ReferralSource = (typeof REFERRAL_SOURCES)[number];
+
 export class SignupDto {
   @IsString()
   @MinLength(2)
@@ -51,4 +82,29 @@ export class SignupDto {
   /** Fonction / poste du contact (ex. hr, founder). */
   @IsIn(SIGNUP_CONTACT_ROLES)
   contactRole!: SignupContactRole;
+
+  @IsOptional()
+  @IsIn(INDUSTRY_SECTORS)
+  industrySector?: IndustrySector;
+
+  @IsOptional()
+  @IsIn(EXPECTED_SITE_COUNTS)
+  expectedSiteCount?: ExpectedSiteCount;
+
+  @IsOptional()
+  @IsIn(WORKFORCE_MODELS)
+  workforceModel?: WorkforceModel;
+
+  @IsOptional()
+  @IsIn(SCHEDULE_PATTERNS)
+  schedulePattern?: SchedulePattern;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(10)
+  countryCode?: string;
+
+  @IsOptional()
+  @IsIn(REFERRAL_SOURCES)
+  referralSource?: ReferralSource;
 }

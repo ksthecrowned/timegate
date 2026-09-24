@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { KioskStatus, TimeGateUserRole } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { PrismaService } from '../prisma/prisma.service';
@@ -27,7 +27,16 @@ export class KiosksService {
     }
     const branch = await this.ensureBranch(branchId);
     this.assertCompanyAccess(user, branch.companyId);
-    await this.subscriptionQuota.assertCanAddKiosk(branch.companyId);
+
+    const branchLocation = await this.prisma.timeGateLocation.findUnique({
+      where: { branchId },
+      select: { id: true },
+    });
+
+    await this.subscriptionQuota.assertCanAddKiosk(branch.companyId, 1, {
+      branchId,
+      locationId: branchLocation?.id ?? undefined,
+    });
     const settings = await this.prisma.timeGateSystemSettings.findUnique({
       where: { companyId: branch.companyId },
       select: {
@@ -45,12 +54,6 @@ export class KiosksService {
     if (dto.shiftLocationId) {
       await this.ensureShiftLocationForCompany(dto.shiftLocationId, branch.companyId);
     }
-    const existing = await this.prisma.timeGateKiosk.findUnique({
-      where: { branchId },
-    });
-    if (existing) {
-      throw new ConflictException('This branch already has a kiosk');
-    }
 
     return this.prisma.timeGateKiosk.create({
       data: {
@@ -58,13 +61,17 @@ export class KiosksService {
         kioskName: dto.name.trim(),
         branchId,
         companyId: branch.companyId,
+        locationId: branchLocation?.id ?? null,
         shiftLocationId: dto.shiftLocationId,
         status: KioskStatus.OFFLINE,
         faceEnabled: resolvedMethods.faceEnabled,
         nfcEnabled: resolvedMethods.nfcEnabled,
         qrEnabled: resolvedMethods.qrEnabled,
       },
-      include: { branch: { select: { id: true, branchName: true } } },
+      include: {
+        branch: { select: { id: true, branchName: true } },
+        location: { select: { id: true, name: true } },
+      },
     });
   }
 

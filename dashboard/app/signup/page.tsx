@@ -25,6 +25,11 @@ const CONTACT_ROLES = [
   { value: 'other', label: 'Autre' },
 ] as const
 
+import {
+  INDUSTRY_SECTOR_OPTIONS as INDUSTRY_SECTORS,
+  SCHEDULE_PATTERN_OPTIONS as SCHEDULE_PATTERNS,
+} from '@/lib/timegate/org-profile-options'
+
 export default function SignupPage() {
   const router = useRouter()
   const [firstName, setFirstName] = useState('')
@@ -33,6 +38,8 @@ export default function SignupPage() {
   const [organizationName, setOrganizationName] = useState('')
   const [contactRole, setContactRole] = useState('')
   const [organizationSize, setOrganizationSize] = useState('')
+  const [industrySector, setIndustrySector] = useState('')
+  const [schedulePattern, setSchedulePattern] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -47,6 +54,8 @@ export default function SignupPage() {
         organizationName: organizationName.trim(),
         organizationSize: organizationSize as (typeof ORGANIZATION_SIZES)[number]['value'],
         contactRole: contactRole as (typeof CONTACT_ROLES)[number]['value'],
+        industrySector: industrySector || undefined,
+        schedulePattern: schedulePattern || undefined,
         adminEmail: adminEmail.trim(),
         adminPassword,
         adminFirstName: firstName.trim(),
@@ -203,6 +212,53 @@ export default function SignupPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="industrySector"
+              className="block text-sm font-medium mb-2 dark:text-white"
+            >
+              Secteur <span className="text-slate-400 font-normal">(optionnel)</span>
+            </label>
+            <select
+              id="industrySector"
+              className="input"
+              value={industrySector}
+              onChange={(e) => setIndustrySector(e.target.value)}
+            >
+              <option value="">Passer…</option>
+              {INDUSTRY_SECTORS.map((sector) => (
+                <option key={sector.value} value={sector.value}>
+                  {sector.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="schedulePattern"
+              className="block text-sm font-medium mb-2 dark:text-white"
+            >
+              Rythme horaire <span className="text-slate-400 font-normal">(optionnel)</span>
+            </label>
+            <select
+              id="schedulePattern"
+              className="input"
+              value={schedulePattern}
+              onChange={(e) => setSchedulePattern(e.target.value)}
+            >
+              <option value="">Journée fixe (défaut)</option>
+              {SCHEDULE_PATTERNS.map((pattern) => (
+                <option key={pattern.value} value={pattern.value}>
+                  {pattern.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500 dark:text-neutral-400">
+              Prépare départements et horaires de départ — modifiables ensuite.
+            </p>
           </div>
 
           <div>

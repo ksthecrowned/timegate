@@ -15,6 +15,11 @@ export class CreateShiftAssignmentDto {
   shiftLocationId?: string;
 
   @IsOptional()
+  @IsString()
+  @MaxLength(140)
+  locationId?: string;
+
+  @IsOptional()
   @IsDateString()
   startDate?: string;
 

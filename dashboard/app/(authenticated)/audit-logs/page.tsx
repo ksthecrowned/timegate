@@ -27,6 +27,14 @@ const columns: Column<AuditLog>[] = [
     label: 'Utilisateur',
     render: (_, row) => row.user?.email ?? '—',
   },
+  {
+    key: 'metadata',
+    label: 'Motif',
+    render: (_, row) => {
+      const reason = row.metadata?.reason
+      return typeof reason === 'string' && reason ? reason : '—'
+    },
+  },
 ]
 
 export default function AuditLogsPage() {

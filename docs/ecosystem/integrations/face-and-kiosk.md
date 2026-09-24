@@ -36,6 +36,16 @@
 | employee-app | QR punch + trusted devices |
 | dashboard | UI enroll employés |
 
+## Feedback multi-contexte (mobile)
+
+Réponses verify / QR punch enrichies :
+
+- `location` — lieu de pointe (`TimeGateLocation`)
+- `eventStatus` — `ACCEPTED` \| `REVIEW_REQUIRED` \| …
+- `reviewReason` — `{ code, label }` (`KIOSK_OTHER_SITE`, `LOCATION_ARCHIVED`, `ASSIGNMENT_EXPIRED`, …)
+
+Libellés partagés API : `api/src/common/utils/punch-feedback.util.ts`.
+
 ## Env face (api)
 
 `FACE_ENGINE_PYTHON_BIN`, `FACE_ENGINE_SCRIPT_PATH`, `FACE_ENGINE_TIMEOUT_MS`, `FACE_VERIFY_THRESHOLD`

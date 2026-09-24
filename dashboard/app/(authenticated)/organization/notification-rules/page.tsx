@@ -118,7 +118,16 @@ function RulesGroupPanel({
                 className="border-b border-slate-200/80 dark:border-border-dark"
               >
                 <td className="py-3 pr-4 font-medium text-slate-900 dark:text-white">
-                  {notificationTypeLabel(rule.type)}
+                  <span>{notificationTypeLabel(rule.type)}</span>
+                  {rule.policy === 'actionable' ? (
+                    <span className="ms-2 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      Action
+                    </span>
+                  ) : rule.policy === 'self_confirm' ? (
+                    <span className="ms-2 rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-600 dark:bg-white/10 dark:text-slate-300">
+                      Confirm.
+                    </span>
+                  ) : null}
                 </td>
                 {CHANNELS.map((channel) => (
                   <td key={channel.key} className="py-3 pr-4 last:pr-0">
@@ -195,7 +204,11 @@ export default function NotificationRulesPage() {
     setError('')
     try {
       const updated = await updateNotificationRule(rule.type, { [key]: next })
-      setRows((prev) => prev.map((row) => (row.type === updated.type ? updated : row)))
+      setRows((prev) =>
+        prev.map((row) =>
+          row.type === updated.type ? { ...updated, policy: row.policy ?? updated.policy } : row,
+        ),
+      )
     } catch (err) {
       setError(err instanceof HttpError ? err.message : 'Mise à jour impossible')
     } finally {

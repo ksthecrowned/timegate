@@ -16,6 +16,7 @@ import {
   TimeGateSubscriptionStatus,
   TimeGateTimesheetDayStatus,
   TimeGateUserRole,
+  TimeGateLocationType,
   WeekDay,
 } from '@prisma/client';
 import { Pool } from 'pg';
@@ -607,7 +608,9 @@ async function purgeCompany(company: { id: string }) {
   await prisma.payGroup.deleteMany({ where: { companyId: company.id } });
   await prisma.designation.deleteMany({ where: { companyId: company.id } });
   await prisma.employmentType.deleteMany({ where: { companyId: company.id } });
+  await prisma.timeGateClientMission.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateKiosk.deleteMany({ where: { companyId: company.id } });
+  await prisma.timeGateLocation.deleteMany({ where: { companyId: company.id } });
   await prisma.branch.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateActivationKey.deleteMany({ where: { companyId: company.id } });
   await prisma.timeGateSubscription.deleteMany({ where: { companyId: company.id } });
@@ -741,6 +744,8 @@ async function main() {
       plan: 'PRO',
       maxEmployees: 200,
       maxKiosks: 20,
+      maxLocations: 20,
+      capabilities: ['multi_locations', 'multi_kiosks', 'anomaly_workflow', 'client_missions', 'scoped_managers'],
       status: TimeGateSubscriptionStatus.ACTIVE,
       source: TimeGateSubscriptionSource.MANUAL,
       trialEndsAt,
@@ -758,7 +763,7 @@ async function main() {
     },
   });
 
-  await prisma.user.create({
+  const managerUser = await prisma.user.create({
     data: {
       id: generateDocId('USR'),
       email: SEED_MANAGER_EMAIL,
@@ -818,12 +823,59 @@ async function main() {
     },
   });
 
+  const locHq = await prisma.timeGateLocation.create({
+    data: {
+      id: generateDocId('LOC'),
+      companyId: company.id,
+      name: hq.branchName,
+      type: TimeGateLocationType.BRANCH_SITE,
+      branchId: hq.id,
+      timeZone: hq.timeZone,
+      address: hq.address,
+      latitude: hq.latitude,
+      longitude: hq.longitude,
+      checkinRadius: hq.checkinRadius,
+      isActive: true,
+    },
+  });
+  const locWest = await prisma.timeGateLocation.create({
+    data: {
+      id: generateDocId('LOC'),
+      companyId: company.id,
+      name: west.branchName,
+      type: TimeGateLocationType.BRANCH_SITE,
+      branchId: west.id,
+      timeZone: west.timeZone,
+      address: west.address,
+      latitude: west.latitude,
+      longitude: west.longitude,
+      checkinRadius: west.checkinRadius,
+      isActive: true,
+    },
+  });
+
+  await prisma.timeGateUserLocation.create({
+    data: {
+      id: generateDocId('USLOC'),
+      userId: managerUser.id,
+      locationId: locHq.id,
+    },
+  });
+  await prisma.timeGateUserBranch.create({
+    data: {
+      id: generateDocId('USBR'),
+      userId: managerUser.id,
+      branchId: hq.id,
+    },
+  });
+
   const kioskHq = await prisma.timeGateKiosk.create({
     data: {
       id: generateDocId('KSK'),
       kioskName: 'Kiosque Brazzaville',
       companyId: company.id,
       branchId: hq.id,
+      locationId: locHq.id,
       status: KioskStatus.ONLINE,
       lastSeenAt: new Date(),
     },
@@ -835,6 +887,7 @@ async function main() {
       kioskName: 'Kiosque Pointe-Noire',
       companyId: company.id,
       branchId: west.id,
+      locationId: locWest.id,
       status: KioskStatus.OFFLINE,
     },
   });
@@ -939,6 +992,16 @@ async function main() {
       includeInPayroll: true,
       accruesLeave: false,
       payMode: 'FLAT',
+    },
+  });
+  await prisma.employmentType.create({
+    data: {
+      id: generateDocId('EMPT'),
+      employeeTypeName: 'Mis à disposition',
+      companyId: company.id,
+      includeInPayroll: true,
+      accruesLeave: false,
+      payMode: 'MONTHLY',
     },
   });
 

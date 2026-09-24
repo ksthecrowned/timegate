@@ -14,7 +14,7 @@ export class NotificationRecipientResolver {
     return employee?.userId ?? null;
   }
 
-  /** Managers de branche ∪ tous MANAGER/ADMIN actifs du tenant. */
+  /** Managers de branche / lieux ∪ tous MANAGER/ADMIN actifs du tenant. */
   async resolveManagers(companyId: string, branchId?: string): Promise<string[]> {
     const tenantManagers = await this.prisma.user.findMany({
       where: {
@@ -22,27 +22,59 @@ export class NotificationRecipientResolver {
         enabled: true,
         timeGateRole: { in: [TimeGateUserRole.MANAGER, TimeGateUserRole.ADMIN] },
       },
+      select: { id: true, timeGateRole: true },
+    });
+
+    const admins = tenantManagers
+      .filter((u) => u.timeGateRole === TimeGateUserRole.ADMIN)
+      .map((u) => u.id);
+    const managerIds = tenantManagers
+      .filter((u) => u.timeGateRole === TimeGateUserRole.MANAGER)
+      .map((u) => u.id);
+
+    const ids = new Set<string>(admins);
+
+    if (!branchId) {
+      for (const id of managerIds) ids.add(id);
+      return [...ids];
+    }
+
+    const location = await this.prisma.timeGateLocation.findUnique({
+      where: { branchId },
       select: { id: true },
     });
 
-    const ids = new Set(tenantManagers.map((user) => user.id));
-
-    if (branchId) {
-      const branchScoped = await this.prisma.timeGateUserBranch.findMany({
+    const [branchScoped, locationScoped, unscopedManagers] = await Promise.all([
+      this.prisma.timeGateUserBranch.findMany({
         where: {
           branchId,
-          user: {
-            companyId,
-            enabled: true,
-            timeGateRole: TimeGateUserRole.MANAGER,
-          },
+          userId: { in: managerIds },
         },
         select: { userId: true },
-      });
-      for (const row of branchScoped) {
-        ids.add(row.userId);
-      }
-    }
+      }),
+      location
+        ? this.prisma.timeGateUserLocation.findMany({
+            where: {
+              locationId: location.id,
+              userId: { in: managerIds },
+            },
+            select: { userId: true },
+          })
+        : Promise.resolve([] as Array<{ userId: string }>),
+      this.prisma.user.findMany({
+        where: {
+          id: { in: managerIds },
+          managedLocations: { none: {} },
+          branches: { none: {} },
+        },
+        select: { id: true },
+      }),
+    ]);
+
+    for (const row of branchScoped) ids.add(row.userId);
+    for (const row of locationScoped) ids.add(row.userId);
+    // Managers without any scope still get tenant-wide alerts (capability off / not assigned)
+    for (const row of unscopedManagers) ids.add(row.id);
 
     return [...ids];
   }

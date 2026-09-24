@@ -7,6 +7,7 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   PUNCH_OUTSIDE_WINDOW: 'Pointage hors fenêtre',
   PUNCH_LATE: 'Retard au pointage',
   ABSENCE_AUTO: 'Absence détectée',
+  SHIFT_START_MISSING: 'Non arrivé au démarrage',
   UNCLOSED_CHECK_IN: 'Entrée non clôturée',
   UNCLOSED_CHECK_IN_REMINDER: 'Rappel — sortie oubliée',
   BREAK_RESUME_REMINDER: 'Rappel — reprise après pause',
@@ -29,6 +30,9 @@ const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   MESSAGE_RECEIVED: 'Message reçu',
   PAYROLL_DUE_SOON: 'Paie — échéance proche',
   PAYROLL_OVERDUE: 'Paie — paiement en retard',
+  ASSIGNMENT_EXPIRING: 'Affectation bientôt terminée',
+  MISSION_NO_PUNCH: 'Mission sans pointage',
+  ANOMALY_BEFORE_PAYROLL: 'Anomalies avant clôture paie',
 }
 
 export type NotificationRuleGroupId =
@@ -63,6 +67,10 @@ export function notificationTypeGroup(type: string): NotificationRuleGroupId {
     type.startsWith('UNCLOSED_') ||
     type.startsWith('BREAK_') ||
     type === 'ABSENCE_AUTO' ||
+    type === 'SHIFT_START_MISSING' ||
+    type === 'ASSIGNMENT_EXPIRING' ||
+    type === 'MISSION_NO_PUNCH' ||
+    type === 'ANOMALY_BEFORE_PAYROLL' ||
     type === 'KIOSK_OFFLINE' ||
     type === 'VERIFY_FAILURE_SPIKE' ||
     type === 'OVERTIME_THRESHOLD'

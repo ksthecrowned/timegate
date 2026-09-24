@@ -1,5 +1,15 @@
 import { http } from '@/lib/http'
 
+export type CompanyUsage = {
+  employees: number
+  kiosks: number
+  locations: number
+  maxEmployees: number
+  maxKiosks: number
+  maxLocations: number
+  capabilities: string[]
+}
+
 export type CompanyProfile = {
   id: string
   name: string | null
@@ -11,6 +21,14 @@ export type CompanyProfile = {
   email: string | null
   website: string | null
   address: string | null
+  organizationSize: string | null
+  industrySector: string | null
+  expectedSiteCount: string | null
+  workforceModel: string | null
+  schedulePattern: string | null
+  countryCode: string | null
+  referralSource: string | null
+  usage: CompanyUsage | null
   createdAt: string
   updatedAt: string
 }
@@ -24,6 +42,12 @@ export type CompanyProfilePayload = {
   email?: string
   website?: string
   address?: string
+  industrySector?: string | null
+  expectedSiteCount?: string | null
+  workforceModel?: string | null
+  schedulePattern?: string | null
+  countryCode?: string | null
+  referralSource?: string | null
 }
 
 export function getMyCompany(): Promise<CompanyProfile> {

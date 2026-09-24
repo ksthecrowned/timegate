@@ -443,6 +443,14 @@ export const employeeApi = {
       message: string;
       eventType: string;
       occurredAt?: string;
+      eventStatus?: string;
+      reviewReason?: { code: string; label: string } | null;
+      location?: {
+        id: string;
+        name: string;
+        type: string;
+        clientLabel: string | null;
+      } | null;
       kiosk?: { id: string; name: string; branchName: string | null };
       employee: { id: string; firstName: string; lastName: string };
       challengeId: string;
@@ -456,7 +464,22 @@ export const employeeApi = {
   ) =>
     fetchApi<{
       results: Array<
-        | { clientId: string; ok: true; message: string; eventType?: string }
+        | {
+            clientId: string;
+            ok: true;
+            message: string;
+            eventType?: string;
+            eventStatus?: string;
+            reviewReason?: { code: string; label: string } | null;
+            location?: {
+              id: string;
+              name: string;
+              type: string;
+              clientLabel: string | null;
+            } | null;
+            challengeId?: string;
+            acknowledgedAt?: string;
+          }
         | { clientId: string; ok: false; errorCode: string; message: string }
       >;
     }>("/employee/qr-punch/sync", {

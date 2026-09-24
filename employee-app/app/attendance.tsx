@@ -246,11 +246,25 @@ export default function AttendanceScreen() {
                         ]}
                       >
                         {formatTime(event.occurredAt)}
-                        {event.kiosk?.name ? ` · ${event.kiosk.name}` : ""}
+                        {event.location?.name
+                          ? ` · ${event.location.clientLabel ?? event.location.name}`
+                          : event.kiosk?.name
+                            ? ` · ${event.kiosk.name}`
+                            : ""}
                         {event.authMethod
                           ? ` · ${AUTH_LABELS[event.authMethod] ?? event.authMethod}`
                           : ""}
                       </Text>
+                      {event.status === "REVIEW_REQUIRED" && event.reviewReason?.label ? (
+                        <Text
+                          style={[
+                            styles.eventMeta,
+                            { color: theme.warning, marginTop: 2 },
+                          ]}
+                        >
+                          {event.reviewReason.label}
+                        </Text>
+                      ) : null}
                     </View>
                     <StatusBadge
                       label={statusLabel}

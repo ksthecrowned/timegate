@@ -12,6 +12,18 @@ export const managerTourSteps: TourStep[] = [
   },
   ...dashboardTourSteps,
   {
+    id: 'control-nav',
+    type: 'navigate',
+    module: 'Contrôle',
+    path: '/manager/control',
+    element: '[data-tour="manager-control"]',
+    title: 'Le pouls de tous les sites',
+    description:
+      'Le centre de contrôle agrège présence maintenant, lieux et anomalies ouvertes. Traitez ce qui demande une action — pas un tableau décoratif.',
+    side: 'bottom',
+    align: 'start',
+  },
+  {
     id: 'team-nav',
     type: 'navigate',
     module: 'Équipe',

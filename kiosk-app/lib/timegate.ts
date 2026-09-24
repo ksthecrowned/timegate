@@ -155,6 +155,32 @@ function kioskLog(
   console[level](`[TimeGateKiosk] ${message}${payload}`);
 }
 
+function formatVerifyDisplayMessage(
+  base: string,
+  extra?: {
+    eventStatus?: string | null;
+    reviewReason?: { code: string; label: string } | null;
+    location?: {
+      id: string;
+      name: string;
+      type: string;
+      clientLabel: string | null;
+    } | null;
+  },
+): string {
+  const parts = [base];
+  if (extra?.location?.name) {
+    const loc = extra.location.clientLabel
+      ? `${extra.location.name} (${extra.location.clientLabel})`
+      : extra.location.name;
+    parts.push(`Lieu : ${loc}`);
+  }
+  if (extra?.eventStatus === "REVIEW_REQUIRED") {
+    parts.push(extra.reviewReason?.label ?? "Validation manager requise");
+  }
+  return parts.filter(Boolean).join(" · ");
+}
+
 export type VerifyFaceResult = {
   success: boolean;
   confidence: number | null;
@@ -162,6 +188,14 @@ export type VerifyFaceResult = {
   employeeName: string | null;
   offlineSync?: boolean;
   capturedAt?: string | null;
+  eventStatus?: string | null;
+  reviewReason?: { code: string; label: string } | null;
+  location?: {
+    id: string;
+    name: string;
+    type: string;
+    clientLabel: string | null;
+  } | null;
 };
 
 type VerifyFaceOptions = {
@@ -672,25 +706,42 @@ export async function verifyFacePhoto(
     offlineSync?: boolean;
     capturedAt?: string | null;
     employee?: { firstName?: string; lastName?: string };
+    eventStatus?: string | null;
+    reviewReason?: { code: string; label: string } | null;
+    location?: {
+      id: string;
+      name: string;
+      type: string;
+      clientLabel: string | null;
+    } | null;
   };
   const employeeName =
     `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
     null;
   const apiMessage = typeof json.message === "string" ? json.message : null;
 
-  const result = {
+  const result: VerifyFaceResult = {
     success: Boolean(json.success),
     confidence: typeof json.confidence === "number" ? json.confidence : null,
     employeeName,
     offlineSync: Boolean(json.offlineSync),
     capturedAt: typeof json.capturedAt === "string" ? json.capturedAt : null,
-    message:
+    eventStatus: json.eventStatus ?? null,
+    reviewReason: json.reviewReason ?? null,
+    location: json.location ?? null,
+    message: formatVerifyDisplayMessage(
       apiMessage ??
-      (json.success
-        ? employeeName
-          ? `Bienvenue ${employeeName}`
-          : "Bienvenue"
-        : "Identité non reconnue. Merci de réessayer."),
+        (json.success
+          ? employeeName
+            ? `Bienvenue ${employeeName}`
+            : "Bienvenue"
+          : "Identité non reconnue. Merci de réessayer."),
+      {
+        eventStatus: json.eventStatus,
+        reviewReason: json.reviewReason,
+        location: json.location,
+      },
+    ),
   };
 
   kioskLog("log", "verifyFacePhoto completed", {
@@ -737,6 +788,14 @@ export async function verifyKioskPin(
     confidence?: number | null;
     message?: string;
     employee?: { firstName?: string; lastName?: string };
+    eventStatus?: string | null;
+    reviewReason?: { code: string; label: string } | null;
+    location?: {
+      id: string;
+      name: string;
+      type: string;
+      clientLabel: string | null;
+    } | null;
   };
   const employeeName =
     `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
@@ -747,13 +806,22 @@ export async function verifyKioskPin(
     employeeName,
     offlineSync: false,
     capturedAt: null,
-    message:
+    eventStatus: json.eventStatus ?? null,
+    reviewReason: json.reviewReason ?? null,
+    location: json.location ?? null,
+    message: formatVerifyDisplayMessage(
       json.message ??
-      (json.success
-        ? employeeName
-          ? `Bienvenue ${employeeName}`
-          : "Pointage enregistré"
-        : "Identifiant ou PIN incorrect. Réessayez."),
+        (json.success
+          ? employeeName
+            ? `Bienvenue ${employeeName}`
+            : "Pointage enregistré"
+          : "Identifiant ou PIN incorrect. Réessayez."),
+      {
+        eventStatus: json.eventStatus,
+        reviewReason: json.reviewReason,
+        location: json.location,
+      },
+    ),
   };
 }
 
@@ -766,6 +834,14 @@ export type NfcVerifyResult = {
   badgeUid: string;
   message: string;
   employeeName: string | null;
+  eventStatus?: string | null;
+  reviewReason?: { code: string; label: string } | null;
+  location?: {
+    id: string;
+    name: string;
+    type: string;
+    clientLabel: string | null;
+  } | null;
 };
 
 type NfcVerifyOptions = {
@@ -811,6 +887,14 @@ export async function verifyNfcBadge(
     success: boolean;
     message?: string;
     employee?: { firstName?: string; lastName?: string };
+    eventStatus?: string | null;
+    reviewReason?: { code: string; label: string } | null;
+    location?: {
+      id: string;
+      name: string;
+      type: string;
+      clientLabel: string | null;
+    } | null;
   };
   const employeeName =
     `${json.employee?.firstName ?? ""} ${json.employee?.lastName ?? ""}`.trim() ||
@@ -818,14 +902,23 @@ export async function verifyNfcBadge(
   return {
     success: Boolean(json.success),
     badgeUid: badgeUid.trim(),
-    message:
+    message: formatVerifyDisplayMessage(
       json.message ??
-      (json.success
-        ? employeeName
-          ? `Bienvenue ${employeeName}`
-          : "Pointage enregistré"
-        : "Badge non reconnu. Réessayez."),
+        (json.success
+          ? employeeName
+            ? `Bienvenue ${employeeName}`
+            : "Pointage enregistré"
+          : "Badge non reconnu. Réessayez."),
+      {
+        eventStatus: json.eventStatus,
+        reviewReason: json.reviewReason,
+        location: json.location,
+      },
+    ),
     employeeName,
+    eventStatus: json.eventStatus ?? null,
+    reviewReason: json.reviewReason ?? null,
+    location: json.location ?? null,
   };
 }
 

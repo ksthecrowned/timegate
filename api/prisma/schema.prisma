@@ -165,6 +165,8 @@ enum TimeGateNotificationType {
   PUNCH_OUTSIDE_WINDOW
   PUNCH_LATE
   ABSENCE_AUTO
+  /** Absent / non arrivé peu après le démarrage du shift (action manager). */
+  SHIFT_START_MISSING
   UNCLOSED_CHECK_IN
   UNCLOSED_CHECK_IN_REMINDER
   BREAK_RESUME_REMINDER
@@ -187,6 +189,12 @@ enum TimeGateNotificationType {
   MESSAGE_RECEIVED
   PAYROLL_DUE_SOON
   PAYROLL_OVERDUE
+  /** Affectation (mission / shift) qui expire bientôt. */
+  ASSIGNMENT_EXPIRING
+  /** Mission client active sans pointage du jour. */
+  MISSION_NO_PUNCH
+  /** Anomalies ouvertes alors qu’une clôture paie approche. */
+  ANOMALY_BEFORE_PAYROLL
 }
 
 enum TimeGateTrustedDeviceStatus {
@@ -236,6 +244,12 @@ enum PayrollVariableSource {
   SALARY_ADVANCE
 }
 
+enum TimeGateLocationType {
+  BRANCH_SITE
+  CLIENT_SITE
+  TEMPORARY
+}
+
 enum SalaryAdvanceStatus {
   PENDING
   DISBURSED
@@ -265,12 +279,23 @@ model Company {
   address  String? @db.VarChar(500)
   /** Self-signup company size band, e.g. "1-10", "11-50". */
   organizationSize String? @map("organization_size") @db.VarChar(40)
+  /** Optional org profile — onboarding / analytics / commercial (does not gate features). */
+  industrySector     String? @map("industry_sector") @db.VarChar(40)
+  expectedSiteCount  String? @map("expected_site_count") @db.VarChar(20)
+  workforceModel     String? @map("workforce_model") @db.VarChar(40)
+  schedulePattern    String? @map("schedule_pattern") @db.VarChar(40)
+  countryCode        String? @map("country_code") @db.VarChar(10)
+  referralSource     String? @map("referral_source") @db.VarChar(40)
+  /** Capability codes the org opted out of despite plan (JSON string array). */
+  capabilitiesOptOut Json? @map("capabilities_opt_out")
   suspendedAt DateTime? @map("suspended_at")
 
   defaultPayrollPayableAccountId String? @map("default_payroll_payable_account") @db.VarChar(140)
   defaultPayrollPayableAccount   Account? @relation("CompanyPayrollPayableAccount", fields: [defaultPayrollPayableAccountId], references: [id], onDelete: SetNull)
 
   branches    Branch[]
+  locations   TimeGateLocation[]
+  clientMissions TimeGateClientMission[]
   accounts    Account[]
   salaryComponents     SalaryComponent[]
   salaryStructures     SalaryStructure[]
@@ -377,13 +402,49 @@ model Branch {
   employees      Employee[]
   shiftLocations ShiftLocation[]
   shiftTypes     ShiftType[]
-  kiosk          TimeGateKiosk?
+  kiosks         TimeGateKiosk[]
   faceLogs       FaceRecognitionLog[]
   userBranches   TimeGateUserBranch[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
   punchAttemptLogs         TimeGatePunchAttemptLog[]
+  /** Punch location when type BRANCH_SITE (1:1). */
+  punchLocation  TimeGateLocation?
+  clientMissions TimeGateClientMission[]
 
   @@map("tabBranch")
+}
+
+/// Place where an employee can punch (≠ admin Branch alone).
+model TimeGateLocation {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  companyId String               @map("company") @db.VarChar(140)
+  company   Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name      String               @db.VarChar(140)
+  type      TimeGateLocationType @default(BRANCH_SITE)
+  isActive  Boolean              @default(true) @map("is_active")
+
+  /** Admin branch when type = BRANCH_SITE (1:1). */
+  branchId String? @unique @map("branch") @db.VarChar(140)
+  branch   Branch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  timeZone      String?  @map("time_zone") @db.VarChar(140)
+  address       String?  @db.Text
+  latitude      Decimal? @db.Decimal(21, 7)
+  longitude     Decimal? @db.Decimal(21, 7)
+  checkinRadius Int?     @map("checkin_radius")
+  clientLabel   String?  @map("client_label") @db.VarChar(140)
+
+  kiosks           TimeGateKiosk[]
+  homeEmployees    Employee[]        @relation("EmployeeHomeLocation")
+  shiftAssignments ShiftAssignment[]
+  clientMissions   TimeGateClientMission[]
+  managerScopes    TimeGateUserLocation[]
+
+  @@index([companyId, isActive])
+  @@map("timegate_location")
 }
 
 model Department {
@@ -483,6 +544,8 @@ model Employee {
   company          Company @relation(fields: [companyId], references: [id])
   branchId         String? @map("branch") @db.VarChar(140)
   branch           Branch? @relation(fields: [branchId], references: [id])
+  homeLocationId   String? @map("home_location") @db.VarChar(140)
+  homeLocation     TimeGateLocation? @relation("EmployeeHomeLocation", fields: [homeLocationId], references: [id], onDelete: SetNull)
   departmentId     String? @map("department") @db.VarChar(140)
   department       Department? @relation(fields: [departmentId], references: [id])
   designationId    String? @map("designation") @db.VarChar(140)
@@ -536,6 +599,7 @@ model Employee {
 
   @@unique([companyId, nfcBadgeUid])
   @@index([payGroupId])
+  @@index([homeLocationId])
   @@map("tabEmployee")
 }
 
@@ -552,8 +616,10 @@ model TimeGateKiosk {
   kioskName       String      @unique @map("kiosk_name") @db.VarChar(140)
   companyId       String      @map("company") @db.VarChar(140)
   company         Company     @relation(fields: [companyId], references: [id])
-  branchId        String      @unique @map("branch") @db.VarChar(140)
+  branchId        String      @map("branch") @db.VarChar(140)
   branch          Branch      @relation(fields: [branchId], references: [id])
+  locationId      String?     @map("location") @db.VarChar(140)
+  location        TimeGateLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   shiftLocationId String?     @map("shift_location") @db.VarChar(140)
   shiftLocation   ShiftLocation? @relation(fields: [shiftLocationId], references: [id])
   status          KioskStatus @default(OFFLINE)
@@ -568,8 +634,51 @@ model TimeGateKiosk {
   faceLogs                 FaceRecognitionLog[]
   timeGateAttendanceEvents TimeGateAttendanceEvent[]
   qrChallenges             TimeGateQrChallenge[]
+  clientMission            TimeGateClientMission?
 
+  @@index([branchId])
+  @@index([locationId])
   @@map("tabTimeGate Kiosk")
+}
+
+enum TimeGateClientMissionStatus {
+  DRAFT
+  ACTIVE
+  CLOSED
+}
+
+/// Lightweight client site mission — public rotating QR page (no physical kiosk device).
+model TimeGateClientMission {
+  id        String   @id @db.VarChar(140)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  companyId String  @map("company") @db.VarChar(140)
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  title String @db.VarChar(140)
+  status TimeGateClientMissionStatus @default(DRAFT)
+
+  locationId String           @map("location") @db.VarChar(140)
+  location   TimeGateLocation @relation(fields: [locationId], references: [id], onDelete: Restrict)
+
+  /** Admin branch used for attendance event FK / reporting. */
+  branchId String @map("branch") @db.VarChar(140)
+  branch   Branch @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  /** Virtual QR-only kiosk backing challenges & attendance events. */
+  kioskId String       @unique @map("kiosk") @db.VarChar(140)
+  kiosk   TimeGateKiosk @relation(fields: [kioskId], references: [id], onDelete: Restrict)
+
+  /** Public URL segment `/c/{slug}`. */
+  publicSlug String @unique @map("public_slug") @db.VarChar(32)
+
+  startsAt DateTime? @map("starts_at")
+  endsAt   DateTime? @map("ends_at")
+
+  @@index([companyId, status])
+  @@index([locationId])
+  @@map("timegate_client_mission")
 }
 
 model TimeGateQrChallenge {
@@ -750,6 +859,8 @@ model ShiftAssignment {
   employee        Employee      @relation(fields: [employeeId], references: [id])
   shiftTypeId     String        @map("shift_type") @db.VarChar(140)
   shiftType       ShiftType     @relation(fields: [shiftTypeId], references: [id])
+  locationId      String?       @map("location") @db.VarChar(140)
+  location        TimeGateLocation? @relation(fields: [locationId], references: [id], onDelete: SetNull)
   shiftLocationId String?       @map("shift_location") @db.VarChar(140)
   shiftLocation   ShiftLocation? @relation(fields: [shiftLocationId], references: [id])
   companyId       String?       @map("company") @db.VarChar(140)
@@ -758,6 +869,7 @@ model ShiftAssignment {
 
   shiftSwapRequests TimeGateShiftSwapRequest[]
 
+  @@index([locationId])
   @@map("tabShift Assignment")
 }
 
@@ -1096,6 +1208,7 @@ model User {
   timeGateDevices       TimeGateDevice[]
   trustedDevices        TimeGateTrustedDevice[]
   branches     TimeGateUserBranch[]
+  managedLocations TimeGateUserLocation[]
   auditLogs    TimeGateAuditLog[]
   timesheetOverrides TimeGateTimesheetOverride[]
   reviewedShiftSwaps TimeGateShiftSwapRequest[]
@@ -1167,6 +1280,7 @@ model TimeGatePlatformSettings {
   trialDays         Int      @default(14) @map("trial_days")
   trialMaxEmployees Int      @default(10) @map("trial_max_employees")
   trialMaxKiosks    Int      @default(1) @map("trial_max_kiosks")
+  trialMaxLocations Int      @default(1) @map("trial_max_locations")
   gracePeriodDays   Int      @default(7) @map("grace_period_days")
   updatedAt         DateTime @updatedAt @map("updated_at")
 
@@ -1174,17 +1288,20 @@ model TimeGatePlatformSettings {
 }
 
 model TimeGateSubscriptionPlan {
-  id           String   @id @db.VarChar(140)
-  code         String   @unique @db.VarChar(64)
-  label        String   @db.VarChar(140)
-  maxEmployees Int      @map("max_employees")
-  maxKiosks    Int      @map("max_devices")
-  durationDays Int?     @map("duration_days")
-  features     Json?
-  isActive     Boolean  @default(true) @map("is_active")
-  sortOrder    Int      @default(0) @map("sort_order")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id            String   @id @db.VarChar(140)
+  code          String   @unique @db.VarChar(64)
+  label         String   @db.VarChar(140)
+  maxEmployees  Int      @map("max_employees")
+  maxKiosks     Int      @map("max_devices")
+  maxLocations  Int      @default(1) @map("max_locations")
+  /** JSON string array of capability codes, e.g. ["multi_locations","multi_kiosks"]. */
+  capabilities  Json?
+  durationDays  Int?     @map("duration_days")
+  features      Json?
+  isActive      Boolean  @default(true) @map("is_active")
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   subscriptions  TimeGateSubscription[]
   activationKeys TimeGateActivationKey[]
@@ -1193,20 +1310,23 @@ model TimeGateSubscriptionPlan {
 }
 
 model TimeGateSubscription {
-  id           String                     @id @db.VarChar(140)
-  companyId    String                     @map("company") @db.VarChar(140)
-  company      Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  plan         String                     @db.VarChar(140)
-  planId       String?                    @map("plan_id") @db.VarChar(140)
-  planRef      TimeGateSubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
-  maxEmployees Int
-  maxKiosks    Int                        @map("max_devices")
-  status       TimeGateSubscriptionStatus @default(ACTIVE)
-  source       TimeGateSubscriptionSource @default(MANUAL)
-  trialEndsAt  DateTime?                  @map("trial_ends_at")
-  graceEndsAt  DateTime?                  @map("grace_ends_at")
-  expiresAt    DateTime?
-  createdAt    DateTime                   @default(now())
+  id            String                     @id @db.VarChar(140)
+  companyId     String                     @map("company") @db.VarChar(140)
+  company       Company                    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan          String                     @db.VarChar(140)
+  planId        String?                    @map("plan_id") @db.VarChar(140)
+  planRef       TimeGateSubscriptionPlan?  @relation(fields: [planId], references: [id], onDelete: SetNull)
+  maxEmployees  Int
+  maxKiosks     Int                        @map("max_devices")
+  maxLocations  Int                        @default(1) @map("max_locations")
+  /** Effective capability codes for this subscription (JSON string array). */
+  capabilities  Json?
+  status        TimeGateSubscriptionStatus @default(ACTIVE)
+  source        TimeGateSubscriptionSource @default(MANUAL)
+  trialEndsAt   DateTime?                  @map("trial_ends_at")
+  graceEndsAt   DateTime?                  @map("grace_ends_at")
+  expiresAt     DateTime?
+  createdAt     DateTime                   @default(now())
 
   @@index([companyId, createdAt])
   @@index([status, expiresAt])
@@ -1275,6 +1395,20 @@ model TimeGateUserBranch {
 
   @@unique([userId, branchId])
   @@map("timegate_user_branch")
+}
+
+/// Manager scope by punch location (capability `scoped_managers`). Département ≠ équipe.
+model TimeGateUserLocation {
+  id         String           @id @db.VarChar(140)
+  createdAt  DateTime         @default(now()) @map("created_at")
+  userId     String           @map("user") @db.VarChar(140)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locationId String           @map("location") @db.VarChar(140)
+  location   TimeGateLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, locationId])
+  @@index([locationId])
+  @@map("timegate_user_location")
 }
 
 model TimeGateNotification {

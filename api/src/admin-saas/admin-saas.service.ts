@@ -231,6 +231,7 @@ export class AdminSaasService {
         entity: row.entity,
         entityId: row.entityId,
         createdAt: row.createdAt.toISOString(),
+        metadata: row.metadata ?? null,
         user: row.user
           ? { id: row.user.id, email: row.user.email, role: row.user.timeGateRole }
           : null,

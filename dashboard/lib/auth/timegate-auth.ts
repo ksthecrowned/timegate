@@ -16,6 +16,12 @@ export type SignupPayload = {
   adminPassword: string
   adminFirstName: string
   adminLastName: string
+  industrySector?: string
+  expectedSiteCount?: string
+  workforceModel?: string
+  schedulePattern?: string
+  countryCode?: string
+  referralSource?: string
 }
 
 export type LoginPayload = {

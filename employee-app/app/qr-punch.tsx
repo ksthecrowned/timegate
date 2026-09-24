@@ -47,6 +47,9 @@ type SuccessDetails = {
   occurredAt?: string;
   kioskName?: string;
   branchName?: string | null;
+  locationName?: string | null;
+  eventStatus?: string;
+  reviewReasonLabel?: string | null;
   punctuality?: PunctualityResult | null;
 };
 
@@ -158,8 +161,14 @@ export default function QrPunchScreen() {
         void runSync();
       }
     });
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        void runSync();
+      }
+    }, 30_000);
     return () => {
       sub.remove();
+      clearInterval(interval);
       if (cooldownTimer.current) clearTimeout(cooldownTimer.current);
     };
   }, [refreshPending, runSync]);
@@ -194,12 +203,20 @@ export default function QrPunchScreen() {
 
       try {
         const res = await employeeApi.scanQrPunch(data);
+        const locationName = res.location
+          ? res.location.clientLabel
+            ? `${res.location.name} (${res.location.clientLabel})`
+            : res.location.name
+          : null;
         const details: SuccessDetails = {
           message: res.message || STRINGS.qrPunch.successDefault,
           eventType: res.eventType,
           occurredAt: res.occurredAt,
           kioskName: res.kiosk?.name,
           branchName: res.kiosk?.branchName,
+          locationName,
+          eventStatus: res.eventStatus,
+          reviewReasonLabel: res.reviewReason?.label ?? null,
           punctuality: await resolvePunctuality(res.eventType, res.occurredAt),
         };
         setSuccess(details);
@@ -342,6 +359,11 @@ export default function QrPunchScreen() {
                   </Text>
                 );
               })()}
+              {success.locationName ? (
+                <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
+                  {STRINGS.qrPunch.atLocation(success.locationName)}
+                </Text>
+              ) : null}
               {success.kioskName ? (
                 <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
                   {STRINGS.qrPunch.atKiosk(success.kioskName)}
@@ -350,6 +372,20 @@ export default function QrPunchScreen() {
               {success.branchName ? (
                 <Text style={{ color: theme.textSecondary, fontSize: 13 }}>
                   {STRINGS.qrPunch.atBranch(success.branchName)}
+                </Text>
+              ) : null}
+              {success.eventStatus === 'REVIEW_REQUIRED' ? (
+                <Text
+                  style={{
+                    color: theme.warning,
+                    fontSize: 13,
+                    fontWeight: '700',
+                    textAlign: 'center',
+                  }}
+                >
+                  {success.reviewReasonLabel
+                    ? `${STRINGS.qrPunch.reviewPending} — ${success.reviewReasonLabel}`
+                    : STRINGS.qrPunch.reviewReasonFallback}
                 </Text>
               ) : null}
               <Text

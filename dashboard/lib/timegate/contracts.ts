@@ -52,3 +52,15 @@ export function deleteEmployeeContract(employeeId: string, contractId: string) {
     `/employees/${employeeId}/contracts/${contractId}`,
   )
 }
+
+/** Soft-end : isCurrent=false — ne supprime pas l’employé. */
+export function endEmployeeContract(
+  employeeId: string,
+  contractId: string,
+  body?: { expiresAt?: string; reason?: string },
+) {
+  return http.post<EmployeeContract>(
+    `/employees/${employeeId}/contracts/${contractId}/end`,
+    body ?? {},
+  )
+}

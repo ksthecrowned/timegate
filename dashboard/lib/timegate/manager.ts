@@ -80,6 +80,53 @@ export function getManagerInbox(params?: { branchId?: string; limit?: number }) 
   return http.get<ManagerInboxResponse>('/manager/inbox', { params })
 }
 
+export type ControlCenterSite = {
+  locationId: string | null
+  name: string
+  type: string | null
+  clientLabel: string | null
+  present: number
+  onBreak: number
+  late: number
+  absent: number
+  reviewRequired: number
+  expected: number
+  other: number
+  total: number
+}
+
+export type ControlCenterAttention = {
+  employeeId: string
+  employeeName: string
+  status: TeamMemberStatus
+  locationId: string | null
+  pendingReviewEvents: number
+  lastEventAt: string | null
+}
+
+export type ControlCenterResponse = {
+  date: string
+  asOf: string
+  presence: TeamTodayResponse['summary']
+  sites: ControlCenterSite[]
+  anomalies: {
+    open: number
+    attendanceEvents: number
+    punchClaims: number
+    timesheetDays: number
+  }
+  attention: ControlCenterAttention[]
+  links: {
+    team: string
+    inbox: string
+    anomalies: string
+  }
+}
+
+export function getManagerControlCenter() {
+  return http.get<ControlCenterResponse>('/manager/control-center')
+}
+
 export function bulkReviewAttendanceEvents(body: {
   eventIds: string[]
   status: 'ACCEPTED' | 'REJECTED'

@@ -34,3 +34,13 @@ export function updateShiftAssignment(id: string, body: Partial<ShiftAssignmentP
 export function deleteShiftAssignment(id: string) {
   return http.delete<{ id: string; deleted: boolean }>(`/shift-assignments/${id}`)
 }
+
+export function closeShiftAssignment(
+  id: string,
+  body?: { endDate?: string; endCurrentContract?: boolean; reason?: string },
+) {
+  return http.post<ShiftAssignment & { closed: boolean; contractEnded: { id: string; expiresAt: string | null } | null }>(
+    `/shift-assignments/${id}/close`,
+    body ?? {},
+  )
+}

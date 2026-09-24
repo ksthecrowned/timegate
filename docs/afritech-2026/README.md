@@ -9,13 +9,32 @@ Dossier d'Architecture Technique pour la candidature **AfriTech Challenge 2026**
 | [`dat-afritech-2026.md`](dat-afritech-2026.md) | Source éditable — DAT complet (12 sections) |
 | [`dat-afritech-2026.html`](dat-afritech-2026.html) | Version PDF — 30 pages A4, typographie JIBC, captures produit |
 | [`dat-afritech-2026.css`](dat-afritech-2026.css) | Styles (hérite du dossier JIBC 2026) |
+| [`pitch-partenaires-2026.md`](pitch-partenaires-2026.md) | Présentation produit générale — source Markdown |
+| [`pitch-partenaires-2026.html`](pitch-partenaires-2026.html) | Présentation slides — 10 pages **16:9**, style modèle Canva |
+| [`pitch-partenaires-2026.css`](pitch-partenaires-2026.css) | Styles slides 16:9 (teal TimeGate + mockups captures) |
+| [`pitch-partenariat-afrinex-2026.md`](pitch-partenariat-afrinex-2026.md) | Fiche partenariat TimeGate × Afrinex — source |
 | [`assets/`](assets/) | Captures dashboard, kiosk, app employé |
 
 ## Export PDF
 
+### DAT technique
+
 1. Ouvrir `dat-afritech-2026.html` dans Chrome ou Edge
 2. Imprimer → **Enregistrer au format PDF**
 3. Format A4 · Marges : aucune · **Arrière-plans graphiques : activé**
+
+### Présentation produit (slides)
+
+1. Ouvrir `pitch-partenaires-2026.html` dans Chrome ou Edge
+2. Imprimer → **Enregistrer au format PDF**
+3. Format **Paysage 16:9** (ou Paysage) · Marges : aucune · **Arrière-plans graphiques : activé**
+4. Référence visuelle : modèle Canva `DAHUlEa6du8` (coins + titres centrés, palette teal TimeGate)
+
+## Version 2.8 (23 septembre 2026)
+
+- Statut commercial : retrait « pilote / accord en cours » — **recherche de 2 pilotes** (30 jours)
+- §1.1 & §1.6 : historique SSII (accord non abouti) + offre pilote actuelle
+- Annexe C : légendes staging/démo (plus de « pilote terrain SSII »)
 
 ## Version 2.7 (30 août 2026)
 

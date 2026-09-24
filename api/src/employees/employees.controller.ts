@@ -25,6 +25,7 @@ import { CreateEmployeeDto } from './dto/create-employee.dto';
 import { EmployeeContractQueryDto } from './dto/employee-contract-query.dto';
 import { EmployeeQueryDto } from './dto/employee-query.dto';
 import { CreateEmployeeContractDto } from './dto/create-employee-contract.dto';
+import { EndEmployeeContractDto } from './dto/end-employee-contract.dto';
 import { UpdateEmployeeContractDto } from './dto/update-employee-contract.dto';
 import { UpdateEmployeeDto } from './dto/update-employee.dto';
 import { SetKioskPinDto } from './dto/set-kiosk-pin.dto';
@@ -89,6 +90,17 @@ export class EmployeesController {
     @UploadedBinaryFile() file?: UploadedBinary,
   ) {
     return this.employees.updateContract(id, contractId, dto, user, file);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Post(':id/contracts/:contractId/end')
+  endContract(
+    @Param('id', DocIdPipe) id: string,
+    @Param('contractId', DocIdPipe) contractId: string,
+    @Body() dto: EndEmployeeContractDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.employees.endContract(id, contractId, dto, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN)

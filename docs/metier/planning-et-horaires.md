@@ -27,6 +27,10 @@ Un horaire définit :
 
 L’employé utilise son **horaire par défaut** (`defaultShift` sur la fiche) sauf s’il a une **affectation** active ce jour-là.
 
+**Résolution punch (ordre) :** affectation du jour → `defaultShift` employé → défaut organisation (`TimeGateSystemSettings.defaultShiftType`) → sinon « horaires non configurés ».
+
+Chaque affectation peut porter un **lieu de pointage** (`locationId`) : le pointage sur un autre lieu déclenche une revue manager (`KIOSK_OTHER_SITE`), pas un refus silencieux.
+
 ---
 
 ## Affectations (`/shift-assignments`)

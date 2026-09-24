@@ -59,6 +59,15 @@ function metaConversationId(meta: unknown): string | null {
   return typeof raw === 'string' && raw.trim() ? raw.trim() : null
 }
 
+function metaActionHref(meta: unknown): string | null {
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null
+  const raw = (meta as Record<string, unknown>).href
+  if (typeof raw !== 'string') return null
+  const href = raw.trim()
+  if (!href.startsWith('/') || href.startsWith('//')) return null
+  return href
+}
+
 export default function NotificationBell() {
   const { data: session } = useSession()
   const userId = session?.user?.id ?? session?.user?.email ?? null
@@ -319,6 +328,15 @@ export default function NotificationBell() {
                       <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-200">
                         {selectedNotif.body}
                       </p>
+                      {metaActionHref(selectedNotif.meta) ? (
+                        <a
+                          href={metaActionHref(selectedNotif.meta)!}
+                          onClick={close}
+                          className="mt-4 inline-flex items-center gap-2 self-start rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white"
+                        >
+                          Traiter
+                        </a>
+                      ) : null}
                       {metaConversationId(selectedNotif.meta) ? (
                         <button
                           type="button"

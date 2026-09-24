@@ -12,6 +12,12 @@ import {
   uploadCompanyLogo,
   type CompanyProfilePayload,
 } from '@/lib/timegate/company'
+import {
+  EXPECTED_SITE_COUNT_OPTIONS,
+  INDUSTRY_SECTOR_OPTIONS,
+  SCHEDULE_PATTERN_OPTIONS,
+  WORKFORCE_MODEL_OPTIONS,
+} from '@/lib/timegate/org-profile-options'
 import { emitOrgSaved } from '@/lib/tour/events'
 import { timezoneOptions } from '@/lib/timezones'
 import Image from 'next/image'
@@ -36,6 +42,10 @@ export default function OrganizationSettingsPage() {
       email: company.email ?? '',
       website: company.website ?? '',
       address: company.address ?? '',
+      industrySector: company.industrySector ?? '',
+      expectedSiteCount: company.expectedSiteCount ?? '',
+      workforceModel: company.workforceModel ?? '',
+      schedulePattern: company.schedulePattern ?? '',
     })
   }, [company])
 
@@ -45,7 +55,13 @@ export default function OrganizationSettingsPage() {
     setError('')
     setSuccess('')
     try {
-      await updateMyCompany(form)
+      await updateMyCompany({
+        ...form,
+        industrySector: form.industrySector || null,
+        expectedSiteCount: form.expectedSiteCount || null,
+        workforceModel: form.workforceModel || null,
+        schedulePattern: form.schedulePattern || null,
+      })
       await reload()
       setSuccess('Configuration enregistrée.')
       emitOrgSaved()
@@ -74,6 +90,11 @@ export default function OrganizationSettingsPage() {
   }
 
   const tzOptions = timezoneOptions()
+  const sectorOptions = INDUSTRY_SECTOR_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+  const siteOptions = EXPECTED_SITE_COUNT_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+  const workforceOptions = WORKFORCE_MODEL_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+  const scheduleOptions = SCHEDULE_PATTERN_OPTIONS.map((o) => ({ value: o.value, label: o.label }))
+  const usage = company?.usage
 
   return (
     <div>
@@ -84,6 +105,36 @@ export default function OrganizationSettingsPage() {
         <div className="my-4 p-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-700 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300">
           {success}
         </div>
+      )}
+
+      {usage && (
+        <FormCard title="Usage & capacités">
+          <div className="grid sm:grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-gray-500">Employés</p>
+              <p className="font-semibold">
+                {usage.employees} / {usage.maxEmployees}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Lieux</p>
+              <p className="font-semibold">
+                {usage.locations} / {usage.maxLocations}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500">Kiosks</p>
+              <p className="font-semibold">
+                {usage.kiosks} / {usage.maxKiosks}
+              </p>
+            </div>
+          </div>
+          {usage.capabilities.length > 0 && (
+            <p className="mt-3 text-xs text-gray-500">
+              Capacités : {usage.capabilities.join(', ')}
+            </p>
+          )}
+        </FormCard>
       )}
 
       <FormCard title="Identité de l'organisation">
@@ -135,17 +186,21 @@ export default function OrganizationSettingsPage() {
               </FormField>
               <FormField label="Fuseau horaire">
                 <SelectSearch
-                  instanceId="branch-timezone"
+                  instanceId="org-timezone"
                   options={tzOptions}
                   value={findOption(tzOptions, form.timeZone ?? 'Africa/Brazzaville')}
-                  onChange={(opt) => setForm((f) => ({ ...f, timezone: opt?.value ?? 'Africa/Brazzaville' }))}
+                  onChange={(opt) =>
+                    setForm((f) => ({ ...f, timeZone: opt?.value ?? 'Africa/Brazzaville' }))
+                  }
                 />
               </FormField>
               <FormField label="Téléphone">
                 <PhoneInput
                   value={form.phone ?? ''}
                   onChange={(next) => setForm((f) => ({ ...f, phone: next }))}
-                  organizationCountryIsoCode={(company as { countryIsoCode?: string | null } | null)?.countryIsoCode}
+                  organizationCountryIsoCode={
+                    (company as { countryIsoCode?: string | null } | null)?.countryIsoCode
+                  }
                 />
               </FormField>
               <FormField label="Email">
@@ -181,6 +236,58 @@ export default function OrganizationSettingsPage() {
                   />
                 </FormField>
               </div>
+            </div>
+          </div>
+
+          <div className="border-t border-slate-200/80 dark:border-border-dark pt-6">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-neutral-200 mb-4">
+              Profil opérationnel
+            </h3>
+            <div className="grid md:grid-cols-2 gap-4">
+              <FormField label="Secteur">
+                <SelectSearch
+                  instanceId="org-sector"
+                  options={sectorOptions}
+                  isClearable
+                  value={findOption(sectorOptions, form.industrySector ?? '')}
+                  onChange={(opt) =>
+                    setForm((f) => ({ ...f, industrySector: opt?.value ?? '' }))
+                  }
+                />
+              </FormField>
+              <FormField label="Nombre de sites prévu">
+                <SelectSearch
+                  instanceId="org-sites"
+                  options={siteOptions}
+                  isClearable
+                  value={findOption(siteOptions, form.expectedSiteCount ?? '')}
+                  onChange={(opt) =>
+                    setForm((f) => ({ ...f, expectedSiteCount: opt?.value ?? '' }))
+                  }
+                />
+              </FormField>
+              <FormField label="Modèle d'effectif">
+                <SelectSearch
+                  instanceId="org-workforce"
+                  options={workforceOptions}
+                  isClearable
+                  value={findOption(workforceOptions, form.workforceModel ?? '')}
+                  onChange={(opt) =>
+                    setForm((f) => ({ ...f, workforceModel: opt?.value ?? '' }))
+                  }
+                />
+              </FormField>
+              <FormField label="Pattern d'horaires">
+                <SelectSearch
+                  instanceId="org-schedule"
+                  options={scheduleOptions}
+                  isClearable
+                  value={findOption(scheduleOptions, form.schedulePattern ?? '')}
+                  onChange={(opt) =>
+                    setForm((f) => ({ ...f, schedulePattern: opt?.value ?? '' }))
+                  }
+                />
+              </FormField>
             </div>
           </div>
 

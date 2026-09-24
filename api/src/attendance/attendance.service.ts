@@ -24,6 +24,8 @@ import {
   employeeSummaryWithBranchSelect,
   toEmployeeSummary,
 } from '../common/utils/employee-summary.util';
+import { extractVerificationContext } from '../common/utils/verification-context.util';
+import { punchReviewReasonLabel } from '../common/utils/punch-feedback.util';
 import {
   CreateAttendanceDto,
   LegacyAttendanceType,
@@ -33,6 +35,7 @@ import { FindAttendanceEventsQueryDto } from './dto/find-attendance-events-query
 import { ReviewAttendanceEventDto } from './dto/review-attendance-event.dto';
 import { AttendanceDaysService } from './attendance-days.service';
 import { AttendanceEventStatusService } from './attendance-event-status.service';
+import { AuditTrailService } from '../audit/audit-trail.service';
 
 @Injectable()
 export class AttendanceService {
@@ -41,6 +44,7 @@ export class AttendanceService {
     private config: ConfigService,
     private attendanceDays: AttendanceDaysService,
     private eventStatus: AttendanceEventStatusService,
+    private auditTrail: AuditTrailService,
   ) {}
 
   private duplicateWindowMs(): number {
@@ -310,15 +314,17 @@ export class AttendanceService {
         ? 'ATTENDANCE_EVENT_REVIEW_ACCEPTED'
         : 'ATTENDANCE_EVENT_REVIEW_REJECTED';
 
-    await this.prisma.timeGateAuditLog.create({
-      data: {
-        id: generateDocId('AUD'),
-        userId: user.sub,
-        companyId: event.companyId,
-        action,
-        entity: 'TimeGateAttendanceEvent',
-        entityId: eventId,
-      },
+    await this.auditTrail.record({
+      userId: user.sub,
+      companyId: event.companyId,
+      branchId: event.branchId,
+      action,
+      entity: 'TimeGateAttendanceEvent',
+      entityId: eventId,
+      reason: dto.reason?.trim() || null,
+      before: { status: previousStatus },
+      after: { status: newStatus },
+      extra: { anomalyKind: 'ATTENDANCE_EVENT' },
     });
 
     return this.toCanonicalEventShape(updated);
@@ -466,6 +472,7 @@ export class AttendanceService {
     verificationRef: string | null;
     idempotencyKey: string | null;
     rejectReason: string | null;
+    authMethod?: string | null;
     meta: Prisma.JsonValue | null;
     createdAt: Date;
     employee?: {
@@ -481,6 +488,8 @@ export class AttendanceService {
       event.confidence === null || event.confidence === undefined
         ? null
         : Number(event.confidence);
+    const meta = this.parseMeta(event.meta);
+    const verificationContext = extractVerificationContext(meta);
 
     return {
       id: event.id,
@@ -497,7 +506,19 @@ export class AttendanceService {
       verificationRef: event.verificationRef,
       idempotencyKey: event.idempotencyKey,
       rejectReason: event.rejectReason,
-      meta: this.parseMeta(event.meta),
+      authMethod: event.authMethod ?? null,
+      meta,
+      verificationContext,
+      location: verificationContext?.location ?? null,
+      reviewReason:
+        typeof (meta as { autoReviewReason?: unknown } | null)?.autoReviewReason === 'string'
+          ? {
+              code: (meta as { autoReviewReason: string }).autoReviewReason,
+              label:
+                punchReviewReasonLabel((meta as { autoReviewReason: string }).autoReviewReason) ??
+                'Validation requise',
+            }
+          : null,
       createdAt: event.createdAt.toISOString(),
       employee: toEmployeeSummary(event.employee, { includeBranchId: true }),
       kiosk: event.kiosk

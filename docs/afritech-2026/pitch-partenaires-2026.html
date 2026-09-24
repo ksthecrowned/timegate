@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>TimeGate · 2026</title>
+    <link rel="stylesheet" href="pitch-partenaires-2026.css" />
+  </head>
+  <body>
+    <div class="export-hint">
+      Imprimer → PDF · Format <strong>Paysage 16:9</strong> · Marges
+      <strong>aucune</strong> · Arrière-plans graphiques
+      <strong>activés</strong>
+    </div>
+
+    <svg
+      class="sprite-defs"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id="blobGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#042f2e" />
+          <stop offset="45%" stop-color="#0f766e" />
+          <stop offset="100%" stop-color="#14b8a6" />
+        </linearGradient>
+        <symbol id="deco-blob" viewBox="0 0 740 430">
+          <path
+            fill="url(#blobGrad)"
+            d="M0,180 C40,90 120,40 220,55 C320,70 360,140 450,150 C560,162 620,90 700,120 C780,150 740,280 680,340 C600,430 420,420 300,390 C180,360 80,400 0,340 Z"
+          />
+          <g
+            fill="none"
+            stroke="#ffffff"
+            stroke-width="1.4"
+            stroke-opacity="0.5"
+          >
+            <path
+              d="M80,220 L160,140 L250,200 L340,120 L430,190 L520,130 L600,200"
+            />
+            <path d="M120,280 L200,210 L290,270 L380,200 L470,260 L560,210" />
+            <path d="M60,300 L150,250 L240,310 L330,250 L420,300" />
+            <path
+              d="M160,140 L200,210 M250,200 L290,270 M340,120 L380,200 M430,190 L470,260"
+            />
+          </g>
+        </symbol>
+        <symbol id="deco-waves" viewBox="0 0 420 320">
+          <g
+            fill="none"
+            stroke="#5eead4"
+            stroke-width="1.6"
+            stroke-linecap="round"
+          >
+            <path d="M20,40 C80,20 140,70 200,50 C260,30 320,80 400,55" />
+            <path d="M10,70 C70,50 130,100 190,80 C250,60 310,110 390,85" />
+            <path d="M5,100 C65,80 125,130 185,110 C245,90 305,140 385,115" />
+            <path d="M0,130 C60,110 120,160 180,140 C240,120 300,170 380,145" />
+            <path
+              d="M15,160 C75,140 135,190 195,170 C255,150 315,200 395,175"
+            />
+            <path
+              d="M25,190 C85,170 145,220 205,200 C265,180 325,230 400,205"
+            />
+            <path
+              d="M35,220 C95,200 155,250 215,230 C275,210 335,260 405,235"
+            />
+            <path
+              d="M45,250 C105,230 165,280 225,260 C285,240 345,290 410,265"
+            />
+          </g>
+        </symbol>
+      </defs>
+    </svg>
+
+    <!-- 1 COVER -->
+    <section class="slide slide--hero">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <img
+          class="hero__logo"
+          src="../../dashboard/public/images/logos/timegate-logo-full-color.png"
+          alt="TimeGate"
+        />
+        <h1 class="hero__title">TimeGate</h1>
+        <p class="hero__sub">
+          Du pointage fiable à la préparation de la paie, dans un seul outil
+        </p>
+        <p class="hero__meta">
+          Styve Maba · Septembre 2026<br />
+          Projet accompagné par Mazala Firm
+        </p>
+      </div>
+    </section>
+
+    <!-- 2 QUESTION -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Une seule question</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p class="lead">Qui est vraiment au travail aujourd’hui ?</p>
+            <p>
+              Pas qui a signé le registre, ni qui a emprunté le badge d’un
+              collègue : qui est présent maintenant, et comment ces présences
+              deviennent congés, planning et rémunération sans tout ressaisir.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <figure class="shot shot--wide">
+              <img
+                class="shot__img"
+                src="assets/capture-dashboard-equipe-du-jour.png"
+                alt="Dashboard TimeGate — Équipe du jour"
+              />
+            </figure>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">01</span>
+    </section>
+
+    <!-- 3 PROMESSE -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">La promesse</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p class="lead">
+              TimeGate transforme le pointage en infrastructure opérationnelle
+              RH.
+            </p>
+            <p>
+              Kiosk sur téléphone ou tablette. Dashboard pour la direction et
+              les RH. App employé pour l’équipe. Un copilote IA branché sur les
+              données métier.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <div class="shot-trio">
+              <figure class="shot shot--phone">
+                <img
+                  class="shot__img"
+                  src="assets/capture-kiosk-pret.png"
+                  alt="Kiosk — vérification faciale, prêt"
+                />
+              </figure>
+              <div class="shot shot--wide">
+                <img
+                  class="shot__img"
+                  src="assets/capture-dashboard-rh.png"
+                  alt="Dashboard RH — Tableau de bord"
+                />
+              </div>
+              <figure class="shot shot--phone">
+                <img
+                  class="shot__img"
+                  src="assets/capture-employee-app.png"
+                  alt="App employé TimeGate"
+                />
+              </figure>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">02</span>
+    </section>
+
+    <!-- 4 APPROCHE -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Une approche simple</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p>
+              Pas de borne propriétaire : un téléphone ou une tablette suffit.
+              Hors-ligne avec resynchronisation. Multi-sites. On commence petit,
+              puis on élargit.
+            </p>
+            <p class="lead">
+              Ce n’est pas un concept. C’est un produit à essayer.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <figure class="shot shot--phone">
+              <img
+                class="shot__img"
+                src="assets/capture-kiosk-pret.png"
+                alt="Kiosk — écran prêt, commencer le scan"
+              />
+            </figure>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">03</span>
+    </section>
+
+    <!-- 5 MATINÉE -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Une matinée</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p>
+              Entrée au kiosk. Équipe du jour et validations sur le dashboard.
+              Congés, swaps et réclamations depuis l’app. Questions métier au
+              copilote. En fin de cycle, les temps préparent la rémunération.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <div class="shot-duo">
+              <figure class="shot shot--phone">
+                <img
+                  class="shot__img"
+                  src="assets/capture-kiosk-nfc.png"
+                  alt="Kiosk — badge NFC"
+                />
+              </figure>
+              <figure class="shot shot--wide">
+                <img
+                  class="shot__img"
+                  src="assets/capture-dashboard-equipe-du-jour.png"
+                  alt="Dashboard — Équipe du jour"
+                />
+              </figure>
+            </div>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">04</span>
+    </section>
+
+    <!-- 6 POINTAGE -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Pointage</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p class="lead">
+              Une personne réelle, au bon endroit, au bon moment.
+            </p>
+            <dl class="fact-grid">
+              <div>
+                <dt>Qui&nbsp;?</dt>
+                <dd>Reconnaissance faciale, PIN, NFC ou QR</dd>
+              </div>
+              <div>
+                <dt>Quand&nbsp;?</dt>
+                <dd>Entrée, sortie et pause horodatées</dd>
+              </div>
+              <div>
+                <dt>Où&nbsp;?</dt>
+                <dd>Site associé au kiosk</dd>
+              </div>
+              <div>
+                <dt>Et si internet tombe&nbsp;?</dt>
+                <dd>Hors-ligne, puis resynchronisation</dd>
+              </div>
+            </dl>
+            <p class="note-soft">
+              Biométrie protégée : contrôle d’accès, journaux d’audit, appareils
+              de confiance.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <figure class="shot shot--phone">
+              <img
+                class="shot__img"
+                src="assets/capture-kiosk-face.png"
+                alt="Kiosk — reconnaissance faciale"
+              />
+            </figure>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">05</span>
+    </section>
+
+    <!-- 7 RH -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Organisation &amp; RH</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p class="lead">
+              Le pointage ne reste pas isolé : il alimente planning, congés,
+              validations et suivi des équipes.
+            </p>
+            <p>
+              Multi-sites, shifts, prévu / réalisé, demandes et soldes de
+              congés. Moins de ressaisie, plus de discipline opérationnelle.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <figure class="shot shot--wide">
+              <img
+                class="shot__img"
+                src="assets/capture-dashboard-planning.png"
+                alt="Dashboard TimeGate — Planning prévu"
+              />
+            </figure>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">06</span>
+    </section>
+
+    <!-- 8 PAIE + IA -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner">
+        <h1 class="slide-title">Préparation de paie</h1>
+        <div class="slide-media">
+          <div class="slide-media__text">
+            <p>
+              Les temps réels alimentent la préparation de la rémunération :
+              prorata, retards, heures supplémentaires, variables et avances.
+            </p>
+            <p>
+              TimeGate prépare les données. La paie réglementaire reste du
+              ressort du système ou du processus de paie de l’entreprise.
+            </p>
+            <p class="note-soft">
+              Le copilote IA interroge équipe, anomalies et masse salariale en
+              langage naturel.
+            </p>
+          </div>
+          <div class="shot-slot">
+            <figure class="shot shot--wide">
+              <img
+                class="shot__img"
+                src="assets/capture-dashboard-paie.png"
+                alt="Dashboard TimeGate — lignes de paie, détail du calcul"
+              />
+            </figure>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">07</span>
+    </section>
+
+    <!-- 9 PREUVE -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner slide__inner--prose">
+        <h1 class="slide-title">Ce qui tourne déjà</h1>
+        <p class="proof-lead">
+          Une V1 opérationnelle, conçue pour évoluer avec les usages terrain.
+        </p>
+        <ul class="proof-list">
+          <li>Kiosk opérationnel</li>
+          <li>Dashboard RH fonctionnel</li>
+          <li>App employé en test fermé</li>
+          <li>Reconnaissance faciale, PIN, NFC, QR</li>
+          <li>Infrastructure et API déployées</li>
+          <li>Copilote IA branché sur le métier</li>
+        </ul>
+        <p class="proof-foot">
+          Les premiers déploiements et retours utilisateurs guideront les
+          prochaines évolutions du produit.
+        </p>
+      </div>
+      <span class="slide-num">08</span>
+    </section>
+
+    <!-- 10 ESSAYER -->
+    <section class="slide">
+      <div class="slide__deco" aria-hidden="true">
+        <svg class="deco deco--blob-bl"><use href="#deco-blob" /></svg>
+        <svg class="deco deco--blob-tr" style="transform: rotate(180deg)">
+          <use href="#deco-blob" />
+        </svg>
+        <svg class="deco deco--waves-tl"><use href="#deco-waves" /></svg>
+        <svg class="deco deco--waves-br" style="transform: rotate(180deg)">
+          <use href="#deco-waves" />
+        </svg>
+      </div>
+      <div class="slide__inner slide__inner--prose">
+        <div class="try-layout">
+          <div>
+            <h1 class="slide-title">Essayez TimeGate</h1>
+            <p class="try-path">
+              Pointage → Présence → Planning → Congés → Anomalies → Timesheets
+              → Préparation de rémunération → IA
+            </p>
+            <p class="try-meta">
+              Une démo de 15 minutes suffit pour parcourir le cycle complet.<br /><br />
+              <strong>Styve Maba</strong> · TimeGate<br />
+              kaiserstyve2@gmail.com · +242 06 515 23 74<br />
+              <a href="https://timegate-one.vercel.app"
+                >timegate-one.vercel.app</a
+              ><br /><br />
+              <span style="font-size: 0.85rem; color: var(--ink-muted)"
+                >Projet accompagné par Mazala Firm</span
+              >
+            </p>
+          </div>
+          <div class="try-qr">
+            <img
+              src="assets/qr-timegate.png"
+              alt="QR code vers timegate-one.vercel.app"
+            />
+            <span>timegate-one.vercel.app</span>
+            <p class="try-qr__note">
+              Disponible pour démonstration. Recherche de 2 organisations pilotes (30 jours).
+            </p>
+          </div>
+        </div>
+      </div>
+      <span class="slide-num">09</span>
+    </section>
+  </body>
+</html>

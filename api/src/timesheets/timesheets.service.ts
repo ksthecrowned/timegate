@@ -42,6 +42,7 @@ import {
   DEFAULT_TIMESHEET_POLICY,
 } from '../common/utils/timesheet-policy.util';
 import { NotificationsService } from '../notifications/notifications.service';
+import { AuditTrailService } from '../audit/audit-trail.service';
 
 const RULE_VERSION = 'v4';
 
@@ -65,6 +66,7 @@ export class TimesheetsService {
     private holidayCalendar: HolidayCalendarService,
     private punchWindows: PunchWindowService,
     private notifications: NotificationsService,
+    private auditTrail: AuditTrailService,
   ) {}
 
   async findAll(query: FindTimesheetsQueryDto, user?: JwtUser) {
@@ -440,17 +442,25 @@ export class TimesheetsService {
           },
         },
       }),
-      this.prisma.timeGateAuditLog.create({
-        data: {
-          id: generateDocId('AUD'),
-          userId: user.sub,
-          companyId: row.companyId,
-          action: 'TIMESHEET_DAY_OVERRIDE',
-          entity: 'TimeGateTimesheetDay',
-          entityId: id,
-        },
-      }),
     ]);
+
+    await this.auditTrail.record({
+      userId: user.sub,
+      companyId: row.companyId,
+      action: 'TIMESHEET_DAY_OVERRIDE',
+      entity: 'TimeGateTimesheetDay',
+      entityId: id,
+      reason: dto.reason.trim(),
+      before: previous,
+      after: {
+        workedMinutes: dto.workedMinutes,
+        lateMinutes: dto.lateMinutes,
+        ...(dto.breakMinutes !== undefined ? { breakMinutes: dto.breakMinutes } : {}),
+        ...(dto.overtimeMinutes !== undefined ? { overtimeMinutes: dto.overtimeMinutes } : {}),
+        status: TimeGateTimesheetDayStatus.CLOSED,
+      },
+      extra: { anomalyKind: 'TIMESHEET_DAY' },
+    });
 
     return this.toApiShape(updated);
   }

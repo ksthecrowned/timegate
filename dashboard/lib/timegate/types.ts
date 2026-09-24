@@ -219,6 +219,43 @@ export type ActivationKeyResult = {
   activationKey: string
 }
 
+export type VerificationContext = {
+  version: 1
+  employeeId: string
+  location: {
+    id: string
+    name: string
+    type: string
+    clientLabel: string | null
+  } | null
+  mission: {
+    id: string
+    title: string
+    publicSlug: string
+  } | null
+  kiosk: {
+    id: string
+    name: string
+    channel: 'kiosk' | 'client_page'
+  } | null
+  authMethod: string | null
+  device: { trustedDeviceId?: string | null } | null
+  assignment: {
+    id: string
+    locationId: string | null
+    shiftTypeId: string | null
+  } | null
+  shift: { id: string; name: string } | null
+  timestamps: { occurredAt: string; recordedAt: string }
+  gps: {
+    latitude: number
+    longitude: number
+    accuracyMeters?: number | null
+    capturedAt?: string | null
+  } | null
+  flags: { wrongSite?: boolean; lateAbsent?: boolean }
+}
+
 export type AttendanceEvent = {
   id: string
   employeeId?: string | null
@@ -226,10 +263,13 @@ export type AttendanceEvent = {
   type: string
   status: string
   source: string
+  authMethod?: string | null
   confidence?: number | null
   occurredAt: string
   receivedAt?: string | null
   rejectReason?: string | null
+  meta?: Record<string, unknown> | null
+  verificationContext?: VerificationContext | null
   employee?: EmployeeSummary | null
   kiosk?: { id: string; name: string } | null
   branch?: { id: string; name: string } | null
@@ -312,6 +352,7 @@ export type ShiftAssignment = {
   employeeId: string
   shiftTypeId: string
   shiftLocationId?: string | null
+  locationId?: string | null
   companyId: string
   startDate?: string | null
   endDate?: string | null
@@ -320,6 +361,7 @@ export type ShiftAssignment = {
   employee?: EmployeeSummary | null
   shiftType?: { id: string; name: string; branchId?: string | null } | null
   shiftLocation?: { id: string; name: string } | null
+  location?: { id: string; name: string; type?: string | null } | null
 }
 
 export type WeekDayName =
@@ -591,6 +633,13 @@ export type AuditLog = {
   entity: string
   entityId?: string | null
   createdAt: string
+  metadata?: {
+    before?: unknown
+    after?: unknown
+    reason?: string
+    anomalyKind?: string
+    [key: string]: unknown
+  } | null
   user?: { id: string; email: string; role?: string | null } | null
   company?: { id: string; name: string; sku?: string } | null
 }
@@ -611,6 +660,8 @@ export type NotificationRule = {
   inAppEnabled: boolean
   pushEnabled: boolean
   emailEnabled: boolean
+  /** actionable | self_confirm | off — défaut produit (O). */
+  policy?: 'actionable' | 'self_confirm' | 'off'
 }
 
 export type SystemConfig = {

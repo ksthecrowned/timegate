@@ -27,8 +27,11 @@ type PendingVerifyItem = {
 
 const QUEUE_FILE = `${FileSystem.documentDirectory}timegate-offline-verify-queue.json`;
 const PHOTOS_DIR = `${FileSystem.documentDirectory}offline-verify-photos`;
+const MAX_QUEUE = 80;
+const MAX_ATTEMPTS = 30;
 
-let syncInFlight: Promise<{ synced: number; pending: number }> | null = null;
+let syncInFlight: Promise<{ synced: number; pending: number; dropped: number }> | null =
+  null;
 
 async function ensurePhotosDir() {
   const info = await FileSystem.getInfoAsync(PHOTOS_DIR);
@@ -51,6 +54,7 @@ async function readQueue(): Promise<PendingVerifyItem[]> {
       .map((item) => ({
         ...item,
         kind: (item.kind === "nfc" ? "nfc" : "face") as PendingVerifyItem["kind"],
+        attempts: Number(item.attempts ?? 0),
       }));
   } catch {
     return [];
@@ -58,7 +62,10 @@ async function readQueue(): Promise<PendingVerifyItem[]> {
 }
 
 async function writeQueue(items: PendingVerifyItem[]) {
-  await FileSystem.writeAsStringAsync(QUEUE_FILE, JSON.stringify(items));
+  await FileSystem.writeAsStringAsync(
+    QUEUE_FILE,
+    JSON.stringify(items.slice(-MAX_QUEUE)),
+  );
 }
 
 function makeId() {
@@ -87,7 +94,7 @@ export async function enqueueOfflineFaceVerification(
     attempts: 0,
   });
   await writeQueue(queue);
-  return queue.length;
+  return Math.min(queue.length, MAX_QUEUE);
 }
 
 export async function enqueueOfflineNfcVerification(
@@ -102,7 +109,7 @@ export async function enqueueOfflineNfcVerification(
     attempts: 0,
   });
   await writeQueue(queue);
-  return queue.length;
+  return Math.min(queue.length, MAX_QUEUE);
 }
 
 export async function enqueueOfflineVerification(
@@ -115,6 +122,9 @@ async function syncOne(
   item: PendingVerifyItem,
   timeoutMs: number,
 ): Promise<"ok" | "retry" | "drop"> {
+  if (item.attempts >= MAX_ATTEMPTS) {
+    return "drop";
+  }
   try {
     if (item.kind === "nfc") {
       if (!item.badgeUid) {
@@ -156,11 +166,12 @@ async function cleanupItem(item: PendingVerifyItem): Promise<void> {
 
 async function syncOfflineVerificationsOnce(
   timeoutMs: number,
-): Promise<{ synced: number; pending: number }> {
+): Promise<{ synced: number; pending: number; dropped: number }> {
   const queue = await readQueue();
-  if (!queue.length) return { synced: 0, pending: 0 };
+  if (!queue.length) return { synced: 0, pending: 0, dropped: 0 };
 
   let synced = 0;
+  let dropped = 0;
   const remaining: PendingVerifyItem[] = [];
 
   for (let i = 0; i < queue.length; i++) {
@@ -173,27 +184,25 @@ async function syncOfflineVerificationsOnce(
       remaining.push({
         ...item,
         attempts: item.attempts + 1,
+        lastError: "Sync interrupted (server busy or connectivity)",
       });
       for (let j = i + 1; j < queue.length; j++) {
-        remaining.push({
-          ...queue[j],
-          attempts: queue[j].attempts + 1,
-          lastError: "Sync interrupted (server busy or connectivity)",
-        });
+        remaining.push(queue[j]);
       }
       break;
     } else {
+      dropped += 1;
       await cleanupItem(item);
     }
   }
 
   await writeQueue(remaining);
-  return { synced, pending: remaining.length };
+  return { synced, pending: remaining.length, dropped };
 }
 
 export async function syncOfflineVerifications(
   timeoutMs = 60_000,
-): Promise<{ synced: number; pending: number }> {
+): Promise<{ synced: number; pending: number; dropped: number }> {
   if (syncInFlight) return syncInFlight;
   syncInFlight = syncOfflineVerificationsOnce(timeoutMs).finally(() => {
     syncInFlight = null;

@@ -32,6 +32,7 @@ import {
   PunchWindowService,
 } from './punch-window.service';
 import { PunchAttemptLogService } from './punch-attempt-log.service';
+import { isArchivedLocationPunch, isExpiredAssignmentPunch, isWrongSitePunch } from '../common/utils/wrong-site.util';
 
 export type QrRedeemResult = {
   ok: true;
@@ -44,7 +45,14 @@ export type QrRedeemResult = {
 };
 
 export type QrSyncItemResult =
-  | { clientId: string; ok: true; message: string; eventType?: string }
+  | {
+      clientId: string;
+      ok: true;
+      message: string;
+      eventType?: string;
+      challengeId?: string;
+      acknowledgedAt?: string;
+    }
   | { clientId: string; ok: false; errorCode: string; message: string };
 
 @Injectable()
@@ -68,8 +76,11 @@ export class KioskQrPunchService {
     user: JwtUser,
     items: Array<{ clientId: string; payload: string; scannedAt: string }>,
   ): Promise<{ results: QrSyncItemResult[] }> {
+    const ordered = [...items].sort(
+      (a, b) => new Date(a.scannedAt).getTime() - new Date(b.scannedAt).getTime(),
+    );
     const results: QrSyncItemResult[] = [];
-    for (const item of items) {
+    for (const item of ordered) {
       try {
         const scannedAt = new Date(item.scannedAt);
         if (Number.isNaN(scannedAt.getTime())) {
@@ -92,6 +103,11 @@ export class KioskQrPunchService {
           ok: true,
           message: redeemed.message,
           eventType: redeemed.eventType,
+          eventStatus: redeemed.eventStatus,
+          reviewReason: redeemed.reviewReason,
+          location: redeemed.location,
+          challengeId: redeemed.challengeId,
+          acknowledgedAt: new Date().toISOString(),
         });
       } catch (err) {
         const errorCode =
@@ -147,6 +163,7 @@ export class KioskQrPunchService {
         employeeName: true,
         branchId: true,
         companyId: true,
+        homeLocationId: true,
       },
     });
     if (!employee?.branchId || !employee.companyId) {
@@ -281,7 +298,18 @@ export class KioskQrPunchService {
     }
 
     const occurredAt = params.scannedAt;
-    let punch: { message: string; eventType: string };
+    let punch: {
+      message: string;
+      eventType: string;
+      eventStatus: string;
+      reviewReason: { code: string; label: string } | null;
+      location: {
+        id: string;
+        name: string;
+        type: string;
+        clientLabel: string | null;
+      } | null;
+    };
     try {
       punch = await this.recordPunchFromQr({
         employee: {
@@ -291,6 +319,7 @@ export class KioskQrPunchService {
           employeeName: employee.employeeName,
           branchId: employeeBranchId,
           companyId: employeeCompanyId,
+          homeLocationId: employee.homeLocationId,
         },
         kiosk,
         occurredAt,
@@ -310,6 +339,9 @@ export class KioskQrPunchService {
       message: punch.message,
       eventType: punch.eventType,
       occurredAt: occurredAt.toISOString(),
+      eventStatus: punch.eventStatus,
+      reviewReason: punch.reviewReason,
+      location: punch.location,
       kiosk: {
         id: kiosk.id,
         name: kiosk.kioskName,
@@ -335,6 +367,9 @@ export class KioskQrPunchService {
       message: punch.message,
       eventType: punch.eventType,
       occurredAt: occurredAt.toISOString(),
+      eventStatus: punch.eventStatus,
+      reviewReason: punch.reviewReason,
+      location: punch.location,
       kiosk: resultJson.kiosk,
       employee: resultJson.employee,
       challengeId: challenge.id,
@@ -367,12 +402,24 @@ export class KioskQrPunchService {
       employeeName: string;
       branchId: string;
       companyId: string;
+      homeLocationId: string | null;
     };
     kiosk: { id: string; companyId: string; branchId: string };
     occurredAt: Date;
     offlineSync: boolean;
     verificationRef: string;
-  }): Promise<{ message: string; eventType: string }> {
+  }): Promise<{
+    message: string;
+    eventType: string;
+    eventStatus: string;
+    reviewReason: { code: string; label: string } | null;
+    location: {
+      id: string;
+      name: string;
+      type: string;
+      clientLabel: string | null;
+    } | null;
+  }> {
     const source = params.offlineSync
       ? TimeGateAttendanceEventSource.KIOSK_OFFLINE_SYNC
       : TimeGateAttendanceEventSource.EMPLOYEE_APP;
@@ -418,7 +465,31 @@ export class KioskQrPunchService {
       throw new BadRequestException(resolution.message);
     }
 
-    const wrongSite = params.employee.branchId !== params.kiosk.branchId;
+    const wrongSite = await isWrongSitePunch(this.prisma, {
+      employeeId: params.employee.id,
+      employeeHomeLocationId: params.employee.homeLocationId,
+      employeeBranchId: params.employee.branchId,
+      kioskBranchId: params.kiosk.branchId,
+      kioskId: params.kiosk.id,
+      occurredAt: params.occurredAt,
+      timeZone,
+    });
+    const locationArchived =
+      !wrongSite &&
+      (await isArchivedLocationPunch(this.prisma, {
+        kioskBranchId: params.kiosk.branchId,
+        kioskId: params.kiosk.id,
+      }));
+    const assignmentExpired =
+      !wrongSite &&
+      !locationArchived &&
+      (await isExpiredAssignmentPunch(this.prisma, {
+        employeeId: params.employee.id,
+        kioskBranchId: params.kiosk.branchId,
+        kioskId: params.kiosk.id,
+        occurredAt: params.occurredAt,
+        timeZone,
+      }));
     const eventType =
       resolution.action === 'CHECK_IN'
         ? TimeGateAttendanceEventType.CHECK_IN
@@ -426,7 +497,7 @@ export class KioskQrPunchService {
           ? TimeGateAttendanceEventType.BREAK_END
           : TimeGateAttendanceEventType.CHECK_OUT;
 
-    const { message } = await this.punchRecorder.recordEvent({
+    const recorded = await this.punchRecorder.recordEvent({
       employeeId: params.employee.id,
       kioskId: params.kiosk.id,
       branchId: params.kiosk.branchId,
@@ -438,11 +509,22 @@ export class KioskQrPunchService {
       eventType,
       employeeBranchId: params.employee.branchId,
       wrongSite,
+      locationArchived,
+      assignmentExpired,
       lateAbsent: resolution.action === 'CHECK_IN' ? resolution.lateAbsent : undefined,
       idempotencySuffix: `qr_${resolution.action.toLowerCase()}`,
       authMethod: TimeGateAttendanceAuthMethod.QR,
     });
 
-    return { message, eventType };
+    return {
+      message: recorded.message,
+      eventType,
+      eventStatus: recorded.status,
+      reviewReason:
+        recorded.reviewReasonCode && recorded.reviewReasonLabel
+          ? { code: recorded.reviewReasonCode, label: recorded.reviewReasonLabel }
+          : null,
+      location: recorded.location,
+    };
   }
 }

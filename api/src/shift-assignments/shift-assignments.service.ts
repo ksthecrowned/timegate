@@ -5,18 +5,23 @@ import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { PrismaService } from '../prisma/prisma.service';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { employeeSummarySelect, toEmployeeSummary } from '../common/utils/employee-summary.util';
+import { AuditTrailService } from '../audit/audit-trail.service';
 import { CreateShiftAssignmentDto } from './dto/create-shift-assignment.dto';
+import { CloseShiftAssignmentDto } from './dto/close-shift-assignment.dto';
 import { ShiftAssignmentQueryDto } from './dto/shift-assignment-query.dto';
 import { UpdateShiftAssignmentDto } from './dto/update-shift-assignment.dto';
 
 @Injectable()
 export class ShiftAssignmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private auditTrail: AuditTrailService,
+  ) {}
 
   async create(dto: CreateShiftAssignmentDto, user: JwtUser) {
     const employee = await this.prisma.employee.findUnique({
       where: { id: dto.employeeId },
-      select: { id: true, companyId: true },
+      select: { id: true, companyId: true, homeLocationId: true, branchId: true },
     });
     if (!employee) throw new NotFoundException('Employee not found');
     this.assertCompanyAccess(user, employee.companyId);
@@ -27,6 +32,24 @@ export class ShiftAssignmentsService {
 
     if (dto.shiftLocationId) {
       await this.ensureShiftLocationForCompany(dto.shiftLocationId, employee.companyId);
+    }
+
+    let locationId = dto.locationId ?? employee.homeLocationId ?? null;
+    if (!locationId && employee.branchId) {
+      const loc = await this.prisma.timeGateLocation.findUnique({
+        where: { branchId: employee.branchId },
+        select: { id: true },
+      });
+      locationId = loc?.id ?? null;
+    }
+    if (dto.locationId) {
+      const loc = await this.prisma.timeGateLocation.findUnique({
+        where: { id: dto.locationId },
+        select: { id: true, companyId: true },
+      });
+      if (!loc || loc.companyId !== employee.companyId) {
+        throw new NotFoundException('Location not found');
+      }
     }
 
     const startDate = dto.startDate ? this.toDateOnly(dto.startDate) : null;
@@ -40,6 +63,7 @@ export class ShiftAssignmentsService {
         id: generateDocId('SASN'),
         employeeId: employee.id,
         shiftTypeId: shiftType.id,
+        locationId,
         shiftLocationId: dto.shiftLocationId ?? null,
         companyId: employee.companyId,
         startDate,
@@ -133,6 +157,7 @@ export class ShiftAssignmentsService {
         ...(dto.employeeId !== undefined ? { employeeId: dto.employeeId } : {}),
         ...(dto.shiftTypeId !== undefined ? { shiftTypeId: dto.shiftTypeId } : {}),
         ...(dto.shiftLocationId !== undefined ? { shiftLocationId: dto.shiftLocationId } : {}),
+        ...(dto.locationId !== undefined ? { locationId: dto.locationId || null } : {}),
         ...(startDate !== undefined ? { startDate } : {}),
         ...(endDate !== undefined ? { endDate } : {}),
       },
@@ -147,11 +172,112 @@ export class ShiftAssignmentsService {
     return { id, deleted: true };
   }
 
+  /**
+   * Clôture une affectation (endDate) sans supprimer l’employé.
+   * Optionnellement soft-end du contrat courant (fin de mission / mis à disposition).
+   */
+  async close(id: string, dto: CloseShiftAssignmentDto, user: JwtUser) {
+    const current = await this.prisma.shiftAssignment.findUnique({
+      where: { id },
+      include: this.defaultInclude(),
+    });
+    if (!current) throw new NotFoundException('Shift assignment not found');
+    this.assertCompanyAccess(user, current.companyId);
+    if (!current.companyId) {
+      throw new BadRequestException('Affectation sans société');
+    }
+    const companyId = current.companyId;
+
+    const endDate = dto.endDate
+      ? this.toDateOnly(dto.endDate)
+      : this.toDateOnly(new Date().toISOString().slice(0, 10));
+
+    if (current.startDate && current.startDate > endDate) {
+      throw new BadRequestException('endDate must be on or after startDate');
+    }
+
+    const before = {
+      endDate: current.endDate ? current.endDate.toISOString().slice(0, 10) : null,
+    };
+
+    const updated = await this.prisma.shiftAssignment.update({
+      where: { id },
+      data: { endDate },
+      include: this.defaultInclude(),
+    });
+
+    let contractEnded: { id: string; expiresAt: string | null } | null = null;
+    if (dto.endCurrentContract) {
+      const contract = await this.prisma.timeGateEmployeeContract.findFirst({
+        where: {
+          employeeId: current.employeeId,
+          companyId,
+          isCurrent: true,
+        },
+        orderBy: { signedAt: 'desc' },
+      });
+      if (contract) {
+        const ended = await this.prisma.timeGateEmployeeContract.update({
+          where: { id: contract.id },
+          data: {
+            isCurrent: false,
+            expiresAt: endDate,
+            ...(dto.reason
+              ? {
+                  notes: [contract.notes, `Clôturé: ${dto.reason.trim()}`]
+                    .filter(Boolean)
+                    .join(' — ')
+                    .slice(0, 2000),
+                }
+              : {}),
+          },
+        });
+        contractEnded = {
+          id: ended.id,
+          expiresAt: ended.expiresAt ? ended.expiresAt.toISOString().slice(0, 10) : null,
+        };
+        await this.auditTrail.record({
+          userId: user.sub,
+          companyId,
+          action: 'CONTRACT_SOFT_END',
+          entity: 'TimeGateEmployeeContract',
+          entityId: ended.id,
+          reason: dto.reason ?? 'Fin de mission / clôture affectation',
+          before: { isCurrent: true, expiresAt: contract.expiresAt },
+          after: { isCurrent: false, expiresAt: ended.expiresAt },
+          extra: { shiftAssignmentId: id, employeeId: current.employeeId },
+        });
+      }
+    }
+
+    await this.auditTrail.record({
+      userId: user.sub,
+      companyId,
+      action: 'SHIFT_ASSIGNMENT_CLOSE',
+      entity: 'ShiftAssignment',
+      entityId: id,
+      reason: dto.reason ?? 'Clôture d’affectation',
+      before,
+      after: { endDate: endDate.toISOString().slice(0, 10) },
+      extra: {
+        employeeId: current.employeeId,
+        contractEndedId: contractEnded?.id ?? null,
+      },
+    });
+
+    return {
+      ...this.toApiShape(updated),
+      closed: true,
+      contractEnded,
+    };
+  }
+
   private defaultInclude() {
     return {
       employee: { select: employeeSummarySelect },
       shiftType: { select: { id: true, shiftName: true, branchId: true } },
       shiftLocation: { select: { id: true, locationName: true } },
+      location: { select: { id: true, name: true, type: true } },
     } as const;
   }
 
@@ -202,6 +328,7 @@ export class ShiftAssignmentsService {
       employeeId: row.employeeId,
       shiftTypeId: row.shiftTypeId,
       shiftLocationId: row.shiftLocationId,
+      locationId: row.locationId,
       companyId: row.companyId,
       startDate: row.startDate ? row.startDate.toISOString() : null,
       endDate: row.endDate ? row.endDate.toISOString() : null,
@@ -213,6 +340,9 @@ export class ShiftAssignmentsService {
         : undefined,
       shiftLocation: row.shiftLocation
         ? { id: row.shiftLocation.id, name: row.shiftLocation.locationName }
+        : undefined,
+      location: row.location
+        ? { id: row.location.id, name: row.location.name, type: row.location.type }
         : undefined,
     };
   }

@@ -6,9 +6,19 @@ import { useCallback, useEffect, useState } from 'react'
 import PageHeader from '@/components/ui/PageHeader'
 import { SkeletonDetailCard } from '@/components/ui/Skeleton'
 import ActionButtons from '@/components/ui/ActionButtons'
-import { ApiErrorBanner, DetailCard, DetailRow, primaryBtnClass } from '@/components/timegate/ui'
+import {
+  ApiErrorBanner,
+  DetailCard,
+  DetailRow,
+  primaryBtnClass,
+  secondaryBtnClass,
+} from '@/components/timegate/ui'
 import { employeeLabel } from '@/components/timegate/hooks'
-import { deleteShiftAssignment, getShiftAssignment } from '@/lib/timegate/shift-assignments'
+import {
+  closeShiftAssignment,
+  deleteShiftAssignment,
+  getShiftAssignment,
+} from '@/lib/timegate/shift-assignments'
 import type { ShiftAssignment } from '@/lib/timegate/types'
 import { formatApiDate, formatApiDateTime } from '@/lib/date-utils'
 import { HttpError } from '@/lib/http'
@@ -20,6 +30,7 @@ export default function ShiftAssignmentDetailPage() {
   const [row, setRow] = useState<ShiftAssignment | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [closing, setClosing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -37,6 +48,34 @@ export default function ShiftAssignmentDetailPage() {
     void load()
   }, [load])
 
+  const isOpen =
+    !row?.endDate ||
+    new Date(row.endDate).getTime() >=
+      new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`).getTime()
+
+  async function handleClose(endContract: boolean) {
+    if (!row || closing) return
+    const ok = window.confirm(
+      endContract
+        ? 'Clôturer cette affectation et terminer le contrat courant ? L’employé n’est pas supprimé.'
+        : 'Clôturer cette affectation (date de fin = aujourd’hui) ? L’employé n’est pas supprimé.',
+    )
+    if (!ok) return
+    setClosing(true)
+    setError('')
+    try {
+      const updated = await closeShiftAssignment(id, {
+        endCurrentContract: endContract,
+        reason: endContract ? 'Fin de mission' : 'Clôture d’affectation',
+      })
+      setRow(updated)
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Clôture impossible.')
+    } finally {
+      setClosing(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
@@ -46,7 +85,27 @@ export default function ShiftAssignmentDetailPage() {
         ]}
         action={
           row && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {isOpen && (
+                <>
+                  <button
+                    type="button"
+                    className={secondaryBtnClass}
+                    disabled={closing}
+                    onClick={() => void handleClose(false)}
+                  >
+                    Clôturer
+                  </button>
+                  <button
+                    type="button"
+                    className={secondaryBtnClass}
+                    disabled={closing}
+                    onClick={() => void handleClose(true)}
+                  >
+                    Fin de mission
+                  </button>
+                </>
+              )}
               <WriteLink href={`/shift-assignments/${id}/edit`} className={primaryBtnClass}>
                 Modifier
               </WriteLink>
@@ -70,7 +129,7 @@ export default function ShiftAssignmentDetailPage() {
           <DetailRow label="Horaire" value={row.shiftType?.name ?? '—'} />
           <DetailRow
             label="Lieu"
-            value={row.shiftLocation?.name ?? '—'}
+            value={row.location?.name ?? row.shiftLocation?.name ?? '—'}
           />
           <DetailRow label="Date début" value={formatApiDate(row.startDate)} />
           <DetailRow label="Date fin" value={formatApiDate(row.endDate)} />

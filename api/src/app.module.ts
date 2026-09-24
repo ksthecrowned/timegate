@@ -39,6 +39,8 @@ import { DevicesModule } from './devices/devices.module';
 import { TrustedDevicesModule } from './trusted-devices/trusted-devices.module';
 import { ManagerModule } from './manager/manager.module';
 import { PunchClaimsModule } from './punch-claims/punch-claims.module';
+import { AnomaliesModule } from './anomalies/anomalies.module';
+import { ClientMissionsModule } from './client-missions/client-missions.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { AiModule } from './ai/ai.module';
 import { MessagingModule } from './messaging/messaging.module';
@@ -49,15 +51,19 @@ import { PayrollVariableItemsModule } from './payroll-variable-items/payroll-var
 import { SalaryAdvancesModule } from './salary-advances/salary-advances.module';
 import { PayGroupsModule } from './pay-groups/pay-groups.module';
 import { HealthModule } from './health/health.module';
+import { LocationsModule } from './locations/locations.module';
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     PrismaModule,
+    AuditModule,
     HealthModule,
     AuthModule,
     BranchesModule,
+    LocationsModule,
     KiosksModule,
     FaceRecognitionLogsModule,
     EmployeesModule,
@@ -93,6 +99,8 @@ import { HealthModule } from './health/health.module';
     TrustedDevicesModule,
     ManagerModule,
     PunchClaimsModule,
+    AnomaliesModule,
+    ClientMissionsModule,
     WebhooksModule,
     AiModule,
     MessagingModule,

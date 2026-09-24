@@ -141,7 +141,15 @@ export function shiftDurationMinutes(startMin: number, endMin: number): number {
   return endMin + 24 * 60 - startMin;
 }
 
-/** Minutes elapsed since `originMin` on a 24h circular clock (0..1439). */
+/**
+ * Date métier (@db.Date) = minuit UTC de la clé calendaire locale org
+ * (évite le décalage wrong-site / affectation autour de minuit).
+ */
+export function workDateUtcFromOccurredAt(at: Date, timeZone: string): Date {
+  const key = dateKeyInTimeZone(at, timeZone);
+  return new Date(`${key}T00:00:00.000Z`);
+}
+
 export function minutesSinceOrigin(atMin: number, originMin: number): number {
   return (atMin - originMin + 24 * 60) % (24 * 60);
 }

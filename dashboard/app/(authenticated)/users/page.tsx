@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import PageHeader from '@/components/ui/PageHeader'
 import DataTable, { type Column } from '@/components/ui/DataTable'
 import { AdminRoleBadge } from '@/components/users/AdminRoleBadge'
@@ -16,6 +17,20 @@ const columns: Column<AdminUser>[] = [
     label: 'Rôle',
     sortable: true,
     render: (v) => <AdminRoleBadge role={String(v)} />,
+  },
+  {
+    key: 'managedLocations',
+    label: 'Lieux',
+    render: (_v, row) => {
+      if (row.role !== 'MANAGER') {
+        return <span className="text-slate-400 dark:text-slate-500">—</span>
+      }
+      const names = row.managedLocations?.map((l) => l.name) ?? []
+      if (!names.length) {
+        return <span className="text-amber-700 dark:text-amber-400">Aucun</span>
+      }
+      return <span className="text-sm">{names.join(', ')}</span>
+    },
   },
   {
     key: 'employee',
@@ -45,6 +60,7 @@ const columns: Column<AdminUser>[] = [
 ]
 
 export default function AdminsPage() {
+  const router = useRouter()
   const [data, setData] = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -86,6 +102,7 @@ export default function AdminsPage() {
         entityLabel="utilisateurs"
         tableId="hs-admin-users-table"
         emptyMessage="Aucun utilisateur trouvé."
+        onRowClick={(row) => router.push(`/users/${row.id}`)}
       />
     </div>
   )

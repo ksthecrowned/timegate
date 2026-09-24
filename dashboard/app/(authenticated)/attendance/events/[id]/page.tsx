@@ -113,6 +113,7 @@ export default function AttendanceEventDetailPage() {
               value={<StatusBadge status={findOption(STATUS_OPTIONS, event.status)?.label || ""} />}
             />
             <DetailRow label="Source" value={event.source} />
+            <DetailRow label="Méthode" value={event.authMethod ?? '—'} />
             <DetailRow label="Kiosk" value={event.kiosk?.name ?? '—'} />
             <DetailRow label="Branche" value={event.branch?.name} />
             <DetailRow
@@ -137,6 +138,85 @@ export default function AttendanceEventDetailPage() {
               }
             />
           </DetailCard>
+
+          {event.verificationContext && (
+            <DetailCard title="Registre vérifiable">
+              <DetailRow
+                label="Lieu"
+                value={
+                  event.verificationContext.location
+                    ? `${event.verificationContext.location.name}${
+                        event.verificationContext.location.clientLabel
+                          ? ` (${event.verificationContext.location.clientLabel})`
+                          : ''
+                      }`
+                    : '—'
+                }
+              />
+              <DetailRow
+                label="Canal"
+                value={
+                  event.verificationContext.kiosk
+                    ? `${event.verificationContext.kiosk.name} · ${
+                        event.verificationContext.kiosk.channel === 'client_page'
+                          ? 'Page client'
+                          : 'Borne'
+                      }`
+                    : '—'
+                }
+              />
+              <DetailRow
+                label="Mission"
+                value={event.verificationContext.mission?.title ?? '—'}
+              />
+              <DetailRow
+                label="Affectation"
+                value={
+                  event.verificationContext.assignment
+                    ? event.verificationContext.assignment.id
+                    : '—'
+                }
+              />
+              <DetailRow
+                label="Horaire"
+                value={event.verificationContext.shift?.name ?? '—'}
+              />
+              <DetailRow
+                label="Méthode (contexte)"
+                value={event.verificationContext.authMethod ?? '—'}
+              />
+              <DetailRow
+                label="Appareil"
+                value={
+                  event.verificationContext.device?.trustedDeviceId ?? '—'
+                }
+              />
+              <DetailRow
+                label="GPS"
+                value={
+                  event.verificationContext.gps
+                    ? `${event.verificationContext.gps.latitude}, ${event.verificationContext.gps.longitude}`
+                    : 'Non capturé (prévu plus tard)'
+                }
+              />
+              {(event.verificationContext.flags.wrongSite ||
+                event.verificationContext.flags.lateAbsent) && (
+                <DetailRow
+                  label="Flags"
+                  value={[
+                    event.verificationContext.flags.wrongSite
+                      ? 'Mauvais site'
+                      : null,
+                    event.verificationContext.flags.lateAbsent
+                      ? 'Retard'
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              )}
+            </DetailCard>
+          )}
 
           {canReview && (
             <FormCard title="Revue manuelle">

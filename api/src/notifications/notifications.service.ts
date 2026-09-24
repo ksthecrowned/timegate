@@ -14,6 +14,7 @@ import { PushDeliveryService } from '../push/push-delivery.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { UpdateNotificationRuleDto } from './dto/update-notification-rule.dto';
 import { NotificationEmailService } from './notification-email.service';
+import { defaultChannelsForType } from './actionable-notifications.constants';
 import {
   dateKeyAddDays,
   dateKeyInTimeZone,
@@ -226,12 +227,14 @@ export class NotificationsService {
     });
     const byType = new Map(rows.map((row) => [row.type, row]));
     return Object.values(TimeGateNotificationType).map((type) => {
+      const defaults = defaultChannelsForType(type);
       const row = byType.get(type);
       return {
         type,
-        inAppEnabled: row?.inAppEnabled ?? true,
-        pushEnabled: row?.pushEnabled ?? true,
-        emailEnabled: row?.emailEnabled ?? false,
+        inAppEnabled: row?.inAppEnabled ?? defaults.inAppEnabled,
+        pushEnabled: row?.pushEnabled ?? defaults.pushEnabled,
+        emailEnabled: row?.emailEnabled ?? defaults.emailEnabled,
+        policy: defaults.policy,
       };
     });
   }
@@ -243,6 +246,7 @@ export class NotificationsService {
     if (!user.companyId) {
       throw new BadRequestException('Company context is required');
     }
+    const defaults = defaultChannelsForType(type);
     const row = await this.prisma.timeGateNotificationRule.upsert({
       where: {
         companyId_type: {
@@ -254,9 +258,9 @@ export class NotificationsService {
         id: generateDocId('NRL'),
         companyId: user.companyId,
         type,
-        inAppEnabled: dto.inAppEnabled ?? true,
-        pushEnabled: dto.pushEnabled ?? true,
-        emailEnabled: dto.emailEnabled ?? false,
+        inAppEnabled: dto.inAppEnabled ?? defaults.inAppEnabled,
+        pushEnabled: dto.pushEnabled ?? defaults.pushEnabled,
+        emailEnabled: dto.emailEnabled ?? defaults.emailEnabled,
       },
       update: {
         ...(dto.inAppEnabled !== undefined ? { inAppEnabled: dto.inAppEnabled } : {}),
@@ -270,18 +274,19 @@ export class NotificationsService {
         emailEnabled: true,
       },
     });
-    return row;
+    return { ...row, policy: defaults.policy };
   }
 
   private async resolveRule(companyId: string, type: TimeGateNotificationType) {
+    const defaults = defaultChannelsForType(type);
     const row = await this.prisma.timeGateNotificationRule.findUnique({
       where: { companyId_type: { companyId, type } },
       select: { inAppEnabled: true, pushEnabled: true, emailEnabled: true },
     });
     return {
-      inAppEnabled: row?.inAppEnabled ?? true,
-      pushEnabled: row?.pushEnabled ?? true,
-      emailEnabled: row?.emailEnabled ?? false,
+      inAppEnabled: row?.inAppEnabled ?? defaults.inAppEnabled,
+      pushEnabled: row?.pushEnabled ?? defaults.pushEnabled,
+      emailEnabled: row?.emailEnabled ?? defaults.emailEnabled,
     };
   }
 
@@ -364,6 +369,7 @@ export class NotificationsService {
             employeeId: line.employeeId,
             dueDate: dueDateLabel,
             alertDay: dayKey,
+            href: `/payroll-runs/${line.payrollRun.id}`,
           },
           dedupeKey: `payroll-due-alert:${line.companyId}:${type}:${line.id}:${dayKey}`,
         });
@@ -417,7 +423,7 @@ export class NotificationsService {
         type: TimeGateNotificationType.PUNCH_LATE,
         title: 'Retard signalé',
         body: `${params.employeeName} a pointé en retard à ${timeLabel}.`,
-        meta: { employeeId: params.employeeId, branchId: params.branchId },
+        meta: { employeeId: params.employeeId, branchId: params.branchId, href: '/manager/team?status=LATE' },
         dedupeKey: `late:${dedupeBase}`,
       });
 
@@ -447,6 +453,7 @@ export class NotificationsService {
           employeeId: params.employeeId,
           branchId: params.branchId,
           eventType: params.eventType,
+          href: '/manager/inbox',
         },
         dedupeKey: `review:${dedupeBase}`,
       });
@@ -480,8 +487,107 @@ export class NotificationsService {
       type: TimeGateNotificationType.ABSENCE_AUTO,
       title: 'Absence automatique',
       body: `${params.employeeName} est marqué(e) absent(e) le ${dateLabel}.`,
-      meta: { employeeId: params.employeeId, recordDate: dateLabel },
+      meta: {
+        employeeId: params.employeeId,
+        recordDate: dateLabel,
+        href: '/manager/team?status=ABSENT',
+      },
       dedupeKey: `absence:${params.employeeId}:${dateLabel}`,
+    });
+  }
+
+  async notifyShiftStartMissing(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    workDate: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.SHIFT_START_MISSING,
+      title: 'Non arrivé au démarrage',
+      body: `${params.employeeName} n’a pas pointé après le début de son shift.`,
+      meta: {
+        employeeId: params.employeeId,
+        workDate: params.workDate,
+        href: '/manager/team?status=LATE',
+      },
+      dedupeKey: `shift-start-missing:${params.employeeId}:${params.workDate}`,
+    });
+  }
+
+  async notifyAssignmentExpiring(params: {
+    companyId: string;
+    branchId?: string;
+    employeeId: string;
+    employeeName: string;
+    assignmentId: string;
+    endDate: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.ASSIGNMENT_EXPIRING,
+      title: 'Affectation bientôt terminée',
+      body: `${params.employeeName} — affectation jusqu’au ${params.endDate}.`,
+      meta: {
+        employeeId: params.employeeId,
+        assignmentId: params.assignmentId,
+        endDate: params.endDate,
+        href: `/shift-assignments/${params.assignmentId}`,
+      },
+      dedupeKey: `assignment-expiring:${params.assignmentId}:${params.endDate}`,
+    });
+  }
+
+  async notifyMissionNoPunch(params: {
+    companyId: string;
+    branchId?: string;
+    missionId: string;
+    missionTitle: string;
+    locationName: string;
+    workDate: string;
+  }) {
+    const managerIds = await this.recipients.resolveManagers(params.companyId, params.branchId);
+    await this.emit({
+      companyId: params.companyId,
+      userIds: managerIds,
+      type: TimeGateNotificationType.MISSION_NO_PUNCH,
+      title: 'Mission sans pointage',
+      body: `${params.missionTitle} (${params.locationName}) — aucun pointage le ${params.workDate}.`,
+      meta: {
+        missionId: params.missionId,
+        workDate: params.workDate,
+        href: `/client-missions/${params.missionId}`,
+      },
+      dedupeKey: `mission-no-punch:${params.missionId}:${params.workDate}`,
+    });
+  }
+
+  async notifyAnomalyBeforePayroll(params: {
+    companyId: string;
+    openCount: number;
+    dayKey: string;
+  }) {
+    const adminIds = await this.resolveAdminUserIds(params.companyId);
+    const managerIds = await this.recipients.resolveManagers(params.companyId);
+    const userIds = [...new Set([...adminIds, ...managerIds])];
+    await this.emit({
+      companyId: params.companyId,
+      userIds,
+      type: TimeGateNotificationType.ANOMALY_BEFORE_PAYROLL,
+      title: 'Anomalies avant clôture paie',
+      body: `${params.openCount} anomalie(s) ouverte(s) — à traiter avant la paie.`,
+      meta: {
+        openCount: params.openCount,
+        dayKey: params.dayKey,
+        href: '/anomalies',
+      },
+      dedupeKey: `anomaly-before-payroll:${params.companyId}:${params.dayKey}`,
     });
   }
 

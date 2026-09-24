@@ -85,6 +85,13 @@ export type AttendanceEventRow = {
   authMethod: string | null;
   occurredAt: string;
   kiosk?: { id: string; name: string; branch?: { id: string; name: string } | null } | null;
+  location?: {
+    id: string;
+    name: string;
+    type: string;
+    clientLabel: string | null;
+  } | null;
+  reviewReason?: { code: string; label: string } | null;
 };
 
 export type PunchClaimType =

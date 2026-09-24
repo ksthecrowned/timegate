@@ -9,17 +9,21 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 import type { UploadedFile } from '../common/upload/uploaded-file';
+import { CompanyCapabilitiesService } from '../saas/company-capabilities.service';
+import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
 
 @Injectable()
 export class CompaniesService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: CloudflareR2Service,
+    private readonly quotas: SubscriptionQuotaService,
   ) {}
 
   async getMyCompany(user: JwtUser) {
     const company = await this.requireCompany(user);
-    return this.toApiShape(company);
+    const usage = await this.quotas.getUsage(company.id);
+    return this.toApiShape(company, usage);
   }
 
   async updateMyCompany(user: JwtUser, dto: UpdateCompanyDto) {
@@ -35,9 +39,28 @@ export class CompaniesService {
         ...(dto.email !== undefined ? { email: dto.email || null } : {}),
         ...(dto.website !== undefined ? { website: dto.website || null } : {}),
         ...(dto.address !== undefined ? { address: dto.address || null } : {}),
+        ...(dto.industrySector !== undefined
+          ? { industrySector: dto.industrySector || null }
+          : {}),
+        ...(dto.expectedSiteCount !== undefined
+          ? { expectedSiteCount: dto.expectedSiteCount || null }
+          : {}),
+        ...(dto.workforceModel !== undefined
+          ? { workforceModel: dto.workforceModel || null }
+          : {}),
+        ...(dto.schedulePattern !== undefined
+          ? { schedulePattern: dto.schedulePattern || null }
+          : {}),
+        ...(dto.countryCode !== undefined
+          ? { countryCode: dto.countryCode?.trim().toUpperCase() || null }
+          : {}),
+        ...(dto.referralSource !== undefined
+          ? { referralSource: dto.referralSource || null }
+          : {}),
       },
     });
-    return this.toApiShape(updated);
+    const usage = await this.quotas.getUsage(updated.id);
+    return this.toApiShape(updated, usage);
   }
 
   async uploadLogo(user: JwtUser, file: UploadedFile) {
@@ -62,7 +85,8 @@ export class CompaniesService {
       where: { id: company.id },
       data: { logoUrl },
     });
-    return this.toApiShape(updated);
+    const usage = await this.quotas.getUsage(updated.id);
+    return this.toApiShape(updated, usage);
   }
 
   private async requireCompany(user: JwtUser) {
@@ -78,20 +102,38 @@ export class CompaniesService {
     return company;
   }
 
-  private toApiShape(company: {
-    id: string;
-    name: string | null;
-    sku: string | null;
-    abbr: string | null;
-    timeZone: string | null;
-    logoUrl: string | null;
-    phone: string | null;
-    email: string | null;
-    website: string | null;
-    address: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
+  private toApiShape(
+    company: {
+      id: string;
+      name: string | null;
+      sku: string | null;
+      abbr: string | null;
+      timeZone: string | null;
+      logoUrl: string | null;
+      phone: string | null;
+      email: string | null;
+      website: string | null;
+      address: string | null;
+      organizationSize: string | null;
+      industrySector: string | null;
+      expectedSiteCount: string | null;
+      workforceModel: string | null;
+      schedulePattern: string | null;
+      countryCode: string | null;
+      referralSource: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    usage?: {
+      employees: number;
+      kiosks: number;
+      locations: number;
+      maxEmployees: number;
+      maxKiosks: number;
+      maxLocations: number;
+      capabilities: string[];
+    },
+  ) {
     return {
       id: company.id,
       name: company.name,
@@ -103,6 +145,14 @@ export class CompaniesService {
       email: company.email,
       website: company.website,
       address: company.address,
+      organizationSize: company.organizationSize,
+      industrySector: company.industrySector,
+      expectedSiteCount: company.expectedSiteCount,
+      workforceModel: company.workforceModel,
+      schedulePattern: company.schedulePattern,
+      countryCode: company.countryCode,
+      referralSource: company.referralSource,
+      usage: usage ?? null,
       createdAt: company.createdAt.toISOString(),
       updatedAt: company.updatedAt.toISOString(),
     };

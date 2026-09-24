@@ -28,6 +28,7 @@ import {
 import { HolidayCalendarService } from '../holidays/holiday-calendar.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { ManagerInboxQueryDto, ManagerTeamTodayQueryDto } from './dto/manager-query.dto';
+import { ManagerScopeService } from './manager-scope.service';
 
 export type TeamMemberStatus =
   | 'PRESENT'
@@ -97,10 +98,12 @@ export class ManagerService {
     private holidayCalendar: HolidayCalendarService,
     private attendance: AttendanceService,
     private punchWindows: PunchWindowService,
+    private managerScope: ManagerScopeService,
   ) {}
 
   async teamToday(query: ManagerTeamTodayQueryDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
+    const scope = await this.managerScope.resolve(user);
     const company = await this.prisma.company.findUnique({
       where: { id: companyId },
       select: { timeZone: true },
@@ -115,11 +118,14 @@ export class ManagerService {
     const nowMin = dateToMinutesInTimeZone(now, companyTimeZone);
     const branchId = query.resolvedBranchId();
 
+    const scopeEmployee = this.managerScope.employeeWhere(scope);
+
     const employees = await this.prisma.employee.findMany({
       where: {
         companyId,
         status: EmployeeStatus.ACTIVE,
         ...(branchId ? { branchId } : {}),
+        ...(scopeEmployee ?? {}),
       },
       select: {
         id: true,
@@ -305,19 +311,232 @@ export class ManagerService {
     return {
       date: workDateIso,
       branchId: branchId ?? null,
+      scope: {
+        scoped: scope.scoped,
+        locationIds: scope.locationIds,
+      },
       summary,
       members,
     };
   }
 
+  /**
+   * Centre de contrôle : présence du jour + répartition par lieu + file anomalies.
+   * Réutilise teamToday (pas un vanity dashboard).
+   */
+  async controlCenter(user: JwtUser) {
+    const companyId = this.requireCompanyId(user);
+    const scope = await this.managerScope.resolve(user);
+    const company = await this.prisma.company.findUnique({
+      where: { id: companyId },
+      select: { timeZone: true },
+    });
+    const companyTimeZone = resolveOrgTimeZone(company?.timeZone);
+    const now = new Date();
+    const todayIso = dateKeyInTimeZone(now, companyTimeZone);
+    const workDate = toDateOnly(todayIso);
+
+    const team = await this.teamToday(new ManagerTeamTodayQueryDto(), user);
+    const scopeEmployee = this.managerScope.employeeWhere(scope);
+    const locationWhere =
+      scope.scoped && scope.locationIds
+        ? { companyId, isActive: true, id: { in: scope.locationIds } }
+        : { companyId, isActive: true };
+
+    const [locations, assignments, openEvents, openClaims, openTimesheets] =
+      await Promise.all([
+        this.prisma.timeGateLocation.findMany({
+          where: locationWhere,
+          select: { id: true, name: true, type: true, clientLabel: true },
+          orderBy: { name: 'asc' },
+        }),
+        this.prisma.shiftAssignment.findMany({
+          where: {
+            companyId,
+            employeeId: { in: team.members.map((m) => m.employeeId) },
+            OR: [
+              { startDate: null, endDate: null },
+              { startDate: null, endDate: { gte: workDate } },
+              { endDate: null, startDate: { lte: workDate } },
+              { startDate: { lte: workDate }, endDate: { gte: workDate } },
+            ],
+          },
+          select: {
+            employeeId: true,
+            locationId: true,
+            startDate: true,
+            endDate: true,
+            updatedAt: true,
+          },
+          orderBy: { updatedAt: 'desc' },
+        }),
+        this.prisma.timeGateAttendanceEvent.count({
+          where: {
+            companyId,
+            status: TimeGateAttendanceEventStatus.REVIEW_REQUIRED,
+            ...(scopeEmployee ? { employee: scopeEmployee } : {}),
+          },
+        }),
+        this.prisma.timeGatePunchClaim.count({
+          where: {
+            companyId,
+            status: TimeGatePunchClaimStatus.OPEN,
+            ...(scopeEmployee ? { employee: scopeEmployee } : {}),
+          },
+        }),
+        this.prisma.timeGateTimesheetDay.count({
+          where: {
+            companyId,
+            status: TimeGateTimesheetDayStatus.REVIEW_REQUIRED,
+            ...(scopeEmployee ? { employee: scopeEmployee } : {}),
+          },
+        }),
+      ]);
+
+    const locationByEmployee = new Map<string, string | null>();
+    for (const row of assignments) {
+      if (locationByEmployee.has(row.employeeId)) continue;
+      locationByEmployee.set(row.employeeId, row.locationId);
+    }
+
+    const locationStats = new Map<
+      string | null,
+      {
+        locationId: string | null;
+        name: string;
+        type: string | null;
+        clientLabel: string | null;
+        present: number;
+        onBreak: number;
+        late: number;
+        absent: number;
+        reviewRequired: number;
+        expected: number;
+        other: number;
+        total: number;
+      }
+    >();
+
+    const ensureBucket = (locationId: string | null) => {
+      const existing = locationStats.get(locationId);
+      if (existing) return existing;
+      const loc = locationId
+        ? locations.find((l) => l.id === locationId)
+        : null;
+      const bucket = {
+        locationId,
+        name: loc?.name ?? (locationId ? 'Lieu inconnu' : 'Sans lieu'),
+        type: loc?.type ?? null,
+        clientLabel: loc?.clientLabel ?? null,
+        present: 0,
+        onBreak: 0,
+        late: 0,
+        absent: 0,
+        reviewRequired: 0,
+        expected: 0,
+        other: 0,
+        total: 0,
+      };
+      locationStats.set(locationId, bucket);
+      return bucket;
+    };
+
+    for (const loc of locations) {
+      ensureBucket(loc.id);
+    }
+    ensureBucket(null);
+
+    for (const member of team.members) {
+      const locationId = locationByEmployee.get(member.employeeId) ?? null;
+      const bucket = ensureBucket(locationId);
+      bucket.total += 1;
+      switch (member.status) {
+        case 'PRESENT':
+          bucket.present += 1;
+          break;
+        case 'ON_BREAK':
+          bucket.onBreak += 1;
+          break;
+        case 'LATE':
+          bucket.late += 1;
+          break;
+        case 'ABSENT':
+          bucket.absent += 1;
+          break;
+        case 'REVIEW_REQUIRED':
+          bucket.reviewRequired += 1;
+          break;
+        case 'EXPECTED':
+          bucket.expected += 1;
+          break;
+        default:
+          bucket.other += 1;
+          break;
+      }
+    }
+
+    const sites = [...locationStats.values()]
+      .filter((s) => s.total > 0 || s.locationId !== null)
+      .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, 'fr'));
+
+    const anomalyOpen =
+      openEvents + openClaims + openTimesheets;
+
+    const attentionMembers = team.members
+      .filter(
+        (m) =>
+          m.status === 'ABSENT' ||
+          m.status === 'LATE' ||
+          m.status === 'REVIEW_REQUIRED',
+      )
+      .slice(0, 20)
+      .map((m) => ({
+        employeeId: m.employeeId,
+        employeeName: m.employeeName,
+        status: m.status,
+        locationId: locationByEmployee.get(m.employeeId) ?? null,
+        pendingReviewEvents: m.pendingReviewEvents,
+        lastEventAt: m.lastEventAt,
+      }));
+
+    return {
+      date: todayIso,
+      asOf: now.toISOString(),
+      scope: {
+        scoped: scope.scoped,
+        locationIds: scope.locationIds,
+      },
+      presence: team.summary,
+      sites,
+      anomalies: {
+        open: anomalyOpen,
+        attendanceEvents: openEvents,
+        punchClaims: openClaims,
+        timesheetDays: openTimesheets,
+      },
+      attention: attentionMembers,
+      links: {
+        team: '/manager/team',
+        inbox: '/manager/inbox',
+        anomalies: '/anomalies',
+      },
+    };
+  }
+
   async inbox(query: ManagerInboxQueryDto, user: JwtUser) {
     const companyId = this.requireCompanyId(user);
+    const scope = await this.managerScope.resolve(user);
     const branchId = query.resolvedBranchId();
     const limit = Math.min(query.limit ?? 50, 100);
 
-    const employeeFilter: Prisma.EmployeeWhereInput | undefined = branchId
-      ? { branchId }
-      : undefined;
+    const scopeEmployee = this.managerScope.employeeWhere(scope);
+    const employeeFilter: Prisma.EmployeeWhereInput | undefined =
+      branchId || scopeEmployee
+        ? {
+            ...(branchId ? { branchId } : {}),
+            ...(scopeEmployee ?? {}),
+          }
+        : undefined;
 
     const [
       pendingEvents,

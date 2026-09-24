@@ -200,7 +200,10 @@ export const STRINGS = {
     eventBreakStart: 'Début de pause',
     eventBreakEnd: 'Reprise de pause',
     atKiosk: (name: string) => `Borne ${name}`,
-    atBranch: (name: string) => `Site ${name}`,
+    atBranch: (name: string) => `Branche ${name}`,
+    atLocation: (name: string) => `Lieu ${name}`,
+    reviewPending: 'En validation',
+    reviewReasonFallback: 'Validation manager requise',
     punctualityEarly: (mins: number) =>
       mins === 1
         ? 'Vous êtes arrivé·e 1 minute en avance.'

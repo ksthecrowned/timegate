@@ -33,6 +33,7 @@ import { CreateActivationKeyDto } from './dto/create-activation-key.dto';
 import { CreateOrganizationAdminDto } from './dto/create-organization-admin.dto';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { SetManagedLocationsDto } from './dto/set-managed-locations.dto';
 import { LoginDto } from './dto/login.dto';
 import { MobileProvisionDto } from './dto/mobile-provision.dto';
 import { MobileVerifyPinDto } from './dto/mobile-verify-pin.dto';
@@ -127,6 +128,25 @@ export class AuthController {
   @Get('users')
   listUsers(@CurrentUser() user: JwtUser) {
     return this.auth.listUsers(user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
+  @Get('users/:id/managed-locations')
+  getManagedLocations(
+    @CurrentUser() user: JwtUser,
+    @Param('id', DocIdPipe) id: string,
+  ) {
+    return this.auth.getManagedLocations(user, id);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN)
+  @Patch('users/:id/managed-locations')
+  setManagedLocations(
+    @CurrentUser() user: JwtUser,
+    @Param('id', DocIdPipe) id: string,
+    @Body() dto: SetManagedLocationsDto,
+  ) {
+    return this.auth.setManagedLocations(user, id, dto.locationIds);
   }
 
   @AllowInactiveSubscription()

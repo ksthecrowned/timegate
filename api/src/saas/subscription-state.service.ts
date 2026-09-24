@@ -31,6 +31,7 @@ export class SubscriptionStateService {
         trialDays: 14,
         trialMaxEmployees: 10,
         trialMaxKiosks: 1,
+        trialMaxLocations: 1,
         gracePeriodDays: 7,
       },
     });

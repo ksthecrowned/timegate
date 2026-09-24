@@ -21,10 +21,14 @@ import {
   FindPunchClaimsQueryDto,
   ReviewPunchClaimDto,
 } from './dto/punch-claim.dto';
+import { AuditTrailService } from '../audit/audit-trail.service';
 
 @Injectable()
 export class PunchClaimsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auditTrail: AuditTrailService,
+  ) {}
 
   async findAll(query: FindPunchClaimsQueryDto, user: JwtUser) {
     const page = query.page ?? 1;
@@ -166,6 +170,19 @@ export class PunchClaimsService {
         timesheetDay: { select: { id: true, status: true, workDate: true } },
         reviewedBy: { select: { id: true, email: true, firstName: true, lastName: true } },
       },
+    });
+
+    await this.auditTrail.record({
+      userId: user.sub,
+      companyId: row.companyId,
+      action:
+        dto.status === 'APPROVED' ? 'PUNCH_CLAIM_APPROVED' : 'PUNCH_CLAIM_REJECTED',
+      entity: 'TimeGatePunchClaim',
+      entityId: id,
+      reason: dto.reviewNote?.trim() || null,
+      before: { status: row.status },
+      after: { status: updated.status },
+      extra: { anomalyKind: 'PUNCH_CLAIM', claimType: row.type },
     });
 
     return this.toApiShape(updated);

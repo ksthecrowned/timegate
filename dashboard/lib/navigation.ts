@@ -38,6 +38,7 @@ export const timegateNavSections: NavSection[] = [
     title: 'Manager',
     roles: ['ADMIN', 'MANAGER'],
     items: [
+      { label: 'Centre de contrôle', href: '/manager/control', faIcon: 'fa-solid fa-tower-broadcast' },
       { label: 'Équipe du jour', href: '/manager/team', faIcon: 'fa-solid fa-people-group' },
       { label: 'Boite de réception', href: '/manager/inbox', faIcon: 'fa-solid fa-inbox' },
       { label: 'Absences équipe', href: '/manager/leaves', faIcon: 'fa-solid fa-umbrella-beach' },
@@ -52,7 +53,18 @@ export const timegateNavSections: NavSection[] = [
         faIcon: 'fa-solid fa-map-location-dot',
         children: [
           { label: 'Branches', href: '/branches', faIcon: 'fa-solid fa-code-branch' },
+          {
+            label: 'Lieux de pointage',
+            href: '/locations',
+            faIcon: 'fa-solid fa-location-dot',
+          },
           { label: 'Bornes / kiosques', href: '/kiosks', faIcon: 'fa-solid fa-tablet-screen-button' },
+          {
+            label: 'Missions client',
+            href: '/client-missions',
+            faIcon: 'fa-solid fa-link',
+            roles: ['ADMIN', 'MANAGER'],
+          },
         ],
       },
       {
@@ -174,6 +186,11 @@ export const timegateNavSections: NavSection[] = [
             label: 'Év...ents de pointage',
             href: '/attendance/events',
             faIcon: 'fa-solid fa-list-check',
+          },
+          {
+            label: 'Anomalies',
+            href: '/anomalies',
+            faIcon: 'fa-solid fa-triangle-exclamation',
           },
           {
             label: 'Temps travaillé',

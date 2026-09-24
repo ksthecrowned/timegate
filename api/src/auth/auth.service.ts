@@ -50,6 +50,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { MailService } from './mail.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
+import { CompanyCapabilitiesService } from '../saas/company-capabilities.service';
 import { SubscriptionStateService } from '../saas/subscription-state.service';
 import { AttendanceEventStatusService } from '../attendance/attendance-event-status.service';
 import { AttendancePunchRecorderService } from '../attendance/attendance-punch-recorder.service';
@@ -70,6 +71,8 @@ import {
   generateKioskQrChallengeSecret,
 } from '../common/utils/kiosk-qr-challenge.util';
 import { isWithinBranchRadius } from '../common/utils/geo.util';
+import { isArchivedLocationPunch, isExpiredAssignmentPunch, isWrongSitePunch } from '../common/utils/wrong-site.util';
+import { resolveOnboardingPreset, timeOfDay } from './onboarding-presets';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import {
   generateRefreshTokenRaw,
@@ -96,6 +99,18 @@ type AttendanceDecision =
   | { kind: 'CHECK_OUT'; message: string }
   | { kind: 'NONE'; message: string };
 
+type AttendanceFeedback = {
+  message: string;
+  eventStatus?: string | null;
+  reviewReason?: { code: string; label: string } | null;
+  location?: {
+    id: string;
+    name: string;
+    type: string;
+    clientLabel: string | null;
+  } | null;
+};
+
 type VerifyMobileResult = {
   success: boolean;
   confidence: number | null;
@@ -104,6 +119,14 @@ type VerifyMobileResult = {
   capturedAt: string | null;
   employee: { id: string; firstName: string; lastName: string } | null;
   log: { id: string; success: boolean; confidence: number | null; imageUrl: string | null; createdAt: Date };
+  eventStatus?: string | null;
+  reviewReason?: { code: string; label: string } | null;
+  location?: {
+    id: string;
+    name: string;
+    type: string;
+    clientLabel: string | null;
+  } | null;
 };
 
 @Injectable()
@@ -128,6 +151,7 @@ export class AuthService {
     private readonly notifications: NotificationsService,
     private readonly subscriptionState: SubscriptionStateService,
     private readonly subscriptionQuota: SubscriptionQuotaService,
+    private readonly capabilities: CompanyCapabilitiesService,
     private readonly trustedDevices: TrustedDevicesService,
   ) {}
 
@@ -151,15 +175,32 @@ export class AuthService {
           sku,
           organizationSize: dto.organizationSize,
           email: email,
+          industrySector: dto.industrySector ?? null,
+          expectedSiteCount: dto.expectedSiteCount ?? null,
+          workforceModel: dto.workforceModel ?? null,
+          schedulePattern: dto.schedulePattern ?? null,
+          countryCode: dto.countryCode?.trim().toUpperCase() || null,
+          referralSource: dto.referralSource ?? null,
         },
       });
 
-      await tx.branch.create({
+      const branch = await tx.branch.create({
         data: {
           id: generateDocId('BR'),
           branchName: 'Siège',
           companyId: company.id,
           isHeadOffice: true,
+          isActive: true,
+        },
+      });
+
+      await tx.timeGateLocation.create({
+        data: {
+          id: generateDocId('LOC'),
+          companyId: company.id,
+          name: 'Siège',
+          type: 'BRANCH_SITE',
+          branchId: branch.id,
           isActive: true,
         },
       });
@@ -181,6 +222,53 @@ export class AuthService {
         },
       });
 
+      // One-shot onboarding presets (départements + horaires) — never a permanent sector mode
+      const preset = resolveOnboardingPreset({
+        industrySector: dto.industrySector,
+        schedulePattern: dto.schedulePattern,
+      });
+      for (const dept of preset.departments) {
+        await tx.department.create({
+          data: {
+            id: generateDocId('DEPT'),
+            companyId: company.id,
+            departmentName: dept.name,
+            code: dept.code,
+          },
+        });
+      }
+      let defaultShiftTypeId: string | null = null;
+      for (const shift of preset.shifts) {
+        const createdShift = await tx.shiftType.create({
+          data: {
+            id: generateDocId('SHIFT'),
+            companyId: company.id,
+            branchId: branch.id,
+            shiftName: shift.name,
+            startTime: timeOfDay(shift.start),
+            endTime: timeOfDay(shift.end),
+            lateGraceMinutes: 10,
+          },
+        });
+        if (!defaultShiftTypeId) defaultShiftTypeId = createdShift.id;
+        await tx.shiftTypeWeekDay.createMany({
+          data: shift.weekdays.map((day, idx) => ({
+            id: generateDocId('SWD'),
+            shiftTypeId: createdShift.id,
+            day,
+            startTime: shift.start,
+            endTime: shift.end,
+            idx,
+          })),
+        });
+      }
+      if (defaultShiftTypeId) {
+        await tx.timeGateSystemSettings.update({
+          where: { companyId: company.id },
+          data: { defaultShiftTypeId },
+        });
+      }
+
       const user = await tx.user.create({
         data: {
           id: generateDocId('USR'),
@@ -201,6 +289,8 @@ export class AuthService {
           plan: 'TRIAL',
           maxEmployees: settings.trialMaxEmployees,
           maxKiosks: settings.trialMaxKiosks,
+          maxLocations: settings.trialMaxLocations ?? 1,
+          capabilities: ['anomaly_workflow', 'client_missions'],
           status: TimeGateSubscriptionStatus.TRIAL,
           source: TimeGateSubscriptionSource.SELF_SIGNUP,
           trialEndsAt,
@@ -519,7 +609,18 @@ export class AuthService {
       },
       select: { id: true, email: true, timeGateRole: true, createdAt: true },
     });
-    return { ...user, role: user.timeGateRole };
+
+    let managedLocations: Array<{ id: string; name: string; type: string }> = [];
+    if (dto.role === TimeGateUserRole.MANAGER && dto.locationIds?.length) {
+      await this.capabilities.assertCapability(companyId, 'scoped_managers');
+      managedLocations = await this.replaceManagedLocations(
+        user.id,
+        companyId,
+        dto.locationIds,
+      );
+    }
+
+    return { ...user, role: user.timeGateRole, managedLocations };
   }
 
   async activateSubscription(user: JwtUser, dto: ActivateSubscriptionDto) {
@@ -785,12 +886,20 @@ export class AuthService {
             status: true,
           },
         },
+        managedLocations: {
+          select: {
+            location: {
+              select: { id: true, name: true, type: true },
+            },
+          },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
     return users.map((u) => ({
       ...u,
       role: u.timeGateRole,
+      managedLocations: u.managedLocations.map((row) => row.location),
       employee: u.employee
         ? {
             id: u.employee.id,
@@ -799,6 +908,104 @@ export class AuthService {
           }
         : null,
     }));
+  }
+
+  async getManagedLocations(actor: JwtUser, userId: string) {
+    const target = await this.requireOrgUser(actor, userId);
+    const rows = await this.prisma.timeGateUserLocation.findMany({
+      where: { userId: target.id },
+      select: {
+        location: { select: { id: true, name: true, type: true, clientLabel: true } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    return {
+      userId: target.id,
+      role: target.timeGateRole,
+      locations: rows.map((r) => r.location),
+    };
+  }
+
+  async setManagedLocations(actor: JwtUser, userId: string, locationIds: string[]) {
+    const target = await this.requireOrgUser(actor, userId);
+    if (target.timeGateRole !== TimeGateUserRole.MANAGER) {
+      throw new BadRequestException('Seuls les managers peuvent avoir un périmètre de lieux');
+    }
+    if (!actor.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    await this.capabilities.assertCapability(actor.companyId, 'scoped_managers');
+    const locations = await this.replaceManagedLocations(
+      target.id,
+      actor.companyId,
+      locationIds,
+    );
+    return { userId: target.id, locations };
+  }
+
+  private async requireOrgUser(actor: JwtUser, userId: string) {
+    if (actor.kind !== 'user' || actor.role !== TimeGateUserRole.ADMIN) {
+      throw new ForbiddenException('Only organization ADMIN can manage user scopes');
+    }
+    if (!actor.companyId) {
+      throw new BadRequestException('Company context is required');
+    }
+    const target = await this.prisma.user.findFirst({
+      where: { id: userId, companyId: actor.companyId },
+      select: { id: true, timeGateRole: true, companyId: true },
+    });
+    if (!target) throw new NotFoundException('User not found');
+    return target;
+  }
+
+  private async replaceManagedLocations(
+    userId: string,
+    companyId: string,
+    locationIds: string[],
+  ) {
+    const uniqueIds = [...new Set(locationIds.map((id) => id.trim()).filter(Boolean))];
+    if (uniqueIds.length > 0) {
+      const locations = await this.prisma.timeGateLocation.findMany({
+        where: { id: { in: uniqueIds }, companyId },
+        select: { id: true, name: true, type: true, branchId: true },
+      });
+      if (locations.length !== uniqueIds.length) {
+        throw new BadRequestException('Un ou plusieurs lieux sont invalides');
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.timeGateUserLocation.deleteMany({ where: { userId } });
+        await tx.timeGateUserLocation.createMany({
+          data: locations.map((loc) => ({
+            id: generateDocId('USLOC'),
+            userId,
+            locationId: loc.id,
+          })),
+        });
+        // Keep legacy branch scope in sync for BRANCH_SITE locations
+        const branchIds = [
+          ...new Set(locations.map((l) => l.branchId).filter((id): id is string => Boolean(id))),
+        ];
+        await tx.timeGateUserBranch.deleteMany({ where: { userId } });
+        if (branchIds.length > 0) {
+          await tx.timeGateUserBranch.createMany({
+            data: branchIds.map((branchId) => ({
+              id: generateDocId('USBR'),
+              userId,
+              branchId,
+            })),
+          });
+        }
+      });
+
+      return locations.map((l) => ({ id: l.id, name: l.name, type: l.type }));
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.timeGateUserLocation.deleteMany({ where: { userId } }),
+      this.prisma.timeGateUserBranch.deleteMany({ where: { userId } }),
+    ]);
+    return [];
   }
 
   async createOrganization(dto: CreateOrganizationDto) {
@@ -1756,10 +1963,14 @@ export class AuthService {
           companyId: true,
           branchId: true,
           shiftLocationId: true,
+          isActive: true,
         },
       });
       if (!kiosk) {
         throw new NotFoundException('Kiosk not found');
+      }
+      if (!kiosk.isActive) {
+        throw new ForbiddenException('Kiosque désactivé');
       }
       await this.assertOfflineSyncPolicy(kiosk.companyId, options?.offlineSync, options?.capturedAt);
 
@@ -1860,10 +2071,10 @@ export class AuthService {
         });
       }
 
-      let attendanceMessage: string | null = null;
+      let attendanceFeedback: AttendanceFeedback | null = null;
       let birthdayMessage: string | null = null;
       if (success && matched) {
-        attendanceMessage = await this.applyAttendanceFromVerification({
+        attendanceFeedback = await this.applyAttendanceFromVerification({
           employeeId: matched.employeeId,
           kioskId: kiosk.id,
           branchId: kiosk.branchId,
@@ -1884,7 +2095,9 @@ export class AuthService {
       const welcomeMessage = success
         ? `Bienvenue ${matched!.firstName} ${matched!.lastName}`
         : 'Identité non reconnue';
-      const message = [welcomeMessage, attendanceMessage, birthdayMessage].filter(Boolean).join(' | ');
+      const message = [welcomeMessage, attendanceFeedback?.message, birthdayMessage]
+        .filter(Boolean)
+        .join(' | ');
 
       const response: VerifyMobileResult = {
         success,
@@ -1906,6 +2119,9 @@ export class AuthService {
           imageUrl: log.photo,
           createdAt: log.createdAt,
         },
+        eventStatus: attendanceFeedback?.eventStatus ?? null,
+        reviewReason: attendanceFeedback?.reviewReason ?? null,
+        location: attendanceFeedback?.location ?? null,
       };
 
       if (idempotencyCacheKey) {
@@ -1946,9 +2162,12 @@ export class AuthService {
 
     const kiosk = await this.prisma.timeGateKiosk.findUnique({
       where: { id: payload.kioskId },
-      select: { id: true, companyId: true, branchId: true },
+      select: { id: true, companyId: true, branchId: true, isActive: true },
     });
     if (!kiosk) throw new NotFoundException('Kiosk not found');
+    if (!kiosk.isActive) {
+      throw new ForbiddenException('Kiosque désactivé');
+    }
 
     await this.prisma.timeGateKiosk.update({
       where: { id: kiosk.id },
@@ -1997,7 +2216,7 @@ export class AuthService {
       select: { id: true, success: true, confidence: true, photo: true, createdAt: true },
     });
 
-    const attendanceMessage = await this.applyAttendanceFromVerification({
+    const attendanceFeedback = await this.applyAttendanceFromVerification({
       employeeId: employee.id,
       kioskId: kiosk.id,
       branchId: kiosk.branchId,
@@ -2013,7 +2232,11 @@ export class AuthService {
       longitude: dto.longitude,
     });
     const birthdayMessage = await this.buildBirthdayMessage(employee.id);
-    const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
+    const message = [
+      `Bienvenue ${firstName} ${lastName}`.trim(),
+      attendanceFeedback.message,
+      birthdayMessage,
+    ]
       .filter(Boolean)
       .join(' | ');
 
@@ -2031,6 +2254,9 @@ export class AuthService {
         imageUrl: log.photo,
         createdAt: log.createdAt,
       },
+      eventStatus: attendanceFeedback.eventStatus ?? null,
+      reviewReason: attendanceFeedback.reviewReason ?? null,
+      location: attendanceFeedback.location ?? null,
     };
 
     if (idempotencyCacheKey) {
@@ -2065,9 +2291,12 @@ export class AuthService {
 
     const kiosk = await this.prisma.timeGateKiosk.findUnique({
       where: { id: payload.kioskId },
-      select: { id: true, companyId: true, branchId: true, nfcEnabled: true },
+      select: { id: true, companyId: true, branchId: true, nfcEnabled: true, isActive: true },
     });
     if (!kiosk) throw new NotFoundException('Kiosk not found');
+    if (!kiosk.isActive) {
+      throw new ForbiddenException('Kiosque désactivé');
+    }
     if (!kiosk.nfcEnabled) {
       throw new ForbiddenException('Pointage NFC desactive sur cette borne');
     }
@@ -2145,7 +2374,7 @@ export class AuthService {
       select: { id: true, success: true, confidence: true, photo: true, createdAt: true },
     });
 
-    const attendanceMessage = await this.applyAttendanceFromVerification({
+    const attendanceFeedback = await this.applyAttendanceFromVerification({
       employeeId: params.employee.id,
       kioskId: params.kiosk.id,
       branchId: params.kiosk.branchId,
@@ -2161,7 +2390,11 @@ export class AuthService {
       longitude: params.longitude,
     });
     const birthdayMessage = await this.buildBirthdayMessage(params.employee.id);
-    const message = [`Bienvenue ${firstName} ${lastName}`.trim(), attendanceMessage, birthdayMessage]
+    const message = [
+      `Bienvenue ${firstName} ${lastName}`.trim(),
+      attendanceFeedback.message,
+      birthdayMessage,
+    ]
       .filter(Boolean)
       .join(' | ');
 
@@ -2179,6 +2412,9 @@ export class AuthService {
         imageUrl: log.photo,
         createdAt: log.createdAt,
       },
+      eventStatus: attendanceFeedback.eventStatus ?? null,
+      reviewReason: attendanceFeedback.reviewReason ?? null,
+      location: attendanceFeedback.location ?? null,
     };
 
     if (params.idempotencyCacheKey) {
@@ -2237,16 +2473,24 @@ export class AuthService {
     authMethod?: TimeGateAttendanceAuthMethod;
     latitude?: number;
     longitude?: number;
-  }): Promise<string> {
+  }): Promise<AttendanceFeedback> {
     const employee = await this.prisma.employee.findUnique({
       where: { id: params.employeeId },
-      select: { id: true, employeeName: true, firstName: true, lastName: true, status: true, branchId: true },
+      select: {
+        id: true,
+        employeeName: true,
+        firstName: true,
+        lastName: true,
+        status: true,
+        branchId: true,
+        homeLocationId: true,
+      },
     });
     if (!employee || employee.status !== EmployeeStatus.ACTIVE) {
-      return 'Employe introuvable ou inactif pour le pointage.';
+      return { message: 'Employe introuvable ou inactif pour le pointage.' };
     }
-    if (!employee.branchId) {
-      return "Employe sans site d'affectation. Pointage non enregistre.";
+    if (!employee.branchId && !employee.homeLocationId) {
+      return { message: "Employe sans site d'affectation. Pointage non enregistre." };
     }
     if (
       params.latitude != null &&
@@ -2254,20 +2498,49 @@ export class AuthService {
       Number.isFinite(params.latitude) &&
       Number.isFinite(params.longitude)
     ) {
-      const employeeBranch = await this.prisma.branch.findUnique({
-        where: { id: employee.branchId },
-        select: { id: true, branchName: true, latitude: true, longitude: true, checkinRadius: true },
-      });
-      if (employeeBranch?.latitude != null && employeeBranch.longitude != null) {
+      const geoTarget = employee.homeLocationId
+        ? await this.prisma.timeGateLocation.findUnique({
+            where: { id: employee.homeLocationId },
+            select: {
+              id: true,
+              name: true,
+              latitude: true,
+              longitude: true,
+              checkinRadius: true,
+            },
+          })
+        : employee.branchId
+          ? await this.prisma.branch.findUnique({
+              where: { id: employee.branchId },
+              select: {
+                id: true,
+                branchName: true,
+                latitude: true,
+                longitude: true,
+                checkinRadius: true,
+              },
+            }).then((b) =>
+              b
+                ? {
+                    id: b.id,
+                    name: b.branchName,
+                    latitude: b.latitude,
+                    longitude: b.longitude,
+                    checkinRadius: b.checkinRadius,
+                  }
+                : null,
+            )
+          : null;
+      if (geoTarget?.latitude != null && geoTarget.longitude != null) {
         const inRange = isWithinBranchRadius(
           params.latitude,
           params.longitude,
-          Number(employeeBranch.latitude),
-          Number(employeeBranch.longitude),
-          employeeBranch.checkinRadius,
+          Number(geoTarget.latitude),
+          Number(geoTarget.longitude),
+          geoTarget.checkinRadius,
         );
         if (!inRange) {
-          const msg = `Hors perimetre site (${employeeBranch.branchName}). Pointage refuse.`;
+          const msg = `Hors perimetre site (${geoTarget.name}). Pointage refuse.`;
           await this.punchAttemptLog.logAttempt({
             companyId: params.companyId,
             employeeId: params.employeeId,
@@ -2279,7 +2552,7 @@ export class AuthService {
             message: msg,
             occurredAt: params.occurredAt ?? new Date(),
           });
-          return msg;
+          return { message: msg };
         }
       }
     }
@@ -2297,7 +2570,12 @@ export class AuthService {
     );
     const windows = punchCtx.windows;
     if (!windows) {
-      return this.applyLegacyAttendanceFromVerification(params, occurredAt, employee.branchId);
+      const legacyMessage = await this.applyLegacyAttendanceFromVerification(
+        params,
+        occurredAt,
+        employee.branchId ?? params.branchId,
+      );
+      return { message: legacyMessage };
     }
 
     const todaysEvents = await this.prisma.timeGateAttendanceEvent.findMany({
@@ -2338,14 +2616,38 @@ export class AuthService {
           reason: resolution.message,
         });
       }
-      return resolution.message;
+      return { message: resolution.message };
     }
 
     if (resolution.action === 'NONE') {
-      return resolution.message;
+      return { message: resolution.message };
     }
 
-    const wrongSite = employee.branchId !== params.branchId;
+    const wrongSite = await isWrongSitePunch(this.prisma, {
+      employeeId: employee.id,
+      employeeHomeLocationId: employee.homeLocationId,
+      employeeBranchId: employee.branchId,
+      kioskBranchId: params.branchId,
+      kioskId: params.kioskId,
+      occurredAt,
+      timeZone,
+    });
+    const locationArchived =
+      !wrongSite &&
+      (await isArchivedLocationPunch(this.prisma, {
+        kioskBranchId: params.branchId,
+        kioskId: params.kioskId,
+      }));
+    const assignmentExpired =
+      !wrongSite &&
+      !locationArchived &&
+      (await isExpiredAssignmentPunch(this.prisma, {
+        employeeId: employee.id,
+        kioskBranchId: params.branchId,
+        kioskId: params.kioskId,
+        occurredAt,
+        timeZone,
+      }));
     const messages: string[] = [];
 
     if (
@@ -2359,8 +2661,10 @@ export class AuthService {
         ...params,
         occurredAt: breakEndAt,
         eventType: TimeGateAttendanceEventType.BREAK_END,
-        employeeBranchId: employee.branchId,
+        employeeBranchId: employee.branchId ?? params.branchId,
         wrongSite,
+        locationArchived,
+        assignmentExpired,
         idempotencySuffix: 'break_end_inferred',
       });
       messages.push(breakResult.message);
@@ -2375,14 +2679,24 @@ export class AuthService {
           : resolution.action === 'BREAK_END'
             ? TimeGateAttendanceEventType.BREAK_END
             : TimeGateAttendanceEventType.CHECK_OUT,
-      employeeBranchId: employee.branchId,
+      employeeBranchId: employee.branchId ?? params.branchId,
       wrongSite,
+      locationArchived,
+      assignmentExpired,
       lateAbsent: resolution.action === 'CHECK_IN' ? resolution.lateAbsent : undefined,
       idempotencySuffix: resolution.action.toLowerCase(),
     });
     messages.push(mainResult.message);
 
-    return messages.filter(Boolean).join(' ');
+    return {
+      message: messages.filter(Boolean).join(' '),
+      eventStatus: mainResult.status,
+      reviewReason:
+        mainResult.reviewReasonCode && mainResult.reviewReasonLabel
+          ? { code: mainResult.reviewReasonCode, label: mainResult.reviewReasonLabel }
+          : null,
+      location: mainResult.location,
+    };
   }
 
   private isOutsideWindowAttemptMessage(message: string): boolean {
@@ -2573,21 +2887,33 @@ export class AuthService {
       throw new NotFoundException('Branch not found');
     }
 
-    const existing = await this.prisma.timeGateKiosk.findUnique({ where: { branchId } });
-    if (existing) {
-      return existing;
+    const branchLocation = await this.prisma.timeGateLocation.findUnique({
+      where: { branchId },
+      select: { id: true },
+    });
+
+    const existingCount = await this.prisma.timeGateKiosk.count({ where: { branchId } });
+    if (existingCount === 0) {
+      return this.prisma.timeGateKiosk.create({
+        data: {
+          id: generateDocId('KSK'),
+          kioskName: name,
+          branchId,
+          companyId: branch.companyId,
+          locationId: branchLocation?.id ?? null,
+          status: KioskStatus.ONLINE,
+          lastSeenAt: new Date(),
+        },
+      });
     }
 
-    return this.prisma.timeGateKiosk.create({
-      data: {
-        id: generateDocId('KSK'),
-        kioskName: name,
-        branchId,
-        companyId: branch.companyId,
-        status: KioskStatus.ONLINE,
-        lastSeenAt: new Date(),
-      },
+    // Reuse first kiosk on branch when re-provisioning without multi_kiosks intent.
+    // Explicit multi-kiosk creation goes through POST /kiosks (dashboard).
+    const existing = await this.prisma.timeGateKiosk.findFirst({
+      where: { branchId },
+      orderBy: { createdAt: 'asc' },
     });
+    return existing!;
   }
 
   private toVector(value: unknown): number[] | null {

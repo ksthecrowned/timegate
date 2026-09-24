@@ -10,6 +10,7 @@ import ActionButtons from '@/components/ui/ActionButtons'
 import {
   createEmployeeContract,
   deleteEmployeeContract,
+  endEmployeeContract,
   listEmployeeContracts,
   updateEmployeeContract,
   type EmployeeContractPayload,
@@ -181,6 +182,25 @@ export default function EmployeeContractsCard({
     }
   }
 
+  async function handleEndContract(contractId: string) {
+    if (
+      !window.confirm(
+        'Clôturer ce contrat ? L’employé reste dans l’organisation (fin de mission ≠ suppression).',
+      )
+    ) {
+      return
+    }
+    setError('')
+    try {
+      await endEmployeeContract(employeeId, contractId, {
+        reason: 'Fin de mission / fin de contrat',
+      })
+      await load()
+    } catch (err) {
+      setError(err instanceof HttpError ? err.message : 'Clôture impossible.')
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -283,6 +303,13 @@ export default function EmployeeContractsCard({
               },
               ...(row.isCurrent
                 ? [
+                    {
+                      label: 'Clôturer',
+                      faIcon: 'fa-solid fa-flag-checkered',
+                      onClick: () => {
+                        void handleEndContract(row.id)
+                      },
+                    },
                     {
                       label: 'Renouveler',
                       faIcon: 'fa-solid fa-rotate',

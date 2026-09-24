@@ -6,6 +6,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { OperationalAccessGuard } from '../common/guards/operational-access.guard';
 import { DocIdPipe } from '../common/pipes/doc-id.pipe';
+import { CloseShiftAssignmentDto } from './dto/close-shift-assignment.dto';
 import { CreateShiftAssignmentDto } from './dto/create-shift-assignment.dto';
 import { ShiftAssignmentQueryDto } from './dto/shift-assignment-query.dto';
 import { UpdateShiftAssignmentDto } from './dto/update-shift-assignment.dto';
@@ -36,6 +37,16 @@ export class ShiftAssignmentsController {
   @Patch(':id')
   update(@Param('id', DocIdPipe) id: string, @Body() dto: UpdateShiftAssignmentDto, @CurrentUser() user: JwtUser) {
     return this.service.update(id, dto, user);
+  }
+
+  @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)
+  @Post(':id/close')
+  close(
+    @Param('id', DocIdPipe) id: string,
+    @Body() dto: CloseShiftAssignmentDto,
+    @CurrentUser() user: JwtUser,
+  ) {
+    return this.service.close(id, dto, user);
   }
 
   @Roles(TimeGateUserRole.ADMIN, TimeGateUserRole.MANAGER)

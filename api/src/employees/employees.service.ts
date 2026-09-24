@@ -123,6 +123,11 @@ export class EmployeesService {
       payGroupId = defaultGroup.id;
     }
 
+    const homeLocation = await this.prisma.timeGateLocation.findUnique({
+      where: { branchId },
+      select: { id: true },
+    });
+
     const created = await this.prisma.employee.create({
       data: {
         id: generateDocId('EMP'),
@@ -148,6 +153,7 @@ export class EmployeesService {
         dateOfJoining: dto.hireDate ? new Date(dto.hireDate) : undefined,
         companyId: branch.companyId,
         branchId,
+        homeLocationId: homeLocation?.id ?? null,
         defaultShiftId: dto.defaultShiftId,
         departmentId: dto.departmentId,
         designationId: dto.designationId,
@@ -742,6 +748,55 @@ export class EmployeesService {
     this.assertCompanyAccess(user, contract.companyId);
     await this.prisma.timeGateEmployeeContract.delete({ where: { id: contractId } });
     return { id: contractId, deleted: true };
+  }
+
+  /** Soft-end : isCurrent=false + expiresAt — ne supprime pas l’employé. */
+  async endContract(
+    employeeId: string,
+    contractId: string,
+    dto: { expiresAt?: string; reason?: string },
+    user: JwtUser,
+  ) {
+    const contract = await this.prisma.timeGateEmployeeContract.findFirst({
+      where: { id: contractId, employeeId },
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, employeeName: true },
+        },
+      },
+    });
+    if (!contract) throw new NotFoundException('Contract not found');
+    this.assertCompanyAccess(user, contract.companyId);
+
+    const expiresAt = dto.expiresAt
+      ? new Date(dto.expiresAt)
+      : new Date(`${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`);
+    if (Number.isNaN(expiresAt.getTime())) {
+      throw new BadRequestException('Invalid expiresAt date');
+    }
+
+    const updated = await this.prisma.timeGateEmployeeContract.update({
+      where: { id: contractId },
+      data: {
+        isCurrent: false,
+        expiresAt,
+        ...(dto.reason
+          ? {
+              notes: [contract.notes, `Clôturé: ${dto.reason.trim()}`]
+                .filter(Boolean)
+                .join(' — ')
+                .slice(0, 2000),
+            }
+          : {}),
+      },
+      include: {
+        employee: {
+          select: { id: true, firstName: true, lastName: true, employeeName: true },
+        },
+      },
+    });
+
+    return this.toLegacyContractShape(updated);
   }
 
   private toLegacyContractShape(

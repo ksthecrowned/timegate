@@ -13,6 +13,8 @@ import {
   shiftDurationMinutes,
   timeDateToMinutes,
   toWeekDay,
+  workDateUtcFromOccurredAt,
+  resolveOrgTimeZone,
 } from '../common/utils/punch-time.util';
 import { ResolvedPunchWindows } from './punch-window.types';
 
@@ -37,10 +39,6 @@ function minutesToHm(total: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-function toUtcDay(at: Date): Date {
-  return new Date(Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate()));
-}
-
 @Injectable()
 export class PunchWindowService {
   constructor(private readonly prisma: PrismaService) {}
@@ -52,7 +50,7 @@ export class PunchWindowService {
     employeeId: string,
     at: Date,
   ): Promise<ResolvedEmployeeSchedule> {
-    const day = toUtcDay(at);
+    const day = await this.workDayForEmployee(employeeId, at);
     const assignment = await this.findActiveAssignment(employeeId, day);
     const shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
 
@@ -159,10 +157,15 @@ export class PunchWindowService {
     employeeId: string,
     at: Date,
   ): Promise<ResolvedPunchWindows | null> {
-    const day = toUtcDay(at);
+    const day = await this.workDayForEmployee(employeeId, at);
     const assignment = await this.findActiveAssignment(employeeId, day);
-    const shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
-    if (!shiftType) return null;
+    let shiftType = (assignment?.shiftType as ShiftTypeWithWeekDays | undefined) ?? null;
+
+    if (!shiftType) {
+      shiftType = await this.resolveFallbackShiftType(employeeId);
+      if (!shiftType) return null;
+    }
+
     const allowCheckInAfterBreakStart = await this.resolveAllowCheckInAfterBreakStart(
       shiftType.companyId,
     );
@@ -194,7 +197,18 @@ export class PunchWindowService {
       return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
     }
 
-    if (weekDays.length === 0 || !weekDayRow) return null;
+    if (weekDays.length === 0) {
+      const { startMin, endMin } = resolveShiftBounds(
+        shiftType.startTime,
+        shiftType.endTime,
+        null,
+        null,
+      );
+      if (startMin == null || endMin == null) return null;
+      return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
+    }
+
+    if (!weekDayRow) return null;
 
     const { startMin, endMin } = resolveShiftBounds(
       shiftType.startTime,
@@ -206,6 +220,30 @@ export class PunchWindowService {
     return this.buildWindows(shiftType, startMin, endMin, allowCheckInAfterBreakStart);
   }
 
+  /** assignment → employee.defaultShift → company defaultShiftType */
+  private async resolveFallbackShiftType(
+    employeeId: string,
+  ): Promise<ShiftTypeWithWeekDays | null> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: {
+        companyId: true,
+        defaultShift: { include: { weekDays: true } },
+      },
+    });
+    if (!employee) return null;
+    if (employee.defaultShift) {
+      return employee.defaultShift as ShiftTypeWithWeekDays;
+    }
+    const settings = await this.prisma.timeGateSystemSettings.findUnique({
+      where: { companyId: employee.companyId },
+      select: {
+        defaultShiftType: { include: { weekDays: true } },
+      },
+    });
+    return (settings?.defaultShiftType as ShiftTypeWithWeekDays | null) ?? null;
+  }
+
   /**
    * Date keys (YYYY-MM-DD UTC) in [from, to] where the employee has a planned work shift.
    */
@@ -214,8 +252,8 @@ export class PunchWindowService {
     from: Date,
     to: Date,
   ): Promise<string[]> {
-    const start = toUtcDay(from);
-    const end = toUtcDay(to);
+    const start = await this.workDayForEmployee(employeeId, from);
+    const end = await this.workDayForEmployee(employeeId, to);
     if (start > end) return [];
 
     const assignments = await this.prisma.shiftAssignment.findMany({
@@ -387,6 +425,17 @@ export class PunchWindowService {
       return settings.allowCheckInAfterBreakStart;
     }
     return process.env.TIMEGATE_ALLOW_CHECKIN_AFTER_BREAK_START !== '0';
+  }
+
+  private async workDayForEmployee(employeeId: string, at: Date): Promise<Date> {
+    const employee = await this.prisma.employee.findUnique({
+      where: { id: employeeId },
+      select: { company: { select: { timeZone: true } } },
+    });
+    return workDateUtcFromOccurredAt(
+      at,
+      resolveOrgTimeZone(employee?.company?.timeZone),
+    );
   }
 
   private async findDayException(shiftTypeId: string, day: Date) {

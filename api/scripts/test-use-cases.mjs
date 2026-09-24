@@ -19,6 +19,7 @@ import { runUc16 } from './test/sections/uc16-notifications.mjs'
 import { runUc17 } from './test/sections/uc17-punch-windows.mjs'
 import { runUc18 } from './test/sections/uc18-multitenant.mjs'
 import { runUc19 } from './test/sections/uc19-perf.mjs'
+import { runUc20 } from './test/sections/uc20-stress-sectors.mjs'
 
 const sections = [
   { name: 'UC-01 Auth & rôles', run: runUc01 },
@@ -41,6 +42,7 @@ const sections = [
   { name: 'UC-17 Fenêtres de pointage', run: runUc17 },
   { name: 'UC-18 Multi-tenant agressif', run: runUc18 },
   { name: 'UC-19 Perf smoke', run: runUc19 },
+  { name: 'UC-20 Stress multi-secteurs (G)', run: runUc20 },
 ]
 
 async function main() {

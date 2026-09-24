@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { Prisma, TimeGateUserRole } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PLATFORM_ADMIN } from '../common/constants/platform-admin';
 import { JwtUser } from '../common/decorators/current-user.decorator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,18 +7,35 @@ import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { generateDocId } from '../common/utils/doc-id.util';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+import { LocationsService } from '../locations/locations.service';
+import { SubscriptionQuotaService } from '../saas/subscription-quota.service';
 
 @Injectable()
 export class BranchesService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly locations: LocationsService,
+    private readonly quotas: SubscriptionQuotaService,
+  ) {}
 
-  create(dto: CreateBranchDto, companyId: string) {
-    return this.prisma.branch
-      .create({
-        data: this.buildCreateData(dto, companyId),
-        include: this.branchIncludes(),
-      })
-      .then((b) => this.toApiShape(b));
+  async create(dto: CreateBranchDto, companyId: string) {
+    await this.quotas.assertCanAddLocation(companyId);
+    const branch = await this.prisma.branch.create({
+      data: this.buildCreateData(dto, companyId),
+      include: this.branchIncludes(),
+    });
+    const location = await this.locations.ensureBranchSiteLocation({
+      companyId,
+      branchId: branch.id,
+      name: branch.branchName,
+      timeZone: branch.timeZone,
+      address: branch.address,
+      latitude: branch.latitude,
+      longitude: branch.longitude,
+      checkinRadius: branch.checkinRadius,
+      isActive: branch.isActive,
+    });
+    return this.toApiShape(branch, location.id);
   }
 
   async findAll(query: PaginationQueryDto, companyId?: string) {
@@ -43,12 +60,15 @@ export class BranchesService {
         orderBy: { branchName: 'asc' },
         skip: (page - 1) * limit,
         take: limit,
-        include: this.branchIncludes(),
+        include: {
+          ...this.branchIncludes(),
+          punchLocation: { select: { id: true } },
+        },
       }),
       this.prisma.branch.count({ where }),
     ]);
     return {
-      data: items.map((b) => this.toApiShape(b)),
+      data: items.map((b) => this.toApiShape(b, b.punchLocation?.id ?? null)),
       meta: { page, limit, total, totalPages: Math.ceil(total / limit) },
     };
   }
@@ -56,7 +76,10 @@ export class BranchesService {
   async findOne(id: string, user?: JwtUser) {
     const branch = await this.prisma.branch.findUnique({
       where: { id },
-      include: this.branchIncludes(),
+      include: {
+        ...this.branchIncludes(),
+        punchLocation: { select: { id: true } },
+      },
     });
     if (!branch) {
       throw new NotFoundException('Branch not found');
@@ -64,7 +87,7 @@ export class BranchesService {
     if (user) {
       this.assertCompanyAccess(user, branch.companyId);
     }
-    return this.toApiShape(branch);
+    return this.toApiShape(branch, branch.punchLocation?.id ?? null);
   }
 
   async update(id: string, dto: UpdateBranchDto, user: JwtUser) {
@@ -72,9 +95,26 @@ export class BranchesService {
     const updated = await this.prisma.branch.update({
       where: { id },
       data: this.buildUpdateData(dto),
-      include: this.branchIncludes(),
+      include: {
+        ...this.branchIncludes(),
+        punchLocation: { select: { id: true } },
+      },
     });
-    return this.toApiShape(updated);
+    if (updated.punchLocation) {
+      await this.prisma.timeGateLocation.update({
+        where: { id: updated.punchLocation.id },
+        data: {
+          ...(dto.name !== undefined ? { name: dto.name.trim() } : {}),
+          ...(dto.address !== undefined ? { address: dto.address } : {}),
+          ...(dto.timezone !== undefined ? { timeZone: dto.timezone } : {}),
+          ...(dto.latitude !== undefined ? { latitude: dto.latitude } : {}),
+          ...(dto.longitude !== undefined ? { longitude: dto.longitude } : {}),
+          ...(dto.checkinRadius !== undefined ? { checkinRadius: dto.checkinRadius } : {}),
+          ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+        },
+      });
+    }
+    return this.toApiShape(updated, updated.punchLocation?.id ?? null);
   }
 
   async remove(id: string, user: JwtUser) {
@@ -143,27 +183,30 @@ export class BranchesService {
     }
   }
 
-  private toApiShape(branch: {
-    id: string;
-    branchName: string;
-    companyId: string;
-    address: string | null;
-    timeZone: string;
-    branchCode: string | null;
-    cityId: string | null;
-    countryId: string | null;
-    latitude: Prisma.Decimal | null;
-    longitude: Prisma.Decimal | null;
-    checkinRadius: number | null;
-    phone: string | null;
-    email: string | null;
-    isHeadOffice: boolean;
-    isActive: boolean;
-    createdAt: Date;
-    updatedAt: Date;
-    city?: { id: string; name: string; countryId: string } | null;
-    country?: { id: string; name: string; isoCode: string } | null;
-  }) {
+  private toApiShape(
+    branch: {
+      id: string;
+      branchName: string;
+      companyId: string;
+      address: string | null;
+      timeZone: string;
+      branchCode: string | null;
+      cityId: string | null;
+      countryId: string | null;
+      latitude: Prisma.Decimal | null;
+      longitude: Prisma.Decimal | null;
+      checkinRadius: number | null;
+      phone: string | null;
+      email: string | null;
+      isHeadOffice: boolean;
+      isActive: boolean;
+      createdAt: Date;
+      updatedAt: Date;
+      city?: { id: string; name: string; countryId: string } | null;
+      country?: { id: string; name: string; isoCode: string } | null;
+    },
+    locationId: string | null,
+  ) {
     return {
       id: branch.id,
       name: branch.branchName,
@@ -179,6 +222,7 @@ export class BranchesService {
       email: branch.email,
       isHeadOffice: branch.isHeadOffice,
       isActive: branch.isActive,
+      locationId,
       city: branch.city ? { id: branch.city.id, name: branch.city.name } : null,
       country: branch.country
         ? { id: branch.country.id, name: branch.country.name, isoCode: branch.country.isoCode }

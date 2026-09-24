@@ -11,6 +11,7 @@ import { KioskQrPunchService } from './kiosk-qr-punch.service';
 import { PunchAttemptLogService } from './punch-attempt-log.service';
 import { PunchCronService } from './punch-cron.service';
 import { DemoAttendanceSeedCronService } from './demo-attendance-seed-cron.service';
+import { ActionableNotificationsCronService } from './actionable-notifications-cron.service';
 import { PunchWindowService } from './punch-window.service';
 
 @Module({
@@ -27,6 +28,7 @@ import { PunchWindowService } from './punch-window.service';
     PunchWindowService,
     PunchCronService,
     DemoAttendanceSeedCronService,
+    ActionableNotificationsCronService,
   ],
   exports: [
     AttendanceService,

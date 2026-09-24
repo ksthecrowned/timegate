@@ -9,6 +9,7 @@ import { SubscriptionPlansController } from './subscription-plans.controller';
 import { SubscriptionPlansService } from './subscription-plans.service';
 import { SubscriptionQuotaService } from './subscription-quota.service';
 import { SubscriptionStateService } from './subscription-state.service';
+import { CompanyCapabilitiesService } from './company-capabilities.service';
 
 @Module({
   imports: [NotificationsModule],
@@ -24,7 +25,13 @@ import { SubscriptionStateService } from './subscription-state.service';
     PlatformSettingsService,
     OrganizationsSaasService,
     SubscriptionCronService,
+    CompanyCapabilitiesService,
   ],
-  exports: [SubscriptionStateService, SubscriptionQuotaService, SubscriptionPlansService],
+  exports: [
+    SubscriptionStateService,
+    SubscriptionQuotaService,
+    SubscriptionPlansService,
+    CompanyCapabilitiesService,
+  ],
 })
 export class SaasModule {}

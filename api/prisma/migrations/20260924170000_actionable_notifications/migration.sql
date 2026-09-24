@@ -1,0 +1,5 @@
+-- O — notifications actionnables (nouveaux types)
+ALTER TYPE "TimeGateNotificationType" ADD VALUE IF NOT EXISTS 'SHIFT_START_MISSING';
+ALTER TYPE "TimeGateNotificationType" ADD VALUE IF NOT EXISTS 'ASSIGNMENT_EXPIRING';
+ALTER TYPE "TimeGateNotificationType" ADD VALUE IF NOT EXISTS 'MISSION_NO_PUNCH';
+ALTER TYPE "TimeGateNotificationType" ADD VALUE IF NOT EXISTS 'ANOMALY_BEFORE_PAYROLL';

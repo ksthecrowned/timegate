@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength, IsArray, ArrayMaxSize, MaxLength } from 'class-validator';
 import { TimeGateUserRole } from '@prisma/client';
 
 /** Roles a tenant ADMIN may assign when creating organization Users. */
@@ -20,4 +20,12 @@ export class CreateUserDto {
 
   @IsIn([...ORGANIZATION_ASSIGNABLE_ROLES])
   role!: OrganizationAssignableRole;
+
+  /** Lieux de périmètre (managers) — capacité `scoped_managers`. */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(100)
+  @IsString({ each: true })
+  @MaxLength(140, { each: true })
+  locationIds?: string[];
 }
