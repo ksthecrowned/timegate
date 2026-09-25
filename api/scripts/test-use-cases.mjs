@@ -1,4 +1,5 @@
 import { createContext, summarize, waitForApi } from './test/helpers.mjs'
+import { assertUcMutationsAllowed } from './test/uc-safety.mjs'
 import { runUc01 } from './test/sections/uc01-auth.mjs'
 import { runUc02 } from './test/sections/uc02-structure.mjs'
 import { runUc03 } from './test/sections/uc03-employees.mjs'
@@ -46,6 +47,8 @@ const sections = [
 ]
 
 async function main() {
+  await assertUcMutationsAllowed()
+
   if (process.env.TIMEGATE_WAIT_API !== '0') {
     process.stdout.write('Attente API… ')
     const ready = await waitForApi()

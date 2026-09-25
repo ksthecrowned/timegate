@@ -49,3 +49,7 @@ Libellés partagés API : `api/src/common/utils/punch-feedback.util.ts`.
 ## Env face (api)
 
 `FACE_ENGINE_PYTHON_BIN`, `FACE_ENGINE_SCRIPT_PATH`, `FACE_ENGINE_TIMEOUT_MS`, `FACE_VERIFY_THRESHOLD`
+
+## Dette technique
+
+Stack actuelle : Python `face_recognition` / dlib (`api/python/face_engine.py`). Peu maintenue ; `pkg_resources` via `face_recognition_models` (pin Setuptools temporaire). **À migrer** vers une lib plus récente — voir `TODOS.md` § Face engine.

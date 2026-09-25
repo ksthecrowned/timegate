@@ -35,6 +35,10 @@ audience: agents
 - ❌ Ignorer idempotency sur sync offline
 - ❌ Assumer R2 toujours dispo pour la photo (upload soft-fail)
 
+## Dette
+
+Stack `face_recognition` / dlib peu maintenue (`pkg_resources` déprécié). Ne pas « corriger » en bumpant Setuptools sans migration moteur. Backlog : `TODOS.md` § Face engine.
+
 ## Liens
 
 - Hub : `docs/ecosystem/integrations/face-and-kiosk.md`

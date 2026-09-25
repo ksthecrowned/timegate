@@ -24,17 +24,22 @@ cd dashboard && bun install && bun run dev
 cd api
 # Recommandé en local : Postgres dédié via E2E_DATABASE_URL (api/.env)
 bun run test:use-cases:e2e
-# → migrate + seed + API sur E2E_DATABASE_URL + UC-01…19, puis stop
+# → migrate + seed + API sur E2E_DATABASE_URL + UC-01…, puis stop
 
 # Manuel (2 terminaux) — même base E2E :
 bun run prisma:migrate:e2e && bun run prisma:seed:e2e && bun run start:e2e
 bun run test:use-cases
+# Le runner refuse l’API si GET /health → e2eDb !== true
 ```
 
-`E2E_DATABASE_URL` doit pointer vers un Postgres **local** (refusé s’il contient `alwaysdata.net`).  
+`E2E_DATABASE_URL` doit pointer vers un Postgres **local** (localhost / 127.0.0.1 — refusé si AlwaysData ou host distant).  
 `DATABASE_URL` (AlwaysData / staging) n’est **pas** utilisé pour ces scripts.
 
-Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-19 **côté API uniquement**.
+Garde-fou : `scripts/test/uc-safety.mjs` lit `/health` et exige `e2eDb: true` (posé par `start:e2e` / `with-e2e-db.mjs`).
+
+Purge si pollution preprod : `bun run cleanup:uc-pollution --dry-run` puis `--confirm`.
+
+Le script [`../scripts/test-use-cases.mjs`](../scripts/test-use-cases.mjs) couvre les UC-01 à UC-20 **côté API uniquement**.
 
 | UC | Thème |
 |----|--------|

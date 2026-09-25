@@ -17,6 +17,7 @@
     "start:e2e": "node scripts/with-e2e-db.mjs bun run start:dev",
     "test:use-cases": "node scripts/test-use-cases.mjs",
     "test:use-cases:e2e": "node scripts/run-use-cases-e2e.mjs",
+    "cleanup:uc-pollution": "bun run scripts/cleanup-uc-pollution.ts",
     "docs:check": "node scripts/docs-check.mjs"
   },
   "dependencies": {

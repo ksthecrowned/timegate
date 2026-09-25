@@ -6,8 +6,10 @@ Ne pas committer de `.env` locaux. Templates : `*/.env.example`.
 
 | Var | Rôle |
 |-----|------|
-| `DATABASE_URL` | PostgreSQL |
-| `E2E_DATABASE_URL` | DB tests |
+| `DATABASE_URL` | PostgreSQL (dev / preprod / prod) |
+| `E2E_DATABASE_URL` | Postgres **local** pour UC — jamais AlwaysData |
+| `TIMEGATE_E2E_DB` | Posé par `start:e2e` → `health.e2eDb=true` |
+| `TIMEGATE_UC_ALLOW_ANY_API` | Contournement urgence (éviter) |
 | `JWT_SECRET`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN` | Auth |
 | `PORT` | Défaut `4001` — bind `0.0.0.0` |
 | `CORS_ORIGIN` | Ex. `http://localhost:3000,http://localhost:3002` (+ origins mobiles) |
