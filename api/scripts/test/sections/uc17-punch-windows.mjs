@@ -4,6 +4,7 @@ import {
   fail,
   localIso,
   pass,
+  pickActiveKioskId,
   provisionKiosk,
   request,
   uniqueWeekdayParts,
@@ -26,23 +27,21 @@ export async function runUc17(ctx) {
     return
   }
 
-  const kioskId = ctx.ids.kioskId
-  let kioskToken = ctx.tokens.kiosk
-  if (!kioskId) {
-    const kiosks = await request('/kiosks?page=1&limit=5', { headers: auth })
-    ctx.ids.kioskId = kiosks.json?.data?.[0]?.id
-  }
+  const kiosks = await request('/kiosks?page=1&limit=20', { headers: auth })
+  // Always re-pick seed HQ kiosk — ctx may hold a ClientQR / stress kiosk from UC-14/15
+  // which breaks punch windows (wrong-site REVIEW instead of double-arrival / early-out).
+  const picked = pickActiveKioskId(kiosks.json)
+  ctx.ids.kioskId = picked || ctx.ids.kioskId
   if (!ctx.ids.kioskId) {
     fail(ctx, 'UC-17 Prérequis kiosk')
     return
   }
+  // Fresh provision — avoids stale inactive tokens from earlier UCs / location archive.
+  const provisioned = await provisionKiosk(ctx.tokens.admin, ctx.ids.kioskId)
+  const kioskToken = provisioned.token
+  ctx.tokens.kiosk = kioskToken
   if (!kioskToken) {
-    const provisioned = await provisionKiosk(ctx.tokens.admin, ctx.ids.kioskId)
-    kioskToken = provisioned.token
-    ctx.tokens.kiosk = kioskToken
-  }
-  if (!kioskToken) {
-    fail(ctx, 'UC-17 Token kiosk manquant')
+    fail(ctx, 'UC-17 Token kiosk manquant', detail(provisioned.json))
     return
   }
   const kioskAuth = authHeader(kioskToken)

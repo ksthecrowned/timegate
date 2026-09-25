@@ -119,6 +119,22 @@ export async function provisionKiosk(adminToken, kioskId) {
   }
 }
 
+/** Prefers an active seed HQ kiosk (not ClientQR / stress leftovers). */
+export function pickActiveKioskId(kiosksJson) {
+  const rows = kiosksJson?.data ?? []
+  const active = rows.filter((k) => k.isActive !== false)
+  const pool = active.length ? active : rows
+  const nameOf = (k) => String(k.kioskName ?? k.name ?? '')
+  const isEphemeral = (k) => /clientqr|stress|uc-?20|uc20/i.test(nameOf(k))
+  const isSeed = (k) => /kiosque|brazzaville|pointe-?noire/i.test(nameOf(k)) && !isEphemeral(k)
+  return (
+    pool.find(isSeed)?.id ??
+    pool.find((k) => !isEphemeral(k))?.id ??
+    pool[0]?.id ??
+    null
+  )
+}
+
 /** ISO local (aligné dateToMinutes / fenêtres serveur). */
 export function localIso(year, month, day, hour, minute = 0, second = 0) {
   return new Date(year, month - 1, day, hour, minute, second, 0).toISOString()

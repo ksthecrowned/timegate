@@ -3,6 +3,7 @@ import {
   detail,
   fail,
   pass,
+  pickActiveKioskId,
   provisionKiosk,
   request,
   requestMultipart,
@@ -62,8 +63,8 @@ export async function runUc14(ctx) {
     fail(ctx, 'UC-14 Enroll image invalide', detail(badEnroll.json))
   }
 
-  const kiosks = await request('/kiosks?page=1&limit=5', { headers: auth })
-  const kioskId = kiosks.json?.data?.[0]?.id
+  const kiosks = await request('/kiosks?page=1&limit=20', { headers: auth })
+  const kioskId = pickActiveKioskId(kiosks.json)
   if (!kioskId) {
     fail(ctx, 'UC-14 Prérequis kiosk', 'aucun kiosk')
     return

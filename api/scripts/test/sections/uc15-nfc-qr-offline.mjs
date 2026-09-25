@@ -6,6 +6,7 @@ import {
   employeeLogin,
   fail,
   pass,
+  pickActiveKioskId,
   provisionKiosk,
   request,
 } from '../helpers.mjs'
@@ -20,8 +21,9 @@ export async function runUc15(ctx) {
     return
   }
 
-  const kiosks = await request('/kiosks?page=1&limit=5', { headers: auth })
-  const kioskId = ctx.ids.kioskId ?? kiosks.json?.data?.[0]?.id
+  const kiosks = await request('/kiosks?page=1&limit=20', { headers: auth })
+  // Prefer seed HQ over ClientQR leftovers (list order is unstable).
+  const kioskId = pickActiveKioskId(kiosks.json) ?? ctx.ids.kioskId
   if (!kioskId) {
     fail(ctx, 'UC-15 Prérequis kiosk')
     return
@@ -31,7 +33,12 @@ export async function runUc15(ctx) {
   const enabled = await request(`/kiosks/${kioskId}`, {
     method: 'PATCH',
     headers: auth,
-    body: JSON.stringify({ nfcEnabled: true, qrEnabled: true, faceEnabled: true }),
+    body: JSON.stringify({
+      isActive: true,
+      nfcEnabled: true,
+      qrEnabled: true,
+      faceEnabled: true,
+    }),
   })
   if (enabled.res.status === 200) pass(ctx, 'UC-15 Kiosk NFC+QR activés')
   else fail(ctx, 'UC-15 Enable NFC/QR', detail(enabled.json))
@@ -48,21 +55,14 @@ export async function runUc15(ctx) {
     fail(ctx, 'UC-15 Badge NFC', detail(badge.json))
   }
 
-  let kioskToken = ctx.tokens.kiosk
+  // Always re-provision after enable — refreshes token + re-activates (archive restore
+  // leaves kiosks off; stale UC-14 token would otherwise 401 "Kiosk inactive").
+  const provisioned = await provisionKiosk(ctx.tokens.admin, kioskId)
+  const kioskToken = provisioned.token
+  ctx.tokens.kiosk = kioskToken
   if (!kioskToken) {
-    const provisioned = await provisionKiosk(ctx.tokens.admin, kioskId)
-    kioskToken = provisioned.token
-    ctx.tokens.kiosk = kioskToken
-  }
-  if (!kioskToken) {
-    fail(ctx, 'UC-15 Token kiosk manquant')
+    fail(ctx, 'UC-15 Token kiosk manquant', detail(provisioned.json))
     return
-  }
-  // Re-provision après enable QR pour garantir qrChallengeSecret
-  const reprovision = await provisionKiosk(ctx.tokens.admin, kioskId)
-  if (reprovision.token) {
-    kioskToken = reprovision.token
-    ctx.tokens.kiosk = kioskToken
   }
 
   const kioskAuth = authHeader(kioskToken)
@@ -178,10 +178,24 @@ export async function runUc15(ctx) {
   await approvePendingTrustedDevice(ctx.tokens.admin, employeeDeviceInstallId(PATRICK_EMAIL))
   const empAuth = authHeader(empToken)
 
+  // Fresh challenge immediately before scan — slot TTL is 45s; login/device
+  // approval after the first challenge often crosses the boundary → "QR code expire".
+  const scanChallenge = await request('/auth/kiosk/qr-challenge', {
+    method: 'POST',
+    headers: kioskAuth,
+  })
+  const scanPayload = scanChallenge.json?.payload
+  if (!scanPayload) {
+    fail(ctx, 'UC-15 QR challenge frais pour scan', detail(scanChallenge.json))
+    return
+  }
+  ctx.ids.qrPayload = scanPayload
+  if (scanChallenge.json?.id) ctx.ids.qrChallengeId = scanChallenge.json.id
+
   const scan = await request('/employee/qr-punch/scan', {
     method: 'POST',
     headers: empAuth,
-    body: JSON.stringify({ payload: ctx.ids.qrPayload }),
+    body: JSON.stringify({ payload: scanPayload }),
   })
   if (scan.res.status === 200 || scan.json?.ok === true) {
     pass(ctx, 'UC-15 QR scan online OK')

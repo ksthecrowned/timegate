@@ -41,3 +41,8 @@ Ce n’est **pas** une suite RH complète (Factorial/Lucca) ni un outil de temps
 | **Faiblesse** | App employé encore peu « habit-forming » |
 | **Opportunité** | PME / multi-bornes anti-fraude sans lourdeur UKG |
 | **Menace** | Suites RH qui ajoutent un pointage « assez bon » + meilleure UX |
+
+### Concurrent prioritaire
+
+**Socium** (module Socium Time) — suite RH panafricaine + pointage QR/GPS.  
+Matrice features, battle card et pitch : [`concurrent-socium.md`](./concurrent-socium.md).

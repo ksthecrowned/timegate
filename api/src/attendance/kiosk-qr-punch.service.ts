@@ -34,11 +34,21 @@ import {
 import { PunchAttemptLogService } from './punch-attempt-log.service';
 import { isArchivedLocationPunch, isExpiredAssignmentPunch, isWrongSitePunch } from '../common/utils/wrong-site.util';
 
+export type QrPunchLocation = {
+  id: string;
+  name: string;
+  type: string;
+  clientLabel: string | null;
+};
+
 export type QrRedeemResult = {
   ok: true;
   message: string;
   eventType: string;
   occurredAt?: string;
+  eventStatus?: string;
+  reviewReason?: { code: string; label: string } | null;
+  location?: QrPunchLocation | null;
   kiosk?: { id: string; name: string; branchName: string | null };
   employee: { id: string; firstName: string; lastName: string };
   challengeId: string;
@@ -50,6 +60,9 @@ export type QrSyncItemResult =
       ok: true;
       message: string;
       eventType?: string;
+      eventStatus?: string;
+      reviewReason?: { code: string; label: string } | null;
+      location?: QrPunchLocation | null;
       challengeId?: string;
       acknowledgedAt?: string;
     }

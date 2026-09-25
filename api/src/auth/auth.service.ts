@@ -1761,6 +1761,9 @@ export class AuthService {
       where: { id: kiosk.id },
       data: {
         deviceToken: deviceTokenHash,
+        // Provision = explicit device bind; re-activate if a prior location
+        // archive left the kiosk off (restore does not auto-reactivate kiosks).
+        isActive: true,
         status: KioskStatus.ONLINE,
         lastSeenAt: new Date(),
         ...(!existingSecret ? { qrChallengeSecret } : {}),

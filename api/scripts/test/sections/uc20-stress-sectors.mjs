@@ -13,6 +13,7 @@ import {
   localIso,
   pass,
   provisionKiosk,
+  pickActiveKioskId,
   recalculateAttendanceAndTimesheets,
   request,
   uniqueCheckInTimestamp,
@@ -104,7 +105,7 @@ export async function runUc20(ctx) {
 
   const kiosks = await request('/kiosks?page=1&limit=20', { headers: auth })
   const kioskCount = kiosks.json?.data?.length ?? 0
-  const kioskId = kiosks.json?.data?.[0]?.id
+  const kioskId = pickActiveKioskId(kiosks.json)
   if (kiosks.res.status === 200 && kioskCount >= 2) {
     pass(ctx, `UC-20 industrie — ${kioskCount} kiosks`)
   } else if (kiosks.res.status === 200 && kioskCount >= 1) {
@@ -327,13 +328,14 @@ export async function runUc20(ctx) {
     else fail(ctx, 'UC-20 night assignment', detail(asnNight.json))
 
     let kioskToken = ctx.tokens.kiosk
-    if (!kioskToken) {
-      const provisioned = await provisionKiosk(ctx.tokens.admin, kioskId)
+    // Always re-provision for overnight — prior UCs may leave an inactive-kiosk token.
+    const provisioned = await provisionKiosk(ctx.tokens.admin, kioskId)
+    if (provisioned.token) {
       kioskToken = provisioned.token
       ctx.tokens.kiosk = kioskToken
     }
     if (!kioskToken) {
-      fail(ctx, 'UC-20 token kiosk overnight')
+      fail(ctx, 'UC-20 token kiosk overnight', detail(provisioned.json))
     } else {
       const kioskAuth = authHeader(kioskToken)
       const checkInNight = await request('/auth/kiosk/verify-pin', {
