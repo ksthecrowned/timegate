@@ -106,7 +106,7 @@ export default function DashboardPage() {
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <StartTourButton />
+          {/* <StartTourButton /> */}
           <button
             type="button"
             onClick={() => void load()}
