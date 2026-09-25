@@ -14,14 +14,18 @@ import type {
   ConversationMessage,
   ConversationSummary,
   EmployeeContractRow,
+  HomeInsights,
   LeaveApplication,
   LeaveBalancesResponse,
   LeaveType,
   PaginatedResponse,
+  PayrollLineSummary,
+  PendingHrItem,
   Profile,
   PunchClaimRow,
   ShiftAssignment,
-  ShiftSwapRequest
+  ShiftSwapRequest,
+  TimesheetDayRow,
 } from "./types";
 
 // ---------------------------------------------------------------------------
@@ -279,6 +283,43 @@ export const employeeApi = {
       body: JSON.stringify(data),
     }),
 
+  getPunchClaims: (query: Record<string, unknown> = {}) =>
+    fetchApi<PaginatedResponse<PunchClaimRow>>(
+      `/employee/punch-claims${qs(query)}`,
+    ),
+
+  getTimesheets: (query: Record<string, unknown> = {}) =>
+    fetchApi<PaginatedResponse<TimesheetDayRow>>(
+      `/employee/timesheets${qs(query)}`,
+    ),
+
+  getTimesheet: (id: string) =>
+    fetchApi<TimesheetDayRow>(`/employee/timesheets/${id}`),
+
+  getPayrollSummary: (query: Record<string, unknown> = {}) =>
+    fetchApi<{
+      data: PayrollLineSummary[];
+      latest: PayrollLineSummary | null;
+      meta: { page: number; limit: number; total: number };
+      disclaimer: string;
+    }>(`/employee/payroll/summary${qs(query)}`),
+
+  getPayrollLine: (id: string) =>
+    fetchApi<PayrollLineSummary>(`/employee/payroll/lines/${id}`),
+
+  getPendingHr: () =>
+    fetchApi<{
+      data: PendingHrItem[];
+      meta: {
+        total: number;
+        claims: number;
+        events: number;
+        timesheets: number;
+      };
+    }>("/employee/pending-hr"),
+
+  getHomeInsights: () => fetchApi<HomeInsights>("/employee/home-insights"),
+
   getContracts: (query: Record<string, unknown> = {}) =>
     fetchApi<PaginatedResponse<EmployeeContractRow>>(
       `/employee/contracts${qs(query)}`,
@@ -396,8 +437,12 @@ export const employeeApi = {
   },
 
   // ----- Employees / colleagues -----
-  getColleagues: (query: Record<string, unknown> = {}) =>
-    fetchApi<PaginatedResponse<Colleague>>(`/employees${qs(query)}`),
+  getColleagues: (query: Record<string, unknown> = {}) => {
+    const { search, q, ...rest } = query;
+    return fetchApi<PaginatedResponse<Colleague>>(
+      `/employee/colleagues${qs({ ...rest, q: q ?? search })}`,
+    );
+  },
 
   // ----- Push devices (FCM / Expo) -----
   registerDevice: (data: { token: string; platform: "IOS" | "ANDROID" | "WEB" }) =>

@@ -24,7 +24,8 @@ import {
   getQrOfflineQueueCount,
   syncQrOfflineQueue,
 } from '@/lib/qr-offline-queue';
-import type { AttendanceEventRow, Profile } from '@/lib/types';
+import { formatMoney } from '@/lib/money';
+import type { AttendanceEventRow, HomeInsights, Profile } from '@/lib/types';
 
 type DayStatus =
   | 'not_started'
@@ -54,6 +55,11 @@ type Shortcut = {
 
 const shortcuts: Shortcut[] = [
   {
+    label: STRINGS.home.actionMyHours,
+    icon: 'timer-outline',
+    href: '/timesheets',
+  },
+  {
     label: STRINGS.home.actionRequestLeave,
     icon: 'calendar-outline',
     href: '/leave-request',
@@ -64,14 +70,14 @@ const shortcuts: Shortcut[] = [
     href: '/planning',
   },
   {
-    label: STRINGS.home.actionAttendance,
-    icon: 'time-outline',
-    href: '/attendance',
+    label: STRINGS.home.actionPayroll,
+    icon: 'wallet-outline',
+    href: '/payroll',
   },
   {
-    label: STRINGS.more.leaveBalances,
-    icon: 'pie-chart-outline',
-    href: '/leave-balances',
+    label: STRINGS.home.actionClaims,
+    icon: 'flag-outline',
+    href: '/punch-claims',
   },
 ];
 
@@ -85,6 +91,14 @@ function formatTime(iso?: string | null): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function formatHours(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h <= 0) return `${m} min`;
+  if (m === 0) return `${h} h`;
+  return `${h} h ${m.toString().padStart(2, '0')}`;
 }
 
 function derivePunchStatus(events: AttendanceEventRow[]): DayStatus {
@@ -132,6 +146,7 @@ export default function HomeScreen() {
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [pendingLeaves, setPendingLeaves] = useState(0);
+  const [insights, setInsights] = useState<HomeInsights | null>(null);
   const [todaySchedule, setTodaySchedule] = useState<TodaySchedule | null>(
     null,
   );
@@ -146,7 +161,7 @@ export default function HomeScreen() {
     try {
       if (isRefresh) setRefreshing(true);
       const today = isoDay();
-      const [me, leaves, schedule, events, breakStatus, offlineCount] =
+      const [me, leaves, schedule, events, breakStatus, offlineCount, home] =
         await Promise.all([
           getMeCached().catch(() => null),
           employeeApi
@@ -163,6 +178,7 @@ export default function HomeScreen() {
             .catch(() => null),
           employeeApi.getBreakResumeStatus().catch(() => null),
           getQrOfflineQueueCount().catch(() => 0),
+          employeeApi.getHomeInsights().catch(() => null),
         ]);
 
       setProfile(me);
@@ -171,6 +187,7 @@ export default function HomeScreen() {
       setDayEvents(events?.data ?? []);
       setBreakEligible(Boolean(breakStatus?.eligible));
       setOfflinePending(offlineCount);
+      setInsights(home);
     } catch {
       // Soft-fail home metrics
     } finally {
@@ -407,6 +424,13 @@ export default function HomeScreen() {
           <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
             {loading ? '…' : shiftLine}
           </Text>
+          {!loading && insights?.todayTimesheet ? (
+            <Text style={[styles.todayShift, { color: theme.textSecondary }]}>
+              {STRINGS.home.todayHours(
+                formatHours(insights.todayTimesheet.workedMinutes),
+              )}
+            </Text>
+          ) : null}
 
           <PrimaryCtaButton
             testID={
@@ -431,6 +455,100 @@ export default function HomeScreen() {
             <Ionicons name="arrow-forward" size={18} color="#fff" />
           </PrimaryCtaButton>
         </Card>
+
+        {insights ? (
+          <View style={styles.insightGrid}>
+            <Pressable
+              onPress={() => router.push('/timesheets' as never)}
+              style={[
+                styles.insightCard,
+                styles.insightCardWide,
+                { backgroundColor: theme.surfaceCard, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.insightLabel, { color: theme.textSecondary }]}>
+                {STRINGS.home.actionMyHours}
+              </Text>
+              <Text style={[styles.insightValue, { color: theme.text }]}>
+                {STRINGS.home.weekHours(formatHours(insights.week.workedMinutes))}
+              </Text>
+              {insights.week.reviewCount > 0 ? (
+                <Text style={{ color: theme.warning, marginTop: 4, fontSize: 12 }}>
+                  {STRINGS.home.reviewAlert}
+                </Text>
+              ) : null}
+            </Pressable>
+
+            {insights.leaveRemaining != null ? (
+              <Pressable
+                onPress={() => router.push('/leave-balances' as never)}
+                style={[
+                  styles.insightCard,
+                  styles.insightCardHalf,
+                  { backgroundColor: theme.surfaceCard, borderColor: theme.border },
+                ]}
+              >
+                <Text
+                  style={[styles.insightLabel, { color: theme.textSecondary }]}
+                >
+                  {STRINGS.home.leaveDays}
+                </Text>
+                <Text style={[styles.insightValue, { color: theme.text }]}>
+                  {STRINGS.home.leaveChip(insights.leaveRemaining)}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            <Pressable
+              onPress={() => router.push('/payroll' as never)}
+              style={[
+                styles.insightCard,
+                insights.leaveRemaining != null
+                  ? styles.insightCardHalf
+                  : styles.insightCardWide,
+                { backgroundColor: theme.surfaceCard, borderColor: theme.border },
+              ]}
+            >
+              <Text style={[styles.insightLabel, { color: theme.textSecondary }]}>
+                {STRINGS.home.actionPayroll}
+              </Text>
+              <Text style={[styles.insightValue, { color: theme.text }]}>
+                {insights.latestPayroll
+                  ? STRINGS.home.payrollTeaser(
+                      STRINGS.payroll.monthLabel(
+                        insights.latestPayroll.year,
+                        insights.latestPayroll.month,
+                      ),
+                      formatMoney(
+                        insights.latestPayroll.net,
+                        insights.currencyCode ?? profile?.currencyCode ?? 'XAF',
+                      ),
+                    )
+                  : STRINGS.home.payrollPreparing}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {insights && insights.pendingHrCount > 0 ? (
+          <Pressable
+            onPress={() => router.push('/pending-hr' as never)}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.noticeRow,
+              {
+                borderBottomColor: theme.border,
+                opacity: pressed ? 0.7 : 1,
+              },
+            ]}
+          >
+            <Ionicons name="alert-circle-outline" size={18} color={theme.warning} />
+            <Text style={[styles.noticeText, { color: theme.text }]}>
+              {STRINGS.home.pendingHr(insights.pendingHrCount)}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+          </Pressable>
+        ) : null}
 
         {pendingLeaves > 0 ? (
           <Pressable
@@ -602,6 +720,36 @@ const styles = StyleSheet.create({
     marginTop: Spacing[4],
     paddingHorizontal: Spacing[4],
     paddingBottom: Spacing[2],
+  },
+  insightGrid: {
+    marginHorizontal: Spacing[4],
+    marginTop: Spacing[2],
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing[2],
+  },
+  insightCard: {
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    padding: Spacing[4],
+  },
+  insightCardWide: {
+    width: '100%',
+  },
+  insightCardHalf: {
+    width: '48%',
+    flexGrow: 1,
+  },
+  insightLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  insightValue: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginTop: 6,
   },
   sectionTitle: {
     fontSize: 12,

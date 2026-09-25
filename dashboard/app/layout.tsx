@@ -57,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://cdn.jsdelivr.net/npm/preline/dist/preline.min.css"
         />
       </head>
-      <body className="overflow-x-hidden">
+      <body className="overflow-x-hidden w-full bg-surface text-slate-900 dark:bg-surface-dark dark:text-slate-100">
         {children}
         {/* Preline JS — for hs-dropdown, hs-accordion, hs-datatable */}
         <Script

@@ -11,7 +11,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import { MinTouchTarget, Radius, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
@@ -38,7 +38,12 @@ export default function PunchClaimRequestScreen() {
   const router = useRouter();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
-  const [workDate, setWorkDate] = useState(todayIso());
+  const params = useLocalSearchParams<{ workDate?: string }>();
+  const [workDate, setWorkDate] = useState(
+    typeof params.workDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(params.workDate)
+      ? params.workDate
+      : todayIso(),
+  );
   const [claimType, setClaimType] = useState<PunchClaimType>("MISSED_CHECKOUT");
   const [reason, setReason] = useState("");
   const [loading, setLoading] = useState(false);

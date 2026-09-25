@@ -43,11 +43,31 @@ const menuSections: { title: string; items: MenuItem[] }[] = [
         icon: 'time-outline',
         href: '/attendance',
       },
+      {
+        label: STRINGS.more.myClaims,
+        icon: 'flag-outline',
+        href: '/punch-claims',
+      },
     ],
   },
   {
     title: STRINGS.more.sectionSchedule,
     items: [
+      {
+        label: STRINGS.more.myHours,
+        icon: 'timer-outline',
+        href: '/timesheets',
+      },
+      {
+        label: STRINGS.more.myPayroll,
+        icon: 'wallet-outline',
+        href: '/payroll',
+      },
+      {
+        label: STRINGS.more.pendingHr,
+        icon: 'hourglass-outline',
+        href: '/pending-hr',
+      },
       {
         label: STRINGS.more.planning,
         icon: 'calendar-outline',

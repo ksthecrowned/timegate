@@ -166,6 +166,82 @@ export const STRINGS = {
     actionAttendance: 'Pointage',
     actionMyQr: 'Pointer par QR',
     actionBreakResume: 'Reprendre la pause',
+    actionMyHours: 'Mes heures',
+    actionPayroll: 'Ma paie',
+    actionClaims: 'Réclamations',
+    weekHours: (h: string) => `Cette semaine · ${h}`,
+    leaveChip: (n: number) =>
+      n === 1 ? '1 j de congé restant' : `${n} j de congé restants`,
+    payrollTeaser: (label: string, net: string) => `${label} · ${net}`,
+    payrollPreparing: 'Paie en préparation chez RH',
+    pendingHr: (n: number) =>
+      n === 1 ? '1 élément en attente RH' : `${n} éléments en attente RH`,
+    todayHours: (h: string) => `Aujourd’hui · ${h}`,
+    reviewAlert: 'Des heures sont en revue',
+  },
+
+  timesheets: {
+    title: 'Mes heures',
+    empty: 'Aucune feuille de temps sur la période',
+    emptyHint: 'Les heures apparaissent après recalcul timesheet côté RH.',
+    loading: 'Chargement des heures…',
+    dateRange: 'Période',
+    worked: 'Travaillé',
+    late: 'Retard',
+    overtime: 'HS',
+    break: 'Pause',
+    statusOpen: 'Ouvert',
+    statusClosed: 'Validé',
+    statusReview: 'En revue',
+    detailTitle: 'Détail du jour',
+    claimCta: 'Créer une réclamation',
+    last7: '7 j',
+    last30: '30 j',
+    last90: '90 j',
+  },
+
+  payroll: {
+    title: 'Ma paie',
+    empty: 'Aucune paie disponible pour le moment',
+    emptyHint: 'Les bulletins apparaissent une fois le cycle verrouillé par RH.',
+    loading: 'Chargement…',
+    gross: 'Brut',
+    net: 'Net',
+    allowances: 'Allocations / HS',
+    deductions: 'Retenues',
+    base: 'Base',
+    statusLocked: 'Verrouillée',
+    statusPaid: 'Payée',
+    statusPartial: 'Partiellement payée',
+    disclaimer:
+      'Montants de préparation TimeGate. La paie réglementaire reste du ressort de votre RH.',
+    monthLabel: (year: number, month: number) => {
+      const d = new Date(Date.UTC(year, month - 1, 1));
+      return d.toLocaleDateString('fr-FR', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
+    },
+  },
+
+  punchClaimsList: {
+    title: 'Mes réclamations',
+    empty: 'Aucune réclamation',
+    emptyHint: 'Créez une réclamation si un pointage manque ou est incorrect.',
+    loading: 'Chargement…',
+    newCta: 'Nouvelle réclamation',
+    statusOpen: 'Ouverte',
+    statusApproved: 'Acceptée',
+    statusRejected: 'Refusée',
+  },
+
+  pendingHr: {
+    title: 'En attente RH',
+    empty: 'Rien en attente',
+    emptyHint: 'Pas de réclamation ni de pointage en revue pour le moment.',
+    loading: 'Chargement…',
+    subtitle: 'Réclamations, pointages et heures en revue',
   },
 
   breakResume: {
@@ -338,6 +414,14 @@ export const STRINGS = {
     leaveTypesDesc: 'Catégories disponibles',
     breakResume: 'Reprise de pause',
     breakResumeDesc: 'Pointer la fin de pause',
+    myHours: 'Mes heures',
+    myHoursDesc: 'Feuilles de temps',
+    myPayroll: 'Ma paie',
+    myPayrollDesc: 'Préparation net / brut',
+    myClaims: 'Réclamations',
+    myClaimsDesc: 'Suivi des demandes',
+    pendingHr: 'En attente RH',
+    pendingHrDesc: 'Revues et réclamations ouvertes',
     versionLabel: 'TimeGate Employé',
   },
 

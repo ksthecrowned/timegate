@@ -46,3 +46,6 @@ Ce n’est **pas** une suite RH complète (Factorial/Lucca) ni un outil de temps
 
 **Socium** (module Socium Time) — suite RH panafricaine + pointage QR/GPS.  
 Matrice features, battle card et pitch : [`concurrent-socium.md`](./concurrent-socium.md).
+
+Rattrapage app employé (habit-forming + mes heures + paie lecture) :  
+[`employee-app-rattrapage.md`](./employee-app-rattrapage.md).

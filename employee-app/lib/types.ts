@@ -22,6 +22,8 @@ export type Profile = {
   companyId: string | null;
   organizationName: string | null;
   organizationSku: string | null;
+  countryCode?: string | null;
+  currencyCode?: string | null;
   language: string | null;
   deviceTrust?: 'TRUSTED' | 'PENDING' | null;
 };
@@ -107,6 +109,68 @@ export type PunchClaimRow = {
   reason: string;
   status: string;
   createdAt: string;
+};
+
+export type TimesheetDayRow = {
+  id: string;
+  workDate: string;
+  workedMinutes: number;
+  breakMinutes: number;
+  lateMinutes: number;
+  overtimeMinutes: number;
+  status: string;
+  anomalyFlags: string[] | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PayrollLineSummary = {
+  id: string;
+  payrollRunId: string;
+  year: number;
+  month: number;
+  runStatus: string;
+  paymentStatus: string;
+  baseSalary: number;
+  allowances: number;
+  deductions: number;
+  gross: number;
+  net: number;
+  dueDate: string | null;
+  paidAt: string | null;
+  lockedAt: string | null;
+  disclaimer?: string;
+};
+
+export type PendingHrItem = {
+  kind: 'PUNCH_CLAIM' | 'ATTENDANCE_EVENT' | 'TIMESHEET';
+  id: string;
+  title: string;
+  subtitle: string;
+  status: string;
+  workDate: string;
+  createdAt: string;
+  href: string;
+};
+
+export type HomeInsights = {
+  week: {
+    from: string;
+    to: string;
+    workedMinutes: number;
+    reviewCount: number;
+  };
+  todayTimesheet: {
+    id: string;
+    workedMinutes: number;
+    lateMinutes: number;
+    overtimeMinutes: number;
+    status: string;
+  } | null;
+  leaveRemaining: number | null;
+  pendingHrCount: number;
+  latestPayroll: PayrollLineSummary | null;
+  currencyCode?: string;
 };
 
 export type EmployeeContractRow = {

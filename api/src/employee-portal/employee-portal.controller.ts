@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Patch, Post, Query, UseGuards, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  UseInterceptors,
+} from '@nestjs/common';
 import { FastifyFileInterceptor } from '../common/upload/fastify-file.interceptor';
 import { UploadedBinaryFile } from '../common/upload/uploaded-binary-file.decorator';
 import type { UploadedFile as UploadedBinary } from '../common/upload/uploaded-file';
@@ -6,6 +16,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, JwtUser } from '../common/decorators/current-user.decorator';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { LeaveBalanceQueryDto } from '../leaves/dto/leave-balance-query.dto';
+import { DocIdPipe } from '../common/pipes/doc-id.pipe';
 import { EmployeePortalGuard } from './guards/employee-portal.guard';
 import { EmployeePortalService } from './employee-portal.service';
 import { CreateSelfLeaveDto } from './dto/create-self-leave.dto';
@@ -19,6 +30,10 @@ import { RequireTrustedDevice } from '../trusted-devices/require-trusted-device.
 import { CreatePunchClaimDto } from '../punch-claims/dto/punch-claim.dto';
 import { ScanQrChallengeDto } from './dto/scan-qr-challenge.dto';
 import { SyncQrChallengesDto } from './dto/sync-qr-challenges.dto';
+import {
+  FindColleaguesQueryDto,
+  FindMyTimesheetsQueryDto,
+} from './dto/find-my-self-service.dto';
 
 @Controller('employee')
 @UseGuards(JwtAuthGuard, EmployeePortalGuard, TrustedDeviceGuard)
@@ -39,6 +54,16 @@ export class EmployeePortalController {
     return this.portal.updateMyProfile(user, dto);
   }
 
+  @Get('home-insights')
+  getHomeInsights(@CurrentUser() user: JwtUser) {
+    return this.portal.getHomeInsights(user);
+  }
+
+  @Get('colleagues')
+  getColleagues(@CurrentUser() user: JwtUser, @Query() query: FindColleaguesQueryDto) {
+    return this.portal.findColleagues(user, query);
+  }
+
   @Get('checkins')
   getCheckins(@CurrentUser() user: JwtUser, @Query() query: PaginationQueryDto) {
     return this.portal.findMyCheckins(user, query);
@@ -57,6 +82,31 @@ export class EmployeePortalController {
   @Post('punch-claims')
   createPunchClaim(@CurrentUser() user: JwtUser, @Body() dto: CreatePunchClaimDto) {
     return this.portal.createPunchClaim(user, dto);
+  }
+
+  @Get('timesheets')
+  getTimesheets(@CurrentUser() user: JwtUser, @Query() query: FindMyTimesheetsQueryDto) {
+    return this.portal.findMyTimesheets(user, query);
+  }
+
+  @Get('timesheets/:id')
+  getTimesheet(@CurrentUser() user: JwtUser, @Param('id', DocIdPipe) id: string) {
+    return this.portal.findMyTimesheet(user, id);
+  }
+
+  @Get('payroll/summary')
+  getPayrollSummary(@CurrentUser() user: JwtUser, @Query() query: PaginationQueryDto) {
+    return this.portal.getMyPayrollSummary(user, query);
+  }
+
+  @Get('payroll/lines/:id')
+  getPayrollLine(@CurrentUser() user: JwtUser, @Param('id', DocIdPipe) id: string) {
+    return this.portal.getMyPayrollLine(user, id);
+  }
+
+  @Get('pending-hr')
+  getPendingHr(@CurrentUser() user: JwtUser) {
+    return this.portal.getPendingHr(user);
   }
 
   @Get('contracts')

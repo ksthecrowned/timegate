@@ -129,6 +129,9 @@ Priorités défensives / offensives face à Socium Time :
 3. **GPS / géofence** : réduire l’écart de messaging s’il est réel côté produit.
 4. **Ne pas** lancer ATS / GPEC / coffre docs « parce que Socium l’a ».
 
+Rattrapage **employee-app** (home, mes heures, paie lecture seule) :  
+[`employee-app-rattrapage.md`](./employee-app-rattrapage.md).
+
 ---
 
 ## Sources & limites

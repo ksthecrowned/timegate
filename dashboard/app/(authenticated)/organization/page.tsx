@@ -107,36 +107,6 @@ export default function OrganizationSettingsPage() {
         </div>
       )}
 
-      {usage && (
-        <FormCard title="Usage & capacités">
-          <div className="grid sm:grid-cols-3 gap-4 text-sm">
-            <div>
-              <p className="text-gray-500">Employés</p>
-              <p className="font-semibold">
-                {usage.employees} / {usage.maxEmployees}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500">Lieux</p>
-              <p className="font-semibold">
-                {usage.locations} / {usage.maxLocations}
-              </p>
-            </div>
-            <div>
-              <p className="text-gray-500">Kiosks</p>
-              <p className="font-semibold">
-                {usage.kiosks} / {usage.maxKiosks}
-              </p>
-            </div>
-          </div>
-          {usage.capabilities.length > 0 && (
-            <p className="mt-3 text-xs text-gray-500">
-              Capacités : {usage.capabilities.join(', ')}
-            </p>
-          )}
-        </FormCard>
-      )}
-
       <FormCard title="Identité de l'organisation">
         <form data-tour="org-form" onSubmit={handleSave} className="space-y-6">
           <div className="flex flex-col sm:flex-row gap-6 items-start">

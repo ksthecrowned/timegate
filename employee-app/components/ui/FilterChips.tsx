@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
 
 import { MinTouchTarget, Radius, Spacing } from "@/constants/theme";
 import { STRINGS } from "@/constants/strings";
@@ -13,12 +13,15 @@ type Props<T extends string> = {
   options: FilterChipOption<T>[];
   value: T;
   onChange: (value: T) => void;
+  /** When false, skip horizontal padding (parent already insets content). Default true. */
+  padded?: boolean;
 };
 
 export function FilterChips<T extends string>({
   options,
   value,
   onChange,
+  padded = true,
 }: Props<T>) {
   const theme = useTheme();
 
@@ -26,7 +29,10 @@ export function FilterChips<T extends string>({
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.row}
+      contentContainerStyle={[
+        styles.row,
+        !padded && styles.rowFlush,
+      ]}
       accessibilityRole="tablist"
     >
       {options.map((opt) => {
@@ -72,6 +78,9 @@ const styles = StyleSheet.create({
     gap: Spacing[2],
     paddingHorizontal: Spacing[4],
     paddingVertical: Spacing[2],
+  },
+  rowFlush: {
+    paddingHorizontal: 0,
   },
   chip: {
     minHeight: MinTouchTarget,

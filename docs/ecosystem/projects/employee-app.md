@@ -39,3 +39,16 @@ bun run start
 
 - `../integrations/auth-and-sessions.md`
 - `../integrations/face-and-kiosk.md` (QR punch)
+- `../integrations/attendance-and-planning.md`
+- Self-service catch-up : `../../metier/employee-app-rattrapage.md` · spec `../../superpowers/specs/2026-09-25-employee-app-catchup-design.md`
+
+## Portal self-service (2026-09-25)
+
+| Endpoint | Usage app |
+|----------|-----------|
+| `GET /employee/home-insights` | Home cards (heures semaine, congés, paie, pending RH) |
+| `GET /employee/colleagues` | Shift swap (plus `GET /employees`) |
+| `GET /employee/timesheets` (+ `:id`) | Mes heures |
+| `GET /employee/payroll/summary` (+ `lines/:id`) | Paie lecture seule (non-DRAFT) |
+| `GET /employee/pending-hr` | Fil en attente RH |
+| `GET /employee/punch-claims` | Liste réclamations |

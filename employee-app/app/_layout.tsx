@@ -134,6 +134,12 @@ export default function RootLayout() {
           name="punch-claim-request"
           options={{ headerShown: false }}
         />
+        <Drawer.Screen name="punch-claims" options={{ headerShown: false }} />
+        <Drawer.Screen name="timesheets" options={{ headerShown: false }} />
+        <Drawer.Screen name="timesheets/[id]" options={{ headerShown: false }} />
+        <Drawer.Screen name="payroll" options={{ headerShown: false }} />
+        <Drawer.Screen name="payroll/[id]" options={{ headerShown: false }} />
+        <Drawer.Screen name="pending-hr" options={{ headerShown: false }} />
       </Drawer>
     </ThemeProvider>
   );

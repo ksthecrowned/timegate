@@ -5,6 +5,7 @@ import { LeavesModule } from '../leaves/leaves.module';
 import { LeaveTypesModule } from '../leave-types/leave-types.module';
 import { ShiftSwapsModule } from '../shift-swaps/shift-swaps.module';
 import { PunchClaimsModule } from '../punch-claims/punch-claims.module';
+import { TimesheetsModule } from '../timesheets/timesheets.module';
 import { CloudflareR2Service } from '../storage/cloudflare-r2.service';
 import { EmployeePortalController } from './employee-portal.controller';
 import { EmployeePortalService } from './employee-portal.service';
@@ -19,6 +20,7 @@ import { TrustedDeviceGuard } from '../trusted-devices/trusted-devices.guard';
     LeaveTypesModule,
     ShiftSwapsModule,
     PunchClaimsModule,
+    TimesheetsModule,
   ],
   controllers: [EmployeePortalController],
   providers: [EmployeePortalService, EmployeePortalGuard, TrustedDeviceGuard, CloudflareR2Service],
